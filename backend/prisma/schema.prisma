@@ -1,0 +1,552 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  SELLER
+  BUYER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum SellerApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  MORE_INFO_REQUESTED
+}
+
+enum CategoryStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ProductApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RESUBMITTED
+}
+
+enum CollectionStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAYMENT_RECEIVED
+  CONFIRMED
+  PROCURING
+  COLLECTED
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum PayoutStatus {
+  PENDING
+  PAID
+}
+
+enum MessageSender {
+  BUYER
+  ADMIN
+}
+
+enum NotificationType {
+  PRODUCT_APPROVED
+  PRODUCT_REJECTED
+  ORDER_STATUS_CHANGED
+  PAYOUT_PAID
+  SELLER_APPLICATION_APPROVED
+  SELLER_APPLICATION_REJECTED
+  NEW_MESSAGE
+}
+
+// ─────────────────────────────────────────────────────────────
+// Auth
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id              String     @id @default(uuid())
+  email           String     @unique
+  passwordHash    String
+  role            Role
+  status          UserStatus @default(ACTIVE)
+  emailVerifiedAt DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  refreshTokens           RefreshToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+  notifications           Notification[]
+  auditLogs               AuditLog[]
+
+  sellerProfile SellerProfile?
+  buyerProfile  BuyerProfile?
+
+  @@index([role])
+  @@index([status])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Sellers
+// ─────────────────────────────────────────────────────────────
+
+model SellerApplication {
+  id              String                  @id @default(uuid())
+  businessName    String
+  contactName     String
+  email           String
+  phone           String
+  businessAddress String
+  message         String?
+  status          SellerApplicationStatus @default(PENDING)
+  rejectionReason String?
+  internalNotes   String?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  sellerProfile SellerProfile?
+
+  @@index([status])
+  @@map("seller_applications")
+}
+
+model SellerProfile {
+  id                String             @id @default(uuid())
+  userId            String             @unique
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applicationId     String?            @unique
+  application       SellerApplication? @relation(fields: [applicationId], references: [id])
+  businessName      String
+  contactName       String
+  phone             String
+  businessAddress   String
+  bankDetails       String?
+  notificationPrefs Json?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  deletedAt         DateTime?
+
+  products Product[]
+  payouts  Payout[]
+
+  @@index([deletedAt])
+  @@map("seller_profiles")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Buyers
+// ─────────────────────────────────────────────────────────────
+
+model BuyerProfile {
+  id          String    @id @default(uuid())
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName String?
+  contactName String
+  phone       String?
+  country     String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  addresses     Address[]
+  wishlistItems WishlistItem[]
+  messages      Message[]
+  orders        Order[]
+
+  @@index([deletedAt])
+  @@map("buyer_profiles")
+}
+
+model Address {
+  id         String       @id @default(uuid())
+  buyerId    String
+  buyer      BuyerProfile @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  label      String?
+  line1      String
+  line2      String?
+  city       String
+  state      String?
+  postalCode String
+  country    String
+  isDefault  Boolean      @default(false)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  orders Order[]
+
+  @@index([buyerId])
+  @@map("addresses")
+}
+
+model WishlistItem {
+  id        String       @id @default(uuid())
+  buyerId   String
+  buyer     BuyerProfile @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([buyerId, productId])
+  @@index([buyerId])
+  @@map("wishlist_items")
+}
+
+model Message {
+  id        String        @id @default(uuid())
+  buyerId   String
+  buyer     BuyerProfile  @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  sender    MessageSender
+  body      String
+  readAt    DateTime?
+  createdAt DateTime      @default(now())
+
+  @@index([buyerId])
+  @@map("messages")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Categories (3-level hierarchy)
+// ─────────────────────────────────────────────────────────────
+
+model Category {
+  id          String         @id @default(uuid())
+  name        String
+  slug        String         @unique
+  level       Int
+  parentId    String?
+  parent      Category?      @relation("CategoryTree", fields: [parentId], references: [id])
+  children    Category[]     @relation("CategoryTree")
+  description String?
+  heroImage   String?
+  status      CategoryStatus @default(ACTIVE)
+  sortOrder   Int            @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  products Product[]
+
+  @@index([parentId])
+  @@index([level])
+  @@index([status])
+  @@map("categories")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Products
+// ─────────────────────────────────────────────────────────────
+
+model Product {
+  id              String                @id @default(uuid())
+  sellerId        String
+  seller          SellerProfile         @relation(fields: [sellerId], references: [id])
+  categoryId      String
+  category        Category              @relation(fields: [categoryId], references: [id])
+  name            String
+  slug            String                @unique
+  description     String
+  materials       String
+  dimensions      String?
+  weight          String?
+  moq             Int
+  declaredStock   Int
+  sellerPrice     Decimal               @db.Decimal(12, 2)
+  adminPrice      Decimal?              @db.Decimal(12, 2)
+  leadTime        String?
+  certifications  String?
+  approvalStatus  ProductApprovalStatus @default(PENDING)
+  rejectionReason String?
+  isPublished     Boolean               @default(false)
+  isFeatured      Boolean               @default(false)
+  publishedAt     DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  deletedAt       DateTime?
+
+  images       ProductImage[]
+  variants     ProductVariant[]
+  collections  ProductCollection[]
+  wishlistedBy WishlistItem[]
+  orderItems   OrderItem[]
+
+  @@index([sellerId])
+  @@index([categoryId])
+  @@index([approvalStatus])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@map("products")
+}
+
+model ProductImage {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  sortOrder Int     @default(0)
+
+  @@index([productId])
+  @@map("product_images")
+}
+
+model ProductVariant {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type      String
+  value     String
+
+  @@index([productId])
+  @@map("product_variants")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Collections
+// ─────────────────────────────────────────────────────────────
+
+model Collection {
+  id             String           @id @default(uuid())
+  name           String
+  slug           String           @unique
+  heroImage      String?
+  editorialIntro String?
+  isFeatured     Boolean          @default(false)
+  status         CollectionStatus @default(DRAFT)
+  publishAt      DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  products ProductCollection[]
+
+  @@index([status])
+  @@map("collections")
+}
+
+model ProductCollection {
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  sortOrder    Int        @default(0)
+
+  @@id([productId, collectionId])
+  @@index([collectionId])
+  @@map("product_collections")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Orders
+// ─────────────────────────────────────────────────────────────
+
+model Order {
+  id                     String       @id @default(uuid())
+  buyerId                String
+  buyer                  BuyerProfile @relation(fields: [buyerId], references: [id])
+  shippingAddressId      String?
+  shippingAddress        Address?     @relation(fields: [shippingAddressId], references: [id])
+  status                 OrderStatus  @default(PENDING_PAYMENT)
+  adminPriceTotal        Decimal      @db.Decimal(12, 2)
+  sellerPriceTotal       Decimal      @db.Decimal(12, 2)
+  adminMargin            Decimal      @db.Decimal(12, 2)
+  trackingNumber         String?
+  exportDocuments        Json?
+  expectedCollectionDate DateTime?
+  cancelledReason        String?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  deletedAt              DateTime?
+
+  items    OrderItem[]
+  payments Payment[]
+  payouts  Payout[]
+
+  @@index([buyerId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String   @id @default(uuid())
+  orderId         String
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id])
+  sellerId        String
+  quantity        Int
+  unitAdminPrice  Decimal  @db.Decimal(12, 2)
+  unitSellerPrice Decimal  @db.Decimal(12, 2)
+  lineAdminTotal  Decimal  @db.Decimal(12, 2)
+  lineSellerTotal Decimal  @db.Decimal(12, 2)
+  createdAt       DateTime @default(now())
+
+  payout Payout?
+
+  @@index([orderId])
+  @@index([sellerId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Payments
+// ─────────────────────────────────────────────────────────────
+
+model Payment {
+  id                String        @id @default(uuid())
+  orderId           String
+  order             Order         @relation(fields: [orderId], references: [id])
+  provider          String        @default("PAYPAL")
+  providerPaymentId String?
+  amount            Decimal       @db.Decimal(12, 2)
+  currency          String        @default("USD")
+  status            PaymentStatus @default(PENDING)
+  rawPayload        Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([orderId])
+  @@index([status])
+  @@map("payments")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Payouts
+// ─────────────────────────────────────────────────────────────
+
+model Payout {
+  id          String        @id @default(uuid())
+  sellerId    String
+  seller      SellerProfile @relation(fields: [sellerId], references: [id])
+  orderId     String
+  order       Order         @relation(fields: [orderId], references: [id])
+  orderItemId String        @unique
+  orderItem   OrderItem     @relation(fields: [orderItemId], references: [id])
+  amount      Decimal       @db.Decimal(12, 2)
+  status      PayoutStatus  @default(PENDING)
+  paidAt      DateTime?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([sellerId])
+  @@index([orderId])
+  @@index([status])
+  @@map("payouts")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Notifications
+// ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Admin — audit log & settings
+// ─────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  adminId    String
+  admin      User     @relation(fields: [adminId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([adminId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model PlatformSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("platform_settings")
+}

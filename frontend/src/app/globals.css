@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-bg-primary text-text-primary font-sans antialiased;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(42, 35, 24, 0.025) 0 1px, transparent 1px),
+    radial-gradient(circle at 70% 65%, rgba(42, 35, 24, 0.02) 0 1px, transparent 1px),
+    radial-gradient(circle at 40% 80%, rgba(255, 255, 255, 0.4) 0 1px, transparent 1px);
+  background-size: 130px 130px, 90px 90px, 160px 160px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-fill-subtle;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-border;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-text-muted;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbb783 #e8d8ae;
+}

@@ -1,0 +1,245 @@
+import { Prisma, PrismaClient, Product, ProductApprovalStatus } from '@prisma/client';
+import { prisma } from '../../config/prisma';
+import { PaginationQuery, toSkipTake } from '../../utils/pagination';
+import {
+  AdminProductListFilter,
+  CreateProductInput,
+  ProductListFilter,
+  ProductWithMedia,
+  SellerProductListFilter,
+  UpdateProductInput,
+  VariantInput,
+} from './products.types';
+
+const MEDIA_INCLUDE = {
+  images: { orderBy: { sortOrder: 'asc' as const } },
+  variants: true,
+};
+
+export class ProductsRepository {
+  constructor(private readonly db: PrismaClient = prisma) {}
+
+  findByIdWithMedia(id: string): Promise<ProductWithMedia | null> {
+    return this.db.product.findUnique({ where: { id }, include: MEDIA_INCLUDE });
+  }
+
+  findByIdRaw(id: string): Promise<Product | null> {
+    return this.db.product.findUnique({ where: { id } });
+  }
+
+  findBySlugWithMedia(slug: string): Promise<ProductWithMedia | null> {
+    return this.db.product.findUnique({ where: { slug }, include: MEDIA_INCLUDE });
+  }
+
+  async slugExists(slug: string): Promise<boolean> {
+    const count = await this.db.product.count({ where: { slug } });
+    return count > 0;
+  }
+
+  create(
+    sellerId: string,
+    input: CreateProductInput & { slug: string },
+    imageUrls: string[],
+  ): Promise<ProductWithMedia> {
+    return this.db.product.create({
+      data: {
+        sellerId,
+        categoryId: input.categoryId,
+        name: input.name,
+        slug: input.slug,
+        description: input.description,
+        materials: input.materials,
+        dimensions: input.dimensions,
+        weight: input.weight,
+        moq: input.moq,
+        declaredStock: input.declaredStock,
+        sellerPrice: input.sellerPrice,
+        leadTime: input.leadTime,
+        certifications: input.certifications,
+        images: { create: imageUrls.map((url, index) => ({ url, sortOrder: index })) },
+        variants: input.variants
+          ? { create: input.variants.map((v) => ({ type: v.type, value: v.value })) }
+          : undefined,
+      },
+      include: MEDIA_INCLUDE,
+    });
+  }
+
+  async update(
+    id: string,
+    input: UpdateProductInput,
+    newImageUrls: string[],
+    currentImageCount: number,
+  ): Promise<ProductWithMedia> {
+    const { variants, removeImageIds, ...scalarFields } = input;
+
+    const operations: Prisma.PrismaPromise<unknown>[] = [];
+
+    if (removeImageIds && removeImageIds.length > 0) {
+      operations.push(
+        this.db.productImage.deleteMany({ where: { id: { in: removeImageIds }, productId: id } }),
+      );
+    }
+
+    if (newImageUrls.length > 0) {
+      operations.push(
+        this.db.productImage.createMany({
+          data: newImageUrls.map((url, index) => ({
+            productId: id,
+            url,
+            sortOrder: currentImageCount + index,
+          })),
+        }),
+      );
+    }
+
+    if (variants) {
+      operations.push(this.db.productVariant.deleteMany({ where: { productId: id } }));
+      if (variants.length > 0) {
+        operations.push(
+          this.db.productVariant.createMany({
+            data: variants.map((v: VariantInput) => ({ productId: id, type: v.type, value: v.value })),
+          }),
+        );
+      }
+    }
+
+    operations.push(this.db.product.update({ where: { id }, data: scalarFields }));
+
+    await this.db.$transaction(operations);
+
+    return this.findByIdWithMedia(id) as Promise<ProductWithMedia>;
+  }
+
+  setApproval(
+    id: string,
+    data: Pick<
+      Prisma.ProductUpdateInput,
+      'approvalStatus' | 'adminPrice' | 'rejectionReason' | 'isPublished' | 'publishedAt'
+    >,
+  ): Promise<Product> {
+    return this.db.product.update({ where: { id }, data });
+  }
+
+  setCategory(id: string, categoryId: string): Promise<Product> {
+    return this.db.product.update({ where: { id }, data: { categoryId } });
+  }
+
+  setPublished(id: string, isPublished: boolean): Promise<Product> {
+    return this.db.product.update({
+      where: { id },
+      data: { isPublished, publishedAt: isPublished ? new Date() : undefined },
+    });
+  }
+
+  setFeatured(id: string, isFeatured: boolean): Promise<Product> {
+    return this.db.product.update({ where: { id }, data: { isFeatured } });
+  }
+
+  softDelete(id: string): Promise<Product> {
+    return this.db.product.update({
+      where: { id },
+      data: { deletedAt: new Date(), isPublished: false },
+    });
+  }
+
+  async findPublished(
+    filter: ProductListFilter,
+    pagination: PaginationQuery,
+    categoryIds: string[] | undefined,
+  ): Promise<{ data: ProductWithMedia[]; total: number }> {
+    const where: Prisma.ProductWhereInput = {
+      deletedAt: null,
+      isPublished: true,
+      approvalStatus: ProductApprovalStatus.APPROVED,
+      ...(categoryIds ? { categoryId: { in: categoryIds } } : {}),
+      ...(filter.collectionId ? { collections: { some: { collectionId: filter.collectionId } } } : {}),
+      ...(filter.search ? { name: { contains: filter.search, mode: 'insensitive' } } : {}),
+      ...(filter.material ? { materials: { contains: filter.material, mode: 'insensitive' } } : {}),
+      ...(filter.moqMax ? { moq: { lte: filter.moqMax } } : {}),
+      ...(filter.minPrice || filter.maxPrice
+        ? {
+            adminPrice: {
+              ...(filter.minPrice ? { gte: filter.minPrice } : {}),
+              ...(filter.maxPrice ? { lte: filter.maxPrice } : {}),
+            },
+          }
+        : {}),
+    };
+
+    const [data, total] = await Promise.all([
+      this.db.product.findMany({
+        where,
+        include: MEDIA_INCLUDE,
+        orderBy: { createdAt: 'desc' },
+        ...toSkipTake(pagination),
+      }),
+      this.db.product.count({ where }),
+    ]);
+    return { data, total };
+  }
+
+  findRelated(categoryId: string, excludeProductId: string, limit: number): Promise<ProductWithMedia[]> {
+    return this.db.product.findMany({
+      where: {
+        categoryId,
+        id: { not: excludeProductId },
+        deletedAt: null,
+        isPublished: true,
+        approvalStatus: ProductApprovalStatus.APPROVED,
+      },
+      include: MEDIA_INCLUDE,
+      take: limit,
+    });
+  }
+
+  async findForSeller(
+    sellerId: string,
+    filter: SellerProductListFilter,
+    pagination: PaginationQuery,
+  ): Promise<{ data: ProductWithMedia[]; total: number }> {
+    const where: Prisma.ProductWhereInput = {
+      sellerId,
+      deletedAt: null,
+      ...(filter.approvalStatus ? { approvalStatus: filter.approvalStatus } : {}),
+    };
+    const [data, total] = await Promise.all([
+      this.db.product.findMany({
+        where,
+        include: MEDIA_INCLUDE,
+        orderBy: { createdAt: 'desc' },
+        ...toSkipTake(pagination),
+      }),
+      this.db.product.count({ where }),
+    ]);
+    return { data, total };
+  }
+
+  async findForAdmin(
+    filter: AdminProductListFilter,
+    pagination: PaginationQuery,
+  ): Promise<{ data: (ProductWithMedia & { seller: { businessName: string }; category: { name: string } })[]; total: number }> {
+    const where: Prisma.ProductWhereInput = {
+      deletedAt: null,
+      ...(filter.approvalStatus ? { approvalStatus: filter.approvalStatus } : {}),
+      ...(filter.sellerId ? { sellerId: filter.sellerId } : {}),
+      ...(filter.categoryId ? { categoryId: filter.categoryId } : {}),
+    };
+    const [data, total] = await Promise.all([
+      this.db.product.findMany({
+        where,
+        include: {
+          ...MEDIA_INCLUDE,
+          seller: { select: { businessName: true } },
+          category: { select: { name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        ...toSkipTake(pagination),
+      }),
+      this.db.product.count({ where }),
+    ]);
+    return { data, total };
+  }
+}
+
+export const productsRepository = new ProductsRepository();
