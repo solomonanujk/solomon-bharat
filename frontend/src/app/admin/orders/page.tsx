@@ -5,22 +5,32 @@ import { useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TablePagination } from '@/components/ui/Table';
 import { useAdminOrders } from '@/modules/orders';
 import { OrderStatus } from '@/modules/orders/types';
 import { formatCurrency } from '@/utils/formatCurrency';
 
 const TABS: { label: string; value: OrderStatus | 'ALL' }[] = [
   { label: 'All', value: 'ALL' },
+  { label: 'Pending Payment', value: 'PENDING_PAYMENT' },
+  { label: 'Payment Received', value: 'PAYMENT_RECEIVED' },
   { label: 'Confirmed', value: 'CONFIRMED' },
   { label: 'Procuring', value: 'PROCURING' },
+  { label: 'Collected', value: 'COLLECTED' },
   { label: 'In Transit', value: 'IN_TRANSIT' },
   { label: 'Delivered', value: 'DELIVERED' },
+  { label: 'Cancelled', value: 'CANCELLED' },
 ];
 
 export default function AdminOrdersPage() {
   const [tab, setTab] = useState<OrderStatus | 'ALL'>('ALL');
-  const { data, isLoading } = useAdminOrders(tab === 'ALL' ? {} : { status: tab });
+  const [page, setPage] = useState(1);
+  const { data, isLoading } = useAdminOrders(tab === 'ALL' ? { page } : { status: tab, page });
+
+  function handleTabChange(value: OrderStatus | 'ALL') {
+    setTab(value);
+    setPage(1);
+  }
 
   return (
     <div>
@@ -29,8 +39,8 @@ export default function AdminOrdersPage() {
         <p className="mt-1 text-small text-text-muted">Track fulfillment from confirmation to delivery</p>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as OrderStatus | 'ALL')}>
-        <TabsList>
+      <Tabs value={tab} onValueChange={(v) => handleTabChange(v as OrderStatus | 'ALL')}>
+        <TabsList className="flex-wrap">
           {TABS.map((t) => (
             <TabsTrigger key={t.value} value={t.value}>
               {t.label}
@@ -76,6 +86,7 @@ export default function AdminOrdersPage() {
               ))}
             </TableBody>
           </Table>
+          <TablePagination total={data.total} page={page} onPageChange={setPage} />
         </div>
       )}
     </div>

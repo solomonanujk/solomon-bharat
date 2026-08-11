@@ -175,6 +175,8 @@ export interface AdminProduct {
   approvalStatus: ApprovalStatus;
   rejectionReason: string | null;
   isPublished: boolean;
+  isFeatured: boolean;
+  publishedAt: string | null;
   createdAt: string;
   images: ProductImage[];
   seller?: { businessName: string };

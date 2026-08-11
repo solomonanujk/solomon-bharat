@@ -46,14 +46,21 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="w-full max-w-sm rounded-modal border border-border bg-bg-surface p-8 shadow-sm">
-      <h1 className="font-serif text-h2 text-text-primary">Welcome Back</h1>
+    <div className="w-full max-w-[420px] rounded-modal border border-border bg-bg-surface p-8 shadow-[0_4px_20px_rgba(26,26,26,0.04)] sm:p-10">
+      <h1 className="font-serif text-h2 leading-tight text-text-primary">Welcome Back</h1>
       <p className="mt-2 text-small text-text-muted">Log in to continue sourcing from Solomon Bharat.</p>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="mt-6 flex flex-col gap-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="mt-8 flex flex-col gap-4" noValidate>
         <div>
           <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" autoComplete="email" error={errors.email?.message} {...register('email')} />
+          <Input
+            id="email"
+            type="email"
+            placeholder="you@company.com"
+            autoComplete="email"
+            error={errors.email?.message}
+            {...register('email')}
+          />
         </div>
 
         <div>
@@ -68,6 +75,7 @@ export default function LoginPage() {
           <Input
             id="password"
             type="password"
+            placeholder="Your password"
             autoComplete="current-password"
             className="mt-1"
             error={errors.password?.message}
@@ -75,14 +83,18 @@ export default function LoginPage() {
           />
         </div>
 
-        {formError && <p className="text-small text-error">{formError}</p>}
+        {formError && (
+          <p className="text-small text-error" role="alert">
+            {formError}
+          </p>
+        )}
 
         <Button type="submit" disabled={isSubmitting} size="lg" className="mt-2 w-full">
           {isSubmitting ? 'Logging in…' : 'Log In'}
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-small text-text-muted">
+      <p className="mt-7 text-center text-small text-text-muted">
         Don&apos;t have an account?{' '}
         <Link href="/signup" className="font-medium text-accent-secondary hover:underline">
           Sign up

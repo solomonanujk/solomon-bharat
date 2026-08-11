@@ -2,10 +2,13 @@
 
 import { useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Label } from '@/components/ui/Label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TablePagination } from '@/components/ui/Table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/Dialog';
 import { useAdminPayouts, useMarkPayoutPaid, useAddPayoutNotes } from '@/modules/payouts';
-import type { PayoutStatus } from '@/modules/payouts';
+import type { AdminPayout, PayoutStatus } from '@/modules/payouts';
 import { formatCurrency } from '@/utils/formatCurrency';
 
 const TABS: { key: PayoutStatus | 'ALL'; label: string }[] = [
@@ -14,21 +17,41 @@ const TABS: { key: PayoutStatus | 'ALL'; label: string }[] = [
   { key: 'PAID', label: 'Paid' },
 ];
 
+type DialogState = { type: 'mark-paid' | 'notes'; payout: AdminPayout } | null;
+
 export default function AdminPayoutsPage() {
   const [tab, setTab] = useState<PayoutStatus | 'ALL'>('ALL');
-  const { data: payouts, isLoading } = useAdminPayouts(tab === 'ALL' ? {} : { status: tab });
+  const [page, setPage] = useState(1);
+  const { data: payouts, isLoading } = useAdminPayouts(tab === 'ALL' ? { page } : { status: tab, page });
   const markPaidMutation = useMarkPayoutPaid();
   const addNotesMutation = useAddPayoutNotes();
 
-  function handleMarkPaid(id: string) {
-    const notes = window.prompt('Notes for this payout (optional):') ?? undefined;
-    markPaidMutation.mutate({ id, notes: notes || undefined });
+  const [dialog, setDialog] = useState<DialogState>(null);
+  const [dialogValue, setDialogValue] = useState('');
+
+  function handleTabChange(value: PayoutStatus | 'ALL') {
+    setTab(value);
+    setPage(1);
   }
 
-  function handleAddNotes(id: string, currentNotes: string | null) {
-    const notes = window.prompt('Payout notes:', currentNotes ?? '');
-    if (notes) addNotesMutation.mutate({ id, notes });
+  function openDialog(type: NonNullable<DialogState>['type'], payout: AdminPayout) {
+    setDialog({ type, payout });
+    setDialogValue(type === 'notes' ? payout.notes ?? '' : '');
   }
+
+  async function handleDialogSubmit() {
+    if (!dialog) return;
+    if (dialog.type === 'mark-paid') {
+      await markPaidMutation.mutateAsync({ id: dialog.payout.id, notes: dialogValue.trim() || undefined });
+    } else {
+      if (!dialogValue.trim()) return;
+      await addNotesMutation.mutateAsync({ id: dialog.payout.id, notes: dialogValue.trim() });
+    }
+    setDialog(null);
+    setDialogValue('');
+  }
+
+  const dialogPending = markPaidMutation.isPending || addNotesMutation.isPending;
 
   return (
     <div>
@@ -40,7 +63,7 @@ export default function AdminPayoutsPage() {
         </p>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as PayoutStatus | 'ALL')}>
+      <Tabs value={tab} onValueChange={(v) => handleTabChange(v as PayoutStatus | 'ALL')}>
         <TabsList>
           {TABS.map((t) => (
             <TabsTrigger key={t.key} value={t.key}>
@@ -86,19 +109,19 @@ export default function AdminPayoutsPage() {
                   <TableCell>
                     <div className="flex flex-col items-end gap-2">
                       {payout.status === 'PENDING' && (
-                        <button
+                        <Button
                           type="button"
-                          onClick={() => handleMarkPaid(payout.id)}
-                          disabled={markPaidMutation.isPending}
-                          className="text-caption font-semibold text-accent-primary hover:text-accent-primary-hover"
+                          size="sm"
+                          className="border-success/40 bg-success/5 text-success hover:bg-success/10"
+                          variant="ghost"
+                          onClick={() => openDialog('mark-paid', payout)}
                         >
                           Mark Paid
-                        </button>
+                        </Button>
                       )}
                       <button
                         type="button"
-                        onClick={() => handleAddNotes(payout.id, payout.notes)}
-                        disabled={addNotesMutation.isPending}
+                        onClick={() => openDialog('notes', payout)}
                         className="text-caption font-semibold text-accent-secondary hover:text-accent-secondary-hover"
                       >
                         Edit Notes
@@ -109,8 +132,49 @@ export default function AdminPayoutsPage() {
               ))}
             </TableBody>
           </Table>
+          <TablePagination total={payouts.total} page={page} onPageChange={setPage} />
         </div>
       )}
+
+      <Dialog open={dialog !== null} onOpenChange={(open) => !open && setDialog(null)}>
+        <DialogContent>
+          {dialog && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{dialog.type === 'mark-paid' ? 'Mark payout as paid' : 'Edit payout notes'}</DialogTitle>
+                <DialogDescription>
+                  {dialog.type === 'mark-paid'
+                    ? `Confirm ${formatCurrency(dialog.payout.amount)} was transferred to ${dialog.payout.seller.businessName}.`
+                    : `Internal notes for this payout to ${dialog.payout.seller.businessName}.`}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="px-6 pb-2">
+                <Label htmlFor="payout-notes">Notes</Label>
+                <textarea
+                  id="payout-notes"
+                  value={dialogValue}
+                  onChange={(event) => setDialogValue(event.target.value)}
+                  rows={3}
+                  placeholder="Reference number, bank details, or other context…"
+                  className="w-full rounded-input border border-border bg-bg-surface px-3 py-2 text-body text-text-primary outline-none transition-colors focus:border-accent-primary focus:ring-1 focus:ring-accent-primary"
+                />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => setDialog(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleDialogSubmit}
+                  disabled={dialogPending || (dialog.type === 'notes' && !dialogValue.trim())}
+                >
+                  {dialog.type === 'mark-paid' ? 'Confirm Paid' : 'Save Notes'}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

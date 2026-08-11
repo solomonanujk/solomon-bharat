@@ -2,28 +2,83 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, MessageSquarePlus, StickyNote } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Label } from '@/components/ui/Label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
-import { useApproveApplication, useRejectApplication, useSellerApplications, useAdminSellers } from '@/modules/sellers';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TablePagination } from '@/components/ui/Table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/Dialog';
+import {
+  useApproveApplication,
+  useRejectApplication,
+  useRequestApplicationInfo,
+  useAddApplicationNote,
+  useSellerApplications,
+  useAdminSellers,
+} from '@/modules/sellers';
+import type { SellerApplication } from '@/modules/sellers';
+
+type ActionDialog = { type: 'reject' | 'request-info' | 'note'; app: SellerApplication } | null;
+
+const DIALOG_COPY: Record<NonNullable<ActionDialog>['type'], { title: string; description: string; placeholder: string; cta: string }> = {
+  reject: {
+    title: 'Reject application',
+    description: 'This reason is shared with the applicant.',
+    placeholder: 'Explain why this application is being rejected…',
+    cta: 'Reject Application',
+  },
+  'request-info': {
+    title: 'Request more information',
+    description: 'Send a message asking the applicant to clarify or provide additional details.',
+    placeholder: 'Let us know a bit more about…',
+    cta: 'Send Request',
+  },
+  note: {
+    title: 'Internal note',
+    description: 'Visible to admins only — never shown to the applicant.',
+    placeholder: 'Add context for other reviewers…',
+    cta: 'Save Note',
+  },
+};
 
 export default function AdminSellersPage() {
   const [tab, setTab] = useState<'applications' | 'sellers'>('applications');
+  const [sellersPage, setSellersPage] = useState(1);
   const { data: applications, isLoading: applicationsLoading } = useSellerApplications();
-  const { data: sellers, isLoading: sellersLoading } = useAdminSellers();
+  const { data: sellers, isLoading: sellersLoading } = useAdminSellers({ page: sellersPage });
   const approveMutation = useApproveApplication();
   const rejectMutation = useRejectApplication();
+  const requestInfoMutation = useRequestApplicationInfo();
+  const addNoteMutation = useAddApplicationNote();
+
+  const [dialog, setDialog] = useState<ActionDialog>(null);
+  const [dialogValue, setDialogValue] = useState('');
 
   const openApplications = (applications?.data ?? []).filter(
     (app) => app.status === 'PENDING' || app.status === 'MORE_INFO_REQUESTED',
   );
 
-  function handleReject(id: string) {
-    const reason = window.prompt('Rejection reason:');
-    if (reason) rejectMutation.mutate({ id, reason });
+  function openDialog(type: NonNullable<ActionDialog>['type'], app: SellerApplication) {
+    setDialog({ type, app });
+    setDialogValue(type === 'note' ? app.internalNotes ?? '' : '');
   }
+
+  async function handleDialogSubmit() {
+    if (!dialog || !dialogValue.trim()) return;
+    const { type, app } = dialog;
+    if (type === 'reject') {
+      await rejectMutation.mutateAsync({ id: app.id, reason: dialogValue.trim() });
+    } else if (type === 'request-info') {
+      await requestInfoMutation.mutateAsync({ id: app.id, message: dialogValue.trim() });
+    } else {
+      await addNoteMutation.mutateAsync({ id: app.id, note: dialogValue.trim() });
+    }
+    setDialog(null);
+    setDialogValue('');
+  }
+
+  const dialogPending = rejectMutation.isPending || requestInfoMutation.isPending || addNoteMutation.isPending;
 
   return (
     <div>
@@ -52,6 +107,7 @@ export default function AdminSellersPage() {
                     <TableHead>Contact</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Notes</TableHead>
                     <TableHead />
                   </TableRow>
                 </TableHeader>
@@ -66,8 +122,11 @@ export default function AdminSellersPage() {
                           {app.status === 'PENDING' ? 'Pending' : 'More Info Requested'}
                         </Badge>
                       </TableCell>
+                      <TableCell className="max-w-[14rem] truncate text-text-muted">
+                        {app.internalNotes || '—'}
+                      </TableCell>
                       <TableCell>
-                        <div className="flex justify-end gap-2">
+                        <div className="flex flex-wrap justify-end gap-2">
                           <Button
                             type="button"
                             size="sm"
@@ -76,8 +135,28 @@ export default function AdminSellersPage() {
                           >
                             Approve
                           </Button>
-                          <Button type="button" size="sm" variant="ghost" onClick={() => handleReject(app.id)}>
+                          <Button type="button" size="sm" variant="ghost" onClick={() => openDialog('reject', app)}>
                             Reject
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="gap-1"
+                            onClick={() => openDialog('request-info', app)}
+                          >
+                            <MessageSquarePlus size={13} aria-hidden="true" />
+                            Request Info
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="gap-1"
+                            onClick={() => openDialog('note', app)}
+                          >
+                            <StickyNote size={13} aria-hidden="true" />
+                            Note
                           </Button>
                         </div>
                       </TableCell>
@@ -121,10 +200,51 @@ export default function AdminSellersPage() {
                   ))}
                 </TableBody>
               </Table>
+              <TablePagination total={sellers.total} page={sellersPage} onPageChange={setSellersPage} />
             </div>
+          )}
+          {sellers && sellers.data.length === 0 && (
+            <p className="mt-6 text-small text-text-muted">No approved sellers yet.</p>
           )}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={dialog !== null} onOpenChange={(open) => !open && setDialog(null)}>
+        <DialogContent>
+          {dialog && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{DIALOG_COPY[dialog.type].title}</DialogTitle>
+                <DialogDescription>{DIALOG_COPY[dialog.type].description}</DialogDescription>
+              </DialogHeader>
+              <div className="px-6 pb-2">
+                <Label htmlFor="dialog-textarea">{dialog.app.businessName}</Label>
+                <textarea
+                  id="dialog-textarea"
+                  value={dialogValue}
+                  onChange={(event) => setDialogValue(event.target.value)}
+                  rows={4}
+                  placeholder={DIALOG_COPY[dialog.type].placeholder}
+                  className="w-full rounded-input border border-border bg-bg-surface px-3 py-2 text-body text-text-primary outline-none transition-colors focus:border-accent-primary focus:ring-1 focus:ring-accent-primary"
+                />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => setDialog(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant={dialog.type === 'reject' ? 'destructive' : 'primary'}
+                  onClick={handleDialogSubmit}
+                  disabled={dialogPending || !dialogValue.trim()}
+                >
+                  {DIALOG_COPY[dialog.type].cta}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

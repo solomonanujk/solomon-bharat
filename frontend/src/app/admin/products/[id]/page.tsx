@@ -6,10 +6,19 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { ApprovalStatusBadge } from '@/components/ApprovalStatusBadge';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
-import { useAdminProduct, useApproveProduct, useRejectProduct } from '@/modules/products';
+import {
+  useAdminProduct,
+  useApproveProduct,
+  useRejectProduct,
+  usePublishProduct,
+  useUnpublishProduct,
+  useFeatureProduct,
+  useUnfeatureProduct,
+} from '@/modules/products';
 import { formatCurrency } from '@/utils/formatCurrency';
 
 export interface AdminProductReviewPageProps {
@@ -30,6 +39,10 @@ export default function AdminProductReviewPage({ params }: AdminProductReviewPag
   const { data: product, isLoading } = useAdminProduct(params.id);
   const approveMutation = useApproveProduct();
   const rejectMutation = useRejectProduct();
+  const publishMutation = usePublishProduct();
+  const unpublishMutation = useUnpublishProduct();
+  const featureMutation = useFeatureProduct();
+  const unfeatureMutation = useUnfeatureProduct();
 
   const [adminPrice, setAdminPrice] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
@@ -40,6 +53,9 @@ export default function AdminProductReviewPage({ params }: AdminProductReviewPag
 
   const margin = adminPrice ? Number(adminPrice) - Number(product.sellerPrice) : null;
   const canReview = product.approvalStatus === 'PENDING' || product.approvalStatus === 'RESUBMITTED';
+  const isApproved = product.approvalStatus === 'APPROVED';
+  const publishPending = publishMutation.isPending || unpublishMutation.isPending;
+  const featurePending = featureMutation.isPending || unfeatureMutation.isPending;
 
   async function handleApprove() {
     if (!adminPrice || Number(adminPrice) <= 0) return;
@@ -86,6 +102,66 @@ export default function AdminProductReviewPage({ params }: AdminProductReviewPag
             <DetailRow label="Category" value={product.category?.name ?? product.categoryId} />
             <DetailRow label="Seller" value={product.seller?.businessName ?? product.sellerId} />
           </div>
+
+          {isApproved && (
+            <div className="mt-6 rounded-card border border-border bg-bg-surface p-5">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-h4 font-serif text-text-primary">Storefront Visibility</h2>
+                <div className="flex gap-2">
+                  <Badge variant={product.isPublished ? 'success' : 'default'}>
+                    {product.isPublished ? 'Published' : 'Unpublished'}
+                  </Badge>
+                  {product.isFeatured && <Badge variant="accent">Featured</Badge>}
+                </div>
+              </div>
+              <p className="mt-1 text-small text-text-muted">
+                Control whether buyers can see this product, and whether it&rsquo;s surfaced as featured.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {product.isPublished ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => unpublishMutation.mutate(product.id)}
+                    disabled={publishPending}
+                  >
+                    Unpublish
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => publishMutation.mutate(product.id)}
+                    disabled={publishPending}
+                  >
+                    Publish
+                  </Button>
+                )}
+                {product.isFeatured ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => unfeatureMutation.mutate(product.id)}
+                    disabled={featurePending}
+                  >
+                    Unfeature
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => featureMutation.mutate(product.id)}
+                    disabled={featurePending}
+                  >
+                    Feature
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="rounded-card border border-border bg-bg-surface p-6">

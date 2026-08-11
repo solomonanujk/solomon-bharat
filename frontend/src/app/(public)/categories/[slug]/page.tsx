@@ -1,7 +1,7 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
-import { CategoryCard } from '@/components/CategoryCard';
 import { ProductCard } from '@/components/ProductCard';
 import { useCategory } from '@/modules/categories';
 import { useProducts } from '@/modules/products';
@@ -22,62 +22,74 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
     );
   }
 
+  const hasChildren = category.children.length > 0;
+
   return (
     <div>
       <div className="border-b border-border bg-bg-surface">
         <div className="mx-auto max-w-content px-margin-mobile py-section-mobile md:px-margin-desktop md:py-section-desktop">
-          <p className="text-small text-text-muted">
-            <Link href="/" className="hover:text-accent-primary">
+          <nav className="flex flex-wrap items-center gap-1.5 text-small text-text-muted">
+            <Link href="/" className="transition-colors hover:text-accent-primary">
               Home
-            </Link>{' '}
-            /{' '}
-            <Link href="/categories" className="hover:text-accent-primary">
+            </Link>
+            <span aria-hidden="true">/</span>
+            <Link href="/categories" className="transition-colors hover:text-accent-primary">
               Categories
             </Link>
             {category.breadcrumb.map((crumb) => (
-              <span key={crumb.id}> / {crumb.name}</span>
+              <span key={crumb.id} className="flex items-center gap-1.5">
+                <span aria-hidden="true">/</span>
+                <Link href={`/categories/${crumb.slug}`} className="transition-colors hover:text-accent-primary">
+                  {crumb.name}
+                </Link>
+              </span>
             ))}
-          </p>
-          <h1 className="mt-2 font-serif text-h1 text-text-primary">{category.name}</h1>
-          {category.description && <p className="mt-3 max-w-xl text-body text-text-muted">{category.description}</p>}
+            <span aria-hidden="true">/</span>
+            <span className="font-medium text-text-primary">{category.name}</span>
+          </nav>
+          <h1 className="mt-3 font-serif text-h1 leading-tight text-text-primary">{category.name}</h1>
+          {category.description && (
+            <p className="mt-3 max-w-xl text-body text-text-muted">{category.description}</p>
+          )}
+          {!hasChildren && (
+            <p className="mt-2 text-small text-text-muted">
+              {category.productCount} {category.productCount === 1 ? 'product' : 'products'}
+            </p>
+          )}
         </div>
       </div>
 
       <div className="mx-auto max-w-content px-margin-mobile py-section-mobile md:px-margin-desktop md:py-section-desktop">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-[240px_1fr]">
-          {category.children.length > 0 && (
-            <aside>
-              <p className="font-serif text-h4 text-text-primary">Browse</p>
-              <nav className="mt-4 flex flex-col gap-2">
-                {category.children.map((child) => (
-                  <Link
-                    key={child.id}
-                    href={`/categories/${child.slug}`}
-                    className="text-small text-text-muted transition-colors hover:text-accent-primary"
-                  >
-                    {child.name} ({child.productCount})
-                  </Link>
-                ))}
-              </nav>
-            </aside>
-          )}
-
+        {hasChildren ? (
           <div>
-            {category.children.length > 0 ? (
+            <p className="text-caption font-bold uppercase tracking-[0.1em] text-text-muted">Browse {category.name}</p>
+            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+              {category.children.map((child) => (
+                <Link
+                  key={child.id}
+                  href={`/categories/${child.slug}`}
+                  className="group flex items-center gap-3 rounded-card border border-border bg-bg-surface p-3 transition-colors hover:border-accent-primary"
+                >
+                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-input bg-fill-subtle">
+                    {child.heroImage && (
+                      <Image src={child.heroImage} alt={child.name} fill sizes="56px" className="object-cover" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-small font-semibold text-text-primary transition-colors group-hover:text-accent-primary">
+                      {child.name}
+                    </p>
+                    <p className="text-caption text-text-muted">{child.productCount} products</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div>
+            {products && products.length > 0 ? (
               <div className="grid grid-cols-2 gap-6 md:grid-cols-3">
-                {category.children.map((child) => (
-                  <CategoryCard
-                    key={child.id}
-                    slug={child.slug}
-                    name={child.name}
-                    heroImage={child.heroImage}
-                    productCount={child.productCount}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-6 md:grid-cols-3">
-                {products?.map((product) => (
+                {products.map((product) => (
                   <ProductCard
                     key={product.id}
                     slug={product.slug}
@@ -88,9 +100,13 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
                   />
                 ))}
               </div>
+            ) : (
+              <div className="rounded-card border border-border bg-bg-surface p-10 text-center">
+                <p className="text-body text-text-muted">No products in {category.name} yet.</p>
+              </div>
             )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

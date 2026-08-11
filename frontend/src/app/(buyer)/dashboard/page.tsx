@@ -13,16 +13,16 @@ const ACTIVE_STATUSES = new Set(['PAYMENT_RECEIVED', 'CONFIRMED', 'PROCURING', '
 
 function StatCard({ label, value }: { readonly label: string; readonly value: string | number }) {
   return (
-    <div className="rounded-card border border-border bg-bg-surface p-6">
+    <div className="rounded-card border border-border bg-bg-surface p-5">
       <p className="text-caption font-semibold uppercase tracking-[0.08em] text-text-muted">{label}</p>
-      <p className="mt-2 font-serif text-h2 leading-none text-text-primary">{value}</p>
+      <p className="mt-2 font-serif text-h3 leading-none tabular-nums text-text-primary">{value}</p>
     </div>
   );
 }
 
 export default function BuyerDashboardPage() {
   const { user } = useAuth();
-  const { data: ordersData } = useMyOrders(1, 50);
+  const { data: ordersData, isLoading: isLoadingOrders } = useMyOrders(1, 50);
   const { data: wishlist } = useWishlist();
 
   const orders = ordersData?.data ?? [];
@@ -31,13 +31,17 @@ export default function BuyerDashboardPage() {
 
   return (
     <div>
-      <h1 className="font-serif text-h2 text-text-primary">Welcome back{user ? `, ${user.email}` : ''}</h1>
-      <p className="mt-1 text-body text-text-muted">Here&apos;s what&apos;s happening with your account.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-serif text-h2 text-text-primary">Welcome back{user ? `, ${user.email}` : ''}</h1>
+          <p className="mt-1 text-body text-text-muted">Here&apos;s what&apos;s happening with your account.</p>
+        </div>
+      </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Active Orders" value={activeOrdersCount} />
-        <StatCard label="Total Orders" value={ordersData?.total ?? 0} />
-        <StatCard label="Wishlist Items" value={wishlist?.length ?? 0} />
+      <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <StatCard label="Active Orders" value={isLoadingOrders ? '—' : activeOrdersCount} />
+        <StatCard label="Total Orders" value={isLoadingOrders ? '—' : (ordersData?.total ?? 0)} />
+        <StatCard label="Wishlist Items" value={wishlist ? wishlist.length : '—'} />
       </div>
 
       <div className="mt-10">
@@ -54,12 +58,18 @@ export default function BuyerDashboardPage() {
         {recentOrders.length === 0 ? (
           <div className="mt-4 rounded-card border border-border bg-bg-surface p-10 text-center">
             <p className="text-body text-text-muted">You haven&apos;t placed any orders yet.</p>
+            <Link
+              href="/categories"
+              className="mt-3 inline-block text-small font-semibold text-accent-primary hover:text-accent-primary-hover hover:underline"
+            >
+              Browse Categories
+            </Link>
           </div>
         ) : (
           <div className="mt-4 overflow-hidden rounded-card border border-border bg-bg-surface">
             <Table>
               <TableHeader>
-                <TableRow className="hover:bg-transparent">
+                <TableRow className="bg-fill-subtle/40 hover:bg-fill-subtle/40">
                   <TableHead>Order</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Status</TableHead>

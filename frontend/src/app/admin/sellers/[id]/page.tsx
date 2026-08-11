@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Building2 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { useAdminSeller } from '@/modules/sellers';
 
@@ -15,6 +15,15 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
       <span className="text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">{label}</span>
       <span className="text-body text-text-primary">{value}</span>
     </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <h2 className="mb-2 text-caption font-semibold uppercase tracking-[0.06em] text-text-muted">{title}</h2>
+      <div className="rounded-card border border-border bg-bg-surface px-5">{children}</div>
+    </section>
   );
 }
 
@@ -35,18 +44,37 @@ export default function AdminSellerDetailPage({ params }: AdminSellerDetailPageP
         Back to Sellers
       </Link>
 
-      <div className="mb-6 flex items-center gap-3">
-        <h1 className="text-h2 font-serif font-medium text-text-primary">{seller.businessName}</h1>
-        <Badge variant={seller.user.status === 'ACTIVE' ? 'success' : 'default'}>{seller.user.status}</Badge>
+      <div className="mb-6 flex items-center gap-4 rounded-card border border-border bg-bg-surface p-5">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-card border border-border bg-fill-subtle">
+          <Building2 size={22} className="text-text-muted" aria-hidden="true" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h1 className="truncate text-h2 font-serif font-medium text-text-primary">{seller.businessName}</h1>
+            <Badge variant={seller.user.status === 'ACTIVE' ? 'success' : 'default'}>{seller.user.status}</Badge>
+          </div>
+          <p className="mt-1 text-small text-text-muted">
+            Joined {new Date(seller.createdAt).toLocaleDateString()}
+          </p>
+        </div>
       </div>
-      <p className="-mt-4 mb-6 text-small text-text-muted">Joined {new Date(seller.createdAt).toLocaleDateString()}</p>
 
-      <div className="rounded-card border border-border bg-bg-surface px-5">
-        <DetailRow label="Contact Name" value={seller.contactName} />
-        <DetailRow label="Email" value={seller.user.email} />
-        <DetailRow label="Phone" value={seller.phone} />
-        <DetailRow label="Business Address" value={seller.businessAddress} />
-        <DetailRow label="Account Status" value={seller.user.status} />
+      <div className="space-y-5">
+        <Section title="Contact">
+          <DetailRow label="Contact Name" value={seller.contactName} />
+          <DetailRow label="Email" value={seller.user.email} />
+          <DetailRow label="Phone" value={seller.phone} />
+        </Section>
+
+        <Section title="Business">
+          <DetailRow label="Business Address" value={seller.businessAddress} />
+          <DetailRow label="Bank Details" value={seller.bankDetails || '—'} />
+        </Section>
+
+        <Section title="Account">
+          <DetailRow label="Account Status" value={seller.user.status} />
+          <DetailRow label="Last Updated" value={new Date(seller.updatedAt).toLocaleDateString()} />
+        </Section>
       </div>
     </div>
   );

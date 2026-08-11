@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Image from 'next/image';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -21,6 +23,14 @@ const EMPTY_ADDRESS: CreateAddressInput = {
   country: '',
   isDefault: true,
 };
+
+function StepNumber({ n }: { readonly n: number }) {
+  return (
+    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-primary text-caption font-semibold text-white">
+      {n}
+    </span>
+  );
+}
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -86,12 +96,23 @@ export default function CheckoutPage() {
 
   return (
     <div className="max-w-5xl">
-      <h1 className="font-serif text-h2 text-text-primary">Checkout</h1>
+      <Link
+        href="/categories"
+        className="inline-flex items-center gap-1.5 text-small text-text-muted transition-colors hover:text-text-primary"
+      >
+        <ArrowLeft size={14} aria-hidden="true" />
+        Continue browsing
+      </Link>
+
+      <h1 className="mt-4 font-serif text-h2 text-text-primary">Checkout</h1>
 
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_360px] lg:items-start">
         <div className="space-y-8">
-          <section>
-            <h2 className="font-serif text-h4 text-text-primary">Shipping Address</h2>
+          <section className="rounded-card border border-border bg-bg-surface p-6">
+            <div className="flex items-center gap-3">
+              <StepNumber n={1} />
+              <h2 className="font-serif text-h4 text-text-primary">Shipping Address</h2>
+            </div>
 
             {isLoadingAddresses && <p className="mt-4 text-small text-text-muted">Loading&hellip;</p>}
 
@@ -100,7 +121,7 @@ export default function CheckoutPage() {
                 {addresses.map((address: Address) => (
                   <label
                     key={address.id}
-                    className="flex items-start gap-3 rounded-card border border-border bg-bg-surface p-4 text-small transition-colors has-[:checked]:border-accent-primary has-[:checked]:bg-fill-subtle/40"
+                    className="flex items-start gap-3 rounded-card border border-border bg-bg-primary p-4 text-small transition-colors has-[:checked]:border-accent-primary has-[:checked]:bg-fill-subtle/40"
                   >
                     <input
                       type="radio"
@@ -127,7 +148,7 @@ export default function CheckoutPage() {
               <p className="mt-4 text-small text-text-muted">No saved addresses yet. Add one below.</p>
             )}
 
-            <form onSubmit={handleAddAddress} className="mt-4 grid gap-4 rounded-card border border-border bg-bg-surface p-5">
+            <form onSubmit={handleAddAddress} className="mt-4 grid gap-4 rounded-card border border-border bg-bg-primary p-5">
               <p className="text-small font-semibold text-text-primary">Add a new address</p>
               <div>
                 <Label htmlFor="checkout-line1">Address Line 1</Label>
@@ -173,19 +194,30 @@ export default function CheckoutPage() {
             </form>
           </section>
 
-          {error && <p className="text-small text-error">{error}</p>}
+          <section className="rounded-card border border-border bg-bg-surface p-6">
+            <div className="flex items-center gap-3">
+              <StepNumber n={2} />
+              <h2 className="font-serif text-h4 text-text-primary">Review &amp; Pay</h2>
+            </div>
+            <p className="mt-3 text-small text-text-muted">
+              You&apos;ll be redirected to PayPal to complete payment securely, then brought back here to confirm
+              your order.
+            </p>
 
-          <Button type="button" onClick={handlePlaceOrder} disabled={isPlacingOrder} size="lg" className="w-full lg:w-auto">
-            {isPlacingOrder ? 'Placing Order…' : 'Place Order'}
-          </Button>
+            {error && <p className="mt-4 text-small text-error">{error}</p>}
+
+            <Button type="button" onClick={handlePlaceOrder} disabled={isPlacingOrder} size="lg" className="mt-5 w-full sm:w-auto">
+              {isPlacingOrder ? 'Placing Order…' : 'Place Order'}
+            </Button>
+          </section>
         </div>
 
         <aside className="rounded-card border border-border bg-bg-surface p-6 lg:sticky lg:top-8">
           <h2 className="font-serif text-h4 text-text-primary">Order Summary</h2>
           <div className="mt-4 space-y-3">
             {items.map((item) => (
-              <div key={item.productId} className="flex items-center gap-3 rounded-card border border-border bg-bg-primary p-3">
-                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-bg-surface">
+              <div key={item.productId} className="flex items-start gap-3">
+                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded border border-border bg-bg-primary">
                   {item.imageUrl && <Image src={item.imageUrl} alt={item.name} fill className="object-cover" />}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -198,9 +230,9 @@ export default function CheckoutPage() {
               </div>
             ))}
           </div>
-          <div className="mt-4 flex justify-between border-t border-border pt-4 font-semibold text-text-primary">
-            <span>Total</span>
-            <span>{formatCurrency(subtotal)}</span>
+          <div className="mt-4 flex justify-between border-t border-border pt-4">
+            <span className="font-semibold text-text-primary">Total</span>
+            <span className="text-body-lg font-semibold text-text-primary">{formatCurrency(subtotal)}</span>
           </div>
         </aside>
       </div>

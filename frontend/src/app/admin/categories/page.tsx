@@ -15,10 +15,18 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/Dialog';
 
 interface NewCategoryForm {
   name: string;
   description: string;
+}
+
+interface EditCategoryForm {
+  name: string;
+  slug: string;
+  description: string;
+  heroImage: string;
 }
 
 const EMPTY_FORM: NewCategoryForm = { name: '', description: '' };
@@ -33,6 +41,11 @@ export default function AdminCategoriesPage() {
 
   const [addingUnder, setAddingUnder] = useState<{ parentId: string | null; level: 1 | 2 | 3 } | null>(null);
   const [form, setForm] = useState<NewCategoryForm>(EMPTY_FORM);
+
+  const [editingNode, setEditingNode] = useState<CategoryNode | null>(null);
+  const [editForm, setEditForm] = useState<EditCategoryForm>({ name: '', slug: '', description: '', heroImage: '' });
+
+  const [archivingNode, setArchivingNode] = useState<CategoryNode | null>(null);
 
   function startAdding(parentId: string | null, level: 1 | 2 | 3) {
     setAddingUnder({ parentId, level });
@@ -52,11 +65,29 @@ export default function AdminCategoriesPage() {
     setForm(EMPTY_FORM);
   }
 
-  function handleRename(node: CategoryNode) {
-    const name = window.prompt('Category name:', node.name);
-    if (name && name.trim() && name.trim() !== node.name) {
-      updateMutation.mutate({ id: node.id, input: { name: name.trim() } });
-    }
+  function startEdit(node: CategoryNode) {
+    setEditingNode(node);
+    setEditForm({
+      name: node.name,
+      slug: node.slug,
+      description: node.description ?? '',
+      heroImage: node.heroImage ?? '',
+    });
+  }
+
+  async function handleEditSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!editingNode || !editForm.name.trim() || !editForm.slug.trim()) return;
+    await updateMutation.mutateAsync({
+      id: editingNode.id,
+      input: {
+        name: editForm.name.trim(),
+        slug: editForm.slug.trim(),
+        description: editForm.description || undefined,
+        heroImage: editForm.heroImage || undefined,
+      },
+    });
+    setEditingNode(null);
   }
 
   function handleMove(siblings: CategoryNode[], index: number, direction: -1 | 1) {
@@ -69,6 +100,12 @@ export default function AdminCategoriesPage() {
     reordered.splice(targetIndex, 0, moved);
 
     reorderMutation.mutate(reordered.map((node, i) => ({ id: node.id, sortOrder: i })));
+  }
+
+  async function confirmArchive() {
+    if (!archivingNode) return;
+    await archiveMutation.mutateAsync(archivingNode.id);
+    setArchivingNode(null);
   }
 
   const addForm = addingUnder && (
@@ -115,6 +152,7 @@ export default function AdminCategoriesPage() {
                 Archived
               </Badge>
             )}
+            <span className="ml-2 text-caption text-text-muted">/{node.slug}</span>
             <span className="ml-2 text-caption text-text-muted">{node.productCount} products</span>
           </div>
           <div className="flex shrink-0 items-center gap-3 text-caption">
@@ -138,8 +176,8 @@ export default function AdminCategoriesPage() {
                 <ChevronDown size={14} aria-hidden="true" />
               </button>
             </div>
-            <button type="button" onClick={() => handleRename(node)} className="font-semibold text-accent-secondary hover:text-accent-secondary-hover">
-              Rename
+            <button type="button" onClick={() => startEdit(node)} className="font-semibold text-accent-secondary hover:text-accent-secondary-hover">
+              Edit
             </button>
             {node.level < 3 && (
               <button
@@ -162,7 +200,7 @@ export default function AdminCategoriesPage() {
             ) : (
               <button
                 type="button"
-                onClick={() => archiveMutation.mutate(node.id)}
+                onClick={() => setArchivingNode(node)}
                 disabled={archiveMutation.isPending}
                 className="font-semibold text-error hover:opacity-80"
               >
@@ -199,6 +237,77 @@ export default function AdminCategoriesPage() {
       {tree && tree.length === 0 && <p className="mt-6 text-small text-text-muted">No categories yet.</p>}
 
       {tree?.map((node, index) => renderNode(node, tree, index))}
+
+      <Dialog open={editingNode !== null} onOpenChange={(open) => !open && setEditingNode(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit category</DialogTitle>
+            <DialogDescription>Update the name, slug, description, or hero image.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4 px-6 pb-2">
+            <div>
+              <Label htmlFor="edit-category-name">Name</Label>
+              <Input
+                id="edit-category-name"
+                value={editForm.name}
+                onChange={(event) => setEditForm((prev) => ({ ...prev, name: event.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-category-slug">Slug</Label>
+              <Input
+                id="edit-category-slug"
+                value={editForm.slug}
+                onChange={(event) => setEditForm((prev) => ({ ...prev, slug: event.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-category-description">Description</Label>
+              <Input
+                id="edit-category-description"
+                value={editForm.description}
+                onChange={(event) => setEditForm((prev) => ({ ...prev, description: event.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-category-hero">Hero Image URL</Label>
+              <Input
+                id="edit-category-hero"
+                value={editForm.heroImage}
+                onChange={(event) => setEditForm((prev) => ({ ...prev, heroImage: event.target.value }))}
+              />
+            </div>
+            <DialogFooter className="-mx-6 -mb-0">
+              <Button type="button" variant="ghost" onClick={() => setEditingNode(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updateMutation.isPending || !editForm.name.trim() || !editForm.slug.trim()}>
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={archivingNode !== null} onOpenChange={(open) => !open && setArchivingNode(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive &ldquo;{archivingNode?.name}&rdquo;?</DialogTitle>
+            <DialogDescription>
+              Archived categories are hidden from buyers but can be restored later. Products remain assigned to
+              this category.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setArchivingNode(null)}>
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive" onClick={confirmArchive} disabled={archiveMutation.isPending}>
+              Archive Category
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

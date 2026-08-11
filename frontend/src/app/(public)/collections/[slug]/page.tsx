@@ -21,36 +21,43 @@ export default function CollectionDetailPage({ params }: CollectionDetailPagePro
   }
 
   const { collection, products } = data;
+  const hasHero = Boolean(collection.heroImage);
 
   return (
     <div>
-      <div className="relative flex min-h-[320px] items-end overflow-hidden bg-bg-surface md:min-h-[420px]">
-        {collection.heroImage && (
+      <div className="relative flex min-h-[280px] items-end overflow-hidden bg-bg-surface md:min-h-[400px]">
+        {hasHero && (
           <>
-            <Image src={collection.heroImage} alt={collection.name} fill className="object-cover" priority />
+            <Image src={collection.heroImage as string} alt={collection.name} fill className="object-cover" priority />
             <div
               className="pointer-events-none absolute inset-0"
-              style={{ background: 'linear-gradient(to top, rgba(42,35,24,0.65) 0%, rgba(42,35,24,0.1) 55%, transparent 100%)' }}
+              style={{
+                background: 'linear-gradient(to top, rgba(42,35,24,0.7) 0%, rgba(42,35,24,0.15) 55%, transparent 100%)',
+              }}
               aria-hidden="true"
             />
           </>
         )}
         <div className="relative z-10 mx-auto w-full max-w-content px-margin-mobile pb-10 md:px-margin-desktop">
-          <p className={collection.heroImage ? 'text-small text-white/80' : 'text-small text-text-muted'}>
-            <Link href="/" className={collection.heroImage ? 'hover:text-white' : 'hover:text-accent-primary'}>
+          <nav className={hasHero ? 'flex items-center gap-1.5 text-small text-white/80' : 'flex items-center gap-1.5 text-small text-text-muted'}>
+            <Link href="/" className={hasHero ? 'transition-colors hover:text-white' : 'transition-colors hover:text-accent-primary'}>
               Home
-            </Link>{' '}
-            /{' '}
-            <Link href="/collections" className={collection.heroImage ? 'hover:text-white' : 'hover:text-accent-primary'}>
+            </Link>
+            <span aria-hidden="true">/</span>
+            <Link
+              href="/collections"
+              className={hasHero ? 'transition-colors hover:text-white' : 'transition-colors hover:text-accent-primary'}
+            >
               Collections
-            </Link>{' '}
-            / {collection.name}
-          </p>
-          <h1 className={collection.heroImage ? 'mt-2 font-serif text-h1 text-white' : 'mt-2 font-serif text-h1 text-text-primary'}>
+            </Link>
+            <span aria-hidden="true">/</span>
+            <span className={hasHero ? 'font-medium text-white' : 'font-medium text-text-primary'}>{collection.name}</span>
+          </nav>
+          <h1 className={hasHero ? 'mt-3 font-serif text-h1 leading-tight text-white' : 'mt-3 font-serif text-h1 leading-tight text-text-primary'}>
             {collection.name}
           </h1>
           {collection.editorialIntro && (
-            <p className={collection.heroImage ? 'mt-3 max-w-xl text-body-lg text-white/85' : 'mt-3 max-w-xl text-body-lg text-text-muted'}>
+            <p className={hasHero ? 'mt-3 max-w-xl text-body-lg text-white/85' : 'mt-3 max-w-xl text-body-lg text-text-muted'}>
               {collection.editorialIntro}
             </p>
           )}
@@ -58,18 +65,24 @@ export default function CollectionDetailPage({ params }: CollectionDetailPagePro
       </div>
 
       <div className="mx-auto max-w-content px-margin-mobile py-section-mobile md:px-margin-desktop md:py-section-desktop">
-        <div className="grid grid-cols-2 gap-6 md:grid-cols-3">
-          {products.map((product) => (
-            <ProductCard
-              key={product.id}
-              slug={product.slug}
-              name={product.name}
-              adminPrice={product.adminPrice}
-              moq={product.moq}
-              imageUrl={product.images[0]?.url ?? null}
-            />
-          ))}
-        </div>
+        {products.length > 0 ? (
+          <div className="grid grid-cols-2 gap-6 md:grid-cols-3">
+            {products.map((product) => (
+              <ProductCard
+                key={product.id}
+                slug={product.slug}
+                name={product.name}
+                adminPrice={product.adminPrice}
+                moq={product.moq}
+                imageUrl={product.images[0]?.url ?? null}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-card border border-border bg-bg-surface p-10 text-center">
+            <p className="text-body text-text-muted">No products in this collection yet.</p>
+          </div>
+        )}
       </div>
     </div>
   );

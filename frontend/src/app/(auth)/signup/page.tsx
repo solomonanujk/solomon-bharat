@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
-import { authService } from '@/modules/auth/services/auth.service';
+import { useSignup } from '@/modules/auth';
 
 const signupSchema = z.object({
   companyName: z.string().max(200).optional().or(z.literal('')),
@@ -25,6 +25,7 @@ type SignupFormValues = z.infer<typeof signupSchema>;
 export default function SignupPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [isDone, setIsDone] = useState(false);
+  const signupMutation = useSignup();
 
   const {
     register,
@@ -39,7 +40,7 @@ export default function SignupPage() {
       return;
     }
     try {
-      await authService.signup({
+      await signupMutation.mutateAsync({
         email: values.email,
         password: values.password,
         contactName: values.contactName,
@@ -54,8 +55,8 @@ export default function SignupPage() {
 
   if (isDone) {
     return (
-      <div className="w-full max-w-sm rounded-modal border border-border bg-bg-surface p-8 text-center shadow-sm">
-        <h1 className="font-serif text-h2 text-text-primary">Check Your Email</h1>
+      <div className="w-full max-w-[420px] rounded-modal border border-border bg-bg-surface p-8 text-center shadow-[0_4px_20px_rgba(26,26,26,0.04)] sm:p-10">
+        <h1 className="font-serif text-h2 leading-tight text-text-primary">Check Your Email</h1>
         <p className="mt-3 text-small text-text-muted">
           We&apos;ve sent a verification link to your email address. Verify your account, then log in.
         </p>
@@ -67,29 +68,36 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="w-full max-w-md rounded-modal border border-border bg-bg-surface p-8 shadow-sm">
-      <h1 className="font-serif text-h2 text-text-primary">Create Your Buyer Account</h1>
+    <div className="w-full max-w-[460px] rounded-modal border border-border bg-bg-surface p-8 shadow-[0_4px_20px_rgba(26,26,26,0.04)] sm:p-10">
+      <h1 className="font-serif text-h2 leading-tight text-text-primary">Create Your Buyer Account</h1>
       <p className="mt-2 text-small text-text-muted">Join Solomon Bharat to start sourcing wholesale.</p>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="mt-6 flex flex-col gap-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="mt-8 flex flex-col gap-4" noValidate>
         <div>
           <Label htmlFor="companyName">Company Name</Label>
-          <Input id="companyName" {...register('companyName')} />
+          <Input id="companyName" placeholder="e.g. Artisan Home Boutique" autoComplete="organization" {...register('companyName')} />
         </div>
 
         <div>
           <Label htmlFor="contactName">Full Name</Label>
-          <Input id="contactName" error={errors.contactName?.message} {...register('contactName')} />
+          <Input id="contactName" autoComplete="name" error={errors.contactName?.message} {...register('contactName')} />
         </div>
 
         <div>
           <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" autoComplete="email" error={errors.email?.message} {...register('email')} />
+          <Input
+            id="email"
+            type="email"
+            placeholder="you@company.com"
+            autoComplete="email"
+            error={errors.email?.message}
+            {...register('email')}
+          />
         </div>
 
         <div>
           <Label htmlFor="country">Country</Label>
-          <Input id="country" error={errors.country?.message} {...register('country')} />
+          <Input id="country" autoComplete="country-name" error={errors.country?.message} {...register('country')} />
         </div>
 
         <div>
@@ -97,6 +105,7 @@ export default function SignupPage() {
           <Input
             id="password"
             type="password"
+            placeholder="Min 8 characters"
             autoComplete="new-password"
             error={errors.password?.message}
             {...register('password')}
@@ -125,14 +134,18 @@ export default function SignupPage() {
         </label>
         {errors.acceptTerms && <p className="-mt-2 text-caption text-error">{errors.acceptTerms.message}</p>}
 
-        {formError && <p className="text-small text-error">{formError}</p>}
+        {formError && (
+          <p className="text-small text-error" role="alert">
+            {formError}
+          </p>
+        )}
 
         <Button type="submit" disabled={isSubmitting} size="lg" className="mt-2 w-full">
           {isSubmitting ? 'Creating account…' : 'Create Account'}
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-small text-text-muted">
+      <p className="mt-7 text-center text-small text-text-muted">
         Already have an account?{' '}
         <Link href="/login" className="font-medium text-accent-secondary hover:underline">
           Log in

@@ -28,6 +28,15 @@ const submitSchema = z.object({
 
 type SubmitFormValues = z.infer<typeof submitSchema>;
 
+function SectionCard({ title, children }: { readonly title: string; readonly children: React.ReactNode }) {
+  return (
+    <section className="rounded-card border border-border bg-bg-surface p-6">
+      <h2 className="border-b border-border pb-3 text-h4 font-semibold text-text-primary">{title}</h2>
+      <div className="mt-4 space-y-4">{children}</div>
+    </section>
+  );
+}
+
 export default function SubmitProductPage() {
   const router = useRouter();
   const { data: categories } = useCategories();
@@ -81,10 +90,12 @@ export default function SubmitProductPage() {
   return (
     <div className="max-w-2xl">
       <h1 className="font-serif text-h3 text-text-primary">Submit New Product</h1>
+      <p className="mt-1 text-small text-text-muted">
+        New submissions enter Pending Review until an admin approves them.
+      </p>
 
       <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-6">
-        <section className="rounded-card border border-border bg-bg-surface p-6 space-y-4">
-          <h2 className="border-b border-border pb-3 text-h4 font-semibold text-text-primary">Product Images</h2>
+        <SectionCard title="Product Images">
           <div className="flex flex-wrap gap-3">
             {images.map((file, index) => (
               <div key={`${file.name}-${index}`} className="relative h-20 w-20 overflow-hidden rounded-card border border-border">
@@ -100,16 +111,15 @@ export default function SubmitProductPage() {
                 </button>
               </div>
             ))}
-            <label className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-card border border-dashed border-border text-caption font-medium text-text-muted hover:border-accent-primary hover:text-accent-primary transition-colors">
+            <label className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-card border border-dashed border-border text-caption font-medium text-text-muted transition-colors hover:border-accent-primary hover:text-accent-primary">
               + Add
               <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageSelect} />
             </label>
           </div>
           <p className="text-caption text-text-muted">2–10 images required.</p>
-        </section>
+        </SectionCard>
 
-        <section className="rounded-card border border-border bg-bg-surface p-6 space-y-4">
-          <h2 className="border-b border-border pb-3 text-h4 font-semibold text-text-primary">Basic Info</h2>
+        <SectionCard title="Basic Info">
           <div>
             <Label htmlFor="name">Product Name</Label>
             <Input id="name" {...register('name')} error={errors.name?.message} />
@@ -181,10 +191,9 @@ export default function SubmitProductPage() {
               </Select>
             </div>
           </div>
-        </section>
+        </SectionCard>
 
-        <section className="rounded-card border border-border bg-bg-surface p-6 space-y-4">
-          <h2 className="border-b border-border pb-3 text-h4 font-semibold text-text-primary">Pricing &amp; Stock</h2>
+        <SectionCard title="Pricing & Stock">
           <div className="grid grid-cols-3 gap-4">
             <div>
               <Label htmlFor="sellerPrice">Your Price</Label>
@@ -199,10 +208,9 @@ export default function SubmitProductPage() {
               <Input id="declaredStock" type="number" {...register('declaredStock')} />
             </div>
           </div>
-        </section>
+        </SectionCard>
 
-        <section className="rounded-card border border-border bg-bg-surface p-6 space-y-4">
-          <h2 className="border-b border-border pb-3 text-h4 font-semibold text-text-primary">Specifications</h2>
+        <SectionCard title="Specifications">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="materials">Materials</Label>
@@ -213,6 +221,10 @@ export default function SubmitProductPage() {
               <Input id="dimensions" {...register('dimensions')} />
             </div>
             <div>
+              <Label htmlFor="weight">Weight</Label>
+              <Input id="weight" {...register('weight')} />
+            </div>
+            <div>
               <Label htmlFor="leadTime">Lead Time</Label>
               <Input id="leadTime" {...register('leadTime')} />
             </div>
@@ -221,7 +233,7 @@ export default function SubmitProductPage() {
               <Input id="certifications" {...register('certifications')} />
             </div>
           </div>
-        </section>
+        </SectionCard>
 
         {formError && <p className="text-small text-error">{formError}</p>}
 

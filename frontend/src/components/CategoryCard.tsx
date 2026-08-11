@@ -10,8 +10,11 @@ export interface CategoryCardProps {
 
 export function CategoryCard({ slug, name, heroImage, productCount }: CategoryCardProps) {
   return (
-    <Link href={`/categories/${slug}`} className="group block">
-      <div className="relative aspect-[4/5] overflow-hidden rounded-lg bg-bg-surface">
+    <Link
+      href={`/categories/${slug}`}
+      className="group block overflow-hidden rounded-card border border-border bg-bg-surface transition-shadow duration-200 hover:shadow-sm"
+    >
+      <div className="relative aspect-[4/3] overflow-hidden bg-fill-subtle">
         {heroImage ? (
           <Image
             src={heroImage}
@@ -24,8 +27,10 @@ export function CategoryCard({ slug, name, heroImage, productCount }: CategoryCa
           <div className="h-full w-full bg-fill-subtle" />
         )}
       </div>
-      <p className="mt-3 font-serif text-lg text-text-primary">{name}</p>
-      <p className="text-sm text-text-muted">{productCount} products</p>
+      <div className="p-4">
+        <p className="font-serif text-lg leading-snug text-text-primary">{name}</p>
+        <p className="mt-1 text-small text-text-muted">{productCount} products</p>
+      </div>
     </Link>
   );
 }

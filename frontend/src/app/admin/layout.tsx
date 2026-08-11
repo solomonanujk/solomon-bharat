@@ -12,6 +12,9 @@ const NAV_ITEMS = [
   { href: '/admin/payouts', label: 'Payouts' },
   { href: '/admin/categories', label: 'Categories' },
   { href: '/admin/reports', label: 'Reports' },
+  { href: '/admin/users', label: 'Users' },
+  { href: '/admin/audit-log', label: 'Audit Log' },
+  { href: '/admin/settings', label: 'Settings' },
 ];
 
 export interface AdminLayoutProps {

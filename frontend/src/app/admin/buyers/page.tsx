@@ -1,17 +1,19 @@
 'use client';
 
+import { useState } from 'react';
 import { useAdminBuyers } from '@/modules/buyers';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TablePagination } from '@/components/ui/Table';
 
 export default function AdminBuyersPage() {
-  const { data, isLoading } = useAdminBuyers();
+  const [page, setPage] = useState(1);
+  const { data, isLoading } = useAdminBuyers({ page });
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-h2 font-serif font-medium text-text-primary">Buyers</h1>
         <p className="mt-1 text-small text-text-muted">
-          {data && data.data.length > 0 ? `${data.data.length} registered buyers` : 'Manage platform buyers'}
+          {data && data.total > 0 ? `${data.total} registered buyers` : 'Manage platform buyers'}
         </p>
       </div>
 
@@ -42,6 +44,7 @@ export default function AdminBuyersPage() {
               ))}
             </TableBody>
           </Table>
+          <TablePagination total={data.total} page={page} onPageChange={setPage} />
         </div>
       )}
     </div>
