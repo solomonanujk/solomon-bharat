@@ -76,4 +76,27 @@ export interface AdminOrder {
 export interface AdminOrderListFilter {
   status?: OrderStatus;
   buyerId?: string;
+  page?: number;
+  limit?: number;
+}
+
+/**
+ * Response shape for the order transition/action endpoints (confirm/procure/collect/
+ * ship/deliver/cancel/updateTracking/exportDocuments) — these return the raw Prisma
+ * `Order`, which has no `items` relation and no computed `sellerPriceTotal`/`adminMargin`
+ * fields (those are only computed by the list/detail read service). Keep this separate
+ * from `AdminOrder` so callers don't assume `.items`/`.adminMargin` exist on an action result.
+ */
+export interface OrderActionResult {
+  id: string;
+  buyerId: string;
+  status: OrderStatus;
+  adminPriceTotal: string;
+  trackingNumber: string | null;
+  exportDocuments: unknown;
+  expectedCollectionDate: string | null;
+  cancelledReason: string | null;
+  shippingAddressId: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

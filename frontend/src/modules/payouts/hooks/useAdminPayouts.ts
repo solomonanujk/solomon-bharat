@@ -9,6 +9,14 @@ export function useAdminPayouts(filter: AdminPayoutListFilter = {}) {
   });
 }
 
+export function useAdminPayout(id: string) {
+  return useQuery({
+    queryKey: ['payouts', 'admin', 'detail', id],
+    queryFn: () => payoutsService.getAdmin(id),
+    enabled: Boolean(id),
+  });
+}
+
 export function useMarkPayoutPaid() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -42,7 +42,7 @@ describe('payoutsService', () => {
 
     const result = await payoutsService.listAdmin({ status: 'PENDING' });
 
-    expect(apiClient.get).toHaveBeenCalledWith('/payouts/admin', { params: { status: 'PENDING', limit: 100 } });
+    expect(apiClient.get).toHaveBeenCalledWith('/payouts/admin', { params: { limit: 20, status: 'PENDING' } });
     expect(result).toEqual({ data: [{ id: 'p1' }], total: 1 });
   });
 

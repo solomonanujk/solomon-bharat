@@ -42,7 +42,7 @@ describe('ordersService', () => {
 
     await ordersService.listAdmin({ status: 'CONFIRMED' } as never);
 
-    expect(apiClient.get).toHaveBeenCalledWith('/orders/admin', { params: { status: 'CONFIRMED', limit: 100 } });
+    expect(apiClient.get).toHaveBeenCalledWith('/orders/admin', { params: { limit: 20, status: 'CONFIRMED' } });
   });
 
   it('getAdmin fetches a single admin order', async () => {

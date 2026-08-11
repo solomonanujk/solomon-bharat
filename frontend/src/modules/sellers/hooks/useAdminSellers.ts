@@ -1,8 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { sellersService } from '../services/sellers.service';
+import { AdminSellerListFilter, SellerApplicationListFilter } from '../types';
 
-export function useSellerApplications() {
-  return useQuery({ queryKey: ['sellers', 'applications'], queryFn: sellersService.listApplications });
+export function useSellerApplications(filter: SellerApplicationListFilter = {}) {
+  return useQuery({
+    queryKey: ['sellers', 'applications', filter],
+    queryFn: () => sellersService.listApplications(filter),
+  });
 }
 
 export function useApproveApplication() {
@@ -21,8 +25,25 @@ export function useRejectApplication() {
   });
 }
 
-export function useAdminSellers() {
-  return useQuery({ queryKey: ['sellers', 'admin-list'], queryFn: sellersService.listSellers });
+export function useRequestApplicationInfo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, message }: { id: string; message: string }) =>
+      sellersService.requestApplicationInfo(id, message),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sellers'] }),
+  });
+}
+
+export function useAddApplicationNote() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, note }: { id: string; note: string }) => sellersService.addApplicationNote(id, note),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sellers'] }),
+  });
+}
+
+export function useAdminSellers(filter: AdminSellerListFilter = {}) {
+  return useQuery({ queryKey: ['sellers', 'admin-list', filter], queryFn: () => sellersService.listSellers(filter) });
 }
 
 export function useAdminSeller(id: string) {

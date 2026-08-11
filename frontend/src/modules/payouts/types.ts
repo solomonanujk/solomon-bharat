@@ -21,6 +21,8 @@ export interface SellerPayoutSummary {
 
 export interface PayoutListFilter {
   status?: PayoutStatus;
+  page?: number;
+  limit?: number;
 }
 
 export interface AdminPayoutListFilter extends PayoutListFilter {

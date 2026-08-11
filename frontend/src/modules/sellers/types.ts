@@ -47,3 +47,20 @@ export interface AdminSafeUser {
 export interface AdminSellerListRow extends SellerProfile {
   user: AdminSafeUser;
 }
+
+export interface SellerApplicationListFilter {
+  status?: ApplicationStatus;
+  page?: number;
+  limit?: number;
+}
+
+export interface AdminSellerListFilter {
+  page?: number;
+  limit?: number;
+}
+
+/** Response of POST /sellers/applications/{id}/approve — creates the SELLER account. */
+export interface SellerApplicationApprovalResult {
+  user: AdminSafeUser;
+  profile: SellerProfile;
+}

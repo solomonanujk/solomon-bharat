@@ -50,7 +50,7 @@ describe('collectionsService', () => {
 
     const result = await collectionsService.listAdmin();
 
-    expect(apiClient.get).toHaveBeenCalledWith('/collections/admin', { params: { limit: 100 } });
+    expect(apiClient.get).toHaveBeenCalledWith('/collections/admin', { params: { limit: 20 } });
     expect(result).toEqual({ data: [{ id: 'col1' }], total: 1 });
   });
 

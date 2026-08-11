@@ -25,7 +25,9 @@ describe('adminService', () => {
 
     const result = await adminService.getReport('orders-by-status');
 
-    expect(apiClient.get).toHaveBeenCalledWith('/admin/reports', { params: { type: 'orders-by-status' } });
+    expect(apiClient.get).toHaveBeenCalledWith('/admin/reports', {
+      params: { type: 'orders-by-status', format: 'json' },
+    });
     expect(result).toEqual([{ status: 'CONFIRMED', count: 3 }]);
   });
 });

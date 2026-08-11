@@ -54,3 +54,29 @@ export function useShipOrder() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders', 'admin'] }),
   });
 }
+
+export function useCancelOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => ordersService.cancel(id, reason),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders', 'admin'] }),
+  });
+}
+
+export function useUpdateOrderTracking() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, trackingNumber }: { id: string; trackingNumber: string }) =>
+      ordersService.updateTracking(id, trackingNumber),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders', 'admin'] }),
+  });
+}
+
+export function useExportOrderDocuments() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, documents }: { id: string; documents: string[] }) =>
+      ordersService.exportDocuments(id, documents),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders', 'admin'] }),
+  });
+}

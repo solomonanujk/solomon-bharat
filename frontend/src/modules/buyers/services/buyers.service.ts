@@ -2,6 +2,7 @@ import { apiClient } from '@/lib/axios';
 import { ApiResponse } from '@/types/api';
 import {
   Address,
+  AdminBuyerListFilter,
   AdminBuyerListRow,
   BuyerMessage,
   BuyerProfile,
@@ -63,8 +64,10 @@ export const buyersService = {
     return data.data;
   },
 
-  async listBuyersAdmin(): Promise<{ data: AdminBuyerListRow[]; total: number }> {
-    const { data } = await apiClient.get<ApiResponse<AdminBuyerListRow[]>>('/buyers/admin', { params: { limit: 100 } });
+  async listBuyersAdmin(filter: AdminBuyerListFilter = {}): Promise<{ data: AdminBuyerListRow[]; total: number }> {
+    const { data } = await apiClient.get<ApiResponse<AdminBuyerListRow[]>>('/buyers/admin', {
+      params: { limit: 20, ...filter },
+    });
     return { data: data.data, total: data.meta?.total ?? data.data.length };
   },
 };

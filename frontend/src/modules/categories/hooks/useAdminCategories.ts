@@ -12,7 +12,10 @@ export function useCreateCategory() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateCategoryInput) => categoriesService.create(input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ADMIN_TREE_KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_TREE_KEY });
+      queryClient.invalidateQueries({ queryKey: ['categories', 'tree'] });
+    },
   });
 }
 
@@ -20,7 +23,10 @@ export function useUpdateCategory() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: UpdateCategoryInput }) => categoriesService.update(id, input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ADMIN_TREE_KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_TREE_KEY });
+      queryClient.invalidateQueries({ queryKey: ['categories', 'tree'] });
+    },
   });
 }
 
@@ -28,7 +34,10 @@ export function useArchiveCategory() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => categoriesService.archive(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ADMIN_TREE_KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_TREE_KEY });
+      queryClient.invalidateQueries({ queryKey: ['categories', 'tree'] });
+    },
   });
 }
 
@@ -36,7 +45,10 @@ export function useRestoreCategory() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => categoriesService.restore(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ADMIN_TREE_KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_TREE_KEY });
+      queryClient.invalidateQueries({ queryKey: ['categories', 'tree'] });
+    },
   });
 }
 
@@ -44,6 +56,9 @@ export function useReorderCategories() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (items: ReorderCategoriesItem[]) => categoriesService.reorder(items),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ADMIN_TREE_KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_TREE_KEY });
+      queryClient.invalidateQueries({ queryKey: ['categories', 'tree'] });
+    },
   });
 }

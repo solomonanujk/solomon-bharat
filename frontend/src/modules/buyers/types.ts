@@ -77,3 +77,8 @@ export interface AdminSafeUser {
 export interface AdminBuyerListRow extends BuyerProfile {
   user: AdminSafeUser;
 }
+
+export interface AdminBuyerListFilter {
+  page?: number;
+  limit?: number;
+}

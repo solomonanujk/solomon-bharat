@@ -90,7 +90,7 @@ describe('productsService', () => {
 
     await productsService.listAdmin({ status: 'PENDING' } as never);
 
-    expect(apiClient.get).toHaveBeenCalledWith('/products/admin', { params: { status: 'PENDING', limit: 100 } });
+    expect(apiClient.get).toHaveBeenCalledWith('/products/admin', { params: { limit: 20, status: 'PENDING' } });
   });
 
   it('getAdmin fetches a single admin product', async () => {

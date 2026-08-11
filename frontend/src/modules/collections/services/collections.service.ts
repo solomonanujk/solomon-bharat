@@ -1,6 +1,13 @@
 import { apiClient } from '@/lib/axios';
 import { ApiResponse } from '@/types/api';
-import { AdminCollectionDetail, Collection, CollectionPublicDetail, CreateCollectionInput } from '../types';
+import {
+  AdminCollectionDetail,
+  AdminCollectionListFilter,
+  Collection,
+  CollectionPublicDetail,
+  CreateCollectionInput,
+  UpdateCollectionInput,
+} from '../types';
 
 export const collectionsService = {
   async listFeatured(): Promise<Collection[]> {
@@ -22,8 +29,10 @@ export const collectionsService = {
     return data.data;
   },
 
-  async listAdmin(): Promise<{ data: Collection[]; total: number }> {
-    const { data } = await apiClient.get<ApiResponse<Collection[]>>('/collections/admin', { params: { limit: 100 } });
+  async listAdmin(filter: AdminCollectionListFilter = {}): Promise<{ data: Collection[]; total: number }> {
+    const { data } = await apiClient.get<ApiResponse<Collection[]>>('/collections/admin', {
+      params: { limit: 20, ...filter },
+    });
     return { data: data.data, total: data.meta?.total ?? data.data.length };
   },
 
@@ -37,8 +46,18 @@ export const collectionsService = {
     return data.data;
   },
 
+  async update(id: string, input: UpdateCollectionInput): Promise<Collection> {
+    const { data } = await apiClient.patch<ApiResponse<Collection>>(`/collections/${id}`, input);
+    return data.data;
+  },
+
   async publish(id: string): Promise<Collection> {
     const { data } = await apiClient.post<ApiResponse<Collection>>(`/collections/${id}/publish`);
+    return data.data;
+  },
+
+  async unpublish(id: string): Promise<Collection> {
+    const { data } = await apiClient.post<ApiResponse<Collection>>(`/collections/${id}/unpublish`);
     return data.data;
   },
 

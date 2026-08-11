@@ -15,13 +15,18 @@ export const payoutsService = {
 
   async listAdmin(filter: AdminPayoutListFilter = {}): Promise<{ data: AdminPayout[]; total: number }> {
     const { data } = await apiClient.get<ApiResponse<AdminPayout[]>>('/payouts/admin', {
-      params: { ...filter, limit: 100 },
+      params: { limit: 20, ...filter },
     });
     return { data: data.data, total: data.meta?.total ?? data.data.length };
   },
 
-  async getAdmin(id: string): Promise<AdminPayout> {
-    const { data } = await apiClient.get<ApiResponse<AdminPayout>>(`/payouts/admin/${id}`);
+  /**
+   * Unlike `listAdmin`, the single-payout GET returns the raw Prisma `Payout` — no
+   * `seller` relation attached (that's only joined in for the list read). Don't type
+   * this as `AdminPayout`.
+   */
+  async getAdmin(id: string): Promise<Payout> {
+    const { data } = await apiClient.get<ApiResponse<Payout>>(`/payouts/admin/${id}`);
     return data.data;
   },
 

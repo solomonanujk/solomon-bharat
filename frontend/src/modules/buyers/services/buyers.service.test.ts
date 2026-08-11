@@ -107,7 +107,7 @@ describe('buyersService', () => {
 
     const result = await buyersService.listBuyersAdmin();
 
-    expect(apiClient.get).toHaveBeenCalledWith('/buyers/admin', { params: { limit: 100 } });
+    expect(apiClient.get).toHaveBeenCalledWith('/buyers/admin', { params: { limit: 20 } });
     expect(result).toEqual({ data: [{ id: 'b1' }], total: 1 });
   });
 });

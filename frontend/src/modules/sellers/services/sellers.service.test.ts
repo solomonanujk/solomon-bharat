@@ -32,7 +32,7 @@ describe('sellersService', () => {
 
     const result = await sellersService.listApplications();
 
-    expect(apiClient.get).toHaveBeenCalledWith('/sellers/applications', { params: { limit: 100 } });
+    expect(apiClient.get).toHaveBeenCalledWith('/sellers/applications', { params: { limit: 20 } });
     expect(result).toEqual({ data: [{ id: 'app-1' }], total: 1 });
   });
 
@@ -57,7 +57,7 @@ describe('sellersService', () => {
 
     const result = await sellersService.listSellers();
 
-    expect(apiClient.get).toHaveBeenCalledWith('/sellers', { params: { limit: 100 } });
+    expect(apiClient.get).toHaveBeenCalledWith('/sellers', { params: { limit: 20 } });
     expect(result).toEqual({ data: [{ id: 's1' }], total: 1 });
   });
 

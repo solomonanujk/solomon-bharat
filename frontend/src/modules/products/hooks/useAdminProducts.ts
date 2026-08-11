@@ -32,3 +32,35 @@ export function useRejectProduct() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products', 'admin'] }),
   });
 }
+
+export function usePublishProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => productsService.publish(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products', 'admin'] }),
+  });
+}
+
+export function useUnpublishProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => productsService.unpublish(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products', 'admin'] }),
+  });
+}
+
+export function useFeatureProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => productsService.feature(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products', 'admin'] }),
+  });
+}
+
+export function useUnfeatureProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => productsService.unfeature(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products', 'admin'] }),
+  });
+}

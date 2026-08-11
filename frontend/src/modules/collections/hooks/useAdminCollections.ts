@@ -1,9 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { collectionsService } from '../services/collections.service';
-import { CreateCollectionInput } from '../types';
+import { AdminCollectionListFilter, CreateCollectionInput, UpdateCollectionInput } from '../types';
 
-export function useAdminCollections() {
-  return useQuery({ queryKey: ['collections', 'admin-list'], queryFn: collectionsService.listAdmin });
+export function useAdminCollections(filter: AdminCollectionListFilter = {}) {
+  return useQuery({
+    queryKey: ['collections', 'admin-list', filter],
+    queryFn: () => collectionsService.listAdmin(filter),
+  });
 }
 
 export function useAdminCollectionDetail(id: string) {
@@ -22,10 +25,35 @@ export function useCreateCollection() {
   });
 }
 
+export function useUpdateCollection() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateCollectionInput }) => collectionsService.update(id, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['collections'] }),
+  });
+}
+
 export function usePublishCollection() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => collectionsService.publish(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['collections'] }),
+  });
+}
+
+export function useUnpublishCollection() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => collectionsService.unpublish(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['collections'] }),
+  });
+}
+
+export function useSetCollectionFeatured() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, isFeatured }: { id: string; isFeatured: boolean }) =>
+      collectionsService.setFeatured(id, isFeatured),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['collections'] }),
   });
 }

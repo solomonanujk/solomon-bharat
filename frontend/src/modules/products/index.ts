@@ -5,5 +5,6 @@ export * from './hooks/useProduct';
 export * from './hooks/useMyProducts';
 export * from './hooks/useMyProduct';
 export * from './hooks/useCreateProduct';
+export * from './hooks/useUpdateProduct';
 export * from './hooks/useResubmitProduct';
 export * from './hooks/useAdminProducts';
