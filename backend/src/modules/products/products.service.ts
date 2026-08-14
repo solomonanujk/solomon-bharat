@@ -1,4 +1,6 @@
 import { Product, ProductApprovalStatus } from '@prisma/client';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { env } from '../../config/env';
 import { AppError } from '../../utils/errors';
 import { slugify, uniqueSlugSuffix, calculateMargin } from '../../utils/helpers';
 import { writeAuditLog } from '../../utils/auditLog';
@@ -53,6 +55,16 @@ function toBuyerProduct(
     variants: product.variants,
     avgRating: rating?.avgRating ?? null,
     reviewCount: rating?.reviewCount ?? 0,
+    tags: product.tags,
+    stepQty: product.stepQty,
+    lengthCm: product.lengthCm,
+    breadthCm: product.breadthCm,
+    heightCm: product.heightCm,
+    isHandmade: product.isHandmade,
+    placeOfOrigin: product.placeOfOrigin,
+    isGITagged: product.isGITagged,
+    howItIsMade: product.howItIsMade,
+    artisanName: product.artisanName,
   };
 }
 
@@ -78,11 +90,74 @@ function toSellerProduct(product: ProductWithMedia): SellerProduct {
     updatedAt: product.updatedAt,
     images: product.images,
     variants: product.variants,
+    priceTiers: product.priceTiers,
+    tags: product.tags,
+    stepQty: product.stepQty,
+    lengthCm: product.lengthCm,
+    breadthCm: product.breadthCm,
+    heightCm: product.heightCm,
+    isHandmade: product.isHandmade,
+    placeOfOrigin: product.placeOfOrigin,
+    isGITagged: product.isGITagged,
+    howItIsMade: product.howItIsMade,
+    artisanName: product.artisanName,
   };
 }
 
 const PUBLISHED_LIST_CACHE_NAMESPACE = 'products:published-list';
 const PUBLISHED_LIST_CACHE_TTL_SECONDS = 120;
+
+type PolishableField = 'name' | 'description' | 'tags';
+
+const POLISH_PROMPTS: Record<PolishableField, (value: string) => string> = {
+  name: (value) => `You are a proofreader for a B2B wholesale marketplace selling Indian artisan goods.
+Correct this product name — fix it, don't rewrite it:
+- Fix spelling, grammar, and capitalisation mistakes only
+- Use Title Case
+- Strip all HTML tags and markup — return plain text only, no tags of any kind
+- Remove emojis, stray symbols, and repeated punctuation (keep hyphens if part of the name)
+- Collapse extra whitespace
+- Keep the author's own words and word order — do NOT rephrase, reword, or substitute synonyms for anything that is already correct
+- Do NOT add or invent any words, materials, or details that aren't in the original
+- Max 200 characters — only shorten if it's already over, cutting at a natural word boundary
+
+Return ONLY the corrected name, no explanation.
+
+Input: "${value}"`,
+
+  description: (value) => `You are a proofreader for a B2B wholesale marketplace selling Indian artisan goods.
+Correct this product description — fix it, don't rewrite it:
+- Fix every spelling, grammar, and punctuation mistake so each sentence is grammatically correct
+- Strip all HTML tags and markup — return plain text only, no tags of any kind
+- Remove emojis, stray symbols, and repeated punctuation
+- Fix spacing: collapse multiple blank lines to one, remove trailing spaces
+- Standardise bullet points to a single style ("-") if any are used
+- Keep the author's own words, sentence order, and level of detail — do NOT rephrase sentences that are already correct, do NOT add adjectives or marketing language that isn't there, do NOT remove or reorganise content
+- Do NOT add, remove, or invent any factual claims (materials, dimensions, origin, etc.)
+- The result should read as the same description, just correctly written
+
+Return ONLY the corrected description, no explanation.
+
+Input:
+${value}`,
+
+  tags: (value) => `You are cleaning up product tags for a B2B wholesale marketplace.
+Correct this list of tags — fix each one, don't replace it with a different word:
+- Fix spelling mistakes in each tag
+- Lowercase everything
+- Strip any HTML tags or markup from each tag — return plain text only
+- Remove emojis and special characters from each tag
+- Trim whitespace around each tag
+- Split any tag that's really multiple keywords crammed together
+- Remove exact and near-duplicate tags (case-insensitive, singular/plural)
+- Keep at most 10 tags — keep the most relevant/specific ones if trimming
+- Do NOT add new tags that aren't implied by the input
+- Return as comma-separated values only
+
+Return ONLY the comma-separated tags, no explanation.
+
+Input: "${value}"`,
+};
 
 export class ProductsService {
   constructor(
@@ -406,6 +481,19 @@ export class ProductsService {
     const product = await this.getOwnedProductOrThrow(sellerProfileId, productId);
     const withMedia = await this.repo.findByIdWithMedia(product.id);
     return toSellerProduct(withMedia as ProductWithMedia);
+  }
+
+  /** AI content polish (Gemini) — proofreads name/description/tags without rewriting them. */
+  async polishField(field: PolishableField, value: string): Promise<string> {
+    if (!value.trim()) return value;
+    if (!env.GEMINI_API_KEY) throw AppError.badRequest('AI polishing is not configured');
+
+    const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+    const result = await model.generateContent(POLISH_PROMPTS[field](value));
+    // Belt-and-braces: strip any HTML tags the model leaves behind despite the
+    // prompt instruction, so markup can never make it into stored content.
+    return result.response.text().trim().replace(/<[^>]*>/g, '').trim();
   }
 
   async getForAdmin(productId: string) {

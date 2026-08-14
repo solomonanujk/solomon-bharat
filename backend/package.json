@@ -24,6 +24,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@paypal/paypal-server-sdk": "^0.6.1",
     "@prisma/client": "^5.20.0",
     "bcrypt": "^6.0.0",

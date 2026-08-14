@@ -211,6 +211,7 @@ describe('products controller', () => {
         .field('moq', '10')
         .field('declaredStock', '100')
         .field('sellerPrice', '5.5')
+        .field('weight', '0.5')
         .attach('images', Buffer.from('fake-image-1'), 'one.jpg')
         .attach('images', Buffer.from('fake-image-2'), 'two.jpg');
 

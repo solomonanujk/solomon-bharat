@@ -8,6 +8,7 @@ import {
   AdminProductListQueryDto,
   ApproveProductDto,
   CreateProductDto,
+  PolishFieldDto,
   PublicProductListQueryDto,
   ReassignCategoryDto,
   RejectProductDto,
@@ -150,5 +151,11 @@ export const productsController = {
     const pagination = req.query as unknown as PaginationQuery;
     const { data, total } = await productsService.getRecommendationsForBuyer(buyerId, pagination);
     sendSuccess(res, data, 'Recommendations retrieved', 200, buildPaginationMeta(total, pagination));
+  },
+
+  async polish(req: Request, res: Response): Promise<void> {
+    const { field, value } = req.body as PolishFieldDto;
+    const cleaned = await productsService.polishField(field, value);
+    sendSuccess(res, { cleaned });
   },
 };

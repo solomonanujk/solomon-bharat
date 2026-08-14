@@ -13,8 +13,44 @@ import {
 
 const MEDIA_INCLUDE = {
   images: { orderBy: { sortOrder: 'asc' as const } },
-  variants: true,
+  variants: {
+    include: {
+      attributes: { orderBy: { name: 'asc' as const } },
+      priceTiers: { orderBy: { moq: 'asc' as const } },
+    },
+  },
+  priceTiers: { orderBy: { moq: 'asc' as const } },
 };
+
+type VariantCreateData = {
+  type: string;
+  value: string;
+  sku?: string;
+  sellerPrice?: number;
+  moq?: number;
+  stock: number;
+  status: 'ACTIVE' | 'INACTIVE' | 'OUT_OF_STOCK';
+  imageUrl?: string;
+  attributes: { create: { name: string; value: string }[] };
+  priceTiers?: { create: { moq: number; sellerPrice: number }[] };
+};
+
+function toVariantCreateInput(v: VariantInput): VariantCreateData {
+  return {
+    type: v.type,
+    value: v.value,
+    sku: v.sku,
+    sellerPrice: v.sellerPrice,
+    moq: v.moq,
+    stock: v.stock ?? 0,
+    status: v.status ?? 'ACTIVE',
+    imageUrl: v.imageUrl,
+    attributes: {
+      create: v.attributes?.length ? v.attributes : [{ name: v.type, value: v.value }],
+    },
+    priceTiers: v.priceTiers?.length ? { create: v.priceTiers } : undefined,
+  };
+}
 
 export class ProductsRepository {
   constructor(private readonly db: PrismaClient = prisma) {}
@@ -56,9 +92,20 @@ export class ProductsRepository {
         sellerPrice: input.sellerPrice,
         leadTime: input.leadTime,
         certifications: input.certifications,
+        tags: input.tags ?? [],
+        stepQty: input.stepQty,
+        lengthCm: input.lengthCm,
+        breadthCm: input.breadthCm,
+        heightCm: input.heightCm,
+        isHandmade: input.isHandmade,
+        placeOfOrigin: input.placeOfOrigin,
+        isGITagged: input.isGITagged,
+        howItIsMade: input.howItIsMade,
+        artisanName: input.artisanName,
         images: { create: imageUrls.map((url, index) => ({ url, sortOrder: index })) },
-        variants: input.variants
-          ? { create: input.variants.map((v) => ({ type: v.type, value: v.value })) }
+        variants: input.variants ? { create: input.variants.map(toVariantCreateInput) } : undefined,
+        priceTiers: input.priceTiers?.length
+          ? { create: input.priceTiers.map(({ moq, sellerPrice }) => ({ moq, sellerPrice })) }
           : undefined,
       },
       include: MEDIA_INCLUDE,
@@ -71,7 +118,7 @@ export class ProductsRepository {
     newImageUrls: string[],
     currentImageCount: number,
   ): Promise<ProductWithMedia> {
-    const { variants, removeImageIds, ...scalarFields } = input;
+    const { variants, removeImageIds, priceTiers, ...scalarFields } = input;
 
     const operations: Prisma.PrismaPromise<unknown>[] = [];
 
@@ -94,11 +141,21 @@ export class ProductsRepository {
     }
 
     if (variants) {
+      // Cascade-deletes each variant's attributes/priceTiers too. Individual creates
+      // (not createMany) are required because each variant nests its own attributes
+      // and price tiers.
       operations.push(this.db.productVariant.deleteMany({ where: { productId: id } }));
-      if (variants.length > 0) {
+      variants.forEach((v: VariantInput) => {
+        operations.push(this.db.productVariant.create({ data: { productId: id, ...toVariantCreateInput(v) } }));
+      });
+    }
+
+    if (priceTiers !== undefined) {
+      operations.push(this.db.productPriceTier.deleteMany({ where: { productId: id } }));
+      if (priceTiers.length > 0) {
         operations.push(
-          this.db.productVariant.createMany({
-            data: variants.map((v: VariantInput) => ({ productId: id, type: v.type, value: v.value })),
+          this.db.productPriceTier.createMany({
+            data: priceTiers.map(({ moq, sellerPrice }) => ({ productId: id, moq, sellerPrice })),
           }),
         );
       }

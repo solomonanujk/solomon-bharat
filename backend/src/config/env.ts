@@ -19,6 +19,8 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().default(''),
   RESEND_FROM_EMAIL: z.string().default('Solomon Bharat <no-reply@solomonbharat.com>'),
 
+  GEMINI_API_KEY: z.string().default(''),
+
   PORT: z.coerce.number().default(4000),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   APP_URL: z.string().default('http://localhost:3000'),

@@ -257,6 +257,7 @@ function MobileNavDrawer({ open, onClose }: { open: boolean; onClose: () => void
   const currency = useCurrencyStore((s) => s.currency)
   const setCurrency = useCurrencyStore((s) => s.setCurrency)
   const { data: availableCurrencies = FALLBACK_CURRENCIES } = useCurrencies()
+  const pathname = usePathname()
 
   function handleAuth() { onClose(); openAuthModal('login') }
 
@@ -340,7 +341,16 @@ function MobileNavDrawer({ open, onClose }: { open: boolean; onClose: () => void
                 Sign out
               </Button>
             ) : (
-              <Button variant="primary" className="w-full" onClick={handleAuth}>Sign in</Button>
+              <>
+                <Button variant="primary" className="w-full" onClick={handleAuth}>Sign in</Button>
+                <Button
+                  variant={pathname?.startsWith('/sell') ? 'accent' : 'ghost'}
+                  className="w-full"
+                  asChild
+                >
+                  <Link href="/sell" onClick={onClose}>Sign up to sell</Link>
+                </Button>
+              </>
             )}
           </div>
         </nav>
@@ -411,14 +421,27 @@ export function NavBar({ transparent = false }: NavBarProps) {
             {isAuthenticated ? (
               <UserDropdown />
             ) : (
-              <Button
-                variant="ghost"
-                size="md"
-                onClick={() => openAuthModal('login')}
-                className={cn('border-0', ghost && 'text-white hover:bg-white/10')}
-              >
-                Sign In
-              </Button>
+              <>
+                <Link
+                  href="/sell"
+                  className={cn(
+                    'inline-flex items-center h-9 px-3 rounded text-[14px] font-[500] font-public-sans transition-colors',
+                    pathname?.startsWith('/sell')
+                      ? ghost ? 'text-white bg-white/10' : 'text-primary font-[600] bg-muted-bg'
+                      : ghost ? 'text-white/80 hover:text-white hover:bg-white/10' : 'text-muted-text hover:text-primary hover:bg-muted-bg'
+                  )}
+                >
+                  Sign up to sell
+                </Link>
+                <Button
+                  variant="ghost"
+                  size="md"
+                  onClick={() => openAuthModal('login')}
+                  className={cn('border-0', ghost && 'text-white hover:bg-white/10')}
+                >
+                  Sign In
+                </Button>
+              </>
             )}
           </div>
 

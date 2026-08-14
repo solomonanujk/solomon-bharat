@@ -4,7 +4,17 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { toast } from 'sonner'
 import api from '@/lib/api'
 import { getApiError } from '@/lib/getApiError'
-import type { AdminProduct, ApprovalStatus, MyProduct, PaginatedResult, Product, ProductsParams } from '@/types'
+import type {
+  AdminProduct,
+  ApprovalStatus,
+  MyProduct,
+  PaginatedResult,
+  Product,
+  ProductPriceTier,
+  ProductsParams,
+  VariantAttribute,
+  VariantStatus,
+} from '@/types'
 
 function toPaginated<T>(res: { data: { data: unknown; meta?: { total?: number; page?: number; limit?: number; totalPages?: number } } }): PaginatedResult<T> {
   const items = (res.data.data ?? []) as T[]
@@ -98,6 +108,19 @@ export function useMyProduct(id: string | null) {
   })
 }
 
+export interface SubmitVariantInput {
+  type: string
+  value: string
+  sku?: string
+  sellerPrice?: number
+  moq?: number
+  stock?: number
+  status?: VariantStatus
+  imageUrl?: string
+  attributes?: VariantAttribute[]
+  priceTiers?: ProductPriceTier[]
+}
+
 export interface SubmitProductInput {
   name: string
   description: string
@@ -110,9 +133,22 @@ export interface SubmitProductInput {
   sellerPrice: number
   leadTime?: string
   certifications?: string
-  variants?: { type: string; value: string }[]
+  variants?: SubmitVariantInput[]
   images: File[]
+  tags?: string[]
+  stepQty?: number
+  lengthCm?: number
+  breadthCm?: number
+  heightCm?: number
+  isHandmade?: boolean
+  placeOfOrigin?: string
+  isGITagged?: boolean
+  howItIsMade?: string
+  artisanName?: string
+  priceTiers?: ProductPriceTier[]
 }
+
+const JSON_FIELDS = new Set(['variants', 'tags', 'priceTiers'])
 
 function toFormData(input: object): FormData {
   const fd = new FormData()
@@ -120,13 +156,20 @@ function toFormData(input: object): FormData {
     if (value === undefined || value === null) continue
     if (key === 'images' && Array.isArray(value)) {
       value.forEach((file) => fd.append('images', file as File))
-    } else if (key === 'variants') {
-      fd.append('variants', JSON.stringify(value))
+    } else if (JSON_FIELDS.has(key)) {
+      fd.append(key, JSON.stringify(value))
     } else {
       fd.append(key, String(value))
     }
   }
   return fd
+}
+
+export function usePolishField() {
+  return useMutation<string, Error, { field: 'name' | 'description' | 'tags'; value: string }>({
+    mutationFn: async ({ field, value }) => (await api.post('/products/ai/polish', { field, value })).data.data.cleaned,
+    onError: (err) => toast.error(getApiError(err, 'AI polish failed — try again.')),
+  })
 }
 
 export function useSubmitProduct() {

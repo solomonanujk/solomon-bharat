@@ -77,14 +77,48 @@ export interface ProductImage {
   sortOrder: number
 }
 
+export interface ProductPriceTier {
+  moq: number
+  sellerPrice: number
+}
+
+export interface VariantAttribute {
+  name: string
+  value: string
+}
+
+export type VariantStatus = 'ACTIVE' | 'INACTIVE' | 'OUT_OF_STOCK'
+
 export interface ProductVariant {
   id: string
   type: string
   value: string
+  sku?: string | null
+  sellerPrice?: number | null
+  moq?: number | null
+  stock?: number
+  status?: VariantStatus
+  imageUrl?: string | null
+  attributes?: VariantAttribute[]
+  priceTiers?: ProductPriceTier[]
+}
+
+/** Listing-detail fields shared by every product projection. */
+export interface ProductListingDetails {
+  tags: string[]
+  stepQty: number
+  lengthCm: number | null
+  breadthCm: number | null
+  heightCm: number | null
+  isHandmade: boolean
+  placeOfOrigin: string | null
+  isGITagged: boolean
+  howItIsMade: string | null
+  artisanName: string | null
 }
 
 /** Buyer-safe projection — never includes sellerId/sellerPrice/declaredStock. */
-export interface Product {
+export interface Product extends ProductListingDetails {
   id: string
   name: string
   slug: string
@@ -107,7 +141,7 @@ export interface Product {
 }
 
 /** Seller-safe projection — never includes adminPrice/margin. */
-export interface MyProduct {
+export interface MyProduct extends ProductListingDetails {
   id: string
   name: string
   slug: string
@@ -126,6 +160,7 @@ export interface MyProduct {
   isPublished: boolean
   images: ProductImage[]
   variants: ProductVariant[]
+  priceTiers: ProductPriceTier[]
   createdAt: string
   updatedAt: string
 }

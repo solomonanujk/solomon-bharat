@@ -5,6 +5,7 @@ import {
   approveProductSchema,
   createProductSchema,
   idParamSchema,
+  polishFieldSchema,
   publicProductListQuerySchema,
   reassignCategorySchema,
   rejectProductSchema,
@@ -290,6 +291,24 @@ productsRouter.post(
   requireAdmin,
   validate(idParamSchema, 'params'),
   asyncHandler(productsController.unfeature),
+);
+
+/**
+ * @openapi
+ * /products/ai/polish:
+ *   post:
+ *     summary: AI-polish a name/description/tags field before submitting (SELLER only)
+ *     tags: [Products]
+ *     requestBody: { required: true }
+ *     responses:
+ *       200: { description: Cleaned field value }
+ */
+productsRouter.post(
+  '/ai/polish',
+  requireAuth,
+  requireSeller,
+  validate(polishFieldSchema),
+  asyncHandler(productsController.polish),
 );
 
 // ── Seller: create ────────────────────────────────────────────────────

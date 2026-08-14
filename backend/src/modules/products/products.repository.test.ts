@@ -16,12 +16,23 @@ describe('ProductsRepository', () => {
     repo = new ProductsRepository(db as never);
   });
 
-  it('findByIdWithMedia includes ordered images and variants', async () => {
+  const MEDIA_INCLUDE = {
+    images: { orderBy: { sortOrder: 'asc' } },
+    variants: {
+      include: {
+        attributes: { orderBy: { name: 'asc' } },
+        priceTiers: { orderBy: { moq: 'asc' } },
+      },
+    },
+    priceTiers: { orderBy: { moq: 'asc' } },
+  };
+
+  it('findByIdWithMedia includes ordered images, variants, and price tiers', async () => {
     db.product.findUnique.mockResolvedValue({ id: 'p1' });
     await repo.findByIdWithMedia('p1');
     expect(db.product.findUnique).toHaveBeenCalledWith({
       where: { id: 'p1' },
-      include: { images: { orderBy: { sortOrder: 'asc' } }, variants: true },
+      include: MEDIA_INCLUDE,
     });
   });
 
@@ -60,7 +71,20 @@ describe('ProductsRepository', () => {
       { url: 'https://cdn/1.jpg', sortOrder: 0 },
       { url: 'https://cdn/2.jpg', sortOrder: 1 },
     ]);
-    expect(arg.data.variants.create).toEqual([{ type: 'Color', value: 'Red' }]);
+    expect(arg.data.variants.create).toEqual([
+      {
+        type: 'Color',
+        value: 'Red',
+        sku: undefined,
+        sellerPrice: undefined,
+        moq: undefined,
+        stock: 0,
+        status: 'ACTIVE',
+        imageUrl: undefined,
+        attributes: { create: [{ name: 'Color', value: 'Red' }] },
+        priceTiers: undefined,
+      },
+    ]);
   });
 
   it('update batches image removal, image addition, variant replacement, and the scalar update in one transaction', async () => {
@@ -80,8 +104,20 @@ describe('ProductsRepository', () => {
       data: [{ productId: 'p1', url: 'https://cdn/new.jpg', sortOrder: 1 }],
     });
     expect(db.productVariant.deleteMany).toHaveBeenCalledWith({ where: { productId: 'p1' } });
-    expect(db.productVariant.createMany).toHaveBeenCalledWith({
-      data: [{ productId: 'p1', type: 'Size', value: 'M' }],
+    expect(db.productVariant.create).toHaveBeenCalledWith({
+      data: {
+        productId: 'p1',
+        type: 'Size',
+        value: 'M',
+        sku: undefined,
+        sellerPrice: undefined,
+        moq: undefined,
+        stock: 0,
+        status: 'ACTIVE',
+        imageUrl: undefined,
+        attributes: { create: [{ name: 'Size', value: 'M' }] },
+        priceTiers: undefined,
+      },
     });
     expect(db.product.update).toHaveBeenCalledWith({ where: { id: 'p1' }, data: { name: 'Updated' } });
     expect(db.$transaction).toHaveBeenCalled();
@@ -159,7 +195,7 @@ describe('ProductsRepository', () => {
         isPublished: true,
         approvalStatus: ProductApprovalStatus.APPROVED,
       },
-      include: { images: { orderBy: { sortOrder: 'asc' } }, variants: true },
+      include: MEDIA_INCLUDE,
       take: 4,
     });
   });

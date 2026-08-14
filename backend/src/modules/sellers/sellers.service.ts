@@ -101,7 +101,7 @@ export class SellersService {
       to: user.email,
       subject: 'Your Solomon Bharat seller account is ready',
       html: `<p>Congratulations — your seller application has been approved.</p>
-<p>You can now log in to the Seller Portal at <a href="${env.APP_URL}/login">${env.APP_URL}/login</a> with:</p>
+<p>You can now sign in at <a href="${env.APP_URL}">${env.APP_URL}</a> — click "Sign In" in the top navigation — with:</p>
 <p>Email: ${user.email}<br/>Temporary password: <strong>${tempPassword}</strong></p>
 <p>Please change your password after your first login.</p>`,
     });

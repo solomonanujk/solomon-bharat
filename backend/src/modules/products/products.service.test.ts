@@ -61,12 +61,22 @@ function buildProduct(overrides: Partial<Product> = {}): Product {
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
+    tags: [],
+    stepQty: 1,
+    lengthCm: null,
+    breadthCm: null,
+    heightCm: null,
+    isHandmade: false,
+    placeOfOrigin: null,
+    isGITagged: false,
+    howItIsMade: null,
+    artisanName: null,
     ...overrides,
   };
 }
 
 function withMedia(product: Product): ProductWithMedia {
-  return { ...product, images: [], variants: [] };
+  return { ...product, images: [], variants: [], priceTiers: [] };
 }
 
 function buildMockRepo(): ProductsRepository {

@@ -1,10 +1,45 @@
-import { Product, ProductApprovalStatus, ProductImage, ProductVariant } from '@prisma/client';
+import {
+  Product,
+  ProductApprovalStatus,
+  ProductImage,
+  ProductPriceTier,
+  ProductVariant,
+  VariantAttribute,
+  VariantPriceTier,
+} from '@prisma/client';
 
-export type ProductWithMedia = Product & { images: ProductImage[]; variants: ProductVariant[] };
+export type VariantWithDetail = ProductVariant & {
+  attributes: VariantAttribute[];
+  priceTiers: VariantPriceTier[];
+};
+
+export type ProductWithMedia = Product & {
+  images: ProductImage[];
+  variants: VariantWithDetail[];
+  priceTiers: ProductPriceTier[];
+};
+
+export interface PriceTierInput {
+  moq: number;
+  sellerPrice: number;
+}
+
+export interface VariantAttributeInput {
+  name: string;
+  value: string;
+}
 
 export interface VariantInput {
   type: string;
   value: string;
+  sku?: string;
+  sellerPrice?: number;
+  moq?: number;
+  stock?: number;
+  status?: 'ACTIVE' | 'INACTIVE' | 'OUT_OF_STOCK';
+  imageUrl?: string;
+  attributes?: VariantAttributeInput[];
+  priceTiers?: PriceTierInput[];
 }
 
 export interface CreateProductInput {
@@ -20,6 +55,17 @@ export interface CreateProductInput {
   leadTime?: string;
   certifications?: string;
   variants?: VariantInput[];
+  tags?: string[];
+  stepQty?: number;
+  lengthCm?: number;
+  breadthCm?: number;
+  heightCm?: number;
+  isHandmade?: boolean;
+  placeOfOrigin?: string;
+  isGITagged?: boolean;
+  howItIsMade?: string;
+  artisanName?: string;
+  priceTiers?: PriceTierInput[];
 }
 
 export interface UpdateProductInput {
@@ -35,6 +81,17 @@ export interface UpdateProductInput {
   certifications?: string;
   variants?: VariantInput[];
   removeImageIds?: string[];
+  tags?: string[];
+  stepQty?: number;
+  lengthCm?: number;
+  breadthCm?: number;
+  heightCm?: number;
+  isHandmade?: boolean;
+  placeOfOrigin?: string;
+  isGITagged?: boolean;
+  howItIsMade?: string;
+  artisanName?: string;
+  priceTiers?: PriceTierInput[];
 }
 
 export interface UploadedImageFile {
@@ -80,9 +137,19 @@ export interface BuyerProduct {
   isFeatured: boolean;
   publishedAt: Date | null;
   images: ProductImage[];
-  variants: ProductVariant[];
+  variants: VariantWithDetail[];
   avgRating: number | null;
   reviewCount: number;
+  tags: string[];
+  stepQty: number;
+  lengthCm: number | null;
+  breadthCm: number | null;
+  heightCm: number | null;
+  isHandmade: boolean;
+  placeOfOrigin: string | null;
+  isGITagged: boolean;
+  howItIsMade: string | null;
+  artisanName: string | null;
 }
 
 /** Seller-safe projection — never includes adminPrice or margin. */
@@ -106,7 +173,18 @@ export interface SellerProduct {
   createdAt: Date;
   updatedAt: Date;
   images: ProductImage[];
-  variants: ProductVariant[];
+  variants: VariantWithDetail[];
+  priceTiers: ProductPriceTier[];
+  tags: string[];
+  stepQty: number;
+  lengthCm: number | null;
+  breadthCm: number | null;
+  heightCm: number | null;
+  isHandmade: boolean;
+  placeOfOrigin: string | null;
+  isGITagged: boolean;
+  howItIsMade: string | null;
+  artisanName: string | null;
 }
 
 export { ProductApprovalStatus };
