@@ -17,6 +17,7 @@ const WISHLIST_PRODUCT_SELECT = {
   slug: true,
   adminPrice: true,
   moq: true,
+  leadTime: true,
   images: { orderBy: { sortOrder: 'asc' as const }, take: 1 },
 };
 

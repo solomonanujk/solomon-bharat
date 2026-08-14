@@ -2,19 +2,19 @@
 
 B2B wholesale export marketplace connecting verified Indian manufacturers and artisan brands with international buyers. Solomon Bharat is the sole merchant of record — it buys from sellers and sells to buyers; sellers and buyers never transact directly.
 
-See [`AGENTS.md`](./AGENTS.md) for the full architecture reference (module boundaries, business rules, coding standards) and `Solomon-Bharat-PRD-COMPLETE-v3.4.docx` for the product requirements.
+See [`AGENTS.md`](./AGENTS.md) for the full architecture reference (module boundaries, business rules, coding standards) and `prd.md` / `Solomon-Bharat-PRD-COMPLETE-v3.4.docx` for the product requirements.
 
 ## Status
 
 **Backend: complete.** All 12 modules (`auth`, `buyers`, `sellers`, `products`, `categories`, `collections`, `orders`, `payouts`, `payments`, `notifications`, `cms`, `admin`) are built, unit-tested, and verified end-to-end against a live database.
 
-**Frontend: not started.**
+**Frontend: not started.** When built, its UI (theme, colors, typography, shadcn/ui components, imagery) is ported wholesale from the `solomon-bharat2` codebase's `frontend/` app — see `AGENTS.md` → Frontend / Design System and `prd.md` §11 for the exact tokens. Feature scope stays whatever `prd.md` defines, which is deliberately narrower than `solomon-bharat2` in places (see `prd.md` §14.4) — reuse the *look*, not the extra features.
 
 ## Monorepo Structure
 
 ```
 solomon-bharat/
-├── frontend/        # Next.js App Router (not yet started)
+├── frontend/        # Next.js App Router (not yet started; UI ported from solomon-bharat2/frontend, features per prd.md)
 ├── backend/          # Node.js + Express + Prisma (complete)
 ├── AGENTS.md          # Architecture & business-rule reference for AI coding agents
 ├── docker-compose.yml # Optional local Postgres + Redis
@@ -84,4 +84,4 @@ Tests are colocated per module (`*.service.test.ts`) and focus on service-layer 
 
 ## Frontend
 
-Not yet started. Will be a Next.js (App Router) app mirroring the backend's module names exactly, per `AGENTS.md`.
+Not yet started. Will be a Next.js (App Router) app mirroring the backend's module names exactly, per `AGENTS.md`. UI/theme/components are ported from `solomon-bharat2/frontend`; features are scoped to `prd.md` only — see `AGENTS.md` → Frontend / Design System for details.

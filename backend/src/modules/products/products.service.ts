@@ -8,6 +8,7 @@ import { cache as defaultCache, bumpVersion, CacheClient, versionedListKey } fro
 import { prisma } from '../../config/prisma';
 import { categoriesService, CategoriesService } from '../categories/categories.service';
 import { notificationsService } from '../notifications/notifications.service';
+import { reviewsRepository, ReviewsRepository } from '../reviews/reviews.repository';
 import { ProductsRepository, productsRepository } from './products.repository';
 import {
   AdminProductListFilter,
@@ -29,7 +30,10 @@ const OPEN_REVIEW_STATUSES: ProductApprovalStatus[] = [
   ProductApprovalStatus.RESUBMITTED,
 ];
 
-function toBuyerProduct(product: ProductWithMedia): BuyerProduct {
+function toBuyerProduct(
+  product: ProductWithMedia,
+  rating?: { avgRating: number; reviewCount: number },
+): BuyerProduct {
   return {
     id: product.id,
     name: product.name,
@@ -47,6 +51,8 @@ function toBuyerProduct(product: ProductWithMedia): BuyerProduct {
     publishedAt: product.publishedAt,
     images: product.images,
     variants: product.variants,
+    avgRating: rating?.avgRating ?? null,
+    reviewCount: rating?.reviewCount ?? 0,
   };
 }
 
@@ -83,6 +89,7 @@ export class ProductsService {
     private readonly repo: ProductsRepository = productsRepository,
     private readonly categories: CategoriesService = categoriesService,
     private readonly cache: CacheClient = defaultCache,
+    private readonly reviews: ReviewsRepository = reviewsRepository,
   ) {}
 
   private async invalidatePublishedListCache(): Promise<void> {
@@ -319,9 +326,42 @@ export class ProductsService {
       : undefined;
 
     const { data, total } = await this.repo.findPublished(filter, pagination, categoryIds);
-    const result = { data: data.map(toBuyerProduct), total };
+    const ratings = await this.reviews.getRatingSummaries(data.map((p) => p.id));
+    const result = { data: data.map((p) => toBuyerProduct(p, ratings.get(p.id))), total };
     await this.cache.set(key, result, PUBLISHED_LIST_CACHE_TTL_SECONDS);
     return result;
+  }
+
+  /** Distinct categoryIds from the buyer's wishlist and past order items — the signal used to bias recommendations. */
+  private async getPreferredCategoryIds(buyerId: string): Promise<string[]> {
+    const [wishlisted, ordered] = await Promise.all([
+      prisma.wishlistItem.findMany({
+        where: { buyerId },
+        select: { product: { select: { categoryId: true } } },
+      }),
+      prisma.orderItem.findMany({
+        where: { order: { buyerId } },
+        select: { product: { select: { categoryId: true } } },
+        distinct: ['productId'],
+      }),
+    ]);
+
+    const categoryIds = new Set<string>();
+    wishlisted.forEach((w) => categoryIds.add(w.product.categoryId));
+    ordered.forEach((o) => categoryIds.add(o.product.categoryId));
+    return Array.from(categoryIds);
+  }
+
+  /**
+   * Personalized buyer home feed — the one deliberate exception to "no unscoped
+   * product browsing": biased toward the buyer's wishlist/order-history categories,
+   * backfilled with featured/recent products so every buyer always gets a full feed.
+   */
+  async getRecommendationsForBuyer(buyerId: string, pagination: PaginationQuery) {
+    const preferredCategoryIds = await this.getPreferredCategoryIds(buyerId);
+    const { data, total } = await this.repo.findRecommended(preferredCategoryIds, pagination);
+    const ratings = await this.reviews.getRatingSummaries(data.map((p) => p.id));
+    return { data: data.map((p) => toBuyerProduct(p, ratings.get(p.id))), total };
   }
 
   async getBySlug(slug: string): Promise<{ product: BuyerProduct; related: BuyerProduct[] }> {
@@ -331,7 +371,11 @@ export class ProductsService {
     }
 
     const related = await this.repo.findRelated(product.categoryId, product.id, 4);
-    return { product: toBuyerProduct(product), related: related.map(toBuyerProduct) };
+    const ratings = await this.reviews.getRatingSummaries([product.id, ...related.map((p) => p.id)]);
+    return {
+      product: toBuyerProduct(product, ratings.get(product.id)),
+      related: related.map((p) => toBuyerProduct(p, ratings.get(p.id))),
+    };
   }
 
   async listForSeller(

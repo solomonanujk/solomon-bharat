@@ -221,6 +221,7 @@ model BuyerProfile {
   wishlistItems WishlistItem[]
   messages      Message[]
   orders        Order[]
+  reviews       Review[]
 
   @@index([deletedAt])
   @@map("buyer_profiles")
@@ -336,6 +337,7 @@ model Product {
   collections  ProductCollection[]
   wishlistedBy WishlistItem[]
   orderItems   OrderItem[]
+  reviews      Review[]
 
   @@index([sellerId])
   @@index([categoryId])
@@ -449,11 +451,47 @@ model OrderItem {
   createdAt       DateTime @default(now())
 
   payout Payout?
+  review Review?
 
   @@index([orderId])
   @@index([sellerId])
   @@index([productId])
   @@map("order_items")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Reviews
+// ─────────────────────────────────────────────────────────────
+
+model Review {
+  id          String       @id @default(uuid())
+  productId   String
+  product     Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  buyerId     String
+  buyer       BuyerProfile @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  orderItemId String       @unique
+  orderItem   OrderItem    @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  rating      Int
+  comment     String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  images ReviewImage[]
+
+  @@index([productId])
+  @@index([buyerId])
+  @@map("reviews")
+}
+
+model ReviewImage {
+  id        String @id @default(uuid())
+  reviewId  String
+  review    Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  url       String
+  sortOrder Int    @default(0)
+
+  @@index([reviewId])
+  @@map("review_images")
 }
 
 // ─────────────────────────────────────────────────────────────

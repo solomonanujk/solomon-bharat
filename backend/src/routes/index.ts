@@ -10,6 +10,7 @@ import { paymentsRouter } from '../modules/payments/payments.routes';
 import { payoutsRouter } from '../modules/payouts/payouts.routes';
 import { notificationsRouter } from '../modules/notifications/notifications.routes';
 import { adminRouter } from '../modules/admin/admin.routes';
+import { reviewsRouter } from '../modules/reviews/reviews.routes';
 
 export const apiRouter = Router();
 
@@ -39,3 +40,4 @@ apiRouter.use('/payments', paymentsRouter);
 apiRouter.use('/payouts', payoutsRouter);
 apiRouter.use('/notifications', notificationsRouter);
 apiRouter.use('/admin', adminRouter);
+apiRouter.use('/reviews', reviewsRouter);

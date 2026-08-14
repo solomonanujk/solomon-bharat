@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import { sendCreated, sendSuccess } from '../../utils/response';
-import { buildPaginationMeta } from '../../utils/pagination';
+import { buildPaginationMeta, PaginationQuery } from '../../utils/pagination';
 import { sellersService } from '../sellers/sellers.service';
+import { buyersService } from '../buyers/buyers.service';
 import { productsService } from './products.service';
 import {
   AdminProductListQueryDto,
@@ -22,6 +23,11 @@ function extractFiles(req: Request) {
 
 async function resolveSellerProfileId(userId: string): Promise<string> {
   const profile = await sellersService.getMyProfile(userId);
+  return profile.id;
+}
+
+async function resolveBuyerProfileId(userId: string): Promise<string> {
+  const profile = await buyersService.getMyProfile(userId);
   return profile.id;
 }
 
@@ -137,5 +143,12 @@ export const productsController = {
   async getBySlug(req: Request, res: Response): Promise<void> {
     const result = await productsService.getBySlug(req.params.slug);
     sendSuccess(res, result);
+  },
+
+  async listRecommended(req: Request, res: Response): Promise<void> {
+    const buyerId = await resolveBuyerProfileId(req.user!.id);
+    const pagination = req.query as unknown as PaginationQuery;
+    const { data, total } = await productsService.getRecommendationsForBuyer(buyerId, pagination);
+    sendSuccess(res, data, 'Recommendations retrieved', 200, buildPaginationMeta(total, pagination));
   },
 };

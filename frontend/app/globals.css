@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #F9F7F2;
+  --surface: #FCFAFA;
+  --primary: #1A1A1A;
+  --accent: #A68B67;
+  --accent-hover: #8B7055;
+  --muted-bg: #F5F0E8;
+  --muted-text: #444748;
+  --border-warm: #E5E1D8;
+  --success: #6B7E6B;
+  --error: #BA1A1A;
+  --warning: #C29D72;
+}
+
+@theme {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-primary: var(--primary);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-muted-bg: var(--muted-bg);
+  --color-muted-text: var(--muted-text);
+  --color-border-warm: var(--border-warm);
+  --color-success: var(--success);
+  --color-error: var(--error);
+  --color-warning: var(--warning);
+  --font-family-playfair: var(--font-playfair);
+  --font-family-public-sans: var(--font-public-sans);
+}
+
+@layer base {
+  body {
+    font-family: var(--font-public-sans), system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  /* Scrollbar styling — thin, warm */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--muted-bg);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-warm);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-text);
+  }
+
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-warm) var(--muted-bg);
+  }
+}

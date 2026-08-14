@@ -81,6 +81,8 @@ export interface BuyerProduct {
   publishedAt: Date | null;
   images: ProductImage[];
   variants: ProductVariant[];
+  avgRating: number | null;
+  reviewCount: number;
 }
 
 /** Seller-safe projection — never includes adminPrice or margin. */

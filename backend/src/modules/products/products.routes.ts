@@ -14,9 +14,10 @@ import {
   updateProductSchema,
 } from './products.validation';
 import { validate } from '../../middleware/validate';
-import { requireAdmin, requireAuth, requireSeller } from '../../middleware/auth';
+import { requireAdmin, requireAuth, requireBuyer, requireSeller } from '../../middleware/auth';
 import { uploadImages } from '../../middleware/upload';
 import { asyncHandler } from '../../utils/asyncHandler';
+import { paginationQuerySchema } from '../../utils/pagination';
 
 export const productsRouter = Router();
 
@@ -336,6 +337,27 @@ productsRouter.get(
   '/',
   validate(publicProductListQuerySchema, 'query'),
   asyncHandler(productsController.listPublic),
+);
+
+/**
+ * @openapi
+ * /products/recommendations:
+ *   get:
+ *     summary: Personalized product feed for the authenticated buyer (BUYER only)
+ *     description: >
+ *       The one deliberate exception to the "no unscoped browsing" rule — biased
+ *       toward the buyer's wishlist/order-history categories, backfilled with
+ *       featured/recent products so the feed is always full.
+ *     tags: [Products]
+ *     responses:
+ *       200: { description: Recommended products list }
+ */
+productsRouter.get(
+  '/recommendations',
+  requireAuth,
+  requireBuyer,
+  validate(paginationQuerySchema, 'query'),
+  asyncHandler(productsController.listRecommended),
 );
 
 /**

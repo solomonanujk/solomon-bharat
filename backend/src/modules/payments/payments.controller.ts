@@ -36,4 +36,10 @@ export const paymentsController = {
     const invoice = await paymentsService.getInvoice(requesterId, req.user!.role, req.params.orderId);
     sendSuccess(res, invoice);
   },
+
+  async getFxRate(req: Request, res: Response): Promise<void> {
+    const { currency } = req.query as { currency: string };
+    const result = await paymentsService.getFxRate(currency);
+    sendSuccess(res, result);
+  },
 };

@@ -4,9 +4,9 @@ import { prisma } from '../../config/prisma';
 export class PaymentsRepository {
   constructor(private readonly db: PrismaClient = prisma) {}
 
-  create(orderId: string, amount: number, rawPayload: Prisma.InputJsonValue): Promise<Payment> {
+  create(orderId: string, amount: number, currency: string, rawPayload: Prisma.InputJsonValue): Promise<Payment> {
     return this.db.payment.create({
-      data: { orderId, amount, provider: 'PAYPAL', status: PaymentStatus.PENDING, rawPayload },
+      data: { orderId, amount, currency, provider: 'PAYPAL', status: PaymentStatus.PENDING, rawPayload },
     });
   }
 

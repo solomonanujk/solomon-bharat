@@ -52,6 +52,7 @@ function toBuyerOrder(order: OrderWithItems): BuyerOrder {
       quantity: item.quantity,
       unitAdminPrice: item.unitAdminPrice.toString(),
       lineAdminTotal: item.lineAdminTotal.toString(),
+      reviewed: !!item.review,
     })),
   };
 }

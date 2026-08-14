@@ -179,6 +179,67 @@ export class ProductsRepository {
     return { data, total };
   }
 
+  /**
+   * Two-partition pagination: preferred-category products first (by recency), then
+   * everything else (featured, then recency) as backfill. Both partitions are ordered
+   * deterministically (tiebreak on id) so a page boundary never skips or repeats a
+   * product, even though the split is computed from two separate counted queries
+   * rather than a single ORDER BY.
+   */
+  async findRecommended(
+    preferredCategoryIds: string[],
+    pagination: PaginationQuery,
+  ): Promise<{ data: ProductWithMedia[]; total: number }> {
+    const baseWhere: Prisma.ProductWhereInput = {
+      deletedAt: null,
+      isPublished: true,
+      approvalStatus: ProductApprovalStatus.APPROVED,
+    };
+    const preferredWhere: Prisma.ProductWhereInput = {
+      ...baseWhere,
+      categoryId: { in: preferredCategoryIds },
+    };
+    const otherWhere: Prisma.ProductWhereInput = preferredCategoryIds.length
+      ? { ...baseWhere, categoryId: { notIn: preferredCategoryIds } }
+      : baseWhere;
+
+    const [preferredCount, otherCount] = await Promise.all([
+      preferredCategoryIds.length ? this.db.product.count({ where: preferredWhere }) : Promise.resolve(0),
+      this.db.product.count({ where: otherWhere }),
+    ]);
+    const total = preferredCount + otherCount;
+    const { skip, take } = toSkipTake(pagination);
+
+    const data: ProductWithMedia[] = [];
+
+    if (skip < preferredCount) {
+      data.push(
+        ...(await this.db.product.findMany({
+          where: preferredWhere,
+          include: MEDIA_INCLUDE,
+          orderBy: [{ publishedAt: 'desc' }, { id: 'asc' }],
+          skip,
+          take,
+        })),
+      );
+    }
+
+    const remaining = take - data.length;
+    if (remaining > 0) {
+      data.push(
+        ...(await this.db.product.findMany({
+          where: otherWhere,
+          include: MEDIA_INCLUDE,
+          orderBy: [{ isFeatured: 'desc' }, { publishedAt: 'desc' }, { id: 'asc' }],
+          skip: Math.max(0, skip - preferredCount),
+          take: remaining,
+        })),
+      );
+    }
+
+    return { data, total };
+  }
+
   findRelated(categoryId: string, excludeProductId: string, limit: number): Promise<ProductWithMedia[]> {
     return this.db.product.findMany({
       where: {

@@ -26,6 +26,7 @@ export interface CreatePendingOrderInput {
 
 export type OrderItemWithProduct = OrderItem & {
   product: { name: string; images: ProductImage[] };
+  review: { id: string } | null;
 };
 
 export type OrderWithItems = Order & { items: OrderItemWithProduct[] };
@@ -50,6 +51,7 @@ export interface BuyerOrder {
     quantity: number;
     unitAdminPrice: string;
     lineAdminTotal: string;
+    reviewed: boolean;
   }[];
 }
 

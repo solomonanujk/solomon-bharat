@@ -26,7 +26,10 @@ export interface WishlistProductSummary {
   slug: string;
   adminPrice: string;
   moq: number;
+  leadTime: string | null;
   imageUrl: string | null;
+  avgRating: number | null;
+  reviewCount: number;
 }
 
 export interface WishlistEntry {

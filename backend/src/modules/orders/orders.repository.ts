@@ -7,6 +7,7 @@ const ITEMS_INCLUDE = {
   items: {
     include: {
       product: { select: { name: true, images: { orderBy: { sortOrder: 'asc' as const }, take: 1 } } },
+      review: { select: { id: true } },
     },
   },
 };

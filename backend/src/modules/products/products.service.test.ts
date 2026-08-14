@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Product, ProductApprovalStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
+import { prisma } from '../../config/prisma';
 import { buildMockCache } from '../../test-utils/mockCache';
 import { CategoriesService } from '../categories/categories.service';
+import { ReviewsRepository } from '../reviews/reviews.repository';
 import { ProductsRepository } from './products.repository';
 import { ProductsService } from './products.service';
 import { ProductWithMedia } from './products.types';
@@ -22,6 +24,8 @@ vi.mock('../../utils/auditLog', () => ({
 vi.mock('../../config/prisma', () => ({
   prisma: {
     sellerProfile: { findUnique: vi.fn().mockResolvedValue({ userId: 'seller-user-1' }) },
+    wishlistItem: { findMany: vi.fn().mockResolvedValue([]) },
+    orderItem: { findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
 
@@ -79,6 +83,7 @@ function buildMockRepo(): ProductsRepository {
     setFeatured: vi.fn(),
     softDelete: vi.fn(),
     findPublished: vi.fn(),
+    findRecommended: vi.fn(),
     findRelated: vi.fn(),
     findForSeller: vi.fn(),
     findForAdmin: vi.fn(),
@@ -90,6 +95,12 @@ function buildMockCategories(): CategoriesService {
     assertValidLeafCategory: vi.fn().mockResolvedValue({ id: 'cat-l3-1', level: 3 }),
     getLeafDescendantIds: vi.fn().mockResolvedValue(['cat-l3-1']),
   } as unknown as CategoriesService;
+}
+
+function buildMockReviews(): ReviewsRepository {
+  return {
+    getRatingSummaries: vi.fn().mockResolvedValue(new Map()),
+  } as unknown as ReviewsRepository;
 }
 
 const twoFiles = [
@@ -105,7 +116,7 @@ describe('ProductsService', () => {
   beforeEach(() => {
     repo = buildMockRepo();
     categories = buildMockCategories();
-    service = new ProductsService(repo, categories, buildMockCache());
+    service = new ProductsService(repo, categories, buildMockCache(), buildMockReviews());
   });
 
   describe('createProduct', () => {
@@ -344,6 +355,46 @@ describe('ProductsService', () => {
       expect(data[0]).not.toHaveProperty('sellerId');
       expect(data[0]).not.toHaveProperty('declaredStock');
       expect(data[0].adminPrice).toBe('20');
+    });
+  });
+
+  describe('getRecommendationsForBuyer', () => {
+    it('derives preferred categories from wishlist + order history and passes them to the repository', async () => {
+      vi.mocked(prisma.wishlistItem.findMany).mockResolvedValue([
+        { product: { categoryId: 'cat-wishlisted' } },
+      ] as never);
+      vi.mocked(prisma.orderItem.findMany).mockResolvedValue([
+        { product: { categoryId: 'cat-ordered' } },
+        { product: { categoryId: 'cat-wishlisted' } },
+      ] as never);
+      vi.mocked(repo.findRecommended).mockResolvedValue({
+        data: [withMedia(buildProduct({ isPublished: true, approvalStatus: ProductApprovalStatus.APPROVED }))],
+        total: 1,
+      });
+
+      const { data, total } = await service.getRecommendationsForBuyer('buyer-1', { page: 1, limit: 20 });
+
+      expect(repo.findRecommended).toHaveBeenCalledWith(
+        expect.arrayContaining(['cat-wishlisted', 'cat-ordered']),
+        { page: 1, limit: 20 },
+      );
+      expect(repo.findRecommended).toHaveBeenCalledWith(
+        expect.arrayContaining([]),
+        expect.anything(),
+      );
+      expect((repo.findRecommended as ReturnType<typeof vi.fn>).mock.calls[0][0]).toHaveLength(2);
+      expect(total).toBe(1);
+      expect(data[0]).not.toHaveProperty('sellerPrice');
+    });
+
+    it('falls back to an empty preferred-category list when the buyer has no history', async () => {
+      vi.mocked(prisma.wishlistItem.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.orderItem.findMany).mockResolvedValue([]);
+      vi.mocked(repo.findRecommended).mockResolvedValue({ data: [], total: 0 });
+
+      await service.getRecommendationsForBuyer('buyer-2', { page: 1, limit: 20 });
+
+      expect(repo.findRecommended).toHaveBeenCalledWith([], { page: 1, limit: 20 });
     });
   });
 

@@ -12,6 +12,12 @@ vi.mock('../../providers/payments', () => ({
   },
 }));
 
+vi.mock('../../providers/fx', () => ({
+  fxProvider: {
+    getRatesFromInr: vi.fn().mockResolvedValue({ base: 'INR', date: '2026-01-01', rates: { USD: 0.012 } }),
+  },
+}));
+
 vi.mock('../../config/prisma', () => ({
   prisma: {
     order: { findUnique: vi.fn() },
@@ -100,13 +106,35 @@ describe('PaymentsService', () => {
 
       const result = await service.checkout('buyer-1', {
         items: [{ productId: 'prod-1', quantity: 10 }],
+        currency: 'USD',
+      });
+
+      // adminPriceTotal (INR 120) converted at the mocked USD rate of 0.012 → 1.44
+      expect(paymentProvider.createOrder).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 1.44, currency: 'USD', referenceId: 'order-1' }),
+      );
+      expect(repo.create).toHaveBeenCalledWith('order-1', 1.44, 'USD', { createOrderId: 'PAYPAL-ORDER-1' });
+      expect(result.approveUrl).toBe('https://paypal.example/approve');
+      expect(result.currency).toBe('USD');
+    });
+
+    it('charges directly in INR with no conversion when the buyer pays in the platform currency', async () => {
+      vi.mocked(orders.createPendingOrder).mockResolvedValue({ ...buildOrder(), items: [] });
+      vi.mocked(paymentProvider.createOrder).mockResolvedValue({
+        providerOrderId: 'PAYPAL-ORDER-2',
+        approveUrl: 'https://paypal.example/approve',
+      });
+      vi.mocked(repo.create).mockResolvedValue(buildPayment({ currency: 'INR' }));
+
+      await service.checkout('buyer-1', {
+        items: [{ productId: 'prod-1', quantity: 10 }],
+        currency: 'INR',
       });
 
       expect(paymentProvider.createOrder).toHaveBeenCalledWith(
-        expect.objectContaining({ amount: 120, currency: 'USD', referenceId: 'order-1' }),
+        expect.objectContaining({ amount: 120, currency: 'INR' }),
       );
-      expect(repo.create).toHaveBeenCalledWith('order-1', 120, { createOrderId: 'PAYPAL-ORDER-1' });
-      expect(result.approveUrl).toBe('https://paypal.example/approve');
+      expect(repo.create).toHaveBeenCalledWith('order-1', 120, 'INR', { createOrderId: 'PAYPAL-ORDER-2' });
     });
   });
 

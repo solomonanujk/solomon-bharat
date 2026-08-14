@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Address, BuyerProfile, MessageSender } from '@prisma/client';
+import { ReviewsRepository } from '../reviews/reviews.repository';
 import { BuyersRepository } from './buyers.repository';
 import { BuyersService } from './buyers.service';
 
@@ -72,13 +73,21 @@ function buildMockRepo(): BuyersRepository {
   } as unknown as BuyersRepository;
 }
 
+function buildMockReviews(): ReviewsRepository {
+  return {
+    getRatingSummaries: vi.fn().mockResolvedValue(new Map()),
+  } as unknown as ReviewsRepository;
+}
+
 describe('BuyersService', () => {
   let repo: BuyersRepository;
+  let reviews: ReviewsRepository;
   let service: BuyersService;
 
   beforeEach(() => {
     repo = buildMockRepo();
-    service = new BuyersService(repo);
+    reviews = buildMockReviews();
+    service = new BuyersService(repo, reviews);
     vi.mocked(prisma.product.findUnique).mockReset();
   });
 
@@ -242,7 +251,34 @@ describe('BuyersService', () => {
         name: 'Table Runner',
         adminPrice: '20',
         imageUrl: 'https://cdn.example.com/img.jpg',
+        avgRating: null,
+        reviewCount: 0,
       });
+    });
+
+    it('listWishlist attaches the batched rating summary for each product', async () => {
+      vi.mocked(repo.findWishlist).mockResolvedValue([
+        {
+          id: 'wish-1',
+          createdAt: new Date(),
+          product: {
+            id: 'prod-1',
+            name: 'Table Runner',
+            slug: 'table-runner',
+            adminPrice: { toString: () => '20' } as never,
+            moq: 10,
+            images: [{ url: 'https://cdn.example.com/img.jpg' }],
+          },
+        },
+      ] as never);
+      vi.mocked(reviews.getRatingSummaries).mockResolvedValue(
+        new Map([['prod-1', { avgRating: 4.5, reviewCount: 6 }]]),
+      );
+
+      const items = await service.listWishlist('buyer-1');
+
+      expect(reviews.getRatingSummaries).toHaveBeenCalledWith(['prod-1']);
+      expect(items[0].product).toMatchObject({ avgRating: 4.5, reviewCount: 6 });
     });
 
     it('listWishlist falls back to null imageUrl when the product has no images', async () => {

@@ -27,7 +27,18 @@ export function createApp(): Application {
   app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());
   app.use(pinoHttp({ logger }));
-  app.use('/uploads', express.static(UPLOADS_ROOT));
+  app.use(
+    '/uploads',
+    // Helmet's default Cross-Origin-Resource-Policy: same-origin blocks the
+    // frontend (a different origin in dev, e.g. localhost:3000 vs :4000) from
+    // loading these images at all — this route serves public product/category
+    // images by design, so relax it here only, not app-wide.
+    (_req, res, next) => {
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      next();
+    },
+    express.static(UPLOADS_ROOT),
+  );
 
   app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

@@ -4,6 +4,7 @@ import { toSafeUser } from '../../utils/safeUser';
 import { PaginationQuery } from '../../utils/pagination';
 import { prisma } from '../../config/prisma';
 import { notificationsService } from '../notifications/notifications.service';
+import { ReviewsRepository, reviewsRepository } from '../reviews/reviews.repository';
 import { BuyersRepository, buyersRepository } from './buyers.repository';
 import {
   CreateAddressInput,
@@ -13,7 +14,10 @@ import {
 } from './buyers.types';
 
 export class BuyersService {
-  constructor(private readonly repo: BuyersRepository = buyersRepository) {}
+  constructor(
+    private readonly repo: BuyersRepository = buyersRepository,
+    private readonly reviews: ReviewsRepository = reviewsRepository,
+  ) {}
 
   async getMyProfile(userId: string): Promise<BuyerProfile> {
     const profile = await this.repo.findProfileByUserId(userId);
@@ -77,18 +81,25 @@ export class BuyersService {
 
   async listWishlist(buyerId: string): Promise<WishlistEntry[]> {
     const items = await this.repo.findWishlist(buyerId);
-    return items.map((item) => ({
-      id: item.id,
-      createdAt: item.createdAt,
-      product: {
-        id: item.product.id,
-        name: item.product.name,
-        slug: item.product.slug,
-        adminPrice: item.product.adminPrice ? item.product.adminPrice.toString() : '0',
-        moq: item.product.moq,
-        imageUrl: item.product.images[0]?.url ?? null,
-      },
-    }));
+    const ratings = await this.reviews.getRatingSummaries(items.map((item) => item.product.id));
+    return items.map((item) => {
+      const rating = ratings.get(item.product.id);
+      return {
+        id: item.id,
+        createdAt: item.createdAt,
+        product: {
+          id: item.product.id,
+          name: item.product.name,
+          slug: item.product.slug,
+          adminPrice: item.product.adminPrice ? item.product.adminPrice.toString() : '0',
+          moq: item.product.moq,
+          leadTime: item.product.leadTime,
+          imageUrl: item.product.images[0]?.url ?? null,
+          avgRating: rating?.avgRating ?? null,
+          reviewCount: rating?.reviewCount ?? 0,
+        },
+      };
+    });
   }
 
   async addToWishlist(buyerId: string, productId: string): Promise<void> {

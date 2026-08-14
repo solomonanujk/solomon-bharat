@@ -14,9 +14,16 @@ describe('PaymentsRepository', () => {
 
   it('create starts a PENDING PayPal payment', async () => {
     db.payment.create.mockResolvedValue({ id: 'pay-1' });
-    await repo.create('order-1', 100, { raw: true });
+    await repo.create('order-1', 100, 'USD', { raw: true });
     expect(db.payment.create).toHaveBeenCalledWith({
-      data: { orderId: 'order-1', amount: 100, provider: 'PAYPAL', status: PaymentStatus.PENDING, rawPayload: { raw: true } },
+      data: {
+        orderId: 'order-1',
+        amount: 100,
+        currency: 'USD',
+        provider: 'PAYPAL',
+        status: PaymentStatus.PENDING,
+        rawPayload: { raw: true },
+      },
     });
   });
 

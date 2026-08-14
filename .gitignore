@@ -14,3 +14,6 @@ AGENTS.md
 prd.md
 Solomon-Bharat-PRD-COMPLETE-v3.4.docx
 skills-lock.json
+
+# Raw export from the old production DB — real seller PII (emails/phones), never commit
+backend/prisma/legacyImport/

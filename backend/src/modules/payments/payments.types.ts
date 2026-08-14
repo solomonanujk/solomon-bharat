@@ -3,6 +3,7 @@ import { Payment, PaymentStatus } from '@prisma/client';
 export interface CheckoutInput {
   items: { productId: string; quantity: number }[];
   shippingAddressId?: string;
+  currency: string;
 }
 
 export interface CheckoutResult {
@@ -10,6 +11,15 @@ export interface CheckoutResult {
   paymentId: string;
   approveUrl: string | null;
   adminPriceTotal: string;
+  currency: string;
+  chargeAmount: string;
+}
+
+export interface FxRateResult {
+  base: string;
+  currency: string;
+  rate: number;
+  date: string;
 }
 
 export interface CaptureResult {

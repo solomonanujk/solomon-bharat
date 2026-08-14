@@ -1,11 +1,28 @@
 import { Router } from 'express';
 import { paymentsController } from './payments.controller';
-import { checkoutSchema, idParamSchema, orderIdParamSchema } from './payments.validation';
+import { checkoutSchema, fxRateQuerySchema, idParamSchema, orderIdParamSchema } from './payments.validation';
 import { validate } from '../../middleware/validate';
 import { requireAuth, requireBuyer } from '../../middleware/auth';
 import { asyncHandler } from '../../utils/asyncHandler';
 
 export const paymentsRouter = Router();
+
+/**
+ * @openapi
+ * /payments/fx-rates:
+ *   get:
+ *     summary: Server-authoritative INR→currency rate, consulted right before checkout (any authenticated buyer)
+ *     tags: [Payments]
+ *     responses:
+ *       200: { description: Current cached FX rate }
+ */
+paymentsRouter.get(
+  '/fx-rates',
+  requireAuth,
+  requireBuyer,
+  validate(fxRateQuerySchema, 'query'),
+  asyncHandler(paymentsController.getFxRate),
+);
 
 /**
  * @openapi
