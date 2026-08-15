@@ -10,16 +10,21 @@ import {
   UpdateCollectionDto,
 } from './collections.validation';
 
+function extractHeroImageFile(req: Request) {
+  const file = req.file as Express.Multer.File | undefined;
+  return file ? { buffer: file.buffer, originalname: file.originalname, mimetype: file.mimetype } : undefined;
+}
+
 export const collectionsController = {
   async create(req: Request, res: Response): Promise<void> {
     const dto = req.body as CreateCollectionDto;
-    const collection = await collectionsService.createCollection(dto);
+    const collection = await collectionsService.createCollection(dto, extractHeroImageFile(req));
     sendCreated(res, collection, 'Collection created');
   },
 
   async update(req: Request, res: Response): Promise<void> {
     const dto = req.body as UpdateCollectionDto;
-    const collection = await collectionsService.updateCollection(req.params.id, dto);
+    const collection = await collectionsService.updateCollection(req.params.id, dto, extractHeroImageFile(req));
     sendSuccess(res, collection, 'Collection updated');
   },
 

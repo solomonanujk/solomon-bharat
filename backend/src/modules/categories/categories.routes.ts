@@ -9,9 +9,11 @@ import {
 } from './categories.validation';
 import { validate } from '../../middleware/validate';
 import { optionalAuth, requireAdmin, requireAuth } from '../../middleware/auth';
+import { uploadImages } from '../../middleware/upload';
 import { asyncHandler } from '../../utils/asyncHandler';
 
 export const categoriesRouter = Router();
+const heroImageUpload = uploadImages.single('heroImage');
 
 /**
  * @openapi
@@ -78,6 +80,7 @@ categoriesRouter.post(
   '/',
   requireAuth,
   requireAdmin,
+  heroImageUpload,
   validate(createCategorySchema),
   asyncHandler(categoriesController.create),
 );
@@ -119,6 +122,7 @@ categoriesRouter.patch(
   '/:id',
   requireAuth,
   requireAdmin,
+  heroImageUpload,
   validate(categoryIdParamSchema, 'params'),
   validate(updateCategorySchema),
   asyncHandler(categoriesController.update),

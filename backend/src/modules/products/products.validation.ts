@@ -43,9 +43,6 @@ const variantSchema = z.object({
   type: z.string().min(1).max(50),
   value: z.string().min(1).max(100),
   sku: z.string().min(1).max(100).optional(),
-  sellerPrice: z.number().positive().optional(),
-  moq: z.number().int().positive().optional(),
-  stock: z.number().int().min(0).default(0),
   status: z.enum(['ACTIVE', 'INACTIVE', 'OUT_OF_STOCK']).default('ACTIVE'),
   imageUrl: z.string().url().optional(),
   attributes: z.array(variantAttributeSchema).min(1).optional(),
@@ -66,13 +63,9 @@ export const createProductSchema = z.object({
   declaredStock: z.coerce.number().int().min(0),
   sellerPrice: z.coerce.number().positive(),
   leadTime: z.string().max(200).optional(),
-  certifications: z.string().max(500).optional(),
   variants: jsonArrayField(variantSchema),
   tags: jsonArrayField(z.string().min(1).max(50)),
   stepQty: z.coerce.number().int().positive().default(1),
-  lengthCm: z.coerce.number().positive().optional(),
-  breadthCm: z.coerce.number().positive().optional(),
-  heightCm: z.coerce.number().positive().optional(),
   isHandmade: formBoolean(false),
   placeOfOrigin: z.string().max(200).optional(),
   isGITagged: formBoolean(false),
@@ -92,14 +85,10 @@ export const updateProductSchema = z.object({
   declaredStock: z.coerce.number().int().min(0).optional(),
   sellerPrice: z.coerce.number().positive().optional(),
   leadTime: z.string().max(200).optional(),
-  certifications: z.string().max(500).optional(),
   variants: jsonArrayField(variantSchema),
   removeImageIds: jsonArrayField(z.string().uuid()),
   tags: jsonArrayField(z.string().min(1).max(50)),
   stepQty: z.coerce.number().int().positive().optional(),
-  lengthCm: z.coerce.number().positive().optional(),
-  breadthCm: z.coerce.number().positive().optional(),
-  heightCm: z.coerce.number().positive().optional(),
   isHandmade: z
     .preprocess((val) => (val === 'true' ? true : val === 'false' ? false : val), z.boolean())
     .optional(),
@@ -119,9 +108,22 @@ export const polishFieldSchema = z.object({
 });
 export type PolishFieldDto = z.infer<typeof polishFieldSchema>;
 
-export const approveProductSchema = z.object({
+// Admin sets a price per seller MOQ tier rather than one flat price — `priceTiers`
+// targets the product's own flat tiers (no variants), `variantPriceTiers` targets
+// each variant's tiers. A product only ever has one or the other populated.
+const tierAdminPriceSchema = z.object({
+  id: z.string().uuid(),
   adminPrice: z.coerce.number().positive(),
 });
+
+export const approveProductSchema = z
+  .object({
+    priceTiers: z.array(tierAdminPriceSchema).optional(),
+    variantPriceTiers: z.array(tierAdminPriceSchema).optional(),
+  })
+  .refine((data) => (data.priceTiers?.length ?? 0) + (data.variantPriceTiers?.length ?? 0) > 0, {
+    message: 'Set an admin price for at least one tier',
+  });
 export type ApproveProductDto = z.infer<typeof approveProductSchema>;
 
 export const rejectProductSchema = z.object({
@@ -129,9 +131,7 @@ export const rejectProductSchema = z.object({
 });
 export type RejectProductDto = z.infer<typeof rejectProductSchema>;
 
-export const updatePriceSchema = z.object({
-  adminPrice: z.coerce.number().positive(),
-});
+export const updatePriceSchema = approveProductSchema;
 export type UpdatePriceDto = z.infer<typeof updatePriceSchema>;
 
 export const reassignCategorySchema = z.object({

@@ -18,8 +18,14 @@ export interface UpdateCategoryInput {
   name?: string;
   slug?: string;
   description?: string;
-  heroImage?: string;
+  heroImage?: string | null;
   sortOrder?: number;
+}
+
+export interface UploadedImageFile {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
 }
 
 export interface ReorderItem {

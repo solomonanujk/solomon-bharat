@@ -48,14 +48,24 @@ export interface CreateCategoryInput {
   level: 1 | 2 | 3
   parentId?: string
   description?: string
-  heroImage?: string
+  heroImage?: File
   sortOrder?: number
+}
+
+function toFormData(input: object): FormData {
+  const fd = new FormData()
+  for (const [key, value] of Object.entries(input)) {
+    if (value === undefined || value === null) continue
+    fd.append(key, value instanceof File ? value : String(value))
+  }
+  return fd
 }
 
 export function useCreateCategory() {
   const qc = useQueryClient()
   return useMutation<Category, Error, CreateCategoryInput>({
-    mutationFn: async (body) => (await api.post('/categories', body)).data.data,
+    mutationFn: async (body) =>
+      (await api.post('/categories', toFormData(body), { headers: { 'Content-Type': 'multipart/form-data' } })).data.data,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-category-tree'] })
       toast.success('Category created.')
@@ -64,10 +74,18 @@ export function useCreateCategory() {
   })
 }
 
+export interface UpdateCategoryInput extends Partial<Omit<CreateCategoryInput, 'heroImage' | 'level'>> {
+  slug?: string
+  heroImage?: File
+  /** Clears the hero image without uploading a replacement. */
+  removeHeroImage?: boolean
+}
+
 export function useUpdateCategory() {
   const qc = useQueryClient()
-  return useMutation<Category, Error, { id: string; data: Partial<CreateCategoryInput & { slug: string }> }>({
-    mutationFn: async ({ id, data }) => (await api.patch(`/categories/${id}`, data)).data.data,
+  return useMutation<Category, Error, { id: string; data: UpdateCategoryInput }>({
+    mutationFn: async ({ id, data }) =>
+      (await api.patch(`/categories/${id}`, toFormData(data), { headers: { 'Content-Type': 'multipart/form-data' } })).data.data,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-category-tree'] })
       toast.success('Category updated.')

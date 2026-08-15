@@ -86,17 +86,27 @@ function invalidateCollection(qc: ReturnType<typeof useQueryClient>, id?: string
 
 export interface CreateCollectionInput {
   name: string
-  heroImage?: string
+  heroImage?: File
   editorialIntro?: string
   isFeatured?: boolean
   status?: CollectionStatus
   publishAt?: string
 }
 
+function toFormData(input: object): FormData {
+  const fd = new FormData()
+  for (const [key, value] of Object.entries(input)) {
+    if (value === undefined || value === null) continue
+    fd.append(key, value instanceof File ? value : String(value))
+  }
+  return fd
+}
+
 export function useCreateCollection() {
   const qc = useQueryClient()
   return useMutation<Collection, Error, CreateCollectionInput>({
-    mutationFn: async (body) => (await api.post('/collections', body)).data.data,
+    mutationFn: async (body) =>
+      (await api.post('/collections', toFormData(body), { headers: { 'Content-Type': 'multipart/form-data' } })).data.data,
     onSuccess: () => {
       invalidateCollection(qc)
       toast.success('Collection created.')
@@ -105,10 +115,18 @@ export function useCreateCollection() {
   })
 }
 
+export interface UpdateCollectionInput extends Partial<Omit<CreateCollectionInput, 'heroImage'>> {
+  slug?: string
+  heroImage?: File
+  /** Clears the hero image without uploading a replacement. */
+  removeHeroImage?: boolean
+}
+
 export function useUpdateCollection() {
   const qc = useQueryClient()
-  return useMutation<Collection, Error, { id: string; data: Partial<CreateCollectionInput & { slug: string }> }>({
-    mutationFn: async ({ id, data }) => (await api.patch(`/collections/${id}`, data)).data.data,
+  return useMutation<Collection, Error, { id: string; data: UpdateCollectionInput }>({
+    mutationFn: async ({ id, data }) =>
+      (await api.patch(`/collections/${id}`, toFormData(data), { headers: { 'Content-Type': 'multipart/form-data' } })).data.data,
     onSuccess: (_, vars) => {
       invalidateCollection(qc, vars.id)
       toast.success('Collection updated.')

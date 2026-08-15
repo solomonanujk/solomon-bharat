@@ -7,6 +7,7 @@ import {
   ProductListFilter,
   ProductWithMedia,
   SellerProductListFilter,
+  TierAdminPriceInput,
   UpdateProductInput,
   VariantInput,
 } from './products.types';
@@ -26,9 +27,6 @@ type VariantCreateData = {
   type: string;
   value: string;
   sku?: string;
-  sellerPrice?: number;
-  moq?: number;
-  stock: number;
   status: 'ACTIVE' | 'INACTIVE' | 'OUT_OF_STOCK';
   imageUrl?: string;
   attributes: { create: { name: string; value: string }[] };
@@ -40,9 +38,6 @@ function toVariantCreateInput(v: VariantInput): VariantCreateData {
     type: v.type,
     value: v.value,
     sku: v.sku,
-    sellerPrice: v.sellerPrice,
-    moq: v.moq,
-    stock: v.stock ?? 0,
     status: v.status ?? 'ACTIVE',
     imageUrl: v.imageUrl,
     attributes: {
@@ -91,12 +86,8 @@ export class ProductsRepository {
         declaredStock: input.declaredStock,
         sellerPrice: input.sellerPrice,
         leadTime: input.leadTime,
-        certifications: input.certifications,
         tags: input.tags ?? [],
         stepQty: input.stepQty,
-        lengthCm: input.lengthCm,
-        breadthCm: input.breadthCm,
-        heightCm: input.heightCm,
         isHandmade: input.isHandmade,
         placeOfOrigin: input.placeOfOrigin,
         isGITagged: input.isGITagged,
@@ -176,6 +167,20 @@ export class ProductsRepository {
     >,
   ): Promise<Product> {
     return this.db.product.update({ where: { id }, data });
+  }
+
+  async updateProductTierAdminPrices(updates: TierAdminPriceInput[]): Promise<void> {
+    if (!updates.length) return;
+    await this.db.$transaction(
+      updates.map((u) => this.db.productPriceTier.update({ where: { id: u.id }, data: { adminPrice: u.adminPrice } })),
+    );
+  }
+
+  async updateVariantTierAdminPrices(updates: TierAdminPriceInput[]): Promise<void> {
+    if (!updates.length) return;
+    await this.db.$transaction(
+      updates.map((u) => this.db.variantPriceTier.update({ where: { id: u.id }, data: { adminPrice: u.adminPrice } })),
+    );
   }
 
   setCategory(id: string, categoryId: string): Promise<Product> {

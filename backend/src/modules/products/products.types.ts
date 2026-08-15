@@ -24,6 +24,12 @@ export interface PriceTierInput {
   sellerPrice: number;
 }
 
+/** Admin sets a price on an existing seller tier — identified by that tier's id. */
+export interface TierAdminPriceInput {
+  id: string;
+  adminPrice: number;
+}
+
 export interface VariantAttributeInput {
   name: string;
   value: string;
@@ -33,9 +39,6 @@ export interface VariantInput {
   type: string;
   value: string;
   sku?: string;
-  sellerPrice?: number;
-  moq?: number;
-  stock?: number;
   status?: 'ACTIVE' | 'INACTIVE' | 'OUT_OF_STOCK';
   imageUrl?: string;
   attributes?: VariantAttributeInput[];
@@ -53,13 +56,9 @@ export interface CreateProductInput {
   declaredStock: number;
   sellerPrice: number;
   leadTime?: string;
-  certifications?: string;
   variants?: VariantInput[];
   tags?: string[];
   stepQty?: number;
-  lengthCm?: number;
-  breadthCm?: number;
-  heightCm?: number;
   isHandmade?: boolean;
   placeOfOrigin?: string;
   isGITagged?: boolean;
@@ -78,14 +77,10 @@ export interface UpdateProductInput {
   declaredStock?: number;
   sellerPrice?: number;
   leadTime?: string;
-  certifications?: string;
   variants?: VariantInput[];
   removeImageIds?: string[];
   tags?: string[];
   stepQty?: number;
-  lengthCm?: number;
-  breadthCm?: number;
-  heightCm?: number;
   isHandmade?: boolean;
   placeOfOrigin?: string;
   isGITagged?: boolean;
@@ -132,7 +127,6 @@ export interface BuyerProduct {
   moq: number;
   adminPrice: string;
   leadTime: string | null;
-  certifications: string | null;
   categoryId: string;
   isFeatured: boolean;
   publishedAt: Date | null;
@@ -142,9 +136,6 @@ export interface BuyerProduct {
   reviewCount: number;
   tags: string[];
   stepQty: number;
-  lengthCm: number | null;
-  breadthCm: number | null;
-  heightCm: number | null;
   isHandmade: boolean;
   placeOfOrigin: string | null;
   isGITagged: boolean;
@@ -165,7 +156,6 @@ export interface SellerProduct {
   declaredStock: number;
   sellerPrice: string;
   leadTime: string | null;
-  certifications: string | null;
   categoryId: string;
   approvalStatus: ProductApprovalStatus;
   rejectionReason: string | null;
@@ -177,9 +167,6 @@ export interface SellerProduct {
   priceTiers: ProductPriceTier[];
   tags: string[];
   stepQty: number;
-  lengthCm: number | null;
-  breadthCm: number | null;
-  heightCm: number | null;
   isHandmade: boolean;
   placeOfOrigin: string | null;
   isGITagged: boolean;

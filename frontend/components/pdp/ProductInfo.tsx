@@ -100,7 +100,7 @@ function buildAxes(variants: Product['variants']) {
 export function ProductInfo({ product }: { product: Product }) {
   const {
     id, name, description, materials, dimensions, weight,
-    moq, adminPrice, leadTime, certifications, images, variants = [],
+    moq, adminPrice, leadTime, images, variants = [],
   } = product
 
   const [addedFeedback, setAddedFeedback] = useState(false)
@@ -117,10 +117,6 @@ export function ProductInfo({ product }: { product: Product }) {
 
   const { requireAuth } = useAuth()
   const addItem = useCartStore((s) => s.addItem)
-
-  const certificationList = certifications
-    ? certifications.split(',').map((c) => c.trim()).filter(Boolean)
-    : []
 
   function handleAddToCart() {
     requireAuth(() => {
@@ -209,20 +205,6 @@ export function ProductInfo({ product }: { product: Product }) {
         Min. order:&nbsp;
         <span className="font-[600] text-primary">{moq} units</span>
       </p>
-
-      {/* Certifications */}
-      {certificationList.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-5">
-          {certificationList.map((c) => (
-            <span
-              key={c}
-              className="inline-flex items-center bg-muted-bg border border-border-warm rounded-full px-3 py-1 text-[12px] font-[500] font-public-sans text-muted-text"
-            >
-              {c}
-            </span>
-          ))}
-        </div>
-      )}
 
       <div className="border-t border-border-warm mb-5" />
 

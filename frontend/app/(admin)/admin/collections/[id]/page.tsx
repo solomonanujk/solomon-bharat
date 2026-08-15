@@ -30,8 +30,8 @@ import { useImageLightbox } from '@/components/shared/ImageLightbox'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { HeroImageUpload } from '@/components/shared/HeroImageUpload'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import { cn } from '@/lib/utils'
 import type { Product } from '@/types'
 
 // ─── Product row (current membership) ─────────────────────────────────────────
@@ -201,7 +201,8 @@ export default function AdminCollectionDetailPage() {
   const removeProduct = useRemoveProductFromCollection()
 
   const [name, setName] = useState('')
-  const [heroImage, setHeroImage] = useState('')
+  const [heroImageFile, setHeroImageFile] = useState<File | null>(null)
+  const [heroImageRemoved, setHeroImageRemoved] = useState(false)
   const [editorialIntro, setEditorialIntro] = useState('')
   const [orderedProducts, setOrderedProducts] = useState<Product[]>([])
   const { openLightbox, lightboxNode } = useImageLightbox()
@@ -209,7 +210,8 @@ export default function AdminCollectionDetailPage() {
   useEffect(() => {
     if (!collection) return
     setName(collection.name)
-    setHeroImage(collection.heroImage ?? '')
+    setHeroImageFile(null)
+    setHeroImageRemoved(false)
     setEditorialIntro(collection.editorialIntro ?? '')
     setOrderedProducts(collection.products ?? [])
   }, [collection])
@@ -217,19 +219,29 @@ export default function AdminCollectionDetailPage() {
   const dirty =
     !!collection &&
     (name !== collection.name ||
-      heroImage !== (collection.heroImage ?? '') ||
+      !!heroImageFile ||
+      heroImageRemoved ||
       editorialIntro !== (collection.editorialIntro ?? ''))
 
   function handleSave() {
     if (!collection) return
-    updateCollection.mutate({
-      id: collection.id,
-      data: {
-        name: name.trim(),
-        heroImage: heroImage.trim() || undefined,
-        editorialIntro: editorialIntro.trim() || undefined,
+    updateCollection.mutate(
+      {
+        id: collection.id,
+        data: {
+          name: name.trim(),
+          heroImage: heroImageFile ?? undefined,
+          removeHeroImage: heroImageRemoved || undefined,
+          editorialIntro: editorialIntro.trim() || undefined,
+        },
       },
-    })
+      {
+        onSuccess: () => {
+          setHeroImageFile(null)
+          setHeroImageRemoved(false)
+        },
+      }
+    )
   }
 
   function persistOrder(next: Product[]) {
@@ -401,10 +413,13 @@ export default function AdminCollectionDetailPage() {
           <Label htmlFor="edit-name">Name</Label>
           <Input id="edit-name" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
-        <div>
-          <Label htmlFor="edit-hero-image">Hero image URL</Label>
-          <Input id="edit-hero-image" value={heroImage} onChange={(e) => setHeroImage(e.target.value)} placeholder="https://…" />
-        </div>
+        <HeroImageUpload
+          label="Hero image"
+          existingUrl={heroImageRemoved ? null : collection.heroImage}
+          file={heroImageFile}
+          onFileChange={setHeroImageFile}
+          onRemoveExisting={() => setHeroImageRemoved(true)}
+        />
         <div>
           <Label htmlFor="edit-intro">Editorial intro</Label>
           <textarea

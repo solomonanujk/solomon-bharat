@@ -34,6 +34,40 @@ const TEXTAREA_CLS =
 let _id = 0
 function uid() { return `v-${++_id}` }
 
+/** Two blank-price starter tiers (MOQ 20/30) so a fresh tier table shows what to fill
+ *  in rather than an empty table — the seller can edit the MOQs or add more tiers. */
+function defaultTierRows(): TierRow[] {
+  return [
+    { id: uid(), moq: '20', sellerPrice: '' },
+    { id: uid(), moq: '30', sellerPrice: '' },
+  ]
+}
+
+/** Same starter tiers for a variant combo, but with ids derived from the combo's own
+ *  key instead of the uid() counter — deterministic and pure, so it's safe to compute
+ *  fresh on every render (no ref/effect needed to keep row ids stable). */
+function defaultComboTierRows(comboKey: string): TierRow[] {
+  return [
+    { id: `${comboKey}::tier-20`, moq: '20', sellerPrice: '' },
+    { id: `${comboKey}::tier-30`, moq: '30', sellerPrice: '' },
+  ]
+}
+
+/** Best-effort parse of a legacy "L x B x H cm" string back into the 3 input fields. */
+function parseDimensions(dimensions: string | null | undefined): { length: string; breadth: string; height: string } | null {
+  if (!dimensions) return null
+  const match = dimensions.trim().match(/^(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*cm$/i)
+  if (!match) return null
+  return { length: match[1], breadth: match[2], height: match[3] }
+}
+
+/** Composes the 3 input fields back into a single "L x B x H cm" string for storage. */
+function composeDimensions(length: string, breadth: string, height: string): string | undefined {
+  const parts = [length, breadth, height].filter((p) => p.trim())
+  if (parts.length === 0) return undefined
+  return `${parts.join(' x ')} cm`
+}
+
 function cartesian<T>(arrays: T[][]): T[][] {
   if (!arrays.length) return []
   return arrays.reduce<T[][]>((acc, arr) => acc.flatMap((combo) => arr.map((val) => [...combo, val])), [[]])
@@ -255,19 +289,24 @@ export function ProductForm({ product }: ProductFormProps) {
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? '') // create-only, see below
   const [materials, setMaterials] = useState(product?.materials ?? '')
   const [tags, setTags] = useState(product?.tags?.length ? product.tags.join(', ') : '')
-  const [lengthCm, setLengthCm] = useState(product?.lengthCm != null ? String(product.lengthCm) : '')
-  const [breadthCm, setBreadthCm] = useState(product?.breadthCm != null ? String(product.breadthCm) : '')
-  const [heightCm, setHeightCm] = useState(product?.heightCm != null ? String(product.heightCm) : '')
+  const parsedDimensions = useMemo(() => parseDimensions(product?.dimensions), [product])
+  const [lengthCm, setLengthCm] = useState(parsedDimensions?.length ?? '')
+  const [breadthCm, setBreadthCm] = useState(parsedDimensions?.breadth ?? '')
+  const [heightCm, setHeightCm] = useState(parsedDimensions?.height ?? '')
   const [weight, setWeight] = useState(product?.weight != null ? String(product.weight) : '')
 
   // ── Trade terms ──────────────────────────────────────────────────────────────
-  const [moq, setMoq] = useState(product?.moq != null ? String(product.moq) : '')
+  // No standalone MOQ/Seller Price fields — pricing always comes from tiers (flat
+  // tiers here, or each variant's own tiers when variants are enabled), and the
+  // product-level moq/sellerPrice the backend requires are derived from the
+  // cheapest tier on save.
   const [declaredStock, setDeclaredStock] = useState(product?.declaredStock != null ? String(product.declaredStock) : '')
-  const [sellerPrice, setSellerPrice] = useState(product?.sellerPrice != null ? String(product.sellerPrice) : '')
   const [leadTime, setLeadTime] = useState(product?.leadTime ?? '')
   const [stepQty, setStepQty] = useState(product?.stepQty != null ? String(product.stepQty) : '1')
   const [priceTiers, setPriceTiers] = useState<TierRow[]>(
-    product?.priceTiers?.length ? product.priceTiers.map((t) => ({ id: uid(), moq: String(t.moq), sellerPrice: String(t.sellerPrice) })) : []
+    product?.priceTiers?.length
+      ? product.priceTiers.map((t) => ({ id: uid(), moq: String(t.moq), sellerPrice: String(t.sellerPrice) }))
+      : defaultTierRows()
   )
 
   // ── Product attributes / craft story ────────────────────────────────────────
@@ -379,33 +418,39 @@ export function ProductForm({ product }: ProductFormProps) {
     }))
   }, [sizeValues, colorValues, materialValues, customValues, customAxisName])
 
+  // A combo with no entry yet in `variantPricing` gets the same 2 blank-price
+  // starter tiers as the flat table — deterministic ids keep them stable across
+  // renders without needing a ref or effect — and are only committed to real state
+  // on the seller's first edit; existing combos are never touched by this.
+  function getDefaultVP(key: string): VariantPricing {
+    return { sku: '', tiers: defaultComboTierRows(key) }
+  }
+
   function getVP(combo: VariantCombo): VariantPricing {
-    return variantPricing[combo.key] ?? { sku: '', tiers: [] }
+    return variantPricing[combo.key] ?? getDefaultVP(combo.key)
   }
   function autoSku(combo: VariantCombo): string {
     const prefix = name.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').toUpperCase().slice(0, 12) || 'PROD'
     return `${prefix}-${combo.key.replace(/[^a-zA-Z0-9]/g, '-').toUpperCase()}`
   }
   function setVPSku(key: string, value: string) {
-    setVariantPricing((p) => ({ ...p, [key]: { ...(p[key] ?? { sku: '', tiers: [] }), sku: value } }))
+    setVariantPricing((p) => ({ ...p, [key]: { ...(p[key] ?? getDefaultVP(key)), sku: value } }))
   }
   function addVPTier(key: string) {
     setVariantPricing((p) => {
-      const vp = p[key] ?? { sku: '', tiers: [] }
+      const vp = p[key] ?? getDefaultVP(key)
       return { ...p, [key]: { ...vp, tiers: [...vp.tiers, { id: uid(), moq: '', sellerPrice: '' }] } }
     })
   }
   function removeVPTier(key: string, tierId: string) {
     setVariantPricing((p) => {
-      const vp = p[key]
-      if (!vp) return p
+      const vp = p[key] ?? getDefaultVP(key)
       return { ...p, [key]: { ...vp, tiers: vp.tiers.filter((t) => t.id !== tierId) } }
     })
   }
   function updateVPTier(key: string, tierId: string, field: 'moq' | 'sellerPrice', value: string) {
     setVariantPricing((p) => {
-      const vp = p[key]
-      if (!vp) return p
+      const vp = p[key] ?? getDefaultVP(key)
       return { ...p, [key]: { ...vp, tiers: vp.tiers.map((t) => (t.id === tierId ? { ...t, [field]: value } : t)) } }
     })
   }
@@ -415,24 +460,18 @@ export function ProductForm({ product }: ProductFormProps) {
   }
 
   function buildVariantPayload(): SubmitVariantInput[] {
-    // Stock isn't collected per variant — every variant carries the single Declared
-    // Stock value from Trade Terms instead of its own figure.
-    const sharedStock = declaredStock ? Number(declaredStock) : 0
+    // Stock and price/moq aren't stored per variant — stock always uses the single
+    // Declared Stock value above, and price/moq live solely in each variant's own
+    // priceTiers (its cheapest tier is used wherever "the" price is needed).
     return variantCombos.map((combo) => {
       const vp = getVP(combo)
       const validTiers = [...validTiersFor(combo)].sort((a, b) => Number(a.sellerPrice) - Number(b.sellerPrice))
-      const cheapest = validTiers[0]
       const primary = combo.attributes[0]
       return {
         type: primary.name,
         value: primary.value,
         sku: vp.sku.trim() || autoSku(combo),
-        stock: sharedStock,
         attributes: combo.attributes,
-        // The variant's own price/moq mirror its cheapest tier, same as its tier list —
-        // gives a quick single price to show without recomputing from tiers.
-        sellerPrice: cheapest ? Number(cheapest.sellerPrice) : undefined,
-        moq: cheapest ? Number(cheapest.moq) : undefined,
         priceTiers: validTiers.length
           ? validTiers.map((t) => ({ moq: Number(t.moq), sellerPrice: Number(t.sellerPrice) }))
           : undefined,
@@ -440,16 +479,24 @@ export function ProductForm({ product }: ProductFormProps) {
     })
   }
 
-  /** Derives the product-level MOQ/Seller Price from each variant's cheapest tier —
-   *  mirrors solomon-bharat2, which requires the base fields regardless of variants. */
-  function computeVariantBasePricing(): { moq: number; sellerPrice: number } | null {
-    if (variantCombos.length === 0) return null
-    const cheapestPerCombo: (TierRow | undefined)[] = variantCombos.map(
-      (combo) => [...validTiersFor(combo)].sort((a, b) => Number(a.sellerPrice) - Number(b.sellerPrice))[0]
-    )
-    if (cheapestPerCombo.some((t) => !t)) return null
-    const valid = cheapestPerCombo as TierRow[]
-    const cheapest = valid.reduce((min, t) => (Number(t.sellerPrice) < Number(min.sellerPrice) ? t : min))
+  /** Derives the product-level MOQ/Seller Price the backend requires from the
+   *  cheapest tier — each variant's own tiers when variants are enabled, or the
+   *  flat Volume Pricing tiers otherwise. There's no standalone MOQ/Seller Price
+   *  field anymore; pricing always lives in a tier. */
+  function computeBasePricing(): { moq: number; sellerPrice: number } | null {
+    if (variantsEnabled) {
+      if (variantCombos.length === 0) return null
+      const cheapestPerCombo: (TierRow | undefined)[] = variantCombos.map(
+        (combo) => [...validTiersFor(combo)].sort((a, b) => Number(a.sellerPrice) - Number(b.sellerPrice))[0]
+      )
+      if (cheapestPerCombo.some((t) => !t)) return null
+      const valid = cheapestPerCombo as TierRow[]
+      const cheapest = valid.reduce((min, t) => (Number(t.sellerPrice) < Number(min.sellerPrice) ? t : min))
+      return { moq: Number(cheapest.moq), sellerPrice: Number(cheapest.sellerPrice) }
+    }
+    const validFlatTiers = priceTiers.filter((t) => Number(t.moq) > 0 && Number(t.sellerPrice) > 0)
+    if (!validFlatTiers.length) return null
+    const cheapest = [...validFlatTiers].sort((a, b) => Number(a.sellerPrice) - Number(b.sellerPrice))[0]
     return { moq: Number(cheapest.moq), sellerPrice: Number(cheapest.sellerPrice) }
   }
 
@@ -485,27 +532,27 @@ export function ProductForm({ product }: ProductFormProps) {
     if (variantsEnabled) {
       if (variantCombos.length === 0) return 'Add at least one size, color, material, or other value, or turn off variants.'
       const uncosted = variantCombos.find((combo) => validTiersFor(combo).length === 0)
-      if (uncosted) return `Set a price and MOQ for "${uncosted.label}".`
+      if (uncosted) return `Set a price for "${uncosted.label}".`
     } else {
-      if (!moq || Number(moq) <= 0) return 'MOQ must be a positive number.'
-      if (!sellerPrice || Number(sellerPrice) <= 0) return 'Seller price must be a positive number.'
+      const hasPricedTier = priceTiers.some((t) => Number(t.moq) > 0 && Number(t.sellerPrice) > 0)
+      if (!hasPricedTier) return 'Set a price for at least one MOQ tier.'
     }
     return null
   }
 
   function buildPayload() {
-    const variantBase = variantsEnabled ? computeVariantBasePricing() : null
+    const basePricing = computeBasePricing()
     return {
       name: name.trim(),
       description: description.trim(),
       materials: materials.trim(),
-      lengthCm: lengthCm ? Number(lengthCm) : undefined,
-      breadthCm: breadthCm ? Number(breadthCm) : undefined,
-      heightCm: heightCm ? Number(heightCm) : undefined,
+      dimensions: composeDimensions(lengthCm, breadthCm, heightCm),
       weight: weight ? Number(weight) : undefined,
-      moq: variantBase ? variantBase.moq : Number(moq),
+      // validate() already guarantees a priced tier exists (flat or per-variant)
+      // before submit is reachable, so basePricing is never null here in practice.
+      moq: basePricing?.moq ?? 0,
       declaredStock: Number(declaredStock),
-      sellerPrice: variantBase ? variantBase.sellerPrice : Number(sellerPrice),
+      sellerPrice: basePricing?.sellerPrice ?? 0,
       leadTime: leadTime.trim() || undefined,
       stepQty: Number(stepQty) || 1,
       tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
@@ -730,7 +777,7 @@ export function ProductForm({ product }: ProductFormProps) {
                 placeholder="e.g. 10" className={INPUT_CLS} />
             </Field>
           </div>
-          {isEdit && product?.dimensions && !lengthCm && !breadthCm && !heightCm && (
+          {isEdit && product?.dimensions && !parsedDimensions && (
             <p className="text-[12px] font-public-sans text-muted-text">Previously recorded as: {product.dimensions}</p>
           )}
         </Section>
@@ -811,8 +858,8 @@ export function ProductForm({ product }: ProductFormProps) {
               {variantCombos.length > 0 && (
                 <div className="space-y-4 pt-1">
                   <p className="text-[12px] font-public-sans text-muted-text">
-                    Set a SKU (optional) and at least one price tier for each variant. Stock uses the
-                    Declared Stock value below for every variant.
+                    Set a SKU (optional) for each variant, then edit the MOQs, add more tiers, or fill in
+                    a price for each. Stock uses the Declared Stock value below for every variant.
                   </p>
                   {variantCombos.map((combo) => {
                     const vp = getVP(combo)
@@ -865,22 +912,9 @@ export function ProductForm({ product }: ProductFormProps) {
           </div>
 
           {!variantsEnabled && (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="MOQ (units)" required>
-                  <input type="number" min="1" value={moq} onChange={(e) => setMoq(e.target.value)} disabled={locked}
-                    placeholder="e.g. 50" className={INPUT_CLS} />
-                </Field>
-                <Field label="Seller Price (₹ per unit)" required hint="What Solomon Bharat pays you.">
-                  <input type="number" min="0" step="0.01" value={sellerPrice} onChange={(e) => setSellerPrice(e.target.value)} disabled={locked}
-                    placeholder="e.g. 450" className={INPUT_CLS} />
-                </Field>
-              </div>
-
-              <Field label="Volume Pricing (optional)" hint="Offer a lower per-unit price at higher order quantities.">
-                <TierTable tiers={priceTiers} onAdd={addTier} onRemove={removeTier} onUpdate={updateTier} disabled={locked} />
-              </Field>
-            </>
+            <Field label="Volume Pricing" required hint="What Solomon Bharat pays you per unit at each order quantity. Edit the MOQs, add more tiers, or fill in a price for each.">
+              <TierTable tiers={priceTiers} onAdd={addTier} onRemove={removeTier} onUpdate={updateTier} disabled={locked} />
+            </Field>
           )}
 
           <Field label="Lead Time" hint="Pick a preset or type your own.">

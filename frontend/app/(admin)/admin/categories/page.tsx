@@ -11,6 +11,7 @@ import {
 } from '@/hooks/queries/useCategories'
 import type { CategoryNode } from '@/types'
 import { Button } from '@/components/ui/button'
+import { HeroImageUpload } from '@/components/shared/HeroImageUpload'
 import { cn } from '@/lib/utils'
 
 const INPUT_CLS =
@@ -31,12 +32,13 @@ function CategoryFormModal({
 }: {
   target: FormTarget
   onClose: () => void
-  onSubmit: (data: { name: string; description?: string; heroImage?: string; sortOrder?: number }) => void
+  onSubmit: (data: { name: string; description?: string; heroImage?: File; removeHeroImage?: boolean; sortOrder?: number }) => void
   submitting: boolean
 }) {
   const [name, setName] = useState(target.category?.name ?? '')
   const [description, setDescription] = useState(target.category?.description ?? '')
-  const [heroImage, setHeroImage] = useState(target.category?.heroImage ?? '')
+  const [heroImageFile, setHeroImageFile] = useState<File | null>(null)
+  const [heroImageRemoved, setHeroImageRemoved] = useState(false)
   const [sortOrder, setSortOrder] = useState(target.category?.sortOrder != null ? String(target.category.sortOrder) : '')
 
   const heading = target.mode === 'edit'
@@ -73,15 +75,13 @@ function CategoryFormModal({
               className="w-full px-3 py-2 rounded border border-border-warm bg-muted-bg/30 text-[14px] font-public-sans text-primary placeholder:text-muted-text/40 focus:outline-none focus:border-accent transition-colors resize-none"
             />
           </div>
-          <div>
-            <label className="block text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.05em] mb-1.5">
-              Hero Image URL <span className="normal-case font-[400] text-muted-text/70">(optional)</span>
-            </label>
-            <input
-              type="text" value={heroImage ?? ''} onChange={(e) => setHeroImage(e.target.value)}
-              placeholder="https://…" className={INPUT_CLS}
-            />
-          </div>
+          <HeroImageUpload
+            label="Hero Image"
+            existingUrl={heroImageRemoved ? null : target.category?.heroImage}
+            file={heroImageFile}
+            onFileChange={setHeroImageFile}
+            onRemoveExisting={() => setHeroImageRemoved(true)}
+          />
           <div>
             <label className="block text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.05em] mb-1.5">
               Sort Order <span className="normal-case font-[400] text-muted-text/70">(optional — lower shows first)</span>
@@ -99,7 +99,8 @@ function CategoryFormModal({
               onClick={() => onSubmit({
                 name: name.trim(),
                 description: description.trim() || undefined,
-                heroImage: heroImage.trim() || undefined,
+                heroImage: heroImageFile ?? undefined,
+                removeHeroImage: heroImageRemoved || undefined,
                 sortOrder: sortOrder !== '' ? Number(sortOrder) : undefined,
               })}
             >
@@ -276,7 +277,7 @@ export default function AdminCategoriesPage() {
   const [formTarget, setFormTarget] = useState<FormTarget | null>(null)
   const [removeTarget, setRemoveTarget] = useState<CategoryNode | null>(null)
 
-  function handleFormSubmit(data: { name: string; description?: string; heroImage?: string; sortOrder?: number }) {
+  function handleFormSubmit(data: { name: string; description?: string; heroImage?: File; removeHeroImage?: boolean; sortOrder?: number }) {
     if (!formTarget) return
     if (formTarget.mode === 'create') {
       createCategory.mutate(

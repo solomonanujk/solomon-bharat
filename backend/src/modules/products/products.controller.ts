@@ -74,7 +74,7 @@ export const productsController = {
 
   async approve(req: Request, res: Response): Promise<void> {
     const dto = req.body as ApproveProductDto;
-    const product = await productsService.approveProduct(req.params.id, dto.adminPrice, req.user!.id);
+    const product = await productsService.approveProduct(req.params.id, dto.priceTiers, dto.variantPriceTiers, req.user!.id);
     sendSuccess(res, product, 'Product approved and published');
   },
 
@@ -86,7 +86,7 @@ export const productsController = {
 
   async updatePrice(req: Request, res: Response): Promise<void> {
     const dto = req.body as UpdatePriceDto;
-    const product = await productsService.updatePrice(req.params.id, dto.adminPrice, req.user!.id);
+    const product = await productsService.updatePrice(req.params.id, dto.priceTiers, dto.variantPriceTiers, req.user!.id);
     sendSuccess(res, product, 'Selling price updated');
   },
 

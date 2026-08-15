@@ -78,8 +78,12 @@ export interface ProductImage {
 }
 
 export interface ProductPriceTier {
+  /** Absent for a tier the seller hasn't saved yet (not yet assigned a real id). */
+  id?: string
   moq: number
   sellerPrice: number
+  /** Set separately by an admin, per tier — never visible to sellers or buyers directly. */
+  adminPrice?: number | null
 }
 
 export interface VariantAttribute {
@@ -94,9 +98,6 @@ export interface ProductVariant {
   type: string
   value: string
   sku?: string | null
-  sellerPrice?: number | null
-  moq?: number | null
-  stock?: number
   status?: VariantStatus
   imageUrl?: string | null
   attributes?: VariantAttribute[]
@@ -107,9 +108,6 @@ export interface ProductVariant {
 export interface ProductListingDetails {
   tags: string[]
   stepQty: number
-  lengthCm: number | null
-  breadthCm: number | null
-  heightCm: number | null
   isHandmade: boolean
   placeOfOrigin: string | null
   isGITagged: boolean
@@ -129,7 +127,6 @@ export interface Product extends ProductListingDetails {
   moq: number
   adminPrice: number
   leadTime: string | null
-  certifications: string | null
   categoryId: string
   isFeatured: boolean
   publishedAt: string | null
@@ -153,7 +150,6 @@ export interface MyProduct extends ProductListingDetails {
   declaredStock: number
   sellerPrice: number
   leadTime: string | null
-  certifications: string | null
   categoryId: string
   approvalStatus: ApprovalStatus
   rejectionReason: string | null

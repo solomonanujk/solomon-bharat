@@ -6,7 +6,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
-import { cn, formatINR } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { useMyProducts, useResubmitProduct, useDeleteMyProduct } from '@/hooks/queries/useProducts'
 import { useCategoryTree } from '@/hooks/queries/useCategories'
 import { categoryPathLabel } from '@/components/seller-portal/CategoryCascade'
@@ -131,7 +131,7 @@ export default function ProductsPage() {
               <table className="w-full min-w-[720px]">
                 <thead>
                   <tr className="border-b border-border-warm">
-                    {['', 'Product', 'Category', 'Seller Price', 'Declared Stock', 'Status', 'Submitted', 'Actions'].map((col) => (
+                    {['', 'Product', 'Category', 'Declared Stock', 'Status', 'Submitted', 'Actions'].map((col) => (
                       <th key={col} className="px-4 py-3 text-left text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.04em]">
                         {col}
                       </th>
@@ -175,9 +175,6 @@ export default function ProductsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="tabular-nums text-[14px] font-public-sans">{formatINR(product.sellerPrice)}</span>
-                        </td>
-                        <td className="px-4 py-3">
                           <span className="tabular-nums text-[14px] font-public-sans text-muted-text">{product.declaredStock}</span>
                         </td>
                         <td className="px-4 py-3">
@@ -196,7 +193,7 @@ export default function ProductsPage() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             {canEdit && (
-                              <Link href={`/portal/products/${product.id}`} className="text-[12px] font-[600] font-public-sans text-accent hover:text-accent-hover underline underline-offset-2 transition-colors">
+                              <Link href={`/portal/products/${product.id}/edit`} className="text-[12px] font-[600] font-public-sans text-accent hover:text-accent-hover underline underline-offset-2 transition-colors">
                                 Edit
                               </Link>
                             )}

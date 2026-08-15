@@ -123,17 +123,24 @@ describe('products controller', () => {
   });
 
   describe('POST /api/v1/products/admin/:id/approve', () => {
-    it('approves with a valid adminPrice', async () => {
+    const TIER_ID = '22222222-2222-2222-2222-222222222222';
+
+    it('approves with a valid per-tier adminPrice', async () => {
       vi.mocked(productsService.approveProduct).mockResolvedValue({ id: PRODUCT_ID } as never);
       const res = await request(app)
         .post(`/api/v1/products/admin/${PRODUCT_ID}/approve`)
         .set(authHeader(Role.SUPER_ADMIN))
-        .send({ adminPrice: 25 });
+        .send({ priceTiers: [{ id: TIER_ID, adminPrice: 25 }] });
       expect(res.status).toBe(200);
-      expect(productsService.approveProduct).toHaveBeenCalledWith(PRODUCT_ID, 25, expect.any(String));
+      expect(productsService.approveProduct).toHaveBeenCalledWith(
+        PRODUCT_ID,
+        [{ id: TIER_ID, adminPrice: 25 }],
+        undefined,
+        expect.any(String),
+      );
     });
 
-    it('rejects a missing adminPrice with 422', async () => {
+    it('rejects a request with no tiers priced with 422', async () => {
       const res = await request(app)
         .post(`/api/v1/products/admin/${PRODUCT_ID}/approve`)
         .set(authHeader(Role.SUPER_ADMIN))

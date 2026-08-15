@@ -112,9 +112,6 @@ export interface SubmitVariantInput {
   type: string
   value: string
   sku?: string
-  sellerPrice?: number
-  moq?: number
-  stock?: number
   status?: VariantStatus
   imageUrl?: string
   attributes?: VariantAttribute[]
@@ -132,14 +129,10 @@ export interface SubmitProductInput {
   declaredStock: number
   sellerPrice: number
   leadTime?: string
-  certifications?: string
   variants?: SubmitVariantInput[]
   images: File[]
   tags?: string[]
   stepQty?: number
-  lengthCm?: number
-  breadthCm?: number
-  heightCm?: number
   isHandmade?: boolean
   placeOfOrigin?: string
   isGITagged?: boolean
@@ -258,10 +251,22 @@ function invalidateProduct(qc: ReturnType<typeof useQueryClient>, id: string) {
   qc.invalidateQueries({ queryKey: ['admin-product', id] })
 }
 
+export interface TierAdminPriceInput {
+  id: string
+  adminPrice: number
+}
+
+export interface TierAdminPricingPayload {
+  id: string
+  priceTiers?: TierAdminPriceInput[]
+  variantPriceTiers?: TierAdminPriceInput[]
+}
+
 export function useApproveProduct() {
   const qc = useQueryClient()
-  return useMutation<unknown, Error, { id: string; adminPrice: number }>({
-    mutationFn: ({ id, adminPrice }) => api.post(`/products/admin/${id}/approve`, { adminPrice }),
+  return useMutation<unknown, Error, TierAdminPricingPayload>({
+    mutationFn: ({ id, priceTiers, variantPriceTiers }) =>
+      api.post(`/products/admin/${id}/approve`, { priceTiers, variantPriceTiers }),
     onSuccess: (_, vars) => {
       invalidateProduct(qc, vars.id)
       toast.success('Product approved and published.')
@@ -284,8 +289,9 @@ export function useRejectProduct() {
 
 export function useSetAdminPrice() {
   const qc = useQueryClient()
-  return useMutation<unknown, Error, { id: string; adminPrice: number }>({
-    mutationFn: ({ id, adminPrice }) => api.patch(`/products/admin/${id}/price`, { adminPrice }),
+  return useMutation<unknown, Error, TierAdminPricingPayload>({
+    mutationFn: ({ id, priceTiers, variantPriceTiers }) =>
+      api.patch(`/products/admin/${id}/price`, { priceTiers, variantPriceTiers }),
     onSuccess: (_, vars) => {
       invalidateProduct(qc, vars.id)
       toast.success('Selling price updated.')

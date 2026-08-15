@@ -3,6 +3,11 @@ import { sendCreated, sendSuccess } from '../../utils/response';
 import { categoriesService } from './categories.service';
 import { CreateCategoryDto, ReorderCategoriesDto, UpdateCategoryDto } from './categories.validation';
 
+function extractHeroImageFile(req: Request) {
+  const file = req.file as Express.Multer.File | undefined;
+  return file ? { buffer: file.buffer, originalname: file.originalname, mimetype: file.mimetype } : undefined;
+}
+
 export const categoriesController = {
   async getPublicTree(_req: Request, res: Response): Promise<void> {
     const tree = await categoriesService.getPublicTree();
@@ -22,13 +27,13 @@ export const categoriesController = {
 
   async create(req: Request, res: Response): Promise<void> {
     const dto = req.body as CreateCategoryDto;
-    const category = await categoriesService.createCategory(dto);
+    const category = await categoriesService.createCategory(dto, extractHeroImageFile(req));
     sendCreated(res, category, 'Category created');
   },
 
   async update(req: Request, res: Response): Promise<void> {
     const dto = req.body as UpdateCategoryDto;
-    const category = await categoriesService.updateCategory(req.params.id, dto);
+    const category = await categoriesService.updateCategory(req.params.id, dto, extractHeroImageFile(req));
     sendSuccess(res, category, 'Category updated');
   },
 

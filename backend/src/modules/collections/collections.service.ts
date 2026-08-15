@@ -2,6 +2,7 @@ import { Collection, CollectionStatus } from '@prisma/client';
 import { AppError } from '../../utils/errors';
 import { slugify, uniqueSlugSuffix } from '../../utils/helpers';
 import { writeAuditLog } from '../../utils/auditLog';
+import { storageProvider } from '../../providers/storage';
 import { PaginationQuery } from '../../utils/pagination';
 import { cache as defaultCache, bumpVersion, CacheClient, versionedListKey } from '../../utils/cache';
 import { ProductsService, productsService } from '../products/products.service';
@@ -12,6 +13,7 @@ import {
   CreateCollectionInput,
   ReorderMembershipItem,
   UpdateCollectionInput,
+  UploadedImageFile,
 } from './collections.types';
 
 const FEATURED_CACHE_KEY = 'collections:featured';
@@ -49,14 +51,24 @@ export class CollectionsService {
     return slug;
   }
 
-  async createCollection(input: CreateCollectionInput): Promise<Collection> {
+  private async uploadHeroImage(file: UploadedImageFile): Promise<string> {
+    const uploaded = await storageProvider.uploadImage(file.buffer, `${Date.now()}-${file.originalname}`, 'collections');
+    return uploaded.url;
+  }
+
+  async createCollection(input: CreateCollectionInput, heroImageFile?: UploadedImageFile): Promise<Collection> {
     const slug = await this.generateUniqueSlug(input.name);
-    const collection = await this.repo.create({ ...input, slug });
+    const heroImage = heroImageFile ? await this.uploadHeroImage(heroImageFile) : input.heroImage;
+    const collection = await this.repo.create({ ...input, slug, heroImage });
     await this.invalidateListCaches();
     return collection;
   }
 
-  async updateCollection(id: string, input: UpdateCollectionInput): Promise<Collection> {
+  async updateCollection(
+    id: string,
+    input: UpdateCollectionInput & { removeHeroImage?: boolean },
+    heroImageFile?: UploadedImageFile,
+  ): Promise<Collection> {
     await this.getByIdOrThrow(id);
     if (input.slug) {
       const existing = await this.repo.findBySlug(input.slug);
@@ -64,7 +76,13 @@ export class CollectionsService {
         throw AppError.conflict('This slug is already in use');
       }
     }
-    const collection = await this.repo.update(id, input);
+    const { removeHeroImage, ...rest } = input;
+    const heroImage = heroImageFile
+      ? await this.uploadHeroImage(heroImageFile)
+      : removeHeroImage
+        ? null
+        : undefined;
+    const collection = await this.repo.update(id, { ...rest, ...(heroImage !== undefined && { heroImage }) });
     await this.invalidateListCaches();
     return collection;
   }

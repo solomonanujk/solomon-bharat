@@ -1,6 +1,7 @@
 import { Category, CategoryStatus } from '@prisma/client';
 import { AppError } from '../../utils/errors';
 import { slugify, uniqueSlugSuffix } from '../../utils/helpers';
+import { storageProvider } from '../../providers/storage';
 import { cache as defaultCache, CacheClient } from '../../utils/cache';
 import { CategoriesRepository, categoriesRepository } from './categories.repository';
 import {
@@ -10,6 +11,7 @@ import {
   CreateCategoryInput,
   ReorderItem,
   UpdateCategoryInput,
+  UploadedImageFile,
 } from './categories.types';
 
 const PUBLIC_TREE_CACHE_KEY = 'categories:public-tree';
@@ -71,7 +73,12 @@ export class CategoriesService {
     return category;
   }
 
-  async createCategory(input: CreateCategoryInput): Promise<Category> {
+  private async uploadHeroImage(file: UploadedImageFile): Promise<string> {
+    const uploaded = await storageProvider.uploadImage(file.buffer, `${Date.now()}-${file.originalname}`, 'categories');
+    return uploaded.url;
+  }
+
+  async createCategory(input: CreateCategoryInput, heroImageFile?: UploadedImageFile): Promise<Category> {
     if (input.level !== 1) {
       const parent = await this.getByIdOrThrow(input.parentId as string);
       if (parent.level !== input.level - 1) {
@@ -82,12 +89,17 @@ export class CategoriesService {
     }
 
     const slug = await this.generateUniqueSlug(input.name);
-    const category = await this.repo.create({ ...input, slug });
+    const heroImage = heroImageFile ? await this.uploadHeroImage(heroImageFile) : input.heroImage;
+    const category = await this.repo.create({ ...input, slug, heroImage });
     await this.invalidatePublicTreeCache();
     return category;
   }
 
-  async updateCategory(id: string, input: UpdateCategoryInput): Promise<Category> {
+  async updateCategory(
+    id: string,
+    input: UpdateCategoryInput & { removeHeroImage?: boolean },
+    heroImageFile?: UploadedImageFile,
+  ): Promise<Category> {
     await this.getByIdOrThrow(id);
 
     if (input.slug) {
@@ -97,7 +109,13 @@ export class CategoriesService {
       }
     }
 
-    const category = await this.repo.update(id, input);
+    const { removeHeroImage, ...rest } = input;
+    const heroImage = heroImageFile
+      ? await this.uploadHeroImage(heroImageFile)
+      : removeHeroImage
+        ? null
+        : undefined;
+    const category = await this.repo.update(id, { ...rest, ...(heroImage !== undefined && { heroImage }) });
     await this.invalidatePublicTreeCache();
     return category;
   }

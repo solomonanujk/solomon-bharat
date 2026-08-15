@@ -13,9 +13,11 @@ import {
 import { paginationQuerySchema } from '../../utils/pagination';
 import { validate } from '../../middleware/validate';
 import { requireAdmin, requireAuth } from '../../middleware/auth';
+import { uploadImages } from '../../middleware/upload';
 import { asyncHandler } from '../../utils/asyncHandler';
 
 export const collectionsRouter = Router();
+const heroImageUpload = uploadImages.single('heroImage');
 
 // ── Admin ──────────────────────────────────────────────────────────────
 
@@ -67,6 +69,7 @@ collectionsRouter.post(
   '/',
   requireAuth,
   requireAdmin,
+  heroImageUpload,
   validate(createCollectionSchema),
   asyncHandler(collectionsController.create),
 );
@@ -85,6 +88,7 @@ collectionsRouter.patch(
   '/:id',
   requireAuth,
   requireAdmin,
+  heroImageUpload,
   validate(idParamSchema, 'params'),
   validate(updateCollectionSchema),
   asyncHandler(collectionsController.update),

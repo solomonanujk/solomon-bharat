@@ -20,6 +20,7 @@ import {
   ProductWithMedia,
   SellerProduct,
   SellerProductListFilter,
+  TierAdminPriceInput,
   UpdateProductInput,
   UploadedImageFile,
 } from './products.types';
@@ -47,7 +48,6 @@ function toBuyerProduct(
     moq: product.moq,
     adminPrice: product.adminPrice ? product.adminPrice.toString() : '0',
     leadTime: product.leadTime,
-    certifications: product.certifications,
     categoryId: product.categoryId,
     isFeatured: product.isFeatured,
     publishedAt: product.publishedAt,
@@ -57,9 +57,6 @@ function toBuyerProduct(
     reviewCount: rating?.reviewCount ?? 0,
     tags: product.tags,
     stepQty: product.stepQty,
-    lengthCm: product.lengthCm,
-    breadthCm: product.breadthCm,
-    heightCm: product.heightCm,
     isHandmade: product.isHandmade,
     placeOfOrigin: product.placeOfOrigin,
     isGITagged: product.isGITagged,
@@ -81,7 +78,6 @@ function toSellerProduct(product: ProductWithMedia): SellerProduct {
     declaredStock: product.declaredStock,
     sellerPrice: product.sellerPrice.toString(),
     leadTime: product.leadTime,
-    certifications: product.certifications,
     categoryId: product.categoryId,
     approvalStatus: product.approvalStatus,
     rejectionReason: product.rejectionReason,
@@ -93,9 +89,6 @@ function toSellerProduct(product: ProductWithMedia): SellerProduct {
     priceTiers: product.priceTiers,
     tags: product.tags,
     stepQty: product.stepQty,
-    lengthCm: product.lengthCm,
-    breadthCm: product.breadthCm,
-    heightCm: product.heightCm,
     isHandmade: product.isHandmade,
     placeOfOrigin: product.placeOfOrigin,
     isGITagged: product.isGITagged,
@@ -286,11 +279,62 @@ export class ProductsService {
     await this.invalidatePublishedListCache();
   }
 
-  async approveProduct(productId: string, adminPrice: number, adminId: string): Promise<Product> {
+  /**
+   * Admin sets a price per seller MOQ tier rather than one flat price — this writes
+   * the given tiers' adminPrice (product-level flat tiers, or each variant's own
+   * tiers), then derives the single Product.adminPrice as the cheapest tier priced
+   * across whichever set applies, the same way Product.sellerPrice/moq are derived
+   * from the seller's cheapest tier on the frontend.
+   */
+  private async applyTierAdminPrices(
+    productId: string,
+    priceTiers: TierAdminPriceInput[] = [],
+    variantPriceTiers: TierAdminPriceInput[] = [],
+  ): Promise<number> {
+    const product = await this.repo.findByIdWithMedia(productId);
+    if (!product) throw AppError.notFound('Product not found');
+
+    const validTierIds = new Set(product.priceTiers.map((t) => t.id));
+    const validVariantTierIds = new Set(product.variants.flatMap((v) => v.priceTiers.map((t) => t.id)));
+
+    for (const t of priceTiers) {
+      if (!validTierIds.has(t.id)) throw AppError.badRequest(`Price tier ${t.id} does not belong to this product`);
+    }
+    for (const t of variantPriceTiers) {
+      if (!validVariantTierIds.has(t.id)) {
+        throw AppError.badRequest(`Variant price tier ${t.id} does not belong to this product`);
+      }
+    }
+
+    await this.repo.updateProductTierAdminPrices(priceTiers);
+    await this.repo.updateVariantTierAdminPrices(variantPriceTiers);
+
+    const updateById = new Map([...priceTiers, ...variantPriceTiers].map((t) => [t.id, t.adminPrice]));
+    const allTiers = [
+      ...product.priceTiers,
+      ...product.variants.flatMap((v) => v.priceTiers),
+    ];
+    const cheapest = allTiers
+      .map((t) => updateById.get(t.id) ?? (t.adminPrice != null ? Number(t.adminPrice) : null))
+      .filter((p): p is number => p != null)
+      .sort((a, b) => a - b)[0];
+
+    if (cheapest == null) throw AppError.badRequest('Set an admin price for at least one tier');
+    return cheapest;
+  }
+
+  async approveProduct(
+    productId: string,
+    priceTiers: TierAdminPriceInput[] | undefined,
+    variantPriceTiers: TierAdminPriceInput[] | undefined,
+    adminId: string,
+  ): Promise<Product> {
     const product = await this.getProductOrThrow(productId);
     if (!OPEN_REVIEW_STATUSES.includes(product.approvalStatus)) {
       throw AppError.badRequest('Only a pending or resubmitted product can be approved');
     }
+
+    const adminPrice = await this.applyTierAdminPrices(productId, priceTiers, variantPriceTiers);
 
     const updated = await this.repo.setApproval(productId, {
       approvalStatus: ProductApprovalStatus.APPROVED,
@@ -342,11 +386,18 @@ export class ProductsService {
     return updated;
   }
 
-  async updatePrice(productId: string, adminPrice: number, adminId: string): Promise<Product> {
+  async updatePrice(
+    productId: string,
+    priceTiers: TierAdminPriceInput[] | undefined,
+    variantPriceTiers: TierAdminPriceInput[] | undefined,
+    adminId: string,
+  ): Promise<Product> {
     const product = await this.getProductOrThrow(productId);
     if (product.approvalStatus !== ProductApprovalStatus.APPROVED) {
       throw AppError.badRequest('Only an approved product has a selling price to update');
     }
+
+    const adminPrice = await this.applyTierAdminPrices(productId, priceTiers, variantPriceTiers);
 
     const updated = await this.repo.setApproval(productId, { adminPrice });
     await writeAuditLog(adminId, 'PRODUCT_PRICE_CHANGED', 'Product', productId, {

@@ -52,7 +52,6 @@ function buildProduct(overrides: Partial<Product> = {}): Product {
     sellerPrice: new Decimal(5),
     adminPrice: null,
     leadTime: null,
-    certifications: null,
     approvalStatus: ProductApprovalStatus.PENDING,
     rejectionReason: null,
     isPublished: false,
@@ -63,9 +62,6 @@ function buildProduct(overrides: Partial<Product> = {}): Product {
     deletedAt: null,
     tags: [],
     stepQty: 1,
-    lengthCm: null,
-    breadthCm: null,
-    heightCm: null,
     isHandmade: false,
     placeOfOrigin: null,
     isGITagged: false,
@@ -88,6 +84,8 @@ function buildMockRepo(): ProductsRepository {
     create: vi.fn(),
     update: vi.fn(),
     setApproval: vi.fn(),
+    updateProductTierAdminPrices: vi.fn().mockResolvedValue(undefined),
+    updateVariantTierAdminPrices: vi.fn().mockResolvedValue(undefined),
     setCategory: vi.fn(),
     setPublished: vi.fn(),
     setFeatured: vi.fn(),
@@ -271,24 +269,43 @@ describe('ProductsService', () => {
         buildProduct({ approvalStatus: ProductApprovalStatus.APPROVED }),
       );
 
-      await expect(service.approveProduct('prod-1', 100, 'admin-1')).rejects.toMatchObject({
+      await expect(service.approveProduct('prod-1', [{ id: 'tier-1', adminPrice: 100 }], undefined, 'admin-1')).rejects.toMatchObject({
         statusCode: 400,
       });
     });
 
-    it('approving sets adminPrice, publishes, and stamps publishedAt', async () => {
+    it('approving sets adminPrice from the cheapest priced tier, publishes, and stamps publishedAt', async () => {
       vi.mocked(repo.findByIdRaw).mockResolvedValue(buildProduct());
+      vi.mocked(repo.findByIdWithMedia).mockResolvedValue({
+        ...withMedia(buildProduct()),
+        priceTiers: [
+          { id: 'tier-1', productId: 'prod-1', moq: 10, sellerPrice: new Decimal(5), adminPrice: null },
+          { id: 'tier-2', productId: 'prod-1', moq: 50, sellerPrice: new Decimal(4), adminPrice: null },
+        ],
+      } as never);
       vi.mocked(repo.setApproval).mockResolvedValue(
         buildProduct({ approvalStatus: ProductApprovalStatus.APPROVED, isPublished: true }),
       );
 
-      await service.approveProduct('prod-1', 42, 'admin-1');
+      await service.approveProduct(
+        'prod-1',
+        [
+          { id: 'tier-1', adminPrice: 42 },
+          { id: 'tier-2', adminPrice: 30 },
+        ],
+        undefined,
+        'admin-1',
+      );
 
+      expect(repo.updateProductTierAdminPrices).toHaveBeenCalledWith([
+        { id: 'tier-1', adminPrice: 42 },
+        { id: 'tier-2', adminPrice: 30 },
+      ]);
       expect(repo.setApproval).toHaveBeenCalledWith(
         'prod-1',
         expect.objectContaining({
           approvalStatus: ProductApprovalStatus.APPROVED,
-          adminPrice: 42,
+          adminPrice: 30,
           isPublished: true,
         }),
       );
@@ -315,7 +332,9 @@ describe('ProductsService', () => {
     it('rejects updating price on a product that was never approved', async () => {
       vi.mocked(repo.findByIdRaw).mockResolvedValue(buildProduct());
 
-      await expect(service.updatePrice('prod-1', 50, 'admin-1')).rejects.toMatchObject({
+      await expect(
+        service.updatePrice('prod-1', [{ id: 'tier-1', adminPrice: 50 }], undefined, 'admin-1'),
+      ).rejects.toMatchObject({
         statusCode: 400,
       });
     });

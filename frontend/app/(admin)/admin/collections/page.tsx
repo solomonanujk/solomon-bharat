@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { HeroImageUpload } from '@/components/shared/HeroImageUpload'
 import { cn } from '@/lib/utils'
 import type { Collection, CollectionStatus } from '@/types'
 
@@ -41,14 +42,14 @@ function CreateCollectionDialog({
   onCreated: (collection: Collection) => void
 }) {
   const [name, setName] = useState('')
-  const [heroImage, setHeroImage] = useState('')
+  const [heroImage, setHeroImage] = useState<File | null>(null)
   const [editorialIntro, setEditorialIntro] = useState('')
   const [isFeatured, setIsFeatured] = useState(false)
   const createCollection = useCreateCollection()
 
   function reset() {
     setName('')
-    setHeroImage('')
+    setHeroImage(null)
     setEditorialIntro('')
     setIsFeatured(false)
   }
@@ -58,7 +59,7 @@ function CreateCollectionDialog({
     createCollection.mutate(
       {
         name: name.trim(),
-        heroImage: heroImage.trim() || undefined,
+        heroImage: heroImage ?? undefined,
         editorialIntro: editorialIntro.trim() || undefined,
         isFeatured,
       },
@@ -89,15 +90,11 @@ function CreateCollectionDialog({
               autoFocus
             />
           </div>
-          <div>
-            <Label htmlFor="collection-hero-image">Hero image URL</Label>
-            <Input
-              id="collection-hero-image"
-              value={heroImage}
-              onChange={(e) => setHeroImage(e.target.value)}
-              placeholder="https://…"
-            />
-          </div>
+          <HeroImageUpload
+            label="Hero image"
+            file={heroImage}
+            onFileChange={setHeroImage}
+          />
           <div>
             <Label htmlFor="collection-intro">Editorial intro</Label>
             <textarea

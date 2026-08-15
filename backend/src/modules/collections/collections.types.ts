@@ -12,9 +12,15 @@ export interface CreateCollectionInput {
 export interface UpdateCollectionInput {
   name?: string;
   slug?: string;
-  heroImage?: string;
+  heroImage?: string | null;
   editorialIntro?: string;
   publishAt?: Date | null;
+}
+
+export interface UploadedImageFile {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
 }
 
 export interface AddProductInput {
