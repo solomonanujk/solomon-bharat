@@ -15,7 +15,7 @@ import {
   updateProductSchema,
 } from './products.validation';
 import { validate } from '../../middleware/validate';
-import { requireAdmin, requireAuth, requireBuyer, requireSeller } from '../../middleware/auth';
+import { requireAdmin, requireAgent, requireAuth, requireBuyer, requireSeller } from '../../middleware/auth';
 import { uploadImages } from '../../middleware/upload';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { paginationQuerySchema } from '../../utils/pagination';
@@ -377,6 +377,42 @@ productsRouter.get(
   requireBuyer,
   validate(paginationQuerySchema, 'query'),
   asyncHandler(productsController.listRecommended),
+);
+
+/**
+ * @openapi
+ * /products/agent:
+ *   get:
+ *     summary: Browse published products priced for agents, scoped to a category or collection (AGENT only)
+ *     tags: [Products]
+ *     responses:
+ *       200: { description: Products list, priced with agentPrice }
+ *       400: { description: Missing category_id or collection_id scope }
+ */
+productsRouter.get(
+  '/agent',
+  requireAuth,
+  requireAgent,
+  validate(publicProductListQuerySchema, 'query'),
+  asyncHandler(productsController.listForAgent),
+);
+
+/**
+ * @openapi
+ * /products/agent/{slug}:
+ *   get:
+ *     summary: Get published product detail priced for agents (AGENT only)
+ *     tags: [Products]
+ *     responses:
+ *       200: { description: Product detail with related products, priced with agentPrice }
+ *       404: { description: Product not found }
+ */
+productsRouter.get(
+  '/agent/:slug',
+  requireAuth,
+  requireAgent,
+  validate(slugParamSchema, 'params'),
+  asyncHandler(productsController.getForAgentBySlug),
 );
 
 /**

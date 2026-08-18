@@ -15,6 +15,7 @@ import { useLogin, useSignup, useForgotPassword } from '@/hooks/queries/useAuth'
 function roleDestination(role: string): string | null {
   if (role === 'SUPER_ADMIN') return '/admin'
   if (role === 'SELLER') return '/portal'
+  if (role === 'AGENT') return '/agent'
   return null // buyers stay on the current page
 }
 

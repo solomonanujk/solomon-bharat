@@ -60,6 +60,7 @@ describe('payments controller', () => {
       expect(paymentsService.checkout).toHaveBeenCalledWith(
         'buyer-profile-1',
         expect.objectContaining({ items: [{ productId: PRODUCT_ID, quantity: 2 }] }),
+        'BUYER',
       );
     });
 

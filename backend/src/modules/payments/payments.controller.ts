@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Role } from '@prisma/client';
 import { sendCreated, sendSuccess } from '../../utils/response';
 import { buyersService } from '../buyers/buyers.service';
+import { PricingRole } from '../orders/orders.types';
 import { paymentsService } from './payments.service';
 import { CheckoutDto } from './payments.validation';
 
@@ -14,7 +15,8 @@ export const paymentsController = {
   async checkout(req: Request, res: Response): Promise<void> {
     const buyerId = await resolveBuyerProfileId(req.user!.id);
     const dto = req.body as CheckoutDto;
-    const result = await paymentsService.checkout(buyerId, dto);
+    const pricingRole: PricingRole = req.user!.role === Role.AGENT ? 'AGENT' : 'BUYER';
+    const result = await paymentsService.checkout(buyerId, dto, pricingRole);
     sendCreated(res, result, 'Checkout created — approve payment to complete your order');
   },
 

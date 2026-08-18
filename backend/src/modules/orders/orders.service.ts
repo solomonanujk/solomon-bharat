@@ -15,6 +15,7 @@ import {
   CheckoutItemInput,
   OrderWithItems,
   PricedOrderItem,
+  PricingRole,
   SellerOrderItem,
 } from './orders.types';
 
@@ -73,7 +74,10 @@ export class OrdersService {
     return order;
   }
 
-  private async priceCheckoutItems(items: CheckoutItemInput[]): Promise<PricedOrderItem[]> {
+  private async priceCheckoutItems(
+    items: CheckoutItemInput[],
+    pricingRole: PricingRole,
+  ): Promise<PricedOrderItem[]> {
     return Promise.all(
       items.map(async (item) => {
         const product = await this.products.getForCheckout(item.productId);
@@ -81,8 +85,14 @@ export class OrdersService {
         if (product.deletedAt || !product.isPublished || product.approvalStatus !== 'APPROVED') {
           throw AppError.badRequest(`Product ${item.productId} is not available for purchase`);
         }
-        if (!product.adminPrice) {
-          throw AppError.badRequest(`Product ${item.productId} has no selling price set`);
+
+        const chargePrice = pricingRole === 'AGENT' ? product.agentPrice : product.adminPrice;
+        if (!chargePrice) {
+          throw AppError.badRequest(
+            pricingRole === 'AGENT'
+              ? `Product ${item.productId} has no agent price set`
+              : `Product ${item.productId} has no selling price set`,
+          );
         }
         if (item.quantity < product.moq) {
           throw AppError.badRequest(
@@ -90,7 +100,7 @@ export class OrdersService {
           );
         }
 
-        const unitAdminPrice = Number(product.adminPrice);
+        const unitAdminPrice = Number(chargePrice);
         const unitSellerPrice = Number(product.sellerPrice);
 
         return {
@@ -111,12 +121,13 @@ export class OrdersService {
     buyerId: string,
     items: CheckoutItemInput[],
     shippingAddressId: string | undefined,
+    pricingRole: PricingRole,
   ): Promise<OrderWithItems> {
     if (shippingAddressId) {
       await this.buyers.verifyAddressOwnership(buyerId, shippingAddressId);
     }
 
-    const pricedItems = await this.priceCheckoutItems(items);
+    const pricedItems = await this.priceCheckoutItems(items, pricingRole);
     const adminPriceTotal = pricedItems.reduce((sum, i) => sum + i.lineAdminTotal, 0);
     const sellerPriceTotal = pricedItems.reduce((sum, i) => sum + i.lineSellerTotal, 0);
 
@@ -127,6 +138,7 @@ export class OrdersService {
       adminPriceTotal,
       sellerPriceTotal,
       adminMargin: calculateMargin(adminPriceTotal, sellerPriceTotal),
+      placedAsAgent: pricingRole === 'AGENT',
     });
   }
 

@@ -146,6 +146,21 @@ export const productsController = {
     sendSuccess(res, result);
   },
 
+  async listForAgent(req: Request, res: Response): Promise<void> {
+    const { categoryId, collectionId, search, material, minPrice, maxPrice, moqMax, ...pagination } =
+      req.query as unknown as PublicProductListQueryDto;
+    const { data, total } = await productsService.listPublishedForAgent(
+      { categoryId, collectionId, search, material, minPrice, maxPrice, moqMax },
+      pagination,
+    );
+    sendSuccess(res, data, 'Products retrieved', 200, buildPaginationMeta(total, pagination));
+  },
+
+  async getForAgentBySlug(req: Request, res: Response): Promise<void> {
+    const result = await productsService.getBySlugForAgent(req.params.slug);
+    sendSuccess(res, result);
+  },
+
   async listRecommended(req: Request, res: Response): Promise<void> {
     const buyerId = await resolveBuyerProfileId(req.user!.id);
     const pagination = req.query as unknown as PaginationQuery;

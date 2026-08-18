@@ -163,7 +163,7 @@ export class ProductsRepository {
     id: string,
     data: Pick<
       Prisma.ProductUpdateInput,
-      'approvalStatus' | 'adminPrice' | 'rejectionReason' | 'isPublished' | 'publishedAt'
+      'approvalStatus' | 'adminPrice' | 'agentPrice' | 'rejectionReason' | 'isPublished' | 'publishedAt'
     >,
   ): Promise<Product> {
     return this.db.product.update({ where: { id }, data });
@@ -172,14 +172,26 @@ export class ProductsRepository {
   async updateProductTierAdminPrices(updates: TierAdminPriceInput[]): Promise<void> {
     if (!updates.length) return;
     await this.db.$transaction(
-      updates.map((u) => this.db.productPriceTier.update({ where: { id: u.id }, data: { adminPrice: u.adminPrice } })),
+      updates.map((u) =>
+        this.db.productPriceTier.update({
+          where: { id: u.id },
+          // Prisma silently ignores `undefined` fields, so a per-tier update may carry
+          // adminPrice only, agentPrice only, or both without extra branching here.
+          data: { adminPrice: u.adminPrice, agentPrice: u.agentPrice },
+        }),
+      ),
     );
   }
 
   async updateVariantTierAdminPrices(updates: TierAdminPriceInput[]): Promise<void> {
     if (!updates.length) return;
     await this.db.$transaction(
-      updates.map((u) => this.db.variantPriceTier.update({ where: { id: u.id }, data: { adminPrice: u.adminPrice } })),
+      updates.map((u) =>
+        this.db.variantPriceTier.update({
+          where: { id: u.id },
+          data: { adminPrice: u.adminPrice, agentPrice: u.agentPrice },
+        }),
+      ),
     );
   }
 
@@ -209,6 +221,7 @@ export class ProductsRepository {
     filter: ProductListFilter,
     pagination: PaginationQuery,
     categoryIds: string[] | undefined,
+    priceField: 'adminPrice' | 'agentPrice' = 'adminPrice',
   ): Promise<{ data: ProductWithMedia[]; total: number }> {
     const where: Prisma.ProductWhereInput = {
       deletedAt: null,
@@ -219,9 +232,14 @@ export class ProductsRepository {
       ...(filter.search ? { name: { contains: filter.search, mode: 'insensitive' } } : {}),
       ...(filter.material ? { materials: { contains: filter.material, mode: 'insensitive' } } : {}),
       ...(filter.moqMax ? { moq: { lte: filter.moqMax } } : {}),
+      // Publishing only requires adminPrice, not agentPrice (a product can go live for
+      // buyers before an admin ever sets an agent price) — so unlike the buyer path,
+      // the agent path must explicitly exclude not-yet-agent-priced products here
+      // rather than relying on an incidental invariant from the publish gate.
+      ...(priceField === 'agentPrice' ? { agentPrice: { not: null } } : {}),
       ...(filter.minPrice || filter.maxPrice
         ? {
-            adminPrice: {
+            [priceField]: {
               ...(filter.minPrice ? { gte: filter.minPrice } : {}),
               ...(filter.maxPrice ? { lte: filter.maxPrice } : {}),
             },

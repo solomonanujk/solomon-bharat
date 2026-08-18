@@ -41,7 +41,7 @@ import type { AdminProduct } from '@/types'
 
 function ApproveDialog({ product, onClose }: { product: AdminProduct; onClose: () => void }) {
   const approveProduct = useApproveProduct()
-  const { allTiers, values, setValue, buildPayload, hasAnyPriced } = useTierPriceForm(product)
+  const { allTiers, values, setValue, agentValues, setAgentValue, buildPayload, hasAnyPriced } = useTierPriceForm(product)
 
   function handleSubmit() {
     if (!hasAnyPriced) return
@@ -58,7 +58,15 @@ function ApproveDialog({ product, onClose }: { product: AdminProduct; onClose: (
           </DialogDescription>
         </DialogHeader>
         <div className="px-6 pb-2 max-h-[50vh] overflow-y-auto">
-          <TierPriceTable tiers={allTiers} values={values} onChange={setValue} editable disabled={approveProduct.isPending} />
+          <TierPriceTable
+            tiers={allTiers}
+            values={values}
+            onChange={setValue}
+            agentValues={agentValues}
+            onAgentChange={setAgentValue}
+            editable
+            disabled={approveProduct.isPending}
+          />
         </div>
         <DialogFooter>
           <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
@@ -118,12 +126,20 @@ function RejectDialog({ product, onClose }: { product: AdminProduct; onClose: ()
 
 function AdminPricingCard({ product }: { product: AdminProduct }) {
   const setAdminPrice = useSetAdminPrice()
-  const { allTiers, values, setValue, buildPayload, hasAnyPriced } = useTierPriceForm(product)
+  const { allTiers, values, setValue, agentValues, setAgentValue, buildPayload, hasAnyPriced } = useTierPriceForm(product)
 
   return (
     <div className="space-y-3">
       <p className="text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em]">Admin Pricing</p>
-      <TierPriceTable tiers={allTiers} values={values} onChange={setValue} editable disabled={setAdminPrice.isPending} />
+      <TierPriceTable
+        tiers={allTiers}
+        values={values}
+        onChange={setValue}
+        agentValues={agentValues}
+        onAgentChange={setAgentValue}
+        editable
+        disabled={setAdminPrice.isPending}
+      />
       <Button
         variant="ghost"
         size="sm"

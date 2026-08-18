@@ -24,10 +24,14 @@ export interface PriceTierInput {
   sellerPrice: number;
 }
 
-/** Admin sets a price on an existing seller tier — identified by that tier's id. */
+/**
+ * Admin sets a price on an existing seller tier — identified by that tier's id.
+ * adminPrice/agentPrice are independent: a given update may carry either, or both.
+ */
 export interface TierAdminPriceInput {
   id: string;
-  adminPrice: number;
+  adminPrice?: number;
+  agentPrice?: number;
 }
 
 export interface VariantAttributeInput {
@@ -165,6 +169,47 @@ export interface SellerProduct {
   images: ProductImage[];
   variants: VariantWithDetail[];
   priceTiers: ProductPriceTier[];
+  tags: string[];
+  stepQty: number;
+  isHandmade: boolean;
+  placeOfOrigin: string | null;
+  isGITagged: boolean;
+  howItIsMade: string | null;
+  artisanName: string | null;
+}
+
+/** A variant price tier stripped down to what the agent projection may expose. */
+export interface AgentPriceTier {
+  id: string;
+  moq: number;
+  agentPrice: string;
+}
+
+/** Variant projected for agents — priceTiers mapped down to {id, moq, agentPrice}, never the raw Prisma tier (which carries sellerPrice/adminPrice). */
+export type AgentVariant = Omit<VariantWithDetail, 'priceTiers'> & { priceTiers: AgentPriceTier[] };
+
+/**
+ * Agent-safe projection — mirrors BuyerProduct's shape but exposes agentPrice
+ * instead of adminPrice, and never includes sellerId, sellerPrice, or declaredStock.
+ */
+export interface AgentProduct {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  materials: string;
+  dimensions: string | null;
+  weight: string | null;
+  moq: number;
+  agentPrice: string;
+  leadTime: string | null;
+  categoryId: string;
+  isFeatured: boolean;
+  publishedAt: Date | null;
+  images: ProductImage[];
+  variants: AgentVariant[];
+  avgRating: number | null;
+  reviewCount: number;
   tags: string[];
   stepQty: number;
   isHandmade: boolean;

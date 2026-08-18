@@ -11,6 +11,8 @@ import { payoutsRouter } from '../modules/payouts/payouts.routes';
 import { notificationsRouter } from '../modules/notifications/notifications.routes';
 import { adminRouter } from '../modules/admin/admin.routes';
 import { reviewsRouter } from '../modules/reviews/reviews.routes';
+import { agentApplicationsRouter } from '../modules/agent-applications/agent-applications.routes';
+import { cataloguesRouter } from '../modules/catalogues/catalogues.routes';
 
 export const apiRouter = Router();
 
@@ -41,3 +43,5 @@ apiRouter.use('/payouts', payoutsRouter);
 apiRouter.use('/notifications', notificationsRouter);
 apiRouter.use('/admin', adminRouter);
 apiRouter.use('/reviews', reviewsRouter);
+apiRouter.use('/agents', agentApplicationsRouter);
+apiRouter.use('/agent/catalogues', cataloguesRouter);

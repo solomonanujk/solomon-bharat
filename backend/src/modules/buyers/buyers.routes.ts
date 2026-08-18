@@ -11,7 +11,7 @@ import {
   updateBuyerProfileSchema,
 } from './buyers.validation';
 import { validate } from '../../middleware/validate';
-import { requireAdmin, requireAuth, requireBuyer } from '../../middleware/auth';
+import { requireAdmin, requireAuth, requireBuyer, requireBuyerOrAgent } from '../../middleware/auth';
 import { asyncHandler } from '../../utils/asyncHandler';
 
 export const buyersRouter = Router();
@@ -27,7 +27,7 @@ export const buyersRouter = Router();
  *     responses:
  *       200: { description: Buyer profile }
  */
-buyersRouter.get('/me', requireAuth, requireBuyer, asyncHandler(buyersController.getMyProfile));
+buyersRouter.get('/me', requireAuth, requireBuyerOrAgent, asyncHandler(buyersController.getMyProfile));
 
 /**
  * @openapi
@@ -42,7 +42,7 @@ buyersRouter.get('/me', requireAuth, requireBuyer, asyncHandler(buyersController
 buyersRouter.patch(
   '/me',
   requireAuth,
-  requireBuyer,
+  requireBuyerOrAgent,
   validate(updateBuyerProfileSchema),
   asyncHandler(buyersController.updateMyProfile),
 );
@@ -61,7 +61,7 @@ buyersRouter.patch(
 buyersRouter.get(
   '/me/addresses',
   requireAuth,
-  requireBuyer,
+  requireBuyerOrAgent,
   asyncHandler(buyersController.listAddresses),
 );
 
@@ -78,7 +78,7 @@ buyersRouter.get(
 buyersRouter.post(
   '/me/addresses',
   requireAuth,
-  requireBuyer,
+  requireBuyerOrAgent,
   validate(createAddressSchema),
   asyncHandler(buyersController.createAddress),
 );
@@ -96,7 +96,7 @@ buyersRouter.post(
 buyersRouter.patch(
   '/me/addresses/:id',
   requireAuth,
-  requireBuyer,
+  requireBuyerOrAgent,
   validate(idParamSchema, 'params'),
   validate(updateAddressSchema),
   asyncHandler(buyersController.updateAddress),
@@ -114,7 +114,7 @@ buyersRouter.patch(
 buyersRouter.delete(
   '/me/addresses/:id',
   requireAuth,
-  requireBuyer,
+  requireBuyerOrAgent,
   validate(idParamSchema, 'params'),
   asyncHandler(buyersController.deleteAddress),
 );
@@ -131,7 +131,7 @@ buyersRouter.delete(
 buyersRouter.post(
   '/me/addresses/:id/default',
   requireAuth,
-  requireBuyer,
+  requireBuyerOrAgent,
   validate(idParamSchema, 'params'),
   asyncHandler(buyersController.setDefaultAddress),
 );

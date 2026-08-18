@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { paymentsController } from './payments.controller';
 import { checkoutSchema, fxRateQuerySchema, idParamSchema, orderIdParamSchema } from './payments.validation';
 import { validate } from '../../middleware/validate';
-import { requireAuth, requireBuyer } from '../../middleware/auth';
+import { requireAuth, requireBuyerOrAgent } from '../../middleware/auth';
 import { asyncHandler } from '../../utils/asyncHandler';
 
 export const paymentsRouter = Router();
@@ -19,7 +19,7 @@ export const paymentsRouter = Router();
 paymentsRouter.get(
   '/fx-rates',
   requireAuth,
-  requireBuyer,
+  requireBuyerOrAgent,
   validate(fxRateQuerySchema, 'query'),
   asyncHandler(paymentsController.getFxRate),
 );
@@ -37,7 +37,7 @@ paymentsRouter.get(
 paymentsRouter.post(
   '/checkout',
   requireAuth,
-  requireBuyer,
+  requireBuyerOrAgent,
   validate(checkoutSchema),
   asyncHandler(paymentsController.checkout),
 );
@@ -54,7 +54,7 @@ paymentsRouter.post(
 paymentsRouter.post(
   '/:id/capture',
   requireAuth,
-  requireBuyer,
+  requireBuyerOrAgent,
   validate(idParamSchema, 'params'),
   asyncHandler(paymentsController.capture),
 );
@@ -71,7 +71,7 @@ paymentsRouter.post(
 paymentsRouter.get(
   '/:id',
   requireAuth,
-  requireBuyer,
+  requireBuyerOrAgent,
   validate(idParamSchema, 'params'),
   asyncHandler(paymentsController.getStatus),
 );

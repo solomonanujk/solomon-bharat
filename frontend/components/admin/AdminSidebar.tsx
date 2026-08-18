@@ -16,6 +16,7 @@ import {
   Layers,
   BarChart3,
   Settings,
+  Briefcase,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -40,6 +41,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin/seller-applications', label: 'Seller Applications', icon: Clock },
       { href: '/admin/sellers', label: 'Sellers', icon: Building2 },
+      { href: '/admin/agent-applications', label: 'Agent Applications', icon: Briefcase },
       { href: '/admin/buyers', label: 'Buyers', icon: Users },
     ],
   },

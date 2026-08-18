@@ -42,6 +42,8 @@ export function requireRole(...roles: Role[]) {
 export const requireAdmin = requireRole(Role.SUPER_ADMIN);
 export const requireSeller = requireRole(Role.SELLER);
 export const requireBuyer = requireRole(Role.BUYER);
+export const requireAgent = requireRole(Role.AGENT);
+export const requireBuyerOrAgent = requireRole(Role.BUYER, Role.AGENT);
 
 export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
   const token = extractBearerToken(req);

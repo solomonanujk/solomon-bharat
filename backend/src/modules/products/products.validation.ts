@@ -111,10 +111,17 @@ export type PolishFieldDto = z.infer<typeof polishFieldSchema>;
 // Admin sets a price per seller MOQ tier rather than one flat price — `priceTiers`
 // targets the product's own flat tiers (no variants), `variantPriceTiers` targets
 // each variant's tiers. A product only ever has one or the other populated.
-const tierAdminPriceSchema = z.object({
-  id: z.string().uuid(),
-  adminPrice: z.coerce.number().positive(),
-});
+// Each tier accepts adminPrice and/or agentPrice independently, so a tier can be
+// priced for buyers, for agents, or both in the same request.
+const tierAdminPriceSchema = z
+  .object({
+    id: z.string().uuid(),
+    adminPrice: z.coerce.number().positive().optional(),
+    agentPrice: z.coerce.number().positive().optional(),
+  })
+  .refine((d) => d.adminPrice !== undefined || d.agentPrice !== undefined, {
+    message: 'Provide adminPrice and/or agentPrice for each tier',
+  });
 
 export const approveProductSchema = z
   .object({

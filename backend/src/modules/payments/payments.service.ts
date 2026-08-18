@@ -4,6 +4,7 @@ import { paymentProvider } from '../../providers/payments';
 import { fxProvider } from '../../providers/fx';
 import { prisma } from '../../config/prisma';
 import { OrdersService, ordersService } from '../orders/orders.service';
+import { PricingRole } from '../orders/orders.types';
 import { PaymentsRepository, paymentsRepository } from './payments.repository';
 import { CaptureResult, CheckoutInput, CheckoutResult, FxRateResult, Invoice } from './payments.types';
 
@@ -26,8 +27,13 @@ export class PaymentsService {
     private readonly orders: OrdersService = ordersService,
   ) {}
 
-  async checkout(buyerId: string, input: CheckoutInput): Promise<CheckoutResult> {
-    const order = await this.orders.createPendingOrder(buyerId, input.items, input.shippingAddressId);
+  async checkout(buyerId: string, input: CheckoutInput, pricingRole: PricingRole): Promise<CheckoutResult> {
+    const order = await this.orders.createPendingOrder(
+      buyerId,
+      input.items,
+      input.shippingAddressId,
+      pricingRole,
+    );
 
     const { amount: chargeAmount } = await convertFromInr(Number(order.adminPriceTotal), input.currency);
 

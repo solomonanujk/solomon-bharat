@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
 import type {
+  AgentApplicationStatus,
   ApprovalStatus,
   CategoryStatus,
   CollectionStatus,
@@ -21,6 +22,7 @@ type AnyStatus =
   | CategoryStatus
   | CollectionStatus
   | SellerApplicationStatus
+  | AgentApplicationStatus
   | UserStatus
   | (string & {})
 

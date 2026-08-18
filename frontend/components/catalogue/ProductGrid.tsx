@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { Fragment, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { ProductCard } from '@/components/shared/ProductCard'
 import type { Product } from '@/types'
@@ -15,6 +15,12 @@ interface ProductGridProps {
   onLoadMore: () => void
   /** Columns at the widest breakpoint — 4 (default, category/collection grids) or 5 (buyer "Ideas for you" feed). */
   columns?: 4 | 5
+  /**
+   * Optional per-product renderer — defaults to the buyer `ProductCard`.
+   * Lets non-buyer contexts (e.g. the agent portal's `AgentProductCard`) reuse
+   * this grid's layout/skeleton/infinite-scroll plumbing without forking it.
+   */
+  renderItem?: (product: Product) => React.ReactNode
 }
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
@@ -70,6 +76,7 @@ export function ProductGrid({
   isLoadingMore,
   onLoadMore,
   columns = 4,
+  renderItem,
 }: ProductGridProps) {
   const sentinelRef = useRef<HTMLDivElement>(null)
 
@@ -99,9 +106,13 @@ export function ProductGrid({
           <NoResults />
         ) : (
           <>
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
+            {products.map((product) =>
+              renderItem ? (
+                <Fragment key={product.id}>{renderItem(product)}</Fragment>
+              ) : (
+                <ProductCard key={product.id} product={product} />
+              )
+            )}
             {isLoadingMore && Array.from({ length: 4 }).map((_, i) => <CardSkeleton key={`skeleton-${i}`} />)}
           </>
         )}

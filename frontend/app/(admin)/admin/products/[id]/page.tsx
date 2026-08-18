@@ -156,11 +156,15 @@ export default function AdminProductDetailPage() {
         {/* Left column */}
         <div className="space-y-5 min-w-0">
           <Section title="Pricing Summary">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <Field label="Seller Price (from)" value={formatINR(product.sellerPrice)} />
               <Field
                 label="Admin Price (from)"
                 value={product.adminPrice != null ? formatINR(product.adminPrice) : <span className="italic text-muted-text">not set</span>}
+              />
+              <Field
+                label="Agent Price (from)"
+                value={product.agentPrice != null ? formatINR(product.agentPrice) : <span className="italic text-muted-text">not set</span>}
               />
             </div>
           </Section>

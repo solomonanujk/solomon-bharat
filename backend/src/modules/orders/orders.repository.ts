@@ -32,6 +32,7 @@ export class OrdersRepository {
         adminPriceTotal: input.adminPriceTotal,
         sellerPriceTotal: input.sellerPriceTotal,
         adminMargin: input.adminMargin,
+        placedAsAgent: input.placedAsAgent,
         items: {
           create: input.items.map((item) => ({
             productId: item.productId,
@@ -89,6 +90,7 @@ export class OrdersRepository {
       deletedAt: null,
       ...(filter.status ? { status: filter.status } : {}),
       ...(filter.buyerId ? { buyerId: filter.buyerId } : {}),
+      ...(filter.placedAsAgent !== undefined ? { placedAsAgent: filter.placedAsAgent } : {}),
     };
     const [data, total] = await Promise.all([
       this.db.order.findMany({

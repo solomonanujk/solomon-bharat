@@ -90,6 +90,47 @@ export function useProduct(slug: string | null) {
   })
 }
 
+// ─── Agent: agent-priced browsing ──────────────────────────────────────────────
+// GET /products/agent (+ /products/agent/:slug) mirror the public /products
+// shape but come back with `agentPrice` populated for an authenticated AGENT
+// session. Unlike the public list, browsing here is not scoped to a single
+// category/collection (there is no per-category agent page), so these are
+// always enabled.
+
+export function useAgentProducts(params?: ProductsParams) {
+  return useQuery<PaginatedResult<Product>>({
+    queryKey: ['agent-products', params],
+    queryFn: async () => toPaginated<Product>(await api.get('/products/agent', { params })),
+    staleTime: 60 * 1000,
+  })
+}
+
+/** Infinite-scroll variant used by the agent product browsing & catalogue-builder pages. */
+export function useInfiniteAgentProducts(params: Omit<ProductsParams, 'page'>) {
+  return useInfiniteQuery<PaginatedResult<Product>>({
+    queryKey: ['agent-products', 'infinite', params],
+    queryFn: async ({ pageParam }) =>
+      toPaginated<Product>(await api.get('/products/agent', { params: { ...params, page: pageParam } })),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
+    staleTime: 60 * 1000,
+  })
+}
+
+/** Same { product, related } unwrap as useProduct — see comment there. */
+export function useAgentProduct(slug: string | null) {
+  return useQuery<Product & { related: Product[] }>({
+    queryKey: ['agent-product', slug],
+    queryFn: async () => {
+      const res = await api.get(`/products/agent/${slug}`)
+      const { product, related } = res.data.data
+      return { ...product, related }
+    },
+    enabled: !!slug,
+    staleTime: 2 * 60 * 1000,
+  })
+}
+
 // ─── Seller: own products ──────────────────────────────────────────────────────
 
 export function useMyProducts(params?: { approvalStatus?: ApprovalStatus; page?: number; limit?: number }) {
@@ -253,7 +294,8 @@ function invalidateProduct(qc: ReturnType<typeof useQueryClient>, id: string) {
 
 export interface TierAdminPriceInput {
   id: string
-  adminPrice: number
+  adminPrice?: number
+  agentPrice?: number
 }
 
 export interface TierAdminPricingPayload {

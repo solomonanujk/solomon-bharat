@@ -14,6 +14,7 @@ import { reviewsRepository, ReviewsRepository } from '../reviews/reviews.reposit
 import { ProductsRepository, productsRepository } from './products.repository';
 import {
   AdminProductListFilter,
+  AgentProduct,
   BuyerProduct,
   CreateProductInput,
   ProductListFilter,
@@ -33,6 +34,10 @@ const OPEN_REVIEW_STATUSES: ProductApprovalStatus[] = [
   ProductApprovalStatus.RESUBMITTED,
 ];
 
+// NOTE (pre-existing, out of scope here): this passes `variants[].priceTiers` straight
+// through, which includes each tier's raw `sellerPrice`/`adminPrice` fields — a leak of
+// seller/admin-side data into the buyer projection. Do not repeat this pattern below in
+// toAgentProduct, which maps its price tiers down to a minimal safe shape instead.
 function toBuyerProduct(
   product: ProductWithMedia,
   rating?: { avgRating: number; reviewCount: number },
@@ -53,6 +58,51 @@ function toBuyerProduct(
     publishedAt: product.publishedAt,
     images: product.images,
     variants: product.variants,
+    avgRating: rating?.avgRating ?? null,
+    reviewCount: rating?.reviewCount ?? 0,
+    tags: product.tags,
+    stepQty: product.stepQty,
+    isHandmade: product.isHandmade,
+    placeOfOrigin: product.placeOfOrigin,
+    isGITagged: product.isGITagged,
+    howItIsMade: product.howItIsMade,
+    artisanName: product.artisanName,
+  };
+}
+
+/**
+ * Agent-safe projection, parallel to toBuyerProduct but exposing agentPrice instead of
+ * adminPrice. Unlike toBuyerProduct, variant price tiers are mapped down to a minimal
+ * {id, moq, agentPrice} shape rather than passed through raw, so sellerPrice/adminPrice
+ * never leak into the agent-facing response.
+ */
+function toAgentProduct(
+  product: ProductWithMedia,
+  rating?: { avgRating: number; reviewCount: number },
+): AgentProduct {
+  return {
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+    description: product.description,
+    materials: product.materials,
+    dimensions: product.dimensions,
+    weight: product.weight,
+    moq: product.moq,
+    agentPrice: product.agentPrice ? product.agentPrice.toString() : '0',
+    leadTime: product.leadTime,
+    categoryId: product.categoryId,
+    isFeatured: product.isFeatured,
+    publishedAt: product.publishedAt,
+    images: product.images,
+    variants: product.variants.map((v) => ({
+      ...v,
+      priceTiers: v.priceTiers.map((t) => ({
+        id: t.id,
+        moq: t.moq,
+        agentPrice: t.agentPrice ? t.agentPrice.toString() : '0',
+      })),
+    })),
     avgRating: rating?.avgRating ?? null,
     reviewCount: rating?.reviewCount ?? 0,
     tags: product.tags,
@@ -98,6 +148,9 @@ function toSellerProduct(product: ProductWithMedia): SellerProduct {
 }
 
 const PUBLISHED_LIST_CACHE_NAMESPACE = 'products:published-list';
+// Distinct namespace for the agent-priced variant of the published list — the returned
+// prices differ from the buyer version, so the two must never share a cache key.
+const PUBLISHED_LIST_CACHE_NAMESPACE_AGENT = 'products:published-list:agent';
 const PUBLISHED_LIST_CACHE_TTL_SECONDS = 120;
 
 type PolishableField = 'name' | 'description' | 'tags';
@@ -161,7 +214,10 @@ export class ProductsService {
   ) {}
 
   private async invalidatePublishedListCache(): Promise<void> {
-    await bumpVersion(this.cache, PUBLISHED_LIST_CACHE_NAMESPACE);
+    await Promise.all([
+      bumpVersion(this.cache, PUBLISHED_LIST_CACHE_NAMESPACE),
+      bumpVersion(this.cache, PUBLISHED_LIST_CACHE_NAMESPACE_AGENT),
+    ]);
   }
 
   /**
@@ -281,16 +337,18 @@ export class ProductsService {
 
   /**
    * Admin sets a price per seller MOQ tier rather than one flat price — this writes
-   * the given tiers' adminPrice (product-level flat tiers, or each variant's own
-   * tiers), then derives the single Product.adminPrice as the cheapest tier priced
-   * across whichever set applies, the same way Product.sellerPrice/moq are derived
-   * from the seller's cheapest tier on the frontend.
+   * the given tiers' adminPrice/agentPrice (product-level flat tiers, or each
+   * variant's own tiers), then derives the product-level Product.adminPrice and
+   * Product.agentPrice, each independently, as the cheapest tier priced for that
+   * side across whichever set applies (a given tier may only have one of the two
+   * set) — the same way Product.sellerPrice/moq are derived from the seller's
+   * cheapest tier on the frontend.
    */
   private async applyTierAdminPrices(
     productId: string,
     priceTiers: TierAdminPriceInput[] = [],
     variantPriceTiers: TierAdminPriceInput[] = [],
-  ): Promise<number> {
+  ): Promise<{ adminPrice: number | null; agentPrice: number | null }> {
     const product = await this.repo.findByIdWithMedia(productId);
     if (!product) throw AppError.notFound('Product not found');
 
@@ -309,18 +367,31 @@ export class ProductsService {
     await this.repo.updateProductTierAdminPrices(priceTiers);
     await this.repo.updateVariantTierAdminPrices(variantPriceTiers);
 
-    const updateById = new Map([...priceTiers, ...variantPriceTiers].map((t) => [t.id, t.adminPrice]));
+    const updateById = new Map([...priceTiers, ...variantPriceTiers].map((t) => [t.id, t]));
     const allTiers = [
       ...product.priceTiers,
       ...product.variants.flatMap((v) => v.priceTiers),
     ];
-    const cheapest = allTiers
-      .map((t) => updateById.get(t.id) ?? (t.adminPrice != null ? Number(t.adminPrice) : null))
-      .filter((p): p is number => p != null)
-      .sort((a, b) => a - b)[0];
 
-    if (cheapest == null) throw AppError.badRequest('Set an admin price for at least one tier');
-    return cheapest;
+    const cheapestOf = (field: 'adminPrice' | 'agentPrice'): number | null => {
+      const prices = allTiers
+        .map((t) => {
+          const update = updateById.get(t.id)?.[field];
+          if (update !== undefined) return update;
+          return t[field] != null ? Number(t[field]) : null;
+        })
+        .filter((p): p is number => p != null)
+        .sort((a, b) => a - b);
+      return prices[0] ?? null;
+    };
+
+    const adminPrice = cheapestOf('adminPrice');
+    const agentPrice = cheapestOf('agentPrice');
+
+    if (adminPrice == null && agentPrice == null) {
+      throw AppError.badRequest('Set an admin price or agent price for at least one tier');
+    }
+    return { adminPrice, agentPrice };
   }
 
   async approveProduct(
@@ -334,17 +405,24 @@ export class ProductsService {
       throw AppError.badRequest('Only a pending or resubmitted product can be approved');
     }
 
-    const adminPrice = await this.applyTierAdminPrices(productId, priceTiers, variantPriceTiers);
+    const { adminPrice, agentPrice } = await this.applyTierAdminPrices(productId, priceTiers, variantPriceTiers);
+
+    // Approval/publish gating depends only on adminPrice resolving — a product can be
+    // approved and published for buyers before an agent price is ever set.
+    if (adminPrice == null) {
+      throw AppError.badRequest('Set an admin price for at least one tier to approve this product');
+    }
 
     const updated = await this.repo.setApproval(productId, {
       approvalStatus: ProductApprovalStatus.APPROVED,
       adminPrice,
+      agentPrice: agentPrice ?? undefined,
       rejectionReason: null,
       isPublished: true,
       publishedAt: new Date(),
     });
 
-    await writeAuditLog(adminId, 'PRODUCT_APPROVED', 'Product', productId, { adminPrice });
+    await writeAuditLog(adminId, 'PRODUCT_APPROVED', 'Product', productId, { adminPrice, agentPrice });
     await this.invalidatePublishedListCache();
 
     const sellerUserId = await this.getSellerUserId(updated.sellerId);
@@ -397,12 +475,17 @@ export class ProductsService {
       throw AppError.badRequest('Only an approved product has a selling price to update');
     }
 
-    const adminPrice = await this.applyTierAdminPrices(productId, priceTiers, variantPriceTiers);
+    const { adminPrice, agentPrice } = await this.applyTierAdminPrices(productId, priceTiers, variantPriceTiers);
 
-    const updated = await this.repo.setApproval(productId, { adminPrice });
+    const updated = await this.repo.setApproval(productId, {
+      adminPrice: adminPrice ?? undefined,
+      agentPrice: agentPrice ?? undefined,
+    });
     await writeAuditLog(adminId, 'PRODUCT_PRICE_CHANGED', 'Product', productId, {
-      previousPrice: product.adminPrice?.toString(),
-      newPrice: adminPrice,
+      previousAdminPrice: product.adminPrice?.toString(),
+      newAdminPrice: adminPrice,
+      previousAgentPrice: product.agentPrice?.toString(),
+      newAgentPrice: agentPrice,
     });
     await this.invalidatePublishedListCache();
     return updated;
@@ -458,6 +541,31 @@ export class ProductsService {
     return result;
   }
 
+  /**
+   * Agent-facing equivalent of listPublished — same query/repository path, priced with
+   * agentPrice instead of adminPrice, cached under a distinct namespace. Unlike the buyer
+   * listing, this is deliberately NOT scoped to a category/collection: an agent browses
+   * the whole catalog to build a reseller catalogue, not a category-first storefront.
+   */
+  async listPublishedForAgent(filter: ProductListFilter, pagination: PaginationQuery) {
+    const key = await versionedListKey(this.cache, PUBLISHED_LIST_CACHE_NAMESPACE_AGENT, {
+      ...filter,
+      ...pagination,
+    });
+    const cached = await this.cache.get<{ data: AgentProduct[]; total: number }>(key);
+    if (cached) return cached;
+
+    const categoryIds = filter.categoryId
+      ? await this.categories.getLeafDescendantIds(filter.categoryId)
+      : undefined;
+
+    const { data, total } = await this.repo.findPublished(filter, pagination, categoryIds, 'agentPrice');
+    const ratings = await this.reviews.getRatingSummaries(data.map((p) => p.id));
+    const result = { data: data.map((p) => toAgentProduct(p, ratings.get(p.id))), total };
+    await this.cache.set(key, result, PUBLISHED_LIST_CACHE_TTL_SECONDS);
+    return result;
+  }
+
   /** Distinct categoryIds from the buyer's wishlist and past order items — the signal used to bias recommendations. */
   private async getPreferredCategoryIds(buyerId: string): Promise<string[]> {
     const [wishlisted, ordered] = await Promise.all([
@@ -504,6 +612,27 @@ export class ProductsService {
     };
   }
 
+  /** Agent-facing equivalent of getBySlug — same lookup, priced with agentPrice instead of adminPrice. */
+  async getBySlugForAgent(slug: string): Promise<{ product: AgentProduct; related: AgentProduct[] }> {
+    const product = await this.repo.findBySlugWithMedia(slug);
+    if (
+      !product ||
+      product.deletedAt ||
+      !product.isPublished ||
+      product.approvalStatus !== ProductApprovalStatus.APPROVED ||
+      !product.agentPrice
+    ) {
+      throw AppError.notFound('Product not found');
+    }
+
+    const related = await this.repo.findRelated(product.categoryId, product.id, 4);
+    const ratings = await this.reviews.getRatingSummaries([product.id, ...related.map((p) => p.id)]);
+    return {
+      product: toAgentProduct(product, ratings.get(product.id)),
+      related: related.map((p) => toAgentProduct(p, ratings.get(p.id))),
+    };
+  }
+
   async listForSeller(
     sellerProfileId: string,
     filter: SellerProductListFilter,
@@ -520,6 +649,7 @@ export class ProductsService {
         ...product,
         sellerPrice: product.sellerPrice.toString(),
         adminPrice: product.adminPrice ? product.adminPrice.toString() : null,
+        agentPrice: product.agentPrice ? product.agentPrice.toString() : null,
         margin: product.adminPrice
           ? calculateMargin(Number(product.adminPrice), Number(product.sellerPrice))
           : null,
@@ -556,6 +686,7 @@ export class ProductsService {
       ...product,
       sellerPrice: product.sellerPrice.toString(),
       adminPrice: product.adminPrice ? product.adminPrice.toString() : null,
+      agentPrice: product.agentPrice ? product.agentPrice.toString() : null,
       margin: product.adminPrice
         ? calculateMargin(Number(product.adminPrice), Number(product.sellerPrice))
         : null,

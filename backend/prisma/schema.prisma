@@ -15,6 +15,7 @@ enum Role {
   SUPER_ADMIN
   SELLER
   BUYER
+  AGENT
 }
 
 enum UserStatus {
@@ -23,6 +24,13 @@ enum UserStatus {
 }
 
 enum SellerApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  MORE_INFO_REQUESTED
+}
+
+enum AgentApplicationStatus {
   PENDING
   APPROVED
   REJECTED
@@ -82,6 +90,8 @@ enum NotificationType {
   PAYOUT_PAID
   SELLER_APPLICATION_APPROVED
   SELLER_APPLICATION_REJECTED
+  AGENT_APPLICATION_APPROVED
+  AGENT_APPLICATION_REJECTED
   NEW_MESSAGE
 }
 
@@ -107,6 +117,7 @@ model User {
 
   sellerProfile SellerProfile?
   buyerProfile  BuyerProfile?
+  agentProfile  AgentProfile?
 
   @@index([role])
   @@index([status])
@@ -199,6 +210,53 @@ model SellerProfile {
 
   @@index([deletedAt])
   @@map("seller_profiles")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Agents
+// ─────────────────────────────────────────────────────────────
+
+model AgentApplication {
+  id              String                 @id @default(uuid())
+  businessName    String
+  contactName     String
+  email           String
+  phone           String
+  businessAddress String
+  country         String
+  message         String?
+  status          AgentApplicationStatus @default(PENDING)
+  rejectionReason String?
+  internalNotes   String?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  agentProfile AgentProfile?
+
+  @@index([status])
+  @@map("agent_applications")
+}
+
+model AgentProfile {
+  id              String            @id @default(uuid())
+  userId          String            @unique
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applicationId   String?           @unique
+  application     AgentApplication? @relation(fields: [applicationId], references: [id])
+  businessName    String
+  contactName     String
+  phone           String
+  businessAddress String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  deletedAt       DateTime?
+
+  catalogues Catalogue[]
+
+  @@index([deletedAt])
+  @@map("agent_profiles")
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -321,6 +379,7 @@ model Product {
   declaredStock   Int
   sellerPrice     Decimal               @db.Decimal(12, 2)
   adminPrice      Decimal?              @db.Decimal(12, 2)
+  agentPrice      Decimal?              @db.Decimal(12, 2)
   leadTime        String?
   approvalStatus  ProductApprovalStatus @default(PENDING)
   rejectionReason String?
@@ -377,6 +436,7 @@ model ProductPriceTier {
   moq         Int
   sellerPrice Decimal  @db.Decimal(12, 2)
   adminPrice  Decimal? @db.Decimal(12, 2)
+  agentPrice  Decimal? @db.Decimal(12, 2)
 
   @@index([productId])
   @@map("product_price_tiers")
@@ -420,6 +480,7 @@ model VariantPriceTier {
   moq         Int
   sellerPrice Decimal        @db.Decimal(12, 2)
   adminPrice  Decimal?       @db.Decimal(12, 2)
+  agentPrice  Decimal?       @db.Decimal(12, 2)
 
   @@index([variantId])
   @@map("variant_price_tiers")
@@ -479,6 +540,7 @@ model Order {
   adminPriceTotal        Decimal      @db.Decimal(12, 2)
   sellerPriceTotal       Decimal      @db.Decimal(12, 2)
   adminMargin            Decimal      @db.Decimal(12, 2)
+  placedAsAgent          Boolean      @default(false)
   trackingNumber         String?
   exportDocuments        Json?
   expectedCollectionDate DateTime?
@@ -495,6 +557,7 @@ model Order {
   @@index([status])
   @@index([createdAt])
   @@index([deletedAt])
+  @@index([placedAsAgent])
   @@map("orders")
 }
 
@@ -649,4 +712,22 @@ model PlatformSetting {
   updatedAt DateTime @updatedAt
 
   @@map("platform_settings")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Agent catalogues
+// ─────────────────────────────────────────────────────────────
+
+model Catalogue {
+  id         String       @id @default(uuid())
+  agentId    String
+  agent      AgentProfile @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  title      String
+  productIds String[]
+  fileUrl    String
+  publicId   String?
+  createdAt  DateTime     @default(now())
+
+  @@index([agentId])
+  @@map("catalogues")
 }

@@ -69,6 +69,24 @@ export class NotificationsService {
     );
   }
 
+  notifyAgentApplicationApproved(agentUserId: string): Promise<Notification> {
+    return this.notify(
+      agentUserId,
+      NotificationType.AGENT_APPLICATION_APPROVED,
+      'Welcome to Solomon Bharat',
+      'Your agent application has been approved.',
+    );
+  }
+
+  notifyAgentApplicationRejected(agentUserId: string, reason?: string): Promise<Notification> {
+    return this.notify(
+      agentUserId,
+      NotificationType.AGENT_APPLICATION_REJECTED,
+      'Update on your agent application',
+      reason ? `Your agent application was rejected: ${reason}` : 'Your agent application was rejected.',
+    );
+  }
+
   notifyNewMessageToAdmins(): Promise<void> {
     return this.notifyAllAdmins(
       NotificationType.NEW_MESSAGE,

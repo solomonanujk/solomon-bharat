@@ -41,6 +41,7 @@ function buildOrder(overrides: Partial<Order> = {}): Order {
     exportDocuments: null,
     expectedCollectionDate: null,
     cancelledReason: null,
+    placedAsAgent: false,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -104,10 +105,14 @@ describe('PaymentsService', () => {
       });
       vi.mocked(repo.create).mockResolvedValue(buildPayment());
 
-      const result = await service.checkout('buyer-1', {
-        items: [{ productId: 'prod-1', quantity: 10 }],
-        currency: 'USD',
-      });
+      const result = await service.checkout(
+        'buyer-1',
+        {
+          items: [{ productId: 'prod-1', quantity: 10 }],
+          currency: 'USD',
+        },
+        'BUYER',
+      );
 
       // adminPriceTotal (INR 120) converted at the mocked USD rate of 0.012 → 1.44
       expect(paymentProvider.createOrder).toHaveBeenCalledWith(
@@ -126,10 +131,14 @@ describe('PaymentsService', () => {
       });
       vi.mocked(repo.create).mockResolvedValue(buildPayment({ currency: 'INR' }));
 
-      await service.checkout('buyer-1', {
-        items: [{ productId: 'prod-1', quantity: 10 }],
-        currency: 'INR',
-      });
+      await service.checkout(
+        'buyer-1',
+        {
+          items: [{ productId: 'prod-1', quantity: 10 }],
+          currency: 'INR',
+        },
+        'BUYER',
+      );
 
       expect(paymentProvider.createOrder).toHaveBeenCalledWith(
         expect.objectContaining({ amount: 120, currency: 'INR' }),

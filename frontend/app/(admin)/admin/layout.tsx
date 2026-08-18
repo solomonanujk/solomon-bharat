@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 const MOBILE_TABS = [
   { href: '/admin', label: 'Overview' },
   { href: '/admin/seller-applications', label: 'Applications' },
+  { href: '/admin/agent-applications', label: 'Agents' },
   { href: '/admin/products', label: 'Products' },
   { href: '/admin/orders', label: 'Orders' },
   { href: '/admin/payouts', label: 'Payouts' },

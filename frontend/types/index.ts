@@ -2,7 +2,7 @@
 // Shapes mirror the backend exactly: /api/v1, envelope { success, data, message, meta },
 // camelCase fields throughout (see AGENTS.md → Frontend for the module map).
 
-export type Role = 'SUPER_ADMIN' | 'SELLER' | 'BUYER'
+export type Role = 'SUPER_ADMIN' | 'SELLER' | 'BUYER' | 'AGENT'
 export type UserStatus = 'ACTIVE' | 'SUSPENDED'
 
 export type OrderStatus =
@@ -19,6 +19,7 @@ export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'RESUBMITTED'
 export type CategoryStatus = 'ACTIVE' | 'ARCHIVED'
 export type CollectionStatus = 'DRAFT' | 'SCHEDULED' | 'PUBLISHED' | 'ARCHIVED'
 export type SellerApplicationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'MORE_INFO_REQUESTED'
+export type AgentApplicationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'MORE_INFO_REQUESTED'
 export type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED'
 export type PayoutStatus = 'PENDING' | 'PAID'
 export type NotificationType =
@@ -28,6 +29,8 @@ export type NotificationType =
   | 'PAYOUT_PAID'
   | 'SELLER_APPLICATION_APPROVED'
   | 'SELLER_APPLICATION_REJECTED'
+  | 'AGENT_APPLICATION_APPROVED'
+  | 'AGENT_APPLICATION_REJECTED'
   | 'NEW_MESSAGE'
 
 // ─── Users & Auth ─────────────────────────────────────────────────────────────
@@ -84,6 +87,8 @@ export interface ProductPriceTier {
   sellerPrice: number
   /** Set separately by an admin, per tier — never visible to sellers or buyers directly. */
   adminPrice?: number | null
+  /** Set separately by an admin, per tier — the price shown to agents, never to buyers. */
+  agentPrice?: number | null
 }
 
 export interface VariantAttribute {
@@ -126,6 +131,8 @@ export interface Product extends ProductListingDetails {
   weight: string | null
   moq: number
   adminPrice: number
+  /** Only populated when fetched in an authenticated agent context — never present for buyers. */
+  agentPrice?: number
   leadTime: string | null
   categoryId: string
   isFeatured: boolean
@@ -165,6 +172,7 @@ export interface MyProduct extends ProductListingDetails {
 export interface AdminProduct extends Omit<MyProduct, never> {
   sellerId: string
   adminPrice: number | null
+  agentPrice: number | null
   isFeatured: boolean
 }
 
@@ -241,6 +249,47 @@ export interface SellerProfile {
   businessAddress: string
   bankDetails: string | null
   notificationPrefs: Record<string, boolean> | null
+  createdAt: string
+  updatedAt: string
+}
+
+// ─── Agents ───────────────────────────────────────────────────────────────────
+
+export interface AgentApplication {
+  id: string
+  businessName: string
+  contactName: string
+  email: string
+  phone: string
+  businessAddress: string
+  country: string
+  message: string | null
+  status: AgentApplicationStatus
+  rejectionReason: string | null
+  internalNotes: string | null
+  reviewedById: string | null
+  reviewedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AgentApplyInput {
+  businessName: string
+  contactName: string
+  email: string
+  phone: string
+  businessAddress: string
+  country: string
+  message?: string
+}
+
+export interface AgentProfile {
+  id: string
+  userId: string
+  businessName: string
+  contactName: string
+  phone: string
+  businessAddress: string
   createdAt: string
   updatedAt: string
 }

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { env } from '../../config/env';
-import { StorageProvider, UploadedImage } from './storageProvider.types';
+import { StorageProvider, UploadedFile, UploadedImage } from './storageProvider.types';
 
 const UPLOADS_ROOT = path.resolve(process.cwd(), 'uploads');
 
@@ -27,6 +27,17 @@ export class LocalDiskStorageProvider implements StorageProvider {
   async deleteImage(publicId: string): Promise<void> {
     const filePath = path.join(UPLOADS_ROOT, publicId);
     await fs.promises.rm(filePath, { force: true });
+  }
+
+  async uploadFile(buffer: Buffer, filename: string, folder: string): Promise<UploadedFile> {
+    const dir = path.join(UPLOADS_ROOT, folder);
+    await fs.promises.mkdir(dir, { recursive: true });
+    const relativePath = path.join(folder, filename);
+    await fs.promises.writeFile(path.join(UPLOADS_ROOT, relativePath), buffer);
+    return {
+      url: `http://localhost:${env.PORT}/uploads/${relativePath.replace(/\\/g, '/')}`,
+      publicId: relativePath,
+    };
   }
 }
 

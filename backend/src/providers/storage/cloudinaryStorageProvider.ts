@@ -1,5 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary';
-import { StorageProvider, UploadedImage } from './storageProvider.types';
+import { StorageProvider, UploadedFile, UploadedImage } from './storageProvider.types';
 
 export class CloudinaryStorageProvider implements StorageProvider {
   constructor(cloudinaryUrl: string) {
@@ -26,5 +26,23 @@ export class CloudinaryStorageProvider implements StorageProvider {
 
   async deleteImage(publicId: string): Promise<void> {
     await cloudinary.uploader.destroy(publicId);
+  }
+
+  uploadFile(buffer: Buffer, filename: string, folder: string): Promise<UploadedFile> {
+    return new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        // 'raw' is required for non-image binaries (e.g. PDFs) — Cloudinary's
+        // 'image' resource type only accepts image formats.
+        { folder, public_id: filename, resource_type: 'raw' },
+        (error, result) => {
+          if (error || !result) {
+            reject(error ?? new Error('Cloudinary upload failed'));
+            return;
+          }
+          resolve({ url: result.secure_url, publicId: result.public_id });
+        },
+      );
+      stream.end(buffer);
+    });
   }
 }

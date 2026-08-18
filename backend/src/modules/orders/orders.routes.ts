@@ -11,7 +11,7 @@ import {
 } from './orders.validation';
 import { paginationQuerySchema } from '../../utils/pagination';
 import { validate } from '../../middleware/validate';
-import { requireAdmin, requireAuth, requireBuyer, requireSeller } from '../../middleware/auth';
+import { requireAdmin, requireAuth, requireBuyerOrAgent, requireSeller } from '../../middleware/auth';
 import { asyncHandler } from '../../utils/asyncHandler';
 
 export const ordersRouter = Router();
@@ -30,7 +30,7 @@ export const ordersRouter = Router();
 ordersRouter.get(
   '/me',
   requireAuth,
-  requireBuyer,
+  requireBuyerOrAgent,
   validate(paginationQuerySchema, 'query'),
   asyncHandler(ordersController.listMine),
 );
@@ -47,7 +47,7 @@ ordersRouter.get(
 ordersRouter.get(
   '/me/:id',
   requireAuth,
-  requireBuyer,
+  requireBuyerOrAgent,
   validate(idParamSchema, 'params'),
   asyncHandler(ordersController.getMine),
 );

@@ -1,5 +1,7 @@
 import { Order, OrderItem, OrderStatus, ProductImage } from '@prisma/client';
 
+export type PricingRole = 'BUYER' | 'AGENT';
+
 export interface CheckoutItemInput {
   productId: string;
   quantity: number;
@@ -22,6 +24,7 @@ export interface CreatePendingOrderInput {
   adminPriceTotal: number;
   sellerPriceTotal: number;
   adminMargin: number;
+  placedAsAgent: boolean;
 }
 
 export type OrderItemWithProduct = OrderItem & {
@@ -72,6 +75,7 @@ export interface SellerOrderItem {
 export interface AdminOrderListFilter {
   status?: OrderStatus;
   buyerId?: string;
+  placedAsAgent?: boolean;
 }
 
 export { OrderStatus };

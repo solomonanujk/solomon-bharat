@@ -36,6 +36,7 @@ describe('OrdersRepository', () => {
       adminPriceTotal: 100,
       sellerPriceTotal: 80,
       adminMargin: 20,
+      placedAsAgent: false,
       items: [
         {
           productId: 'p1',

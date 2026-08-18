@@ -72,28 +72,43 @@ export function useTierPriceForm(product: AdminProduct) {
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(allTiers.map(({ key, tier }) => [key, tier.adminPrice != null ? String(tier.adminPrice) : '']))
   )
+  const [agentValues, setAgentValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(allTiers.map(({ key, tier }) => [key, tier.agentPrice != null ? String(tier.agentPrice) : '']))
+  )
 
   function setValue(key: string, value: string) {
     setValues((v) => ({ ...v, [key]: value }))
+  }
+
+  function setAgentValue(key: string, value: string) {
+    setAgentValues((v) => ({ ...v, [key]: value }))
   }
 
   const priced = allTiers.filter(({ key }) => values[key] && Number(values[key]) > 0)
   const hasAnyPriced = priced.length > 0
 
   function buildPayload() {
-    const tierInputs = priced.map(({ key }) => ({ id: key, adminPrice: Number(values[key]) }))
+    const tierInputs = priced.map(({ key }) => {
+      const input: { id: string; adminPrice: number; agentPrice?: number } = { id: key, adminPrice: Number(values[key]) }
+      if (agentValues[key]) {
+        input.agentPrice = Number(agentValues[key])
+      }
+      return input
+    })
     return product.variants.length === 0
       ? { priceTiers: tierInputs }
       : { variantPriceTiers: tierInputs }
   }
 
-  return { allTiers, values, setValue, buildPayload, hasAnyPriced }
+  return { allTiers, values, setValue, agentValues, setAgentValue, buildPayload, hasAnyPriced }
 }
 
-export function TierPriceTable({ tiers, values, onChange, editable, disabled }: {
+export function TierPriceTable({ tiers, values, onChange, agentValues, onAgentChange, editable, disabled }: {
   tiers: TierRow[]
   values?: Record<string, string>
   onChange?: (key: string, value: string) => void
+  agentValues?: Record<string, string>
+  onAgentChange?: (key: string, value: string) => void
   editable?: boolean
   disabled?: boolean
 }) {
@@ -123,6 +138,7 @@ export function TierPriceTable({ tiers, values, onChange, editable, disabled }: 
                   <th className="text-left py-1.5 px-2.5 font-[600] text-muted-text">MOQ</th>
                   <th className="text-left py-1.5 px-2.5 font-[600] text-muted-text">Seller Price</th>
                   <th className="text-left py-1.5 px-2.5 font-[600] text-muted-text">Admin Price</th>
+                  <th className="text-left py-1.5 px-2.5 font-[600] text-muted-text">Agent Price</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-warm">
@@ -143,6 +159,23 @@ export function TierPriceTable({ tiers, values, onChange, editable, disabled }: 
                         />
                       ) : tier.adminPrice != null ? (
                         <span className="text-primary font-[600]">{formatINR(tier.adminPrice)}</span>
+                      ) : (
+                        <span className="italic text-muted-text">not set</span>
+                      )}
+                    </td>
+                    <td className="px-2.5 py-1.5">
+                      {editable ? (
+                        <input
+                          type="number"
+                          min={1}
+                          disabled={disabled}
+                          value={agentValues?.[key] ?? ''}
+                          onChange={(e) => onAgentChange?.(key, e.target.value)}
+                          placeholder="e.g. 500"
+                          className="w-24 h-7 px-2 rounded border border-border-warm bg-surface text-[12.5px] font-public-sans text-primary focus:outline-none focus:border-accent transition-colors disabled:opacity-50"
+                        />
+                      ) : tier.agentPrice != null ? (
+                        <span className="text-primary font-[600]">{formatINR(tier.agentPrice)}</span>
                       ) : (
                         <span className="italic text-muted-text">not set</span>
                       )}

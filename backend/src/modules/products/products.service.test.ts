@@ -51,6 +51,7 @@ function buildProduct(overrides: Partial<Product> = {}): Product {
     declaredStock: 100,
     sellerPrice: new Decimal(5),
     adminPrice: null,
+    agentPrice: null,
     leadTime: null,
     approvalStatus: ProductApprovalStatus.PENDING,
     rejectionReason: null,

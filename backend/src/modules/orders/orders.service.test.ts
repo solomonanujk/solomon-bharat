@@ -55,6 +55,7 @@ function buildProduct(overrides: Partial<Product> = {}): Product {
     isGITagged: false,
     howItIsMade: null,
     artisanName: null,
+    agentPrice: null,
     ...overrides,
   };
 }
@@ -72,6 +73,7 @@ function buildOrder(overrides: Partial<Order> = {}): Order {
     exportDocuments: null,
     expectedCollectionDate: null,
     cancelledReason: null,
+    placedAsAgent: false,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -129,7 +131,7 @@ describe('OrdersService', () => {
       vi.mocked(products.getForCheckout).mockResolvedValue(buildProduct({ moq: 10 }));
 
       await expect(
-        service.createPendingOrder('buyer-1', [{ productId: 'prod-1', quantity: 5 }], undefined),
+        service.createPendingOrder('buyer-1', [{ productId: 'prod-1', quantity: 5 }], undefined, 'BUYER'),
       ).rejects.toMatchObject({ statusCode: 400 });
 
       expect(repo.createPending).not.toHaveBeenCalled();
@@ -141,7 +143,7 @@ describe('OrdersService', () => {
       );
 
       await expect(
-        service.createPendingOrder('buyer-1', [{ productId: 'prod-1', quantity: 10 }], undefined),
+        service.createPendingOrder('buyer-1', [{ productId: 'prod-1', quantity: 10 }], undefined, 'BUYER'),
       ).rejects.toMatchObject({ statusCode: 400 });
     });
 
@@ -149,7 +151,7 @@ describe('OrdersService', () => {
       vi.mocked(products.getForCheckout).mockResolvedValue(buildProduct());
       vi.mocked(repo.createPending).mockResolvedValue(withItems(buildOrder()));
 
-      await service.createPendingOrder('buyer-1', [{ productId: 'prod-1', quantity: 10 }], 'addr-1');
+      await service.createPendingOrder('buyer-1', [{ productId: 'prod-1', quantity: 10 }], 'addr-1', 'BUYER');
 
       expect(buyers.verifyAddressOwnership).toHaveBeenCalledWith('buyer-1', 'addr-1');
     });
@@ -158,7 +160,7 @@ describe('OrdersService', () => {
       vi.mocked(products.getForCheckout).mockResolvedValue(buildProduct({ sellerPrice: new Decimal(5), adminPrice: new Decimal(12) }));
       vi.mocked(repo.createPending).mockResolvedValue(withItems(buildOrder()));
 
-      await service.createPendingOrder('buyer-1', [{ productId: 'prod-1', quantity: 10 }], undefined);
+      await service.createPendingOrder('buyer-1', [{ productId: 'prod-1', quantity: 10 }], undefined, 'BUYER');
 
       expect(repo.createPending).toHaveBeenCalledWith(
         expect.objectContaining({
