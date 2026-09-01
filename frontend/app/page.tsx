@@ -18,12 +18,13 @@ import { BuyerHomeFeed } from '@/components/homepage/BuyerHomeFeed'
 // ─── Homepage ─────────────────────────────────────────────────────────────────
 // Guest (or not-yet-hydrated): the marketing homepage per prd.md §6.2.
 // Signed-in BUYER: a personalized feed (BuyerHomeFeed) replaces it entirely.
-// Signed-in SELLER/SUPER_ADMIN: redirected straight to their own dashboard —
+// Signed-in SELLER/AGENT/SUPER_ADMIN: redirected straight to their own dashboard —
 // "/" is never a real landing page for them.
 
 function dashboardPathForRole(role: string): string | null {
   if (role === 'SUPER_ADMIN') return '/admin'
   if (role === 'SELLER') return '/portal'
+  if (role === 'AGENT') return '/agent'
   return null
 }
 
