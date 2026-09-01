@@ -98,9 +98,11 @@ export function AdminSidebar() {
       {/* Logo */}
       <div className="px-6 h-16 flex items-center border-b border-[#E5E1D8] shrink-0">
         <Link href="/" className="block">
-          <span className="font-playfair text-[18px] text-[#1A1A1A] font-[600] tracking-[-0.01em]">
-            Solomon Bharat
-          </span>
+          <img
+            src="https://res.cloudinary.com/dxnqyvcdl/image/upload/v1781610714/solomon-logo1_inmwov.png"
+            alt="Solomon Bharat"
+            className="h-9 w-auto object-contain block"
+          />
         </Link>
       </div>
 

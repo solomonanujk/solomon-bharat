@@ -162,7 +162,11 @@ export function AuthModal() {
             <span className="sr-only">Close</span>
           </DialogClose>
 
-          <p className="font-playfair text-[20px] font-[600] text-primary mb-6">Solomon Bharat</p>
+          <img
+            src="https://res.cloudinary.com/dxnqyvcdl/image/upload/v1781610714/solomon-logo1_inmwov.png"
+            alt="Solomon Bharat"
+            className="h-8 w-auto object-contain mb-6"
+          />
 
           {forgotView ? (
             <div className="flex-1">
