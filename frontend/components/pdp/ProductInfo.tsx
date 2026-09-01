@@ -95,12 +95,33 @@ function buildAxes(variants: Product['variants']) {
   return Array.from(map.entries()).map(([type, values]) => ({ type, values }))
 }
 
+// ─── Price resolution ──────────────────────────────────────────────────────────
+// Each variant carries its own MOQ-tiered prices (a Size L tote isn't the same
+// price as a Size S one). Resolve to the variant matching the current
+// selection, then the richest tier the current quantity actually qualifies
+// for (tiers get cheaper at higher MOQ) — falling back to the flat product
+// price only when there's no variant selected or no tier data at all.
+
+function resolveUnitPrice(
+  product: Pick<Product, 'adminPrice' | 'variants'>,
+  selectedAttrs: Record<string, string>,
+  quantity: number
+): number {
+  const variant = product.variants?.find((v) => selectedAttrs[v.type] === v.value)
+  const tiers = variant?.priceTiers?.filter((t) => t.adminPrice != null)
+  if (!tiers || tiers.length === 0) return product.adminPrice
+
+  const sorted = [...tiers].sort((a, b) => b.moq - a.moq)
+  const applicable = sorted.find((t) => quantity >= t.moq) ?? sorted[sorted.length - 1]
+  return applicable.adminPrice ?? product.adminPrice
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function ProductInfo({ product }: { product: Product }) {
   const {
     id, name, description, materials, dimensions, weight,
-    moq, adminPrice, leadTime, images, variants = [],
+    moq, leadTime, images, variants = [],
   } = product
 
   const [addedFeedback, setAddedFeedback] = useState(false)
@@ -115,6 +136,11 @@ export function ProductInfo({ product }: { product: Product }) {
     setSelectedAttrs((prev) => ({ ...prev, [type]: value }))
   }
 
+  const unitPrice = useMemo(
+    () => resolveUnitPrice(product, selectedAttrs, quantity),
+    [product, selectedAttrs, quantity]
+  )
+
   const { requireAuth } = useAuth()
   const addItem = useCartStore((s) => s.addItem)
 
@@ -123,6 +149,7 @@ export function ProductInfo({ product }: { product: Product }) {
       const variantLabel = axes.length
         ? axes.map((a) => `${a.type}: ${selectedAttrs[a.type]}`).join(' / ')
         : undefined
+      const variantId = variants.find((v) => selectedAttrs[v.type] === v.value)?.id
 
       addItem({
         productId: id,
@@ -130,8 +157,9 @@ export function ProductInfo({ product }: { product: Product }) {
         productName: name,
         image: images?.[0]?.url ?? '',
         quantity,
-        unitAdminPriceInr: adminPrice,
+        unitAdminPriceInr: unitPrice,
         moq,
+        variantId,
         variantLabel,
         leadTime,
       })
@@ -158,7 +186,7 @@ export function ProductInfo({ product }: { product: Product }) {
         <p className="font-public-sans text-[11px] font-[600] text-muted-text uppercase tracking-[0.07em] mb-1.5">
           Price per unit
         </p>
-        <Price amountInr={adminPrice} size="lg" className="!text-[38px] !font-[600] text-primary tracking-[-0.025em] leading-none" />
+        <Price amountInr={unitPrice} size="lg" className="!text-[38px] !font-[600] text-primary tracking-[-0.025em] leading-none" />
       </div>
 
       {/* Variant selector */}
