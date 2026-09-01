@@ -101,7 +101,7 @@ export function AdminSidebar() {
           <img
             src="https://res.cloudinary.com/dxnqyvcdl/image/upload/v1781610714/solomon-logo1_inmwov.png"
             alt="Solomon Bharat"
-            className="h-9 w-auto object-contain block"
+            className="h-12 w-auto object-contain block"
           />
         </Link>
       </div>

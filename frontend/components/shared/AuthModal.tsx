@@ -165,7 +165,7 @@ export function AuthModal() {
           <img
             src="https://res.cloudinary.com/dxnqyvcdl/image/upload/v1781610714/solomon-logo1_inmwov.png"
             alt="Solomon Bharat"
-            className="h-8 w-auto object-contain mb-6"
+            className="h-11 w-auto object-contain mb-6"
           />
 
           {forgotView ? (
