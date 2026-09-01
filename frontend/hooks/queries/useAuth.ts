@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import api from '@/lib/api'
+import api, { CSRF_TOKEN_KEY } from '@/lib/api'
 import { getApiError } from '@/lib/getApiError'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import type { User } from '@/types'
@@ -64,13 +64,14 @@ export interface LoginInput {
 
 export function useLogin() {
   const setUser = useAuthStore((s) => s.setUser)
-  return useMutation<{ user: User; accessToken: string }, Error, LoginInput>({
+  return useMutation<{ user: User; accessToken: string; csrfToken: string }, Error, LoginInput>({
     mutationFn: async (body) => {
       const res = await api.post('/auth/login', body)
       return res.data.data
     },
     onSuccess: (data) => {
       localStorage.setItem(TOKEN_KEY, data.accessToken)
+      localStorage.setItem(CSRF_TOKEN_KEY, data.csrfToken)
       setUser(data.user)
     },
     onError: (err) => toast.error(getApiError(err)),

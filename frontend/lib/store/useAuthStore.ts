@@ -5,6 +5,7 @@ import type { User } from '@/types'
 // Role type lives on User (see types/index.ts): 'SUPER_ADMIN' | 'SELLER' | 'BUYER'
 
 const TOKEN_KEY = 'sb_token'
+const CSRF_TOKEN_KEY = 'sb_csrf'
 
 interface AuthState {
   user: User | null
@@ -64,6 +65,7 @@ export const useAuthStore = create<AuthStore>()(
       logout: () => {
         if (typeof window !== 'undefined') {
           localStorage.removeItem(TOKEN_KEY)
+          localStorage.removeItem(CSRF_TOKEN_KEY)
         }
         set({
           user: null,

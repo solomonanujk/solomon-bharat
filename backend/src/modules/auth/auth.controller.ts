@@ -22,7 +22,10 @@ export const authController = {
     const dto = req.body as LoginDto;
     const { user, tokens } = await authService.login(dto);
     setAuthCookies(res, tokens.refreshToken, tokens.csrfToken);
-    sendSuccess(res, { user, accessToken: tokens.accessToken }, 'Logged in successfully');
+    // Also returned in the body (not just the cookie): the frontend runs on a different
+    // origin than this API (Vercel vs Render), so document.cookie can never read a cookie
+    // set by a cross-origin response — the double-submit echo has to come from here instead.
+    sendSuccess(res, { user, accessToken: tokens.accessToken, csrfToken: tokens.csrfToken }, 'Logged in successfully');
   },
 
   async refresh(req: Request, res: Response): Promise<void> {
@@ -32,7 +35,7 @@ export const authController = {
     }
     const { user, tokens } = await authService.refresh(rawRefreshToken);
     setAuthCookies(res, tokens.refreshToken, tokens.csrfToken);
-    sendSuccess(res, { user, accessToken: tokens.accessToken }, 'Token refreshed');
+    sendSuccess(res, { user, accessToken: tokens.accessToken, csrfToken: tokens.csrfToken }, 'Token refreshed');
   },
 
   async logout(req: Request, res: Response): Promise<void> {
