@@ -7,6 +7,7 @@ const ITEMS_INCLUDE = {
   items: {
     include: {
       product: { select: { name: true, images: { orderBy: { sortOrder: 'asc' as const }, take: 1 } } },
+      variant: { select: { type: true, value: true } },
       review: { select: { id: true } },
     },
   },
@@ -36,6 +37,7 @@ export class OrdersRepository {
         items: {
           create: input.items.map((item) => ({
             productId: item.productId,
+            variantId: item.variantId,
             sellerId: item.sellerId,
             quantity: item.quantity,
             unitAdminPrice: item.unitAdminPrice,

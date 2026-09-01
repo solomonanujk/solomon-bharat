@@ -241,7 +241,7 @@ export default function CheckoutPage() {
       setErrorMessage(null)
       checkout.mutate(
         {
-          items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+          items: items.map((i) => ({ productId: i.productId, quantity: i.quantity, variantId: i.variantId })),
           shippingAddressId: selectedAddressId,
           currency: currency !== 'INR' ? currency : undefined,
         },

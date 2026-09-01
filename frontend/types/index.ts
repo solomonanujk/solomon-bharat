@@ -395,6 +395,7 @@ export interface SellerOrderItem {
 export interface CheckoutItemInput {
   productId: string
   quantity: number
+  variantId?: string
 }
 
 export interface CheckoutResult {

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Order, OrderStatus, Product, ProductApprovalStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { ProductsService } from '../products/products.service';
+import { ProductWithMedia } from '../products/products.types';
 import { BuyersService } from '../buyers/buyers.service';
 import { PayoutsService } from '../payouts/payouts.service';
 import { OrdersRepository } from './orders.repository';
@@ -24,8 +25,8 @@ vi.mock('../notifications/notifications.service', () => ({
   },
 }));
 
-function buildProduct(overrides: Partial<Product> = {}): Product {
-  return {
+function buildProduct(overrides: Partial<Product> = {}): ProductWithMedia {
+  const product: Product = {
     id: 'prod-1',
     sellerId: 'seller-1',
     categoryId: 'cat-1',
@@ -58,6 +59,7 @@ function buildProduct(overrides: Partial<Product> = {}): Product {
     agentPrice: null,
     ...overrides,
   };
+  return { ...product, images: [], variants: [], priceTiers: [] };
 }
 
 function buildOrder(overrides: Partial<Order> = {}): Order {

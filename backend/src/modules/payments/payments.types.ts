@@ -1,7 +1,7 @@
 import { Payment, PaymentStatus } from '@prisma/client';
 
 export interface CheckoutInput {
-  items: { productId: string; quantity: number }[];
+  items: { productId: string; quantity: number; variantId?: string }[];
   shippingAddressId?: string;
   currency: string;
 }

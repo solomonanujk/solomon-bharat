@@ -5,10 +5,13 @@ export type PricingRole = 'BUYER' | 'AGENT';
 export interface CheckoutItemInput {
   productId: string;
   quantity: number;
+  /** Which variant of the product, if it has any — pricing is per-variant, not per-product. */
+  variantId?: string;
 }
 
 export interface PricedOrderItem {
   productId: string;
+  variantId?: string;
   sellerId: string;
   quantity: number;
   unitAdminPrice: number;
@@ -29,6 +32,7 @@ export interface CreatePendingOrderInput {
 
 export type OrderItemWithProduct = OrderItem & {
   product: { name: string; images: ProductImage[] };
+  variant: { type: string; value: string } | null;
   review: { id: string } | null;
 };
 
@@ -51,6 +55,7 @@ export interface BuyerOrder {
     productId: string;
     productName: string;
     productImage: string | null;
+    variantLabel: string | null;
     quantity: number;
     unitAdminPrice: string;
     lineAdminTotal: string;

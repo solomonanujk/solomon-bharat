@@ -225,8 +225,12 @@ export class ProductsService {
    * orders module can compute per-line margins at checkout. Never routed via a controller;
    * every public-facing method on this class strips one side or the other.
    */
-  async getForCheckout(productId: string): Promise<Product> {
-    return this.getProductOrThrow(productId);
+  async getForCheckout(productId: string): Promise<ProductWithMedia> {
+    const product = await this.repo.findByIdWithMedia(productId);
+    if (!product || product.deletedAt) {
+      throw AppError.notFound('Product not found');
+    }
+    return product;
   }
 
   private async getOwnedProductOrThrow(sellerProfileId: string, productId: string): Promise<Product> {

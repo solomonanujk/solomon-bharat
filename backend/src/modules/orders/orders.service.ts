@@ -50,6 +50,7 @@ function toBuyerOrder(order: OrderWithItems): BuyerOrder {
       productId: item.productId,
       productName: item.product.name,
       productImage: item.product.images[0]?.url ?? null,
+      variantLabel: item.variant ? `${item.variant.type}: ${item.variant.value}` : null,
       quantity: item.quantity,
       unitAdminPrice: item.unitAdminPrice.toString(),
       lineAdminTotal: item.lineAdminTotal.toString(),
@@ -85,32 +86,57 @@ export class OrdersService {
         if (product.deletedAt || !product.isPublished || product.approvalStatus !== 'APPROVED') {
           throw AppError.badRequest(`Product ${item.productId} is not available for purchase`);
         }
-
-        const chargePrice = pricingRole === 'AGENT' ? product.agentPrice : product.adminPrice;
-        if (!chargePrice) {
-          throw AppError.badRequest(
-            pricingRole === 'AGENT'
-              ? `Product ${item.productId} has no agent price set`
-              : `Product ${item.productId} has no selling price set`,
-          );
-        }
         if (item.quantity < product.moq) {
           throw AppError.badRequest(
             `Product "${product.name}" requires a minimum order quantity of ${product.moq}`,
           );
         }
 
-        const unitAdminPrice = Number(chargePrice);
-        const unitSellerPrice = Number(product.sellerPrice);
+        // Never trust a client-supplied price — always recompute server-side. Variants
+        // are priced independently of the flat product price (a Size L isn't the same
+        // price as a Size S), so a variantId resolves to that variant's own MOQ-tiered
+        // price; only fall back to the flat product mirror when no variant applies.
+        let unitAdminPrice: number | null = null;
+        let unitSellerPrice: number | null = null;
+
+        if (item.variantId) {
+          const variant = product.variants.find((v) => v.id === item.variantId);
+          if (!variant) {
+            throw AppError.badRequest(`Variant ${item.variantId} does not belong to product ${item.productId}`);
+          }
+          const tiers = variant.priceTiers.filter((t) =>
+            pricingRole === 'AGENT' ? t.agentPrice != null : t.adminPrice != null,
+          );
+          if (tiers.length > 0) {
+            const sorted = [...tiers].sort((a, b) => b.moq - a.moq);
+            const applicable = sorted.find((t) => item.quantity >= t.moq) ?? sorted[sorted.length - 1];
+            unitAdminPrice = Number(pricingRole === 'AGENT' ? applicable.agentPrice : applicable.adminPrice);
+            unitSellerPrice = Number(applicable.sellerPrice);
+          }
+        }
+
+        if (unitAdminPrice == null) {
+          const chargePrice = pricingRole === 'AGENT' ? product.agentPrice : product.adminPrice;
+          if (!chargePrice) {
+            throw AppError.badRequest(
+              pricingRole === 'AGENT'
+                ? `Product ${item.productId} has no agent price set`
+                : `Product ${item.productId} has no selling price set`,
+            );
+          }
+          unitAdminPrice = Number(chargePrice);
+          unitSellerPrice = Number(product.sellerPrice);
+        }
 
         return {
           productId: product.id,
+          variantId: item.variantId,
           sellerId: product.sellerId,
           quantity: item.quantity,
           unitAdminPrice,
-          unitSellerPrice,
+          unitSellerPrice: unitSellerPrice!,
           lineAdminTotal: Math.round(unitAdminPrice * item.quantity * 100) / 100,
-          lineSellerTotal: Math.round(unitSellerPrice * item.quantity * 100) / 100,
+          lineSellerTotal: Math.round(unitSellerPrice! * item.quantity * 100) / 100,
         };
       }),
     );

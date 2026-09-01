@@ -21,6 +21,7 @@ describe('OrdersRepository', () => {
         items: {
           include: {
             product: { select: { name: true, images: { orderBy: { sortOrder: 'asc' }, take: 1 } } },
+            variant: { select: { type: true, value: true } },
             review: { select: { id: true } },
           },
         },
