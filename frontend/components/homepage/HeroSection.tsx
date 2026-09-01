@@ -12,9 +12,9 @@ const STATS = [
 ]
 
 const TRUST_AVATARS = [
-  'https://picsum.photos/seed/buyer-a/40/40',
-  'https://picsum.photos/seed/buyer-b/40/40',
-  'https://picsum.photos/seed/buyer-c/40/40',
+  'https://randomuser.me/api/portraits/women/65.jpg',
+  'https://randomuser.me/api/portraits/men/32.jpg',
+  'https://randomuser.me/api/portraits/women/21.jpg',
 ]
 
 // ─── Component ────────────────────────────────────────────────────────────────

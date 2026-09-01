@@ -5,7 +5,7 @@ const FEATURED = {
   name: 'Sarah Mitchell',
   company: 'Artisan Home Boutique',
   country: 'United Kingdom',
-  avatar: 'https://picsum.photos/seed/sarah-testimonial/80/80',
+  avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
   review:
     'Solomon Bharat transformed our sourcing entirely. We found incredible Indian artisan products at factory-direct prices — the quality exceeded expectations and our customers love the authenticity.',
   rating: 5,
@@ -16,7 +16,7 @@ const OTHERS = [
     name: 'Marco Ferretti',
     company: 'Casa Mediterranea',
     country: 'Italy',
-    avatar: 'https://picsum.photos/seed/marco-testimonial/80/80',
+    avatar: 'https://randomuser.me/api/portraits/men/54.jpg',
     review:
       "We've been importing Indian textiles for years, but Solomon Bharat gave us true direct access to manufacturers. MOQs are reasonable and supplier verification gives real confidence.",
     rating: 5,
@@ -25,7 +25,7 @@ const OTHERS = [
     name: 'Emily Chen',
     company: 'Jade & Jasmine Imports',
     country: 'United States',
-    avatar: 'https://picsum.photos/seed/emily-testimonial/80/80',
+    avatar: 'https://randomuser.me/api/portraits/women/68.jpg',
     review:
       'Finding authentic Indian products at wholesale prices was my biggest sourcing challenge. Solomon Bharat solved that completely — and the platform makes managing global orders easy.',
     rating: 5,
