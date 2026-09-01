@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import { ProductGrid } from '@/components/catalogue/ProductGrid'
 import { FilterSidebar, EMPTY_FILTERS, type ProductFilterValues } from '@/components/catalogue/FilterSidebar'
+import { CategoryFilter } from '@/components/agent-portal/CategoryFilter'
 import { AgentProductCard } from '@/components/agent-portal/AgentProductCard'
 import { useInfiniteAgentProducts } from '@/hooks/queries/useProducts'
 
@@ -18,15 +19,17 @@ const PAGE_SIZE = 24
 export default function AgentProductsPage() {
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<ProductFilterValues>(EMPTY_FILTERS)
+  const [categoryId, setCategoryId] = useState<string | null>(null)
 
   const productsParams = useMemo(
     () => ({
+      categoryId: categoryId ?? undefined,
       search: search || undefined,
       minPrice: filters.priceMin ? Number(filters.priceMin) : undefined,
       maxPrice: filters.priceMax ? Number(filters.priceMax) : undefined,
       limit: PAGE_SIZE,
     }),
-    [search, filters]
+    [categoryId, search, filters]
   )
 
   const {
@@ -61,6 +64,7 @@ export default function AgentProductsPage() {
 
       <div className="flex gap-8">
         <div className="hidden lg:block sticky top-20 self-start w-60 flex-shrink-0 py-1">
+          <CategoryFilter selectedCategoryId={categoryId} onSelect={setCategoryId} />
           <FilterSidebar filters={filters} onFilterChange={setFilters} />
         </div>
 
