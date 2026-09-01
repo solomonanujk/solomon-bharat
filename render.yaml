@@ -11,6 +11,11 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Render's outbound IPv6 to Neon's dual-stack (A+AAAA) pooler hostname
+      # doesn't route correctly, causing Prisma P1001 "can't reach database
+      # server" — force IPv4-first DNS resolution to fix it.
+      - key: NODE_OPTIONS
+        value: --dns-result-order=ipv4first
       - key: DATABASE_URL
         sync: false
       - key: REDIS_URL
