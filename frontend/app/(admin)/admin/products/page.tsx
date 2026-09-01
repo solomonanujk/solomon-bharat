@@ -2,30 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Package, Search, Star, CheckCircle2 } from 'lucide-react'
+import { Package, Search, Star, CheckCircle2, X } from 'lucide-react'
 import { useAdminProducts } from '@/hooks/queries/useProducts'
 import { useAdminCategoryTree } from '@/hooks/queries/useCategories'
+import { CategoryCascadeSelect } from '@/components/seller-portal/CategoryCascade'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { cn, formatINR } from '@/lib/utils'
-import type { AdminProduct, ApprovalStatus, CategoryNode } from '@/types'
-
-// ─── Category flattening (leaf nodes only, for the filter dropdown) ───────────
-
-interface FlatCategory {
-  id: string
-  label: string
-}
-
-function flattenLeaves(nodes: CategoryNode[], trail: string[] = []): FlatCategory[] {
-  return nodes.flatMap((node) => {
-    const path = [...trail, node.name]
-    if (!node.children || node.children.length === 0) {
-      return [{ id: node.id, label: path.join(' / ') }]
-    }
-    return flattenLeaves(node.children, path)
-  })
-}
+import type { AdminProduct, ApprovalStatus } from '@/types'
 
 // ─── Filter tabs ────────────────────────────────────────────────────────────────
 
@@ -112,8 +96,6 @@ export default function AdminProductsPage() {
   })
   const { data: tree = [] } = useAdminCategoryTree()
 
-  const leafCategories = useMemo(() => flattenLeaves(tree), [tree])
-
   const items = data?.items ?? []
   const total = data?.total ?? 0
   const limit = data?.limit ?? PAGE_LIMIT
@@ -156,16 +138,22 @@ export default function AdminProductsPage() {
             className="w-full h-9 pl-9 pr-4 rounded border border-border-warm bg-surface text-[13px] font-public-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors"
           />
         </div>
-        <select
-          value={categoryId}
-          onChange={(e) => handleCategoryChange(e.target.value)}
-          className="h-9 px-3 rounded border border-border-warm bg-surface text-[13px] font-public-sans text-primary focus:outline-none focus:border-accent transition-colors max-w-[280px]"
-        >
-          <option value="">All categories</option>
-          {leafCategories.map((c) => (
-            <option key={c.id} value={c.id}>{c.label}</option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2 w-full sm:w-[280px]">
+          <div className="flex-1 min-w-0">
+            <CategoryCascadeSelect tree={tree} value={categoryId} onChange={handleCategoryChange} />
+          </div>
+          {categoryId && (
+            <button
+              type="button"
+              onClick={() => handleCategoryChange('')}
+              title="Clear category filter"
+              aria-label="Clear category filter"
+              className="h-9 w-9 flex-shrink-0 rounded border border-border-warm bg-surface flex items-center justify-center text-muted-text hover:text-primary hover:bg-muted-bg transition-colors"
+            >
+              <X size={14} aria-hidden="true" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Status tabs */}
