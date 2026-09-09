@@ -21,7 +21,7 @@ function RelatedProducts({ products }: { products: import('@/types').Product[] }
   return (
     <section className="border-t border-border-warm">
       <div className="max-w-[1280px] mx-auto w-full px-6 lg:px-16 py-10">
-        <h2 className="font-playfair font-[500] text-primary text-[22px] leading-tight mb-6">
+        <h2 className="font-playfair font-[500] text-primary text-[20px] leading-tight mb-6">
           Related products
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
@@ -103,7 +103,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           <EmptyState
             title="Product not found"
             description="This product may have been removed or the link is incorrect."
-            action={{ label: 'Browse Categories', onClick: () => { window.location.href = '/categories' } }}
+            action={{ label: 'Back to Home', onClick: () => { window.location.href = '/' } }}
           />
         </main>
         <Footer />
@@ -120,7 +120,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       <main className="flex-1">
         <div className="max-w-[1280px] mx-auto w-full px-4 sm:px-6 lg:px-16 py-6 sm:py-10">
           {/* Breadcrumb */}
-          <nav className="flex items-center gap-0.5 mb-8 text-[12px] font-public-sans text-muted-text" aria-label="Breadcrumb">
+          <nav className="flex items-center gap-0.5 mb-8 text-[11px] font-public-sans text-muted-text" aria-label="Breadcrumb">
             <button
               type="button"
               onClick={() => router.back()}
@@ -132,18 +132,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             <span aria-hidden="true">/</span>
             <Link href="/" className="hover:text-primary transition-colors">Home</Link>
             <span aria-hidden="true">/</span>
-            <Link href="/categories" className="hover:text-primary transition-colors">Categories</Link>
-            <span aria-hidden="true">/</span>
             <span className="text-primary truncate max-w-[200px]">{product.name}</span>
           </nav>
 
           {/* Two-column layout */}
           <div className="flex flex-col lg:flex-row gap-10 lg:gap-12 lg:items-start">
-            <div className="w-full lg:w-[60%] lg:sticky lg:top-[88px] lg:self-start">
+            <div className="w-full lg:w-[67%] lg:sticky lg:top-[88px] lg:self-start">
               <PhotoGallery images={images} productName={product.name} />
             </div>
 
-            <div className="w-full lg:w-[40%]">
+            <div className="w-full lg:w-[33%]">
               <ProductInfo product={product} />
             </div>
           </div>

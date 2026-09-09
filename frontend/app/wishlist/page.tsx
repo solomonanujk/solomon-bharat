@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { Heart, ShoppingCart } from 'lucide-react'
-import { toast } from 'sonner'
 import { AccountPageWrapper } from '@/components/shared/AccountPageWrapper'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -45,7 +44,6 @@ function WishlistCard({ entry }: { entry: WishlistEntry }) {
       moq: product.moq,
       leadTime: product.leadTime,
     })
-    toast.success(`${product.name} added to cart`, { description: `Qty: ${product.moq}` })
   }
 
   return (

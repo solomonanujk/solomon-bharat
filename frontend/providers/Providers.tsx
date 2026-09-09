@@ -3,6 +3,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { useState } from "react";
+import { AddedToCartPopup } from "@/components/shared/AddedToCartPopup";
+import { CatalogueTray } from "@/components/shared/CatalogueTray";
 import { AppInitialiser } from "@/components/shared/AppInitialiser";
 import { AuthModal } from "@/components/shared/AuthModal";
 import { Toaster } from "sonner";
@@ -27,6 +29,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <AppInitialiser />
       {children}
       <AuthModal />
+      <AddedToCartPopup />
+      <CatalogueTray />
       <Toaster position="top-right" richColors closeButton />
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>

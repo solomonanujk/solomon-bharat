@@ -1,10 +1,11 @@
-import { AgentProfile, Catalogue, PrismaClient } from '@prisma/client';
+import { AgentProfile, Catalogue, Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { PaginationQuery, toSkipTake } from '../../utils/pagination';
+import { CatalogueItemInput } from './catalogues.types';
 
 export interface CreateCatalogueData {
   title: string;
-  productIds: string[];
+  items: CatalogueItemInput[];
   fileUrl: string;
   publicId?: string;
 }
@@ -25,7 +26,7 @@ export class CataloguesRepository {
       data: {
         agentId,
         title: data.title,
-        productIds: data.productIds,
+        items: data.items as unknown as Prisma.InputJsonValue,
         fileUrl: data.fileUrl,
         publicId: data.publicId,
       },

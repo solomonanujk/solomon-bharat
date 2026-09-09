@@ -50,11 +50,13 @@ export class CataloguesService {
     const agentId = await this.resolveAgentProfileId(userId);
 
     const fetched = await Promise.all(
-      input.productIds.map((id) => this.products.findByIdWithMedia(id)),
+      input.items.map((item) => this.products.findByIdWithMedia(item.productId)),
     );
-    const qualifyingProducts = fetched.filter(isShareable);
+    const qualifying = input.items
+      .map((item, i) => ({ item, product: fetched[i] }))
+      .filter((row): row is { item: typeof row.item; product: ProductWithMedia } => isShareable(row.product));
 
-    if (qualifyingProducts.length === 0) {
+    if (qualifying.length === 0) {
       throw AppError.badRequest(
         'None of the selected products are available to include in a catalogue',
       );
@@ -62,10 +64,12 @@ export class CataloguesService {
 
     const title = input.title?.trim() || defaultTitle();
 
-    const pdfProducts: CatalogueProductInput[] = qualifyingProducts.map((product) => ({
+    const pdfProducts: CatalogueProductInput[] = qualifying.map(({ item, product }) => ({
       name: product.name,
       description: product.description,
       imageUrl: product.images[0]?.url,
+      price: item.price,
+      moq: item.moq,
     }));
 
     const pdfBuffer = await buildCataloguePdf(pdfProducts);
@@ -75,7 +79,7 @@ export class CataloguesService {
 
     const catalogue = await this.repo.create(agentId, {
       title,
-      productIds: qualifyingProducts.map((p) => p.id),
+      items: qualifying.map(({ item }) => ({ productId: item.productId, price: item.price, moq: item.moq })),
       fileUrl: uploaded.url,
       publicId: uploaded.publicId,
     });

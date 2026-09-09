@@ -15,8 +15,7 @@ import { useLogin, useSignup, useForgotPassword } from '@/hooks/queries/useAuth'
 function roleDestination(role: string): string | null {
   if (role === 'SUPER_ADMIN') return '/admin'
   if (role === 'SELLER') return '/portal'
-  if (role === 'AGENT') return '/agent'
-  return null // buyers stay on the current page
+  return null // buyers and agents stay on the current page
 }
 
 interface SignupForm {
@@ -163,7 +162,7 @@ export function AuthModal() {
           </DialogClose>
 
           <img
-            src="https://res.cloudinary.com/dxnqyvcdl/image/upload/v1781610714/solomon-logo1_inmwov.png"
+            src="https://res.cloudinary.com/dxnqyvcdl/image/upload/v1788850557/branding/1788850490541-solomon-bharat-logo.png"
             alt="Solomon Bharat"
             className="h-11 w-auto object-contain mb-6"
           />

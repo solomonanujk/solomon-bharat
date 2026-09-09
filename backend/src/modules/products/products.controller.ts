@@ -6,7 +6,9 @@ import { buyersService } from '../buyers/buyers.service';
 import { productsService } from './products.service';
 import {
   AdminProductListQueryDto,
+  ApprovePricingChangeDto,
   ApproveProductDto,
+  CreateProductAsAdminDto,
   CreateProductDto,
   PolishFieldDto,
   PublicProductListQueryDto,
@@ -38,6 +40,18 @@ export const productsController = {
     const dto = req.body as CreateProductDto;
     const product = await productsService.createProduct(sellerProfileId, dto, extractFiles(req));
     sendCreated(res, product, 'Product submitted for review');
+  },
+
+  async createAsAdmin(req: Request, res: Response): Promise<void> {
+    const { sellerMode, sellerId, ...dto } = req.body as CreateProductAsAdminDto;
+    const product = await productsService.createProductAsAdmin(
+      sellerMode,
+      sellerId,
+      dto,
+      extractFiles(req),
+      req.user!.id,
+    );
+    sendCreated(res, product, 'Product created and published');
   },
 
   async update(req: Request, res: Response): Promise<void> {
@@ -96,6 +110,35 @@ export const productsController = {
     sendSuccess(res, product, 'Product reassigned to new category');
   },
 
+  async updateAdmin(req: Request, res: Response): Promise<void> {
+    const dto = req.body as UpdateProductDto;
+    const product = await productsService.updateProductAsAdmin(req.params.id, dto, extractFiles(req), req.user!.id);
+    sendSuccess(res, product, 'Product updated');
+  },
+
+  async listPendingPricingChanges(req: Request, res: Response): Promise<void> {
+    const pagination = req.query as unknown as PaginationQuery;
+    const { data, total } = await productsService.listPendingPricingChanges(pagination);
+    sendSuccess(res, data, 'Pending pricing changes retrieved', 200, buildPaginationMeta(total, pagination));
+  },
+
+  async approvePricingChange(req: Request, res: Response): Promise<void> {
+    const dto = req.body as ApprovePricingChangeDto;
+    const product = await productsService.approvePricingChange(
+      req.params.id,
+      dto.priceTiers,
+      dto.variantPriceTiers,
+      req.user!.id,
+    );
+    sendSuccess(res, product, 'Pricing change approved');
+  },
+
+  async rejectPricingChange(req: Request, res: Response): Promise<void> {
+    const dto = req.body as RejectProductDto;
+    await productsService.rejectPricingChange(req.params.id, dto.reason, req.user!.id);
+    sendSuccess(res, null, 'Pricing change rejected');
+  },
+
   async publish(req: Request, res: Response): Promise<void> {
     const product = await productsService.setPublished(req.params.id, true);
     sendSuccess(res, product, 'Product published');
@@ -132,39 +175,25 @@ export const productsController = {
   },
 
   async listPublic(req: Request, res: Response): Promise<void> {
-    const { categoryId, collectionId, search, material, minPrice, maxPrice, moqMax, ...pagination } =
+    const { categoryId, collectionId, search, sort, material, minPrice, maxPrice, moqMax, ...pagination } =
       req.query as unknown as PublicProductListQueryDto;
     const { data, total } = await productsService.listPublished(
-      { categoryId, collectionId, search, material, minPrice, maxPrice, moqMax },
+      { categoryId, collectionId, search, sort, material, minPrice, maxPrice, moqMax },
       pagination,
+      req.user?.role,
     );
     sendSuccess(res, data, 'Products retrieved', 200, buildPaginationMeta(total, pagination));
   },
 
   async getBySlug(req: Request, res: Response): Promise<void> {
-    const result = await productsService.getBySlug(req.params.slug);
-    sendSuccess(res, result);
-  },
-
-  async listForAgent(req: Request, res: Response): Promise<void> {
-    const { categoryId, collectionId, search, material, minPrice, maxPrice, moqMax, ...pagination } =
-      req.query as unknown as PublicProductListQueryDto;
-    const { data, total } = await productsService.listPublishedForAgent(
-      { categoryId, collectionId, search, material, minPrice, maxPrice, moqMax },
-      pagination,
-    );
-    sendSuccess(res, data, 'Products retrieved', 200, buildPaginationMeta(total, pagination));
-  },
-
-  async getForAgentBySlug(req: Request, res: Response): Promise<void> {
-    const result = await productsService.getBySlugForAgent(req.params.slug);
+    const result = await productsService.getBySlug(req.params.slug, req.user?.role);
     sendSuccess(res, result);
   },
 
   async listRecommended(req: Request, res: Response): Promise<void> {
     const buyerId = await resolveBuyerProfileId(req.user!.id);
     const pagination = req.query as unknown as PaginationQuery;
-    const { data, total } = await productsService.getRecommendationsForBuyer(buyerId, pagination);
+    const { data, total } = await productsService.getRecommendationsForBuyer(buyerId, pagination, req.user!.role);
     sendSuccess(res, data, 'Recommendations retrieved', 200, buildPaginationMeta(total, pagination));
   },
 

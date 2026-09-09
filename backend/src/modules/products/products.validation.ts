@@ -49,6 +49,51 @@ const variantSchema = z.object({
   priceTiers: z.array(priceTierSchema).min(1).optional(),
 });
 
+// Admin creates a product with sellerPrice AND adminPrice (buyer price) AND agentPrice
+// set directly per tier, skipping the normal PENDING review — these are the same
+// tier/variant shapes as above, just with the two extra optional price fields.
+const priceTierWithAdminPricingSchema = priceTierSchema.extend({
+  adminPrice: z.coerce.number().positive().optional(),
+  agentPrice: z.coerce.number().positive().optional(),
+});
+
+const variantWithAdminPricingSchema = variantSchema.extend({
+  priceTiers: z.array(priceTierWithAdminPricingSchema).min(1).optional(),
+});
+
+export const createProductAsAdminSchema = z
+  .object({
+    sellerMode: z.enum(['existing', 'house']),
+    sellerId: z.string().uuid().optional(),
+    name: z.string().min(1).max(200),
+    description: z.string().min(1).max(5000),
+    categoryId: z.string().uuid(),
+    materials: z.string().min(1).max(500),
+    dimensions: z.string().max(200).optional(),
+    weight: z
+      .string()
+      .min(1)
+      .refine((v) => Number(v) > 0, 'Weight must be a positive number (kg)'),
+    moq: z.coerce.number().int().min(1),
+    declaredStock: z.coerce.number().int().min(0),
+    sellerPrice: z.coerce.number().positive(),
+    leadTime: z.string().max(200).optional(),
+    variants: jsonArrayField(variantWithAdminPricingSchema),
+    tags: jsonArrayField(z.string().min(1).max(50)),
+    stepQty: z.coerce.number().int().positive().default(1),
+    isHandmade: formBoolean(false),
+    placeOfOrigin: z.string().max(200).optional(),
+    isGITagged: formBoolean(false),
+    howItIsMade: z.string().max(5000).optional(),
+    artisanName: z.string().max(200).optional(),
+    priceTiers: jsonArrayField(priceTierWithAdminPricingSchema),
+  })
+  .refine((data) => data.sellerMode !== 'existing' || !!data.sellerId, {
+    message: 'sellerId is required when sellerMode is "existing"',
+    path: ['sellerId'],
+  });
+export type CreateProductAsAdminDto = z.infer<typeof createProductAsAdminSchema>;
+
 export const createProductSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().min(1).max(5000),
@@ -141,6 +186,29 @@ export type RejectProductDto = z.infer<typeof rejectProductSchema>;
 export const updatePriceSchema = approveProductSchema;
 export type UpdatePriceDto = z.infer<typeof updatePriceSchema>;
 
+// A pending pricing-change's proposed tiers are JSON, not real rows yet, so the admin
+// prices them by synthetic position key (`flat-0`, `variant-0-tier-1`, ...) rather than
+// a real tier uuid — same shape as tierAdminPriceSchema above, just without the .uuid().
+const tierAdminPriceBySyntheticKeySchema = z
+  .object({
+    id: z.string().min(1),
+    adminPrice: z.coerce.number().positive().optional(),
+    agentPrice: z.coerce.number().positive().optional(),
+  })
+  .refine((d) => d.adminPrice !== undefined || d.agentPrice !== undefined, {
+    message: 'Provide adminPrice and/or agentPrice for each tier',
+  });
+
+export const approvePricingChangeSchema = z
+  .object({
+    priceTiers: z.array(tierAdminPriceBySyntheticKeySchema).optional(),
+    variantPriceTiers: z.array(tierAdminPriceBySyntheticKeySchema).optional(),
+  })
+  .refine((data) => (data.priceTiers?.length ?? 0) + (data.variantPriceTiers?.length ?? 0) > 0, {
+    message: 'Set an admin price for at least one tier',
+  });
+export type ApprovePricingChangeDto = z.infer<typeof approvePricingChangeSchema>;
+
 export const reassignCategorySchema = z.object({
   categoryId: z.string().uuid(),
 });
@@ -150,6 +218,9 @@ export const publicProductListQuerySchema = paginationQuerySchema.extend({
   categoryId: z.string().uuid().optional(),
   collectionId: z.string().uuid().optional(),
   search: z.string().max(200).optional(),
+  // Curated unscoped browse modes ("New Products" / "Bestsellers" / "Trending" navbar
+  // links) — the other deliberate exception to "always scoped", alongside `search`.
+  sort: z.enum(['newest', 'featured', 'trending']).optional(),
   material: z.string().max(200).optional(),
   minPrice: z.coerce.number().min(0).optional(),
   maxPrice: z.coerce.number().min(0).optional(),

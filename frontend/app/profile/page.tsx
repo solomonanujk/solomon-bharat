@@ -5,12 +5,11 @@ import { MapPin, Pencil, Plus, Star, Trash2 } from 'lucide-react'
 import { AccountPageWrapper } from '@/components/shared/AccountPageWrapper'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Input as FormInput } from '@/components/ui/input'
+import { AddressFormDialog, EMPTY_ADDRESS_FORM } from '@/components/shared/AddressFormDialog'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { useBuyerProfile, useUpdateBuyerProfile } from '@/hooks/queries/useBuyerProfile'
+import { useMyAgentProfile, useUpdateMyAgentProfile } from '@/hooks/queries/useAgents'
 import {
   useAddresses,
   useCreateAddress,
@@ -165,17 +164,63 @@ function BusinessProfileSection() {
   )
 }
 
-// ─── Addresses section ──────────────────────────────────────────────────────────
+// ─── Agent business profile section ────────────────────────────────────────────
 
-const EMPTY_ADDRESS_FORM: AddressInput = {
-  label: '',
-  line1: '',
-  line2: '',
-  city: '',
-  state: '',
-  postalCode: '',
-  country: '',
+function AgentBusinessProfileSection() {
+  const user = useAuthStore((s) => s.user)
+  const { data: profile, isSuccess: profileLoaded } = useMyAgentProfile()
+  const updateProfile = useUpdateMyAgentProfile()
+
+  const [businessName, setBusinessName] = useState('')
+  const [contactName, setContactName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [businessAddress, setBusinessAddress] = useState('')
+
+  useEffect(() => {
+    if (!profileLoaded || !profile) return
+    setBusinessName(profile.businessName ?? '')
+    setContactName(profile.contactName ?? '')
+    setPhone(profile.phone ?? '')
+    setBusinessAddress(profile.businessAddress ?? '')
+  }, [profileLoaded, profile])
+
+  function saveProfile() {
+    updateProfile.mutate({
+      businessName: businessName.trim(),
+      contactName: contactName.trim(),
+      phone: phone.trim(),
+      businessAddress: businessAddress.trim(),
+    })
+  }
+
+  return (
+    <Section title="Business Profile" description="Your details as they appear on generated catalogues.">
+      <Field label="Email Address" htmlFor="email">
+        <Input id="email" type="email" value={user?.email ?? ''} readOnly />
+      </Field>
+      <Field label="Business Name" htmlFor="business-name">
+        <Input id="business-name" value={businessName} onChange={setBusinessName} placeholder="Your business name" />
+      </Field>
+      <Field label="Contact Name" htmlFor="contact-name">
+        <Input id="contact-name" value={contactName} onChange={setContactName} placeholder="Primary contact person" />
+      </Field>
+      <Field label="Phone" htmlFor="phone">
+        <Input id="phone" type="tel" value={phone} onChange={setPhone} placeholder="+91 98765 43210" />
+      </Field>
+      <Field label="Business Address" htmlFor="business-address">
+        <Input id="business-address" value={businessAddress} onChange={setBusinessAddress} placeholder="Business address" />
+      </Field>
+
+      <div className="pt-2 flex items-center gap-3">
+        <Button variant="primary" size="md" onClick={saveProfile} disabled={updateProfile.isPending}>
+          {updateProfile.isPending ? 'Saving…' : 'Save Changes'}
+        </Button>
+      </div>
+    </Section>
+  )
 }
+
+// ─── Addresses section ──────────────────────────────────────────────────────────
 
 function AddressCard({
   address,
@@ -237,86 +282,6 @@ function AddressCard({
         </Button>
       </div>
     </div>
-  )
-}
-
-function AddressFormDialog({
-  open,
-  onOpenChange,
-  initial,
-  onSubmit,
-  isPending,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  initial: AddressInput
-  onSubmit: (data: AddressInput) => void
-  isPending: boolean
-}) {
-  const [form, setForm] = useState<AddressInput>(initial)
-
-  useEffect(() => {
-    if (open) setForm(initial)
-  }, [open, initial])
-
-  function set<K extends keyof AddressInput>(key: K, value: AddressInput[K]) {
-    setForm((f) => ({ ...f, [key]: value }))
-  }
-
-  const isValid = form.line1.trim() && form.city.trim() && form.postalCode.trim() && form.country.trim()
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{initial.line1 ? 'Edit Address' : 'Add Address'}</DialogTitle>
-        </DialogHeader>
-
-        <div className="px-6 pb-4 space-y-4">
-          <div>
-            <Label htmlFor="addr-label">Label (optional)</Label>
-            <FormInput id="addr-label" value={form.label ?? ''} onChange={(e) => set('label', e.target.value)} placeholder="e.g. Warehouse" />
-          </div>
-          <div>
-            <Label htmlFor="addr-line1">Address Line 1 *</Label>
-            <FormInput id="addr-line1" value={form.line1} onChange={(e) => set('line1', e.target.value)} placeholder="Street address" />
-          </div>
-          <div>
-            <Label htmlFor="addr-line2">Address Line 2 (optional)</Label>
-            <FormInput id="addr-line2" value={form.line2 ?? ''} onChange={(e) => set('line2', e.target.value)} placeholder="Apartment, suite, etc." />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="addr-city">City *</Label>
-              <FormInput id="addr-city" value={form.city} onChange={(e) => set('city', e.target.value)} placeholder="City" />
-            </div>
-            <div>
-              <Label htmlFor="addr-state">State / Region</Label>
-              <FormInput id="addr-state" value={form.state ?? ''} onChange={(e) => set('state', e.target.value)} placeholder="State or region" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="addr-postal">Postal Code *</Label>
-              <FormInput id="addr-postal" value={form.postalCode} onChange={(e) => set('postalCode', e.target.value)} placeholder="ZIP / Postal code" />
-            </div>
-            <div>
-              <Label htmlFor="addr-country">Country *</Label>
-              <FormInput id="addr-country" value={form.country} onChange={(e) => set('country', e.target.value)} placeholder="Country" />
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="ghost" size="md" onClick={() => onOpenChange(false)} disabled={isPending}>
-            Cancel
-          </Button>
-          <Button variant="primary" size="md" onClick={() => onSubmit(form)} disabled={!isValid || isPending}>
-            {isPending ? 'Saving…' : 'Save Address'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }
 
@@ -414,11 +379,13 @@ function AddressesSection() {
 // ─── Page ───────────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
+  const role = useAuthStore((s) => s.user?.role)
+
   return (
     <AccountPageWrapper title="Profile" description="Your account details and shipping addresses.">
       <div className="flex flex-col lg:flex-row lg:items-start gap-6">
         <div className="flex-1 min-w-0">
-          <BusinessProfileSection />
+          {role === 'AGENT' ? <AgentBusinessProfileSection /> : <BusinessProfileSection />}
         </div>
         <div className="flex-1 min-w-0">
           <AddressesSection />

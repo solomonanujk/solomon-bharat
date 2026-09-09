@@ -91,6 +91,15 @@ export interface ProductPriceTier {
   agentPrice?: number | null
 }
 
+/** A flat (non-variant) tier as exposed to buyers — never the seller's own cost. */
+export interface BuyerPriceTier {
+  id: string
+  moq: number
+  adminPrice: number
+  /** Only populated when fetched in an authenticated agent context — never present for buyers. */
+  agentPrice?: number | null
+}
+
 export interface VariantAttribute {
   name: string
   value: string
@@ -133,6 +142,9 @@ export interface Product extends ProductListingDetails {
   adminPrice: number
   /** Only populated when fetched in an authenticated agent context — never present for buyers. */
   agentPrice?: number
+  /** The product's own flat tiers — empty when it uses variants instead (each
+   *  variant carries its own priceTiers on `variants` below). */
+  priceTiers: BuyerPriceTier[]
   leadTime: string | null
   categoryId: string
   isFeatured: boolean
@@ -145,6 +157,34 @@ export interface Product extends ProductListingDetails {
 }
 
 /** Seller-safe projection — never includes adminPrice/margin. */
+/** A seller's proposed pricing/variant edit to an already-APPROVED (live) product,
+ *  awaiting admin review — buyers keep seeing the product's real priceTiers/variants
+ *  untouched until this is approved. No `id` on the tiers/variants themselves since
+ *  they're just a proposal, not real rows yet. */
+export interface ProposedPriceTier {
+  moq: number
+  sellerPrice: number
+}
+
+export interface ProposedVariant {
+  type: string
+  value: string
+  sku?: string
+  status?: VariantStatus
+  imageUrl?: string
+  attributes?: VariantAttribute[]
+  priceTiers?: ProposedPriceTier[]
+}
+
+export interface PendingPricingChange {
+  id: string
+  proposedMoq: number
+  proposedSellerPrice: number
+  proposedPriceTiers: ProposedPriceTier[]
+  proposedVariants: ProposedVariant[]
+  createdAt: string
+}
+
 export interface MyProduct extends ProductListingDetails {
   id: string
   name: string
@@ -166,6 +206,9 @@ export interface MyProduct extends ProductListingDetails {
   priceTiers: ProductPriceTier[]
   createdAt: string
   updatedAt: string
+  /** Non-null only once this product is APPROVED and has an unreviewed pricing/
+   *  variant edit awaiting admin approval. */
+  pendingPricingChange: PendingPricingChange | null
 }
 
 /** Full admin projection — includes both prices + seller attribution. */
@@ -180,6 +223,8 @@ export interface ProductsParams {
   categoryId?: string
   collectionId?: string
   search?: string
+  /** Curated unscoped browse modes for the navbar's "New Products"/"Bestsellers"/"Trending" links. */
+  sort?: 'newest' | 'featured' | 'trending'
   material?: string
   minPrice?: number
   maxPrice?: number

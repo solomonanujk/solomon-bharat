@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { productsController } from './products.controller';
 import {
   adminProductListQuerySchema,
+  approvePricingChangeSchema,
   approveProductSchema,
+  createProductAsAdminSchema,
   createProductSchema,
   idParamSchema,
   polishFieldSchema,
@@ -15,7 +17,7 @@ import {
   updateProductSchema,
 } from './products.validation';
 import { validate } from '../../middleware/validate';
-import { requireAdmin, requireAgent, requireAuth, requireBuyer, requireSeller } from '../../middleware/auth';
+import { requireAdmin, requireAuth, requireBuyerOrAgent, requireSeller, optionalAuth } from '../../middleware/auth';
 import { uploadImages } from '../../middleware/upload';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { paginationQuerySchema } from '../../utils/pagination';
@@ -134,6 +136,63 @@ productsRouter.get(
 
 /**
  * @openapi
+ * /products/admin/pricing-changes:
+ *   get:
+ *     summary: List sellers' pending pricing/variant changes on already-approved products (SUPER_ADMIN only)
+ *     tags: [Products]
+ *     responses:
+ *       200: { description: Pending pricing changes list }
+ */
+// Registered before /admin/:id — an :id param route declared first would swallow
+// this literal "pricing-changes" segment (same reasoning as /agent before /:slug below).
+productsRouter.get(
+  '/admin/pricing-changes',
+  requireAuth,
+  requireAdmin,
+  validate(paginationQuerySchema, 'query'),
+  asyncHandler(productsController.listPendingPricingChanges),
+);
+
+/**
+ * @openapi
+ * /products/admin/pricing-changes/{id}/approve:
+ *   post:
+ *     summary: Approve a pending pricing/variant change, pricing the new tiers as part of approving (SUPER_ADMIN only)
+ *     tags: [Products]
+ *     requestBody: { required: true }
+ *     responses:
+ *       200: { description: Pricing change approved and applied to the live product }
+ */
+productsRouter.post(
+  '/admin/pricing-changes/:id/approve',
+  requireAuth,
+  requireAdmin,
+  validate(idParamSchema, 'params'),
+  validate(approvePricingChangeSchema),
+  asyncHandler(productsController.approvePricingChange),
+);
+
+/**
+ * @openapi
+ * /products/admin/pricing-changes/{id}/reject:
+ *   post:
+ *     summary: Reject a pending pricing/variant change with a reason — the live product/pricing is left untouched (SUPER_ADMIN only)
+ *     tags: [Products]
+ *     requestBody: { required: true }
+ *     responses:
+ *       200: { description: Pricing change rejected }
+ */
+productsRouter.post(
+  '/admin/pricing-changes/:id/reject',
+  requireAuth,
+  requireAdmin,
+  validate(idParamSchema, 'params'),
+  validate(rejectProductSchema),
+  asyncHandler(productsController.rejectPricingChange),
+);
+
+/**
+ * @openapi
  * /products/admin/{id}:
  *   get:
  *     summary: Get full product detail for admin review (SUPER_ADMIN only)
@@ -147,6 +206,25 @@ productsRouter.get(
   requireAdmin,
   validate(idParamSchema, 'params'),
   asyncHandler(productsController.getAdmin),
+);
+
+/**
+ * @openapi
+ * /products/admin/{id}:
+ *   patch:
+ *     summary: Edit full product details as admin (SUPER_ADMIN only) — unlike the seller edit route, works on approved products too and has no ownership check
+ *     tags: [Products]
+ *     responses:
+ *       200: { description: Product updated }
+ */
+productsRouter.patch(
+  '/admin/:id',
+  requireAuth,
+  requireAdmin,
+  imagesUpload,
+  validate(idParamSchema, 'params'),
+  validate(updateProductSchema),
+  asyncHandler(productsController.updateAdmin),
 );
 
 /**
@@ -332,13 +410,34 @@ productsRouter.post(
   asyncHandler(productsController.create),
 );
 
+// ── Admin: create directly (skips PENDING review — admin prices it right here) ──
+
+/**
+ * @openapi
+ * /products/admin:
+ *   post:
+ *     summary: Create a product directly as admin — on behalf of an existing seller or as admin's own (house) inventory — already APPROVED and published (SUPER_ADMIN only, 2-10 images)
+ *     tags: [Products]
+ *     requestBody: { required: true }
+ *     responses:
+ *       201: { description: Product created and published }
+ */
+productsRouter.post(
+  '/admin',
+  requireAuth,
+  requireAdmin,
+  imagesUpload,
+  validate(createProductAsAdminSchema),
+  asyncHandler(productsController.createAsAdmin),
+);
+
 // ── Public: context-scoped browsing ───────────────────────────────────
 
 /**
  * @openapi
  * /products:
  *   get:
- *     summary: Browse published products, scoped to a category or collection (public)
+ *     summary: Browse published products — scoped to a category/collection, or a bare global search/sort mode (public)
  *     tags: [Products]
  *     security: []
  *     parameters:
@@ -348,12 +447,21 @@ productsRouter.post(
  *       - in: query
  *         name: collectionId
  *         schema: { type: string }
+ *       - in: query
+ *         name: search
+ *         schema: { type: string }
+ *         description: Global search (name/description/materials) — doesn't need categoryId/collectionId.
+ *       - in: query
+ *         name: sort
+ *         schema: { type: string, enum: [newest, featured] }
+ *         description: Curated unscoped browse mode (navbar "New Products"/"Bestsellers") — also doesn't need categoryId/collectionId.
  *     responses:
  *       200: { description: Products list }
- *       400: { description: Missing category_id or collection_id scope }
+ *       400: { description: None of categoryId, collectionId, search, or sort was supplied }
  */
 productsRouter.get(
   '/',
+  optionalAuth,
   validate(publicProductListQuerySchema, 'query'),
   asyncHandler(productsController.listPublic),
 );
@@ -362,7 +470,7 @@ productsRouter.get(
  * @openapi
  * /products/recommendations:
  *   get:
- *     summary: Personalized product feed for the authenticated buyer (BUYER only)
+ *     summary: Personalized product feed for the authenticated buyer or agent
  *     description: >
  *       The one deliberate exception to the "no unscoped browsing" rule — biased
  *       toward the buyer's wishlist/order-history categories, backfilled with
@@ -374,52 +482,16 @@ productsRouter.get(
 productsRouter.get(
   '/recommendations',
   requireAuth,
-  requireBuyer,
+  requireBuyerOrAgent,
   validate(paginationQuerySchema, 'query'),
   asyncHandler(productsController.listRecommended),
 );
 
 /**
  * @openapi
- * /products/agent:
- *   get:
- *     summary: Browse published products priced for agents, scoped to a category or collection (AGENT only)
- *     tags: [Products]
- *     responses:
- *       200: { description: Products list, priced with agentPrice }
- *       400: { description: Missing category_id or collection_id scope }
- */
-productsRouter.get(
-  '/agent',
-  requireAuth,
-  requireAgent,
-  validate(publicProductListQuerySchema, 'query'),
-  asyncHandler(productsController.listForAgent),
-);
-
-/**
- * @openapi
- * /products/agent/{slug}:
- *   get:
- *     summary: Get published product detail priced for agents (AGENT only)
- *     tags: [Products]
- *     responses:
- *       200: { description: Product detail with related products, priced with agentPrice }
- *       404: { description: Product not found }
- */
-productsRouter.get(
-  '/agent/:slug',
-  requireAuth,
-  requireAgent,
-  validate(slugParamSchema, 'params'),
-  asyncHandler(productsController.getForAgentBySlug),
-);
-
-/**
- * @openapi
  * /products/{slug}:
  *   get:
- *     summary: Get published product detail (public)
+ *     summary: Get published product detail (public; priced with agentPrice too when the viewer is an authenticated agent)
  *     tags: [Products]
  *     security: []
  *     responses:
@@ -428,6 +500,7 @@ productsRouter.get(
  */
 productsRouter.get(
   '/:slug',
+  optionalAuth,
   validate(slugParamSchema, 'params'),
   asyncHandler(productsController.getBySlug),
 );

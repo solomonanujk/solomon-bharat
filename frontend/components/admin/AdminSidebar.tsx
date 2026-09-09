@@ -49,6 +49,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Catalogue',
     items: [
       { href: '/admin/products', label: 'Products', icon: Package },
+      { href: '/admin/pricing-changes', label: 'Pricing Changes', icon: Clock },
       { href: '/admin/categories', label: 'Categories', icon: FolderTree },
       { href: '/admin/collections', label: 'Collections', icon: Layers },
     ],
@@ -99,7 +100,7 @@ export function AdminSidebar() {
       <div className="px-6 h-16 flex items-center border-b border-[#E5E1D8] shrink-0">
         <Link href="/" className="block">
           <img
-            src="https://res.cloudinary.com/dxnqyvcdl/image/upload/v1781610714/solomon-logo1_inmwov.png"
+            src="https://res.cloudinary.com/dxnqyvcdl/image/upload/v1788850557/branding/1788850490541-solomon-bharat-logo.png"
             alt="Solomon Bharat"
             className="h-12 w-auto object-contain block"
           />

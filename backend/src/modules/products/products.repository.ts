@@ -1,16 +1,20 @@
-import { Prisma, PrismaClient, Product, ProductApprovalStatus } from '@prisma/client';
+import { OrderStatus, Prisma, PrismaClient, Product, ProductApprovalStatus, ProductPricingChangeRequest } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { PaginationQuery, toSkipTake } from '../../utils/pagination';
 import {
   AdminProductListFilter,
+  ApplyPricingChangeInput,
   CreateProductInput,
   ProductListFilter,
   ProductWithMedia,
+  ProposedPricing,
   SellerProductListFilter,
   TierAdminPriceInput,
   UpdateProductInput,
-  VariantInput,
+  VariantInputWithAdminPricing,
 } from './products.types';
+
+const TRENDING_WINDOW_DAYS = 30;
 
 const MEDIA_INCLUDE = {
   images: { orderBy: { sortOrder: 'asc' as const } },
@@ -30,10 +34,14 @@ type VariantCreateData = {
   status: 'ACTIVE' | 'INACTIVE' | 'OUT_OF_STOCK';
   imageUrl?: string;
   attributes: { create: { name: string; value: string }[] };
-  priceTiers?: { create: { moq: number; sellerPrice: number }[] };
+  priceTiers?: { create: { moq: number; sellerPrice: number; adminPrice?: number; agentPrice?: number }[] };
 };
 
-function toVariantCreateInput(v: VariantInput): VariantCreateData {
+// Accepts a plain VariantInput (no admin/agent pricing — the create/direct-edit path)
+// or a VariantInputWithAdminPricing (the approved-pricing-change path, where each tier
+// already carries the admin's just-set adminPrice/agentPrice) — a plain VariantInput's
+// tiers are structurally assignable here since adminPrice/agentPrice are optional.
+function toVariantCreateInput(v: VariantInputWithAdminPricing): VariantCreateData {
   return {
     type: v.type,
     value: v.value,
@@ -71,6 +79,16 @@ export class ProductsRepository {
     sellerId: string,
     input: CreateProductInput & { slug: string },
     imageUrls: string[],
+    // Present only for the admin-create path (createProductAsAdmin) — the plain
+    // seller-submit path leaves this undefined and gets the schema defaults
+    // (PENDING/unpublished, no adminPrice/agentPrice).
+    overrides?: {
+      approvalStatus: ProductApprovalStatus;
+      isPublished: boolean;
+      publishedAt: Date;
+      adminPrice: number | null;
+      agentPrice: number | null;
+    },
   ): Promise<ProductWithMedia> {
     return this.db.product.create({
       data: {
@@ -93,14 +111,62 @@ export class ProductsRepository {
         isGITagged: input.isGITagged,
         howItIsMade: input.howItIsMade,
         artisanName: input.artisanName,
+        ...overrides,
         images: { create: imageUrls.map((url, index) => ({ url, sortOrder: index })) },
         variants: input.variants ? { create: input.variants.map(toVariantCreateInput) } : undefined,
         priceTiers: input.priceTiers?.length
-          ? { create: input.priceTiers.map(({ moq, sellerPrice }) => ({ moq, sellerPrice })) }
+          ? {
+              create: input.priceTiers.map(({ moq, sellerPrice, adminPrice, agentPrice }) => ({
+                moq,
+                sellerPrice,
+                adminPrice,
+                agentPrice,
+              })),
+            }
           : undefined,
       },
       include: MEDIA_INCLUDE,
     });
+  }
+
+  // Shared by update() (direct edit) and applyPricingChange() (approved-change apply)
+  // — the only difference between the two call sites is whether each tier already
+  // carries an adminPrice/agentPrice (a plain VariantInput/PriceTierInput's tiers are
+  // structurally fine here too, since those fields are optional on the wider type).
+  private pushPricingReplaceOps(
+    operations: Prisma.PrismaPromise<unknown>[],
+    productId: string,
+    data: {
+      variants?: VariantInputWithAdminPricing[];
+      priceTiers?: { moq: number; sellerPrice: number; adminPrice?: number; agentPrice?: number }[];
+    },
+  ): void {
+    if (data.variants !== undefined) {
+      // Cascade-deletes each variant's attributes/priceTiers too. Individual creates
+      // (not createMany) are required because each variant nests its own attributes
+      // and price tiers.
+      operations.push(this.db.productVariant.deleteMany({ where: { productId } }));
+      data.variants.forEach((v) => {
+        operations.push(this.db.productVariant.create({ data: { productId, ...toVariantCreateInput(v) } }));
+      });
+    }
+
+    if (data.priceTiers !== undefined) {
+      operations.push(this.db.productPriceTier.deleteMany({ where: { productId } }));
+      if (data.priceTiers.length > 0) {
+        operations.push(
+          this.db.productPriceTier.createMany({
+            data: data.priceTiers.map((t) => ({
+              productId,
+              moq: t.moq,
+              sellerPrice: t.sellerPrice,
+              adminPrice: t.adminPrice,
+              agentPrice: t.agentPrice,
+            })),
+          }),
+        );
+      }
+    }
   }
 
   async update(
@@ -131,32 +197,104 @@ export class ProductsRepository {
       );
     }
 
-    if (variants) {
-      // Cascade-deletes each variant's attributes/priceTiers too. Individual creates
-      // (not createMany) are required because each variant nests its own attributes
-      // and price tiers.
-      operations.push(this.db.productVariant.deleteMany({ where: { productId: id } }));
-      variants.forEach((v: VariantInput) => {
-        operations.push(this.db.productVariant.create({ data: { productId: id, ...toVariantCreateInput(v) } }));
-      });
-    }
-
-    if (priceTiers !== undefined) {
-      operations.push(this.db.productPriceTier.deleteMany({ where: { productId: id } }));
-      if (priceTiers.length > 0) {
-        operations.push(
-          this.db.productPriceTier.createMany({
-            data: priceTiers.map(({ moq, sellerPrice }) => ({ productId: id, moq, sellerPrice })),
-          }),
-        );
-      }
-    }
+    this.pushPricingReplaceOps(operations, id, { variants, priceTiers });
 
     operations.push(this.db.product.update({ where: { id }, data: scalarFields }));
 
     await this.db.$transaction(operations);
 
     return this.findByIdWithMedia(id) as Promise<ProductWithMedia>;
+  }
+
+  // ─── Staged pricing/variant changes on an already-approved product ────────────
+
+  findPendingPricingChange(productId: string): Promise<ProductPricingChangeRequest | null> {
+    return this.db.productPricingChangeRequest.findFirst({ where: { productId, status: 'PENDING' } });
+  }
+
+  /** Batched lookup for a seller's product list — one query instead of N. */
+  findPendingPricingChangesForProductIds(productIds: string[]): Promise<ProductPricingChangeRequest[]> {
+    if (productIds.length === 0) return Promise.resolve([]);
+    return this.db.productPricingChangeRequest.findMany({ where: { productId: { in: productIds }, status: 'PENDING' } });
+  }
+
+  findPricingChangeById(id: string): Promise<ProductPricingChangeRequest | null> {
+    return this.db.productPricingChangeRequest.findUnique({ where: { id } });
+  }
+
+  /** Replace semantics: a seller re-saving pricing while one is already pending just
+   *  overwrites their previous proposal — no separate "amend" endpoint needed. */
+  async upsertPendingPricingChange(productId: string, proposed: ProposedPricing): Promise<ProductPricingChangeRequest> {
+    await this.db.productPricingChangeRequest.deleteMany({ where: { productId, status: 'PENDING' } });
+    return this.db.productPricingChangeRequest.create({
+      data: {
+        productId,
+        proposedMoq: proposed.moq,
+        proposedSellerPrice: proposed.sellerPrice,
+        proposedPriceTiers: proposed.priceTiers as unknown as Prisma.InputJsonValue,
+        proposedVariants: proposed.variants as unknown as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  async findPendingPricingChanges(
+    pagination: PaginationQuery,
+  ): Promise<{ data: (ProductPricingChangeRequest & { product: { id: string; name: string; slug: string } })[]; total: number }> {
+    const where: Prisma.ProductPricingChangeRequestWhereInput = { status: 'PENDING' };
+    const [data, total] = await Promise.all([
+      this.db.productPricingChangeRequest.findMany({
+        where,
+        include: { product: { select: { id: true, name: true, slug: true } } },
+        orderBy: { createdAt: 'asc' },
+        ...toSkipTake(pagination),
+      }),
+      this.db.productPricingChangeRequest.count({ where }),
+    ]);
+    return { data, total };
+  }
+
+  /** Atomically replaces the live variants/tiers with the approved proposal — each
+   *  tier's adminPrice/agentPrice is already merged in by the service before this is
+   *  called, so there's never a moment where a new tier is live without a price. */
+  async applyPricingChange(
+    productId: string,
+    changeRequestId: string,
+    data: ApplyPricingChangeInput,
+    reviewedById: string,
+  ): Promise<ProductWithMedia> {
+    const operations: Prisma.PrismaPromise<unknown>[] = [];
+    this.pushPricingReplaceOps(operations, productId, { variants: data.variants, priceTiers: data.priceTiers });
+
+    operations.push(
+      this.db.product.update({
+        where: { id: productId },
+        data: { moq: data.moq, sellerPrice: data.sellerPrice, adminPrice: data.adminPrice, agentPrice: data.agentPrice },
+      }),
+    );
+    operations.push(
+      this.db.productPricingChangeRequest.update({
+        where: { id: changeRequestId },
+        data: { status: 'APPROVED', reviewedById, reviewedAt: new Date() },
+      }),
+    );
+
+    await this.db.$transaction(operations);
+    return this.findByIdWithMedia(productId) as Promise<ProductWithMedia>;
+  }
+
+  setPricingChangeRejected(
+    id: string,
+    data: { reason: string; reviewedById: string },
+  ): Promise<ProductPricingChangeRequest> {
+    return this.db.productPricingChangeRequest.update({
+      where: { id },
+      data: {
+        status: 'REJECTED',
+        rejectionReason: data.reason,
+        reviewedById: data.reviewedById,
+        reviewedAt: new Date(),
+      },
+    });
   }
 
   setApproval(
@@ -221,7 +359,6 @@ export class ProductsRepository {
     filter: ProductListFilter,
     pagination: PaginationQuery,
     categoryIds: string[] | undefined,
-    priceField: 'adminPrice' | 'agentPrice' = 'adminPrice',
   ): Promise<{ data: ProductWithMedia[]; total: number }> {
     const where: Prisma.ProductWhereInput = {
       deletedAt: null,
@@ -229,17 +366,23 @@ export class ProductsRepository {
       approvalStatus: ProductApprovalStatus.APPROVED,
       ...(categoryIds ? { categoryId: { in: categoryIds } } : {}),
       ...(filter.collectionId ? { collections: { some: { collectionId: filter.collectionId } } } : {}),
-      ...(filter.search ? { name: { contains: filter.search, mode: 'insensitive' } } : {}),
+      ...(filter.search
+        ? {
+            OR: [
+              { name: { contains: filter.search, mode: 'insensitive' } },
+              { description: { contains: filter.search, mode: 'insensitive' } },
+              { materials: { contains: filter.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
       ...(filter.material ? { materials: { contains: filter.material, mode: 'insensitive' } } : {}),
       ...(filter.moqMax ? { moq: { lte: filter.moqMax } } : {}),
-      // Publishing only requires adminPrice, not agentPrice (a product can go live for
-      // buyers before an admin ever sets an agent price) — so unlike the buyer path,
-      // the agent path must explicitly exclude not-yet-agent-priced products here
-      // rather than relying on an incidental invariant from the publish gate.
-      ...(priceField === 'agentPrice' ? { agentPrice: { not: null } } : {}),
+      // "newest" needs no extra filter — the default orderBy below is already
+      // createdAt desc, so it's just the unscoped catalog in that natural order.
+      ...(filter.sort === 'featured' ? { isFeatured: true } : {}),
       ...(filter.minPrice || filter.maxPrice
         ? {
-            [priceField]: {
+            adminPrice: {
               ...(filter.minPrice ? { gte: filter.minPrice } : {}),
               ...(filter.maxPrice ? { lte: filter.maxPrice } : {}),
             },
@@ -256,6 +399,48 @@ export class ProductsRepository {
       }),
       this.db.product.count({ where }),
     ]);
+    return { data, total };
+  }
+
+  /**
+   * "Trending" = real order volume, not a proxy like view count (we don't track those) —
+   * total quantity ordered per product over a trailing window, among orders that actually
+   * progressed (excludes PENDING_PAYMENT, which may never complete, and CANCELLED).
+   * Prisma can't ORDER BY an aggregated relation in a single findMany, so this runs the
+   * ranking as a groupBy over OrderItem, then fetches the winning products by id and
+   * re-applies that order — a second, unavoidable round-trip, but a small one at our volume.
+   */
+  async findTrending(
+    pagination: PaginationQuery,
+  ): Promise<{ data: ProductWithMedia[]; total: number }> {
+    const since = new Date(Date.now() - TRENDING_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+
+    const ranked = await this.db.orderItem.groupBy({
+      by: ['productId'],
+      where: {
+        createdAt: { gte: since },
+        order: { status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED] } },
+        product: {
+          deletedAt: null,
+          isPublished: true,
+          approvalStatus: ProductApprovalStatus.APPROVED,
+        },
+      },
+      _sum: { quantity: true },
+      orderBy: { _sum: { quantity: 'desc' } },
+    });
+
+    const total = ranked.length;
+    const { skip, take } = toSkipTake(pagination);
+    const pageIds = ranked.slice(skip, skip + take).map((r) => r.productId);
+    if (pageIds.length === 0) return { data: [], total };
+
+    const products = await this.db.product.findMany({
+      where: { id: { in: pageIds } },
+      include: MEDIA_INCLUDE,
+    });
+    const byId = new Map(products.map((p) => [p.id, p]));
+    const data = pageIds.map((id) => byId.get(id)).filter((p): p is ProductWithMedia => !!p);
     return { data, total };
   }
 

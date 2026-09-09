@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { X, ChevronLeft, ChevronRight, Images, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -107,7 +108,7 @@ function Lightbox({
       >
         {/* Header: title · zoom controls · close */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
-          <p className="font-public-sans text-[13px] text-white/60 truncate flex-1 min-w-0">
+          <p className="font-public-sans text-[12px] text-white/60 truncate flex-1 min-w-0">
             {productName}
             {images.length > 1 && (
               <span className="ml-2 text-white/40">{index + 1} / {images.length}</span>
@@ -125,7 +126,7 @@ function Lightbox({
             >
               <ZoomOut size={15} aria-hidden="true" />
             </button>
-            <span className="font-public-sans text-[12px] text-white/50 w-10 text-center select-none">
+            <span className="font-public-sans text-[11px] text-white/50 w-10 text-center select-none">
               {Math.round(zoom * 100)}%
             </span>
             <button
@@ -209,7 +210,7 @@ function Lightbox({
           )}
 
           {isZoomed && (
-            <p className="absolute bottom-2 left-1/2 -translate-x-1/2 text-white/40 font-public-sans text-[11px] pointer-events-none select-none">
+            <p className="absolute bottom-2 left-1/2 -translate-x-1/2 text-white/40 font-public-sans text-[10px] pointer-events-none select-none">
               Drag to pan · double-click or scroll to zoom
             </p>
           )}
@@ -279,16 +280,22 @@ export function PhotoGallery({ images, productName }: PhotoGalleryProps) {
     )
   }
 
-  // 2–3 images: row 1 only (portrait left + landscape right)
+  // 2–3 images: row 1 only (portrait left + landscape right). Only the block's
+  // own outer corners curve — the inner edges where tiles meet stay square.
   if (images.length < 4) {
+    const hasRow2 = images.length === 3
+
     return (
       <>
-        <div className="flex flex-col gap-2">
-          <div className="flex gap-2 h-[220px] sm:h-[300px] md:h-[340px]">
+        <div className="flex flex-col gap-1">
+          <div className="flex gap-1 h-[220px] sm:h-[300px] md:h-[340px]">
             <button
               type="button"
               onClick={() => setLightboxIndex(0)}
-              className="flex-[2] relative rounded overflow-hidden cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className={cn(
+                'flex-[2] relative overflow-hidden cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                hasRow2 ? 'rounded-tl-md' : 'rounded-l-md'
+              )}
               aria-label={`View ${productName} image 1`}
             >
               <Image src={images[0]} alt={`${productName} — 1`} fill className="object-cover" priority sizes="(max-width: 1024px) 40vw, 22vw" />
@@ -296,18 +303,21 @@ export function PhotoGallery({ images, productName }: PhotoGalleryProps) {
             <button
               type="button"
               onClick={() => setLightboxIndex(1)}
-              className="flex-[3] relative rounded overflow-hidden cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className={cn(
+                'flex-[3] relative overflow-hidden cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                hasRow2 ? 'rounded-tr-md' : 'rounded-r-md'
+              )}
               aria-label={`View ${productName} image 2`}
             >
               <Image src={images[1]} alt={`${productName} — 2`} fill className="object-cover" priority sizes="(max-width: 1024px) 60vw, 33vw" />
             </button>
           </div>
 
-          {images.length === 3 && (
+          {hasRow2 && (
             <button
               type="button"
               onClick={() => setLightboxIndex(2)}
-              className="w-full h-[180px] relative rounded overflow-hidden cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="w-full h-[180px] relative rounded-b-md overflow-hidden cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               aria-label={`View ${productName} image 3`}
             >
               <Image src={images[2]} alt={`${productName} — 3`} fill className="object-cover" sizes="(max-width: 1024px) 100vw, 55vw" />
@@ -322,86 +332,48 @@ export function PhotoGallery({ images, productName }: PhotoGalleryProps) {
     )
   }
 
-  // 4+ images: Faire-style mosaic
-  const remaining = images.length - 4
+  // 4+ images: always exactly 4 equal-size tiles, with a standalone "Show all"
+  // button anchored to the section's bottom-right corner (not tied to a tile).
+  // Only the grid's own outer corners curve (one per tile) — the inner edges
+  // where tiles meet stay square.
+  const visible = images.slice(0, 4)
+  const TILE_CORNER = ['rounded-tl-md', 'rounded-tr-md', 'rounded-bl-md', 'rounded-br-md']
 
   return (
     <>
-      <div className="flex flex-col gap-2">
-
-        {/* Row 1: portrait left (flex-2) + landscape right (flex-3) */}
-        <div className="flex gap-2 h-[220px] sm:h-[300px] md:h-[370px]">
-          <button
-            type="button"
-            onClick={() => setLightboxIndex(0)}
-            className="flex-[2] relative rounded overflow-hidden cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            aria-label={`View ${productName} image 1`}
-          >
-            <Image
-              src={images[0]}
-              alt={`${productName} — 1`}
-              fill
-              className="object-cover transition-transform duration-500 hover:scale-[1.03]"
-              priority
-              sizes="(max-width: 1024px) 40vw, 22vw"
-            />
-          </button>
-          <button
-            type="button"
-            onClick={() => setLightboxIndex(1)}
-            className="flex-[3] relative rounded overflow-hidden cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            aria-label={`View ${productName} image 2`}
-          >
-            <Image
-              src={images[1]}
-              alt={`${productName} — 2`}
-              fill
-              className="object-cover transition-transform duration-500 hover:scale-[1.03]"
-              priority
-              sizes="(max-width: 1024px) 60vw, 33vw"
-            />
-          </button>
+      <div className="relative">
+        <div className="grid grid-cols-2 gap-1">
+          {visible.map((src, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setLightboxIndex(i)}
+              className={cn(
+                'relative aspect-square overflow-hidden cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                TILE_CORNER[i]
+              )}
+              aria-label={`View ${productName} image ${i + 1}`}
+            >
+              <Image
+                src={src}
+                alt={`${productName} — ${i + 1}`}
+                fill
+                className="object-cover transition-transform duration-500 hover:scale-[1.03]"
+                priority={i < 2}
+                sizes="(max-width: 1024px) 50vw, 27vw"
+              />
+            </button>
+          ))}
         </div>
 
-        {/* Row 2: two equal images, last has "Show all" overlay */}
-        <div className="flex gap-2 h-[130px] sm:h-[170px] md:h-[220px]">
-          <button
-            type="button"
-            onClick={() => setLightboxIndex(2)}
-            className="flex-1 relative rounded overflow-hidden cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            aria-label={`View ${productName} image 3`}
-          >
-            <Image
-              src={images[2]}
-              alt={`${productName} — 3`}
-              fill
-              className="object-cover transition-transform duration-500 hover:scale-[1.03]"
-              sizes="(max-width: 1024px) 50vw, 27vw"
-            />
-          </button>
-          <button
-            type="button"
-            onClick={() => setLightboxIndex(3)}
-            className="flex-1 relative rounded overflow-hidden cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            aria-label={remaining > 0 ? `Show all ${images.length} photos` : `View ${productName} image 4`}
-          >
-            <Image
-              src={images[3]}
-              alt={`${productName} — 4`}
-              fill
-              className="object-cover transition-transform duration-500 hover:scale-[1.03]"
-              sizes="(max-width: 1024px) 50vw, 27vw"
-            />
-            {remaining > 0 && (
-              <div className="absolute inset-0 bg-primary/45 flex items-center justify-center rounded">
-                <span className="inline-flex items-center gap-2 bg-white text-primary font-public-sans text-[13px] font-[600] px-4 py-2 rounded-sm shadow">
-                  <Images size={14} aria-hidden="true" />
-                  Show all {images.length} photos
-                </span>
-              </div>
-            )}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setLightboxIndex(0)}
+          className="absolute bottom-3 right-3 inline-flex items-center gap-2 bg-white text-primary font-public-sans text-[12px] font-[600] px-4 py-2 rounded-sm shadow hover:bg-muted-bg transition-colors"
+        >
+          <Images size={14} aria-hidden="true" />
+          Show all {images.length} photos
+        </button>
       </div>
 
       {lightboxIndex !== null && (

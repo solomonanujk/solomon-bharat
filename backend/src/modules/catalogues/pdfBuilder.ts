@@ -6,6 +6,9 @@ export interface CatalogueProductInput {
   name: string;
   description: string;
   imageUrl?: string;
+  /** The agent's own resale price/MOQ for this product — set per-catalogue, never the platform's own pricing. */
+  price: number;
+  moq: number;
 }
 
 const PAGE_MARGIN = 50;
@@ -32,9 +35,12 @@ async function fetchImageBuffer(url: string): Promise<Buffer | null> {
   }
 }
 
+const formatInr = (amount: number): string =>
+  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
+
 /**
  * Builds a paginated PDF catalogue — one section per product with image, name,
- * and description only. Price is intentionally never included anywhere here.
+ * description, and the agent's own resale price/MOQ for that product.
  */
 export async function buildCataloguePdf(products: CatalogueProductInput[]): Promise<Buffer> {
   const doc = new PDFDocument({ margin: PAGE_MARGIN, autoFirstPage: false });
@@ -75,7 +81,14 @@ export async function buildCataloguePdf(products: CatalogueProductInput[]): Prom
       .font('Helvetica-Bold')
       .text(product.name, PAGE_MARGIN, cursorY, { width: IMAGE_MAX_WIDTH });
 
-    doc.moveDown(0.5);
+    doc.moveDown(0.3);
+
+    doc
+      .fontSize(14)
+      .font('Helvetica-Bold')
+      .text(`${formatInr(product.price)}  ·  MOQ: ${product.moq} units`, { width: IMAGE_MAX_WIDTH });
+
+    doc.moveDown(0.4);
 
     doc
       .fontSize(11)

@@ -9,6 +9,7 @@ import type {
   ApprovalStatus,
   MyProduct,
   PaginatedResult,
+  PendingPricingChange,
   Product,
   ProductPriceTier,
   ProductsParams,
@@ -29,11 +30,13 @@ function toPaginated<T>(res: { data: { data: unknown; meta?: { total?: number; p
 }
 
 // ─── Public / buyer-facing ─────────────────────────────────────────────────────
-// Every list call MUST carry categoryId or collectionId — the API 400s otherwise,
-// even for a bare `search` term. There is no unscoped/global product listing.
+// Every list call must carry categoryId, collectionId, a bare `search` term, or a
+// curated `sort` mode — the API 400s otherwise. `search` alone is the global navbar
+// search; `sort` alone is the navbar's "New Products"/"Bestsellers" quick links.
+// There is no unscoped, unfiltered product listing.
 
 export function useProducts(params: ProductsParams) {
-  const scoped = !!(params.categoryId || params.collectionId)
+  const scoped = !!(params.categoryId || params.collectionId || params.search || params.sort)
   return useQuery<PaginatedResult<Product>>({
     queryKey: ['products', params],
     queryFn: async () => toPaginated<Product>(await api.get('/products', { params })),
@@ -42,9 +45,9 @@ export function useProducts(params: ProductsParams) {
   })
 }
 
-/** Infinite-scroll variant — same scope rule (categoryId or collectionId required). */
+/** Infinite-scroll variant — same scope rule (categoryId, collectionId, search, or sort). */
 export function useInfiniteProducts(params: Omit<ProductsParams, 'page'>) {
-  const scoped = !!(params.categoryId || params.collectionId)
+  const scoped = !!(params.categoryId || params.collectionId || params.search || params.sort)
   return useInfiniteQuery<PaginatedResult<Product>>({
     queryKey: ['products', 'infinite', params],
     queryFn: async ({ pageParam }) =>
@@ -82,47 +85,6 @@ export function useProduct(slug: string | null) {
     queryKey: ['product', slug],
     queryFn: async () => {
       const res = await api.get(`/products/${slug}`)
-      const { product, related } = res.data.data
-      return { ...product, related }
-    },
-    enabled: !!slug,
-    staleTime: 2 * 60 * 1000,
-  })
-}
-
-// ─── Agent: agent-priced browsing ──────────────────────────────────────────────
-// GET /products/agent (+ /products/agent/:slug) mirror the public /products
-// shape but come back with `agentPrice` populated for an authenticated AGENT
-// session. Unlike the public list, browsing here is not scoped to a single
-// category/collection (there is no per-category agent page), so these are
-// always enabled.
-
-export function useAgentProducts(params?: ProductsParams) {
-  return useQuery<PaginatedResult<Product>>({
-    queryKey: ['agent-products', params],
-    queryFn: async () => toPaginated<Product>(await api.get('/products/agent', { params })),
-    staleTime: 60 * 1000,
-  })
-}
-
-/** Infinite-scroll variant used by the agent product browsing & catalogue-builder pages. */
-export function useInfiniteAgentProducts(params: Omit<ProductsParams, 'page'>) {
-  return useInfiniteQuery<PaginatedResult<Product>>({
-    queryKey: ['agent-products', 'infinite', params],
-    queryFn: async ({ pageParam }) =>
-      toPaginated<Product>(await api.get('/products/agent', { params: { ...params, page: pageParam } })),
-    initialPageParam: 1,
-    getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
-    staleTime: 60 * 1000,
-  })
-}
-
-/** Same { product, related } unwrap as useProduct — see comment there. */
-export function useAgentProduct(slug: string | null) {
-  return useQuery<Product & { related: Product[] }>({
-    queryKey: ['agent-product', slug],
-    queryFn: async () => {
-      const res = await api.get(`/products/agent/${slug}`)
       const { product, related } = res.data.data
       return { ...product, related }
     },
@@ -337,6 +299,102 @@ export function useSetAdminPrice() {
     onSuccess: (_, vars) => {
       invalidateProduct(qc, vars.id)
       toast.success('Selling price updated.')
+    },
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
+/** Admin equivalent of useUpdateMyProduct — same {id, data} shape, hits the admin
+ *  edit route instead (no ownership check, not blocked once approved). */
+export function useAdminUpdateProduct() {
+  const qc = useQueryClient()
+  return useMutation<AdminProduct, Error, UpdateMyProductInput>({
+    mutationFn: async ({ id, data }) => {
+      const res = await api.patch(`/products/admin/${id}`, toFormData(data), {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return res.data.data
+    },
+    onSuccess: (_, vars) => {
+      invalidateProduct(qc, vars.id)
+      toast.success('Product updated.')
+    },
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
+/**
+ * Admin creates a product directly — either "on behalf of" a real seller or as
+ * admin's own (house-sourced) inventory — with sellerPrice AND adminPrice (buyer
+ * price) AND agentPrice set per tier right here (SubmitProductInput's priceTiers
+ * already carry optional adminPrice/agentPrice via the ProductPriceTier type, so no
+ * new tier shape is needed). Skips PENDING review — the product is published
+ * immediately.
+ */
+export interface CreateProductAsAdminInput extends SubmitProductInput {
+  sellerMode: 'existing' | 'house'
+  sellerId?: string
+}
+
+export function useAdminCreateProduct() {
+  const qc = useQueryClient()
+  return useMutation<AdminProduct, Error, CreateProductAsAdminInput>({
+    mutationFn: async (input) => {
+      const res = await api.post('/products/admin', toFormData(input), {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return res.data.data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-products'] })
+      toast.success('Product created and published.')
+    },
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
+// ─── Admin: reviewing a seller's staged pricing/variant change ────────────────
+
+export interface PendingPricingChangeListItem extends PendingPricingChange {
+  product: { id: string; name: string; slug: string }
+}
+
+export function usePendingPricingChanges(params?: { page?: number; limit?: number }) {
+  return useQuery<PaginatedResult<PendingPricingChangeListItem>>({
+    queryKey: ['pending-pricing-changes', params],
+    queryFn: async () =>
+      toPaginated<PendingPricingChangeListItem>(await api.get('/products/admin/pricing-changes', { params })),
+  })
+}
+
+function invalidatePendingPricingChanges(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['pending-pricing-changes'] })
+  qc.invalidateQueries({ queryKey: ['admin-products'] })
+  qc.invalidateQueries({ queryKey: ['admin-product'] })
+}
+
+/** `id` here is the change request's id, not the product's — same TierAdminPricingPayload
+ *  shape as useApproveProduct/useSetAdminPrice, just a different id namespace. */
+export function useApprovePricingChange() {
+  const qc = useQueryClient()
+  return useMutation<unknown, Error, TierAdminPricingPayload>({
+    mutationFn: ({ id, priceTiers, variantPriceTiers }) =>
+      api.post(`/products/admin/pricing-changes/${id}/approve`, { priceTiers, variantPriceTiers }),
+    onSuccess: () => {
+      invalidatePendingPricingChanges(qc)
+      toast.success('Pricing change approved.')
+    },
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
+export function useRejectPricingChange() {
+  const qc = useQueryClient()
+  return useMutation<unknown, Error, { id: string; reason: string }>({
+    mutationFn: ({ id, reason }) => api.post(`/products/admin/pricing-changes/${id}/reject`, { reason }),
+    onSuccess: () => {
+      invalidatePendingPricingChanges(qc)
+      toast.success('Pricing change rejected.')
     },
     onError: (err) => toast.error(getApiError(err)),
   })

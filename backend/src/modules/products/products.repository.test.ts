@@ -12,6 +12,9 @@ describe('ProductsRepository', () => {
       product: mockModel(),
       productImage: mockModel(),
       productVariant: mockModel(),
+      productPriceTier: mockModel(),
+      productPricingChangeRequest: mockModel(),
+      orderItem: mockModel(),
     });
     repo = new ProductsRepository(db as never);
   });
@@ -82,6 +85,40 @@ describe('ProductsRepository', () => {
         priceTiers: undefined,
       },
     ]);
+  });
+
+  it('create passes adminPrice/agentPrice per flat tier and applies admin overrides when given', async () => {
+    db.product.create.mockResolvedValue({ id: 'p1' });
+
+    await repo.create(
+      'seller-1',
+      {
+        categoryId: 'cat-1',
+        name: 'Table Runner',
+        slug: 'table-runner',
+        description: 'desc',
+        materials: 'Cotton',
+        moq: 20,
+        declaredStock: 100,
+        sellerPrice: 5,
+        priceTiers: [{ moq: 20, sellerPrice: 5, adminPrice: 9, agentPrice: 7 }],
+      },
+      [],
+      {
+        approvalStatus: ProductApprovalStatus.APPROVED,
+        isPublished: true,
+        publishedAt: new Date('2026-01-01'),
+        adminPrice: 9,
+        agentPrice: 7,
+      },
+    );
+
+    const arg = db.product.create.mock.calls[0][0];
+    expect(arg.data.priceTiers.create).toEqual([{ moq: 20, sellerPrice: 5, adminPrice: 9, agentPrice: 7 }]);
+    expect(arg.data.approvalStatus).toBe(ProductApprovalStatus.APPROVED);
+    expect(arg.data.isPublished).toBe(true);
+    expect(arg.data.adminPrice).toBe(9);
+    expect(arg.data.agentPrice).toBe(7);
   });
 
   it('update batches image removal, image addition, variant replacement, and the scalar update in one transaction', async () => {
@@ -178,6 +215,84 @@ describe('ProductsRepository', () => {
     expect(arg.where.collections).toEqual({ some: { collectionId: 'col-1' } });
   });
 
+  it('findPublished matches a search term against name, description, or materials — no category/collection needed', async () => {
+    db.product.findMany.mockResolvedValue([]);
+    db.product.count.mockResolvedValue(0);
+
+    await repo.findPublished({ search: 'tote bag' }, { page: 1, limit: 20 }, undefined);
+
+    const arg = db.product.findMany.mock.calls[0][0];
+    expect(arg.where.categoryId).toBeUndefined();
+    expect(arg.where.collections).toBeUndefined();
+    expect(arg.where.OR).toEqual([
+      { name: { contains: 'tote bag', mode: 'insensitive' } },
+      { description: { contains: 'tote bag', mode: 'insensitive' } },
+      { materials: { contains: 'tote bag', mode: 'insensitive' } },
+    ]);
+  });
+
+  it('findPublished with sort=featured filters to isFeatured products only', async () => {
+    db.product.findMany.mockResolvedValue([]);
+    db.product.count.mockResolvedValue(0);
+
+    await repo.findPublished({ sort: 'featured' }, { page: 1, limit: 20 }, undefined);
+
+    const arg = db.product.findMany.mock.calls[0][0];
+    expect(arg.where.isFeatured).toBe(true);
+  });
+
+  it('findPublished with sort=newest adds no extra filter — relies on the default createdAt desc order', async () => {
+    db.product.findMany.mockResolvedValue([]);
+    db.product.count.mockResolvedValue(0);
+
+    await repo.findPublished({ sort: 'newest' }, { page: 1, limit: 20 }, undefined);
+
+    const arg = db.product.findMany.mock.calls[0][0];
+    expect(arg.where.isFeatured).toBeUndefined();
+    expect(arg.orderBy).toEqual({ createdAt: 'desc' });
+  });
+
+  it('findTrending ranks products by order-item quantity within the trailing window, excluding pending/cancelled orders', async () => {
+    db.orderItem.groupBy.mockResolvedValue([
+      { productId: 'p-2', _sum: { quantity: 50 } },
+      { productId: 'p-1', _sum: { quantity: 30 } },
+      { productId: 'p-3', _sum: { quantity: 10 } },
+    ]);
+    db.product.findMany.mockResolvedValue([
+      { id: 'p-1', name: 'Product One' },
+      { id: 'p-2', name: 'Product Two' },
+      { id: 'p-3', name: 'Product Three' },
+    ]);
+
+    const { data, total } = await repo.findTrending({ page: 1, limit: 20 });
+
+    expect(total).toBe(3);
+    // Re-ordered to match the groupBy ranking (p-2 first), not the findMany return order.
+    expect(data.map((p) => p.id)).toEqual(['p-2', 'p-1', 'p-3']);
+
+    const groupByArg = db.orderItem.groupBy.mock.calls[0][0];
+    expect(groupByArg.where.order.status.notIn).toEqual(['PENDING_PAYMENT', 'CANCELLED']);
+    expect(groupByArg.where.product).toMatchObject({
+      deletedAt: null,
+      isPublished: true,
+      approvalStatus: ProductApprovalStatus.APPROVED,
+    });
+    expect(groupByArg.orderBy).toEqual({ _sum: { quantity: 'desc' } });
+  });
+
+  it('findTrending paginates over the ranked list and returns an empty page past the end', async () => {
+    db.orderItem.groupBy.mockResolvedValue([
+      { productId: 'p-1', _sum: { quantity: 50 } },
+      { productId: 'p-2', _sum: { quantity: 30 } },
+    ]);
+
+    const { data, total } = await repo.findTrending({ page: 2, limit: 20 });
+
+    expect(total).toBe(2);
+    expect(data).toEqual([]);
+    expect(db.product.findMany).not.toHaveBeenCalled();
+  });
+
   it('findRelated excludes the given product and limits results', async () => {
     db.product.findMany.mockResolvedValue([]);
     await repo.findRelated('cat-1', 'p1', 4);
@@ -213,5 +328,93 @@ describe('ProductsRepository', () => {
     const arg = db.product.findMany.mock.calls[0][0];
     expect(arg.include.seller).toEqual({ select: { businessName: true } });
     expect(arg.include.category).toEqual({ select: { name: true } });
+  });
+
+  describe('staged pricing/variant changes', () => {
+    it('findPendingPricingChange looks up the one PENDING row for a product', async () => {
+      db.productPricingChangeRequest.findFirst.mockResolvedValue(null);
+      await repo.findPendingPricingChange('p1');
+      expect(db.productPricingChangeRequest.findFirst).toHaveBeenCalledWith({
+        where: { productId: 'p1', status: 'PENDING' },
+      });
+    });
+
+    it('findPendingPricingChangesForProductIds short-circuits on an empty list without querying', async () => {
+      const result = await repo.findPendingPricingChangesForProductIds([]);
+      expect(result).toEqual([]);
+      expect(db.productPricingChangeRequest.findMany).not.toHaveBeenCalled();
+    });
+
+    it('upsertPendingPricingChange replaces any existing PENDING row for the product', async () => {
+      db.productPricingChangeRequest.create.mockResolvedValue({ id: 'change-1' });
+
+      await repo.upsertPendingPricingChange('p1', {
+        moq: 20,
+        sellerPrice: 6,
+        priceTiers: [{ moq: 20, sellerPrice: 6 }],
+        variants: [],
+      });
+
+      expect(db.productPricingChangeRequest.deleteMany).toHaveBeenCalledWith({
+        where: { productId: 'p1', status: 'PENDING' },
+      });
+      expect(db.productPricingChangeRequest.create).toHaveBeenCalledWith({
+        data: {
+          productId: 'p1',
+          proposedMoq: 20,
+          proposedSellerPrice: 6,
+          proposedPriceTiers: [{ moq: 20, sellerPrice: 6 }],
+          proposedVariants: [],
+        },
+      });
+    });
+
+    it('applyPricingChange replaces variants/tiers with admin-priced ones and marks the request APPROVED, all in one transaction', async () => {
+      db.product.findUnique.mockResolvedValue({ id: 'p1' });
+
+      await repo.applyPricingChange(
+        'p1',
+        'change-1',
+        {
+          moq: 20,
+          sellerPrice: 6,
+          adminPrice: 10,
+          agentPrice: null,
+          priceTiers: [{ moq: 20, sellerPrice: 6, adminPrice: 10, agentPrice: undefined }],
+          variants: [],
+        },
+        'admin-1',
+      );
+
+      expect(db.productVariant.deleteMany).toHaveBeenCalledWith({ where: { productId: 'p1' } });
+      expect(db.productPriceTier.deleteMany).toHaveBeenCalledWith({ where: { productId: 'p1' } });
+      expect(db.productPriceTier.createMany).toHaveBeenCalledWith({
+        data: [{ productId: 'p1', moq: 20, sellerPrice: 6, adminPrice: 10, agentPrice: undefined }],
+      });
+      expect(db.product.update).toHaveBeenCalledWith({
+        where: { id: 'p1' },
+        data: { moq: 20, sellerPrice: 6, adminPrice: 10, agentPrice: null },
+      });
+      expect(db.productPricingChangeRequest.update).toHaveBeenCalledWith({
+        where: { id: 'change-1' },
+        data: { status: 'APPROVED', reviewedById: 'admin-1', reviewedAt: expect.any(Date) },
+      });
+      expect(db.$transaction).toHaveBeenCalled();
+    });
+
+    it('setPricingChangeRejected records the reason and reviewer without touching the live product', async () => {
+      await repo.setPricingChangeRejected('change-1', { reason: 'Prices too low', reviewedById: 'admin-1' });
+
+      expect(db.productPricingChangeRequest.update).toHaveBeenCalledWith({
+        where: { id: 'change-1' },
+        data: {
+          status: 'REJECTED',
+          rejectionReason: 'Prices too low',
+          reviewedById: 'admin-1',
+          reviewedAt: expect.any(Date),
+        },
+      });
+      expect(db.product.update).not.toHaveBeenCalled();
+    });
   });
 });

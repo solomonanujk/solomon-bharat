@@ -3,11 +3,11 @@
 import { useState } from 'react'
 import { Share2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ShareFallbackModal } from '@/components/agent-portal/ShareFallbackModal'
+import { ShareFallbackModal } from '@/components/shared/ShareFallbackModal'
 import type { Product } from '@/types'
 
 interface ShareProductButtonProps {
-  product: Pick<Product, 'name' | 'description' | 'slug'> & { images: { url: string }[] }
+  product: Pick<Product, 'name' | 'slug'> & { description?: string; images: { url: string }[] }
   className?: string
 }
 
@@ -25,7 +25,7 @@ export function ShareProductButton({ product, className }: ShareProductButtonPro
     e.stopPropagation()
 
     const imageUrl = product.images?.[0]?.url
-    const shareData: ShareData = { title: product.name, text: `${product.name}\n${product.description}` }
+    const shareData: ShareData = { title: product.name, text: `${product.name}\n${product.description ?? ''}` }
 
     if (imageUrl) {
       try {
@@ -70,7 +70,7 @@ export function ShareProductButton({ product, className }: ShareProductButtonPro
         open={fallbackOpen}
         onOpenChange={setFallbackOpen}
         productName={product.name}
-        productDescription={product.description}
+        productDescription={product.description ?? ''}
         shareUrl={shareUrl}
         imageUrl={product.images?.[0]?.url}
       />

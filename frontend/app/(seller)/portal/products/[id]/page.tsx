@@ -105,7 +105,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const { openLightbox, lightboxNode } = useImageLightbox()
 
   const allTiers = useMemo(() => (product ? collectAllTiers(product) : []), [product])
-  const canEdit = product ? product.approvalStatus !== 'APPROVED' : false
 
   return (
     <div>
@@ -122,11 +121,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             {product?.name ?? 'Product'}
           </h1>
         </div>
-        {canEdit && (
-          <Link href={`/portal/products/${id}/edit`} className={cn(buttonVariants({ variant: 'primary', size: 'sm' }))}>
-            Edit
-          </Link>
-        )}
+        <Link href={`/portal/products/${id}/edit`} className={cn(buttonVariants({ variant: 'primary', size: 'sm' }))}>
+          Edit
+        </Link>
       </div>
 
       {isLoading ? (
@@ -150,6 +147,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <div>
                 <p className="text-[13px] font-[600] font-public-sans text-error">Rejection reason</p>
                 <p className="text-[13px] font-public-sans text-primary mt-1 whitespace-pre-wrap">{product.rejectionReason}</p>
+              </div>
+            </div>
+          )}
+
+          {product.pendingPricingChange && (
+            <div className="flex items-start gap-3 bg-muted-bg/60 border border-border-warm rounded p-4">
+              <AlertTriangle size={16} className="text-accent shrink-0 mt-0.5" aria-hidden="true" />
+              <div>
+                <p className="text-[13px] font-[600] font-public-sans text-primary">Pricing change awaiting review</p>
+                <p className="text-[13px] font-public-sans text-muted-text mt-1">
+                  A pricing/variant update for this product is pending admin approval — buyers still see the
+                  current pricing shown below until it&apos;s reviewed.
+                </p>
               </div>
             </div>
           )}

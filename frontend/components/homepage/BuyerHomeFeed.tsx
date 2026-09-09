@@ -1,91 +1,49 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import Image from 'next/image'
-import Link from 'next/link'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
-import { toast } from 'sonner'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { CategorySection } from '@/components/homepage/CategorySection'
+import { BuyerCategoryGrid } from '@/components/homepage/BuyerCategoryGrid'
 import { ProductGrid } from '@/components/catalogue/ProductGrid'
-import { Price } from '@/components/ui/Price'
-import { RatingSummary } from '@/components/shared/StarRating'
-import { useAuth } from '@/hooks/useAuth'
-import { useCartStore } from '@/lib/store/useCartStore'
+import { ProductCard, type ProductCardData } from '@/components/shared/ProductCard'
 import { useBuyerProfile } from '@/hooks/queries/useBuyerProfile'
 import { useInfiniteRecommendations } from '@/hooks/queries/useProducts'
 import { useRecentlyViewed, type RecentProduct } from '@/hooks/useRecentlyViewed'
 
 // ─── Recently viewed carousel ──────────────────────────────────────────────────
 // Exactly 6 cards visible per row at desktop width; chevrons page one row at a
-// time. Each card carries its own "+" quick-add so a buyer can re-order a past
-// item without leaving the feed.
+// time. Reuses the shared ProductCard (wishlist + cart quick-add included)
+// rather than a bespoke card, so this list behaves identically to every other
+// product grid in the app.
 
 const VISIBLE_CARDS = 6
 const CARD_GAP_PX = 16
 
-function RecentlyViewedCard({ product }: { product: RecentProduct }) {
-  const { requireAuth } = useAuth()
-  const addItem = useCartStore((s) => s.addItem)
-
-  function handleQuickAdd(e: React.MouseEvent) {
-    e.preventDefault()
-    e.stopPropagation()
-    requireAuth(() => {
-      const moq = product.moq || 1
-      addItem({
-        productId: product.id,
-        productSlug: product.slug,
-        productName: product.name,
-        image: product.imageUrl,
-        quantity: moq,
-        unitAdminPriceInr: product.price,
-        moq,
-        leadTime: product.leadTime,
-      })
-      toast.success(`${product.name} added to cart`, { description: `Qty: ${moq}`, duration: 3000 })
-    }, 'add_to_cart')
+// Guards against entries written to localStorage before `moq`/`avgRating`/
+// `reviewCount` were part of the tracked shape — an older cached entry can be
+// missing these keys even though the current `RecentProduct` type requires them.
+function toProductCardData(product: RecentProduct): ProductCardData {
+  return {
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+    adminPrice: product.price,
+    moq: product.moq || 1,
+    images: product.imageUrl ? [{ id: product.id, url: product.imageUrl, sortOrder: 0 }] : [],
+    leadTime: product.leadTime,
+    avgRating: product.avgRating ?? null,
+    reviewCount: product.reviewCount ?? 0,
   }
+}
 
+function RecentlyViewedCard({ product }: { product: RecentProduct }) {
   return (
-    <Link
-      href={`/products/${product.slug}`}
-      className="group flex flex-col flex-shrink-0"
+    <div
+      className="flex-shrink-0"
       style={{ width: `calc((100% - ${(VISIBLE_CARDS - 1) * CARD_GAP_PX}px) / ${VISIBLE_CARDS})` }}
     >
-      <div className="relative aspect-square overflow-hidden rounded-sm bg-muted-bg">
-        {product.imageUrl ? (
-          <Image
-            src={product.imageUrl}
-            alt={product.name}
-            fill
-            sizes="220px"
-            className="object-cover group-hover:scale-[1.04] transition-transform duration-300"
-          />
-        ) : (
-          <div className="w-full h-full bg-[#F0EBE3]" />
-        )}
-
-        <button
-          type="button"
-          aria-label={`Add ${product.name} to cart`}
-          onClick={handleQuickAdd}
-          className="absolute bottom-3 right-3 w-9 h-9 rounded-full bg-white shadow-md flex items-center justify-center text-primary hover:bg-muted-bg transition-colors"
-        >
-          <Plus size={16} aria-hidden="true" />
-        </button>
-      </div>
-
-      <div className="mt-3 flex flex-col gap-1">
-        <div className="text-[16px] font-[700] font-public-sans text-primary leading-none">
-          <Price amountInr={product.price} size="md" className="!text-[16px] !font-[700]" />
-        </div>
-        <p className="font-public-sans text-[14px] font-[500] text-primary line-clamp-2 leading-snug">
-          {product.name}
-        </p>
-        <RatingSummary avgRating={product.avgRating} reviewCount={product.reviewCount} />
-      </div>
-    </Link>
+      <ProductCard product={toProductCardData(product)} />
+    </div>
   )
 }
 
@@ -204,13 +162,13 @@ export function BuyerHomeFeed() {
     <>
       <section className="pt-10 pb-2 bg-bg">
         <div className="max-w-[1400px] mx-auto px-4 lg:px-10">
-          <h1 className="font-playfair font-[500] text-primary text-[28px] lg:text-[32px] leading-tight">
+          <h1 className="font-playfair font-[500] text-primary text-[20px] lg:text-[24px] leading-tight">
             Welcome back{profile?.contactName ? `, ${profile.contactName}` : ''}
           </h1>
         </div>
       </section>
 
-      <CategorySection />
+      <BuyerCategoryGrid />
       <RecentlyViewedCarousel />
 
       <section className="py-10 bg-bg border-t border-border-warm">

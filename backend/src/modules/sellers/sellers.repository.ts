@@ -110,6 +110,51 @@ export class SellersRepository {
   findSellerWithUserById(id: string): Promise<(SellerProfile & { user: User }) | null> {
     return this.db.sellerProfile.findUnique({ where: { id }, include: { user: true } });
   }
+
+  // ─── House seller profile (admin-authored products with no real seller) ──────
+
+  async findPlatformSettingValue(key: string): Promise<Prisma.JsonValue | null> {
+    const setting = await this.db.platformSetting.findUnique({ where: { key } });
+    return setting?.value ?? null;
+  }
+
+  upsertPlatformSetting(key: string, value: unknown): Promise<unknown> {
+    return this.db.platformSetting.upsert({
+      where: { key },
+      update: { value: value as Prisma.InputJsonValue },
+      create: { key, value: value as Prisma.InputJsonValue },
+    });
+  }
+
+  /** Same shape as createSellerUserAndProfile, but with no SellerApplication behind
+   *  it — this is an internal, never-logged-into anchor account. */
+  async createHouseSellerUserAndProfile(input: {
+    email: string;
+    passwordHash: string;
+    businessName: string;
+    contactName: string;
+    phone: string;
+    businessAddress: string;
+  }): Promise<{ user: User; profile: SellerProfile }> {
+    const user = await this.db.user.create({
+      data: {
+        email: input.email,
+        passwordHash: input.passwordHash,
+        role: Role.SELLER,
+        emailVerifiedAt: new Date(),
+        sellerProfile: {
+          create: {
+            businessName: input.businessName,
+            contactName: input.contactName,
+            phone: input.phone,
+            businessAddress: input.businessAddress,
+          },
+        },
+      },
+      include: { sellerProfile: true },
+    });
+    return { user, profile: user.sellerProfile as SellerProfile };
+  }
 }
 
 export const sellersRepository = new SellersRepository();

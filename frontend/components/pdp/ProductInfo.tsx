@@ -3,16 +3,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
-import { CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Star, X } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Heart, Package, Share2, Star, X, BookmarkPlus, BookmarkCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { displayUnitPrice } from '@/lib/pricing'
 import { useAuth } from '@/hooks/useAuth'
 import { useCartStore } from '@/lib/store/useCartStore'
+import { useCatalogueStore } from '@/lib/store/useCatalogueStore'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Price } from '@/components/ui/Price'
+import { Price, useFormatPrice } from '@/components/ui/Price'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { RatingSummary } from '@/components/shared/StarRating'
 import { useProductReviews } from '@/hooks/queries/useReviews'
+import { useWishlist, useAddToWishlist, useRemoveFromWishlist } from '@/hooks/queries/useWishlist'
 import type { Product, Review } from '@/types'
 
 // ─── Expandable section ───────────────────────────────────────────────────────
@@ -21,10 +24,13 @@ function ExpandableSection({
   title,
   children,
   defaultOpen = false,
+  collapsedPreview,
 }: {
   title: string
   children: React.ReactNode
   defaultOpen?: boolean
+  /** Shown in place of nothing while collapsed — e.g. a 3-line description peek. */
+  collapsedPreview?: React.ReactNode
 }) {
   const [open, setOpen] = useState(defaultOpen)
 
@@ -33,7 +39,7 @@ function ExpandableSection({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between py-4 text-left text-[14px] font-[600] font-public-sans text-primary hover:text-muted-text transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent rounded"
+        className="w-full flex items-center justify-between py-4 text-left text-[13px] font-[600] font-public-sans text-primary hover:text-muted-text transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent rounded tracking-[0.05em]"
         aria-expanded={open}
       >
         {title}
@@ -43,8 +49,13 @@ function ExpandableSection({
           aria-hidden="true"
         />
       </button>
-      <div className={cn('overflow-hidden transition-all duration-200', open ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0')}>
-        <div className="pb-5 text-[14px] leading-[1.7] font-[400] font-public-sans text-muted-text">
+      {collapsedPreview && !open && (
+        <div className="pb-5 text-[13px] leading-[1.7] font-[400] font-public-sans text-muted-text">
+          {collapsedPreview}
+        </div>
+      )}
+      <div className={cn('overflow-hidden transition-all duration-200', open ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0')}>
+        <div className="pb-5 text-[13px] leading-[1.7] font-[400] font-public-sans text-muted-text">
           {children}
         </div>
       </div>
@@ -54,12 +65,22 @@ function ExpandableSection({
 
 // ─── Quantity stepper ─────────────────────────────────────────────────────────
 
-function QuantityStepper({ value, onChange, min }: { value: number; onChange: (v: number) => void; min: number }) {
+function QuantityStepper({
+  value,
+  onChange,
+  min,
+  step,
+}: {
+  value: number
+  onChange: (v: number) => void
+  min: number
+  step: number
+}) {
   return (
     <div className="flex items-center border border-border-warm rounded w-fit" role="group" aria-label="Quantity">
       <button
         type="button"
-        onClick={() => value > min && onChange(Math.max(min, value - 1))}
+        onClick={() => value > min && onChange(Math.max(min, value - step))}
         disabled={value <= min}
         className="h-10 px-3 inline-flex items-center justify-center text-primary hover:bg-muted-bg transition-colors rounded-l disabled:opacity-30 disabled:cursor-not-allowed"
         aria-label="Decrease quantity"
@@ -67,14 +88,14 @@ function QuantityStepper({ value, onChange, min }: { value: number; onChange: (v
         −
       </button>
       <div
-        className="w-16 text-center text-[14px] font-[600] font-public-sans text-primary select-none border-x border-border-warm h-10 flex items-center justify-center"
+        className="w-16 text-center text-[13px] font-[600] font-public-sans text-primary select-none border-x border-border-warm h-10 flex items-center justify-center"
         aria-live="polite"
       >
         {value}
       </div>
       <button
         type="button"
-        onClick={() => onChange(value + 1)}
+        onClick={() => onChange(value + step)}
         className="h-10 px-3 inline-flex items-center justify-center text-primary hover:bg-muted-bg transition-colors rounded-r"
         aria-label="Increase quantity"
       >
@@ -85,35 +106,70 @@ function QuantityStepper({ value, onChange, min }: { value: number; onChange: (v
 }
 
 // ─── Variant axes ─────────────────────────────────────────────────────────────
+// Each value carries its representative variant's imageUrl (when the seller set
+// one) so a "Color"-style axis can render photo swatches like Faire's, while an
+// axis with no images (e.g. "Size") falls back to plain text buttons per value.
 
 function buildAxes(variants: Product['variants']) {
-  const map = new Map<string, string[]>()
+  const map = new Map<string, { value: string; imageUrl: string | null }[]>()
   for (const v of variants ?? []) {
     if (!map.has(v.type)) map.set(v.type, [])
-    if (!map.get(v.type)!.includes(v.value)) map.get(v.type)!.push(v.value)
+    const values = map.get(v.type)!
+    if (!values.some((x) => x.value === v.value)) {
+      values.push({ value: v.value, imageUrl: v.imageUrl ?? null })
+    }
   }
   return Array.from(map.entries()).map(([type, values]) => ({ type, values }))
 }
 
 // ─── Price resolution ──────────────────────────────────────────────────────────
 // Each variant carries its own MOQ-tiered prices (a Size L tote isn't the same
-// price as a Size S one). Resolve to the variant matching the current
+// price as a Size S one); a product with no variants has its own flat tiers
+// instead. Either way: resolve to whichever set applies to the current
 // selection, then the richest tier the current quantity actually qualifies
 // for (tiers get cheaper at higher MOQ) — falling back to the flat product
-// price only when there's no variant selected or no tier data at all.
+// price only when there's no tier data at all.
+
+interface MoqTier {
+  key: string
+  moq: number
+  adminPrice: number
+}
+
+function getApplicableTiers(
+  product: Pick<Product, 'priceTiers' | 'variants'>,
+  selectedAttrs: Record<string, string>,
+  viewerRole?: string
+): MoqTier[] {
+  const variant = product.variants?.find((v) => selectedAttrs[v.type] === v.value)
+  if (variant) {
+    return (variant.priceTiers ?? [])
+      .filter((t): t is typeof t & { adminPrice: number } => t.adminPrice != null)
+      .map((t, i) => ({
+        key: t.id ?? `variant-tier-${i}`,
+        moq: t.moq,
+        adminPrice: displayUnitPrice(viewerRole, t.adminPrice, t.agentPrice),
+      }))
+  }
+  return (product.priceTiers ?? []).map((t) => ({
+    key: t.id,
+    moq: t.moq,
+    adminPrice: displayUnitPrice(viewerRole, t.adminPrice, t.agentPrice),
+  }))
+}
 
 function resolveUnitPrice(
-  product: Pick<Product, 'adminPrice' | 'variants'>,
+  product: Pick<Product, 'adminPrice' | 'agentPrice' | 'variants' | 'priceTiers'>,
   selectedAttrs: Record<string, string>,
-  quantity: number
+  quantity: number,
+  viewerRole?: string
 ): number {
-  const variant = product.variants?.find((v) => selectedAttrs[v.type] === v.value)
-  const tiers = variant?.priceTiers?.filter((t) => t.adminPrice != null)
-  if (!tiers || tiers.length === 0) return product.adminPrice
+  const tiers = getApplicableTiers(product, selectedAttrs, viewerRole)
+  if (tiers.length === 0) return displayUnitPrice(viewerRole, product.adminPrice, product.agentPrice)
 
   const sorted = [...tiers].sort((a, b) => b.moq - a.moq)
   const applicable = sorted.find((t) => quantity >= t.moq) ?? sorted[sorted.length - 1]
-  return applicable.adminPrice ?? product.adminPrice
+  return applicable.adminPrice
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -121,35 +177,129 @@ function resolveUnitPrice(
 export function ProductInfo({ product }: { product: Product }) {
   const {
     id, name, description, materials, dimensions, weight,
-    moq, leadTime, images, variants = [],
+    moq, stepQty, leadTime, placeOfOrigin, images, variants = [],
   } = product
 
-  const [addedFeedback, setAddedFeedback] = useState(false)
   const [quantity, setQuantity] = useState(moq)
+  const qtyStep = stepQty || 1
 
   const axes = useMemo(() => buildAxes(variants), [variants])
   const [selectedAttrs, setSelectedAttrs] = useState<Record<string, string>>(() =>
-    Object.fromEntries(axes.map((a) => [a.type, a.values[0]]))
+    Object.fromEntries(axes.map((a) => [a.type, a.values[0]?.value]))
   )
 
   function selectAttr(type: string, value: string) {
     setSelectedAttrs((prev) => ({ ...prev, [type]: value }))
   }
 
+  const { user } = useAuth()
+  const viewerRole = user?.role
+
   const unitPrice = useMemo(
-    () => resolveUnitPrice(product, selectedAttrs, quantity),
-    [product, selectedAttrs, quantity]
+    () => resolveUnitPrice(product, selectedAttrs, quantity, viewerRole),
+    [product, selectedAttrs, quantity, viewerRole]
   )
 
-  const { requireAuth } = useAuth()
+  // MOQ dropdown — every priced tier for the current variant selection (or the
+  // product's own flat tiers when it has no variants), cheapest-quantity first.
+  const moqTiers = useMemo(
+    () => [...getApplicableTiers(product, selectedAttrs, viewerRole)].sort((a, b) => a.moq - b.moq),
+    [product, selectedAttrs, viewerRole]
+  )
+  const activeTierMoq = useMemo(() => {
+    if (moqTiers.length === 0) return moq
+    const sorted = [...moqTiers].sort((a, b) => b.moq - a.moq)
+    return (sorted.find((t) => quantity >= t.moq) ?? sorted[sorted.length - 1]).moq
+  }, [moqTiers, quantity, moq])
+  const formatPrice = useFormatPrice()
+
+  function selectMoqTier(tierMoq: number) {
+    setQuantity(tierMoq)
+  }
+
+  const { requireAuth, isAuthenticated } = useAuth()
   const addItem = useCartStore((s) => s.addItem)
+  const cartItems = useCartStore((s) => s.items)
+  const updateCartQuantity = useCartStore((s) => s.updateQuantity)
+  const removeFromCart = useCartStore((s) => s.removeItem)
+
+  const activeVariantId = variants.find((v) => selectedAttrs[v.type] === v.value)?.id
+  const cartItem = cartItems.find((i) => i.productId === id && i.variantId === activeVariantId)
+
+  // Once this exact product+variant is in the cart, the CTA becomes a
+  // "N in cart · total" pill that opens a quantity-picker dropdown instead —
+  // the plain quantity stepper above the CTA disappears at that point.
+  const [qtyMenuOpen, setQtyMenuOpen] = useState(false)
+  const qtyMenuRef = useRef<HTMLDivElement>(null)
+  const cartQtyOptions = useMemo(() => Array.from({ length: 20 }, (_, i) => moq + i * qtyStep), [moq, qtyStep])
+
+  useEffect(() => {
+    if (!qtyMenuOpen) return
+    function handleClickOutside(e: MouseEvent) {
+      if (qtyMenuRef.current && !qtyMenuRef.current.contains(e.target as Node)) setQtyMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [qtyMenuOpen])
+
+  function handleSelectCartQty(qty: number) {
+    if (!cartItem) return
+    updateCartQuantity(id, qty, cartItem.variantId)
+    setQtyMenuOpen(false)
+  }
+
+  function handleRemoveFromCart() {
+    if (!cartItem) return
+    removeFromCart(id, cartItem.variantId)
+    setQtyMenuOpen(false)
+  }
+
+  const { data: wishlist } = useWishlist(isAuthenticated)
+  const isWishlisted = isAuthenticated && (wishlist?.some((w) => w.product.id === id) ?? false)
+  const addToWishlist = useAddToWishlist()
+  const removeFromWishlist = useRemoveFromWishlist()
+
+  function handleToggleWishlist() {
+    requireAuth(() => {
+      if (isWishlisted) removeFromWishlist.mutate(id)
+      else addToWishlist.mutate(id)
+    }, 'add_to_wishlist')
+  }
+
+  const isAgent = viewerRole === 'AGENT'
+  const inCatalogue = useCatalogueStore((s) => s.items.some((i) => i.productId === id))
+  const toggleCatalogueProduct = useCatalogueStore((s) => s.toggleProduct)
+
+  function handleToggleCatalogue() {
+    toggleCatalogueProduct({
+      productId: id,
+      name,
+      slug: product.slug,
+      image: images?.[0]?.url ?? '',
+      price: unitPrice,
+      moq,
+    })
+  }
+
+  async function handleShare() {
+    const url = `${window.location.origin}/products/${product.slug}`
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: name, url })
+      } catch {
+        // User cancelled the native share sheet — nothing to do.
+      }
+      return
+    }
+    await navigator.clipboard.writeText(url)
+    toast.success('Link copied to clipboard')
+  }
 
   function handleAddToCart() {
     requireAuth(() => {
       const variantLabel = axes.length
         ? axes.map((a) => `${a.type}: ${selectedAttrs[a.type]}`).join(' / ')
         : undefined
-      const variantId = variants.find((v) => selectedAttrs[v.type] === v.value)?.id
 
       addItem({
         productId: id,
@@ -159,59 +309,127 @@ export function ProductInfo({ product }: { product: Product }) {
         quantity,
         unitAdminPriceInr: unitPrice,
         moq,
-        variantId,
+        variantId: activeVariantId,
         variantLabel,
         leadTime,
       })
-      toast.success(`${name} added to cart`, {
-        description: `Qty: ${quantity}`,
-        duration: 3000,
-      })
-      setAddedFeedback(true)
-      setTimeout(() => setAddedFeedback(false), 2000)
     }, 'add_to_cart')
   }
 
   return (
     <div className="flex flex-col">
-      {/* Product name — serif */}
-      <h1 className="font-playfair font-[500] text-primary text-[22px] sm:text-[26px] leading-[1.2] mb-3">
-        {name}
-      </h1>
+      {/* Product name — serif — with wishlist + share */}
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <h1 className="font-playfair font-[500] text-primary text-[20px] sm:text-[23px] leading-[1.2]">
+          {name}
+        </h1>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {isAgent && (
+            <button
+              type="button"
+              aria-label={inCatalogue ? 'Remove from catalogue' : 'Add to catalogue'}
+              onClick={handleToggleCatalogue}
+              className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted-bg transition-colors"
+            >
+              {inCatalogue ? (
+                <BookmarkCheck size={18} className="text-primary" />
+              ) : (
+                <BookmarkPlus size={18} className="text-primary" />
+              )}
+            </button>
+          )}
+          <button
+            type="button"
+            aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+            onClick={handleToggleWishlist}
+            disabled={addToWishlist.isPending || removeFromWishlist.isPending}
+            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted-bg transition-colors disabled:opacity-60"
+          >
+            <Heart
+              size={18}
+              className={isWishlisted ? 'text-rose-500' : 'text-primary'}
+              fill={isWishlisted ? 'currentColor' : 'none'}
+            />
+          </button>
+          <button
+            type="button"
+            aria-label="Share this product"
+            onClick={handleShare}
+            className="w-9 h-9 rounded-full flex items-center justify-center text-primary hover:bg-muted-bg transition-colors"
+          >
+            <Share2 size={17} />
+          </button>
+        </div>
+      </div>
 
       <RatingSummary avgRating={product.avgRating} reviewCount={product.reviewCount} className="mb-4" />
 
       {/* Price */}
       <div className="mb-4">
-        <p className="font-public-sans text-[11px] font-[600] text-muted-text uppercase tracking-[0.07em] mb-1.5">
+        <p className="font-public-sans text-[10px] font-[600] text-muted-text uppercase tracking-[0.07em] mb-1.5">
           Price per unit
         </p>
-        <Price amountInr={unitPrice} size="lg" className="!text-[38px] !font-[600] text-primary tracking-[-0.025em] leading-none" />
+        <Price amountInr={unitPrice} size="lg" className="!text-[34px] !font-[600] text-primary tracking-[-0.025em] leading-none" />
       </div>
+
+      {/* Shipping estimate — real placeOfOrigin/leadTime data only */}
+      {(placeOfOrigin || leadTime) && (
+        <div className="flex items-start gap-2 mb-5 text-muted-text">
+          <Package size={16} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
+          <p className="font-public-sans text-[12px] leading-snug">
+            {placeOfOrigin && (
+              <>Ships from <span className="text-primary font-[500]">{placeOfOrigin}</span></>
+            )}
+            {placeOfOrigin && leadTime && ' · '}
+            {leadTime && (
+              <>Estimated delivery in <span className="text-primary font-[500]">{leadTime}</span></>
+            )}
+          </p>
+        </div>
+      )}
 
       {/* Variant selector */}
       {axes.length > 0 && (
         <div className="mb-5 space-y-4">
           {axes.map((axis) => (
             <div key={axis.type}>
-              <p className="font-public-sans text-[12px] font-[600] text-muted-text uppercase tracking-[0.05em] mb-2">
+              <p className="font-public-sans text-[11px] font-[600] text-muted-text uppercase tracking-[0.05em] mb-2">
                 {axis.type}
                 {selectedAttrs[axis.type] && (
-                  <span className="ml-1.5 text-primary normal-case font-[500] tracking-normal">
+                  <span className="ml-1.5 text-primary normal-case font-[500] tracking-[0.02em]">
                     — {selectedAttrs[axis.type]}
                   </span>
                 )}
               </p>
               <div className="flex flex-wrap gap-2">
-                {axis.values.map((val) => {
+                {axis.values.map(({ value: val, imageUrl }) => {
                   const selected = selectedAttrs[axis.type] === val
+
+                  if (imageUrl) {
+                    return (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => selectAttr(axis.type, val)}
+                        className={cn(
+                          'relative w-11 h-11 rounded-full overflow-hidden border-2 transition-colors',
+                          selected ? 'border-primary' : 'border-transparent hover:border-border-warm'
+                        )}
+                        aria-label={`${axis.type}: ${val}`}
+                        aria-pressed={selected}
+                      >
+                        <Image src={imageUrl} alt={val} fill sizes="44px" className="object-cover" />
+                      </button>
+                    )
+                  }
+
                   return (
                     <button
                       key={val}
                       type="button"
                       onClick={() => selectAttr(axis.type, val)}
                       className={cn(
-                        'h-9 px-4 rounded border text-[13px] font-[500] font-public-sans transition-colors',
+                        'h-9 px-4 rounded border text-[12px] font-[500] font-public-sans transition-colors',
                         selected
                           ? 'border-primary bg-primary text-white'
                           : 'border-border-warm text-primary hover:border-primary'
@@ -228,76 +446,154 @@ export function ProductInfo({ product }: { product: Product }) {
         </div>
       )}
 
-      {/* MOQ */}
-      <p className="font-public-sans text-[13px] text-muted-text mb-4">
-        Min. order:&nbsp;
-        <span className="font-[600] text-primary">{moq} units</span>
-      </p>
+      {/* MOQ & pricing */}
+      {moqTiers.length > 0 ? (
+        <div className="mb-4">
+          <p className="font-public-sans text-[11px] font-[600] text-muted-text uppercase tracking-[0.05em] mb-2">
+            MOQ &amp; Pricing
+          </p>
+          <select
+            value={activeTierMoq}
+            onChange={(e) => selectMoqTier(Number(e.target.value))}
+            className="w-full h-10 px-3 rounded border border-border-warm bg-surface text-[13px] font-public-sans text-primary focus:outline-none focus:border-accent transition-colors"
+          >
+            {moqTiers.map((tier) => (
+              <option key={tier.key} value={tier.moq}>
+                {tier.moq} units — {formatPrice(tier.adminPrice)} / unit
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <p className="font-public-sans text-[12px] text-muted-text mb-4">
+          Min. order:&nbsp;
+          <span className="font-[600] text-primary">{moq} units</span>
+        </p>
+      )}
 
       <div className="border-t border-border-warm mb-5" />
 
-      {/* Quantity */}
-      <div className="mb-4">
-        <p className="font-public-sans text-[12px] font-[500] text-muted-text mb-2">
-          Quantity&nbsp;<span className="text-primary">(min. {moq})</span>
-        </p>
-        <QuantityStepper value={quantity} onChange={setQuantity} min={moq} />
-      </div>
+      {cartItem ? (
+        /* Already in cart — collapses the quantity stepper into a single pill
+           that opens a quantity-picker/remove dropdown, matching Faire's PDP. */
+        <div className="relative" ref={qtyMenuRef}>
+          <button
+            type="button"
+            onClick={() => setQtyMenuOpen((v) => !v)}
+            aria-expanded={qtyMenuOpen}
+            className="w-full h-12 rounded bg-primary text-white text-[13px] font-[600] font-public-sans flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors"
+          >
+            {cartItem.quantity} in cart · {formatPrice(cartItem.unitAdminPriceInr * cartItem.quantity)}
+            <ChevronDown
+              size={16}
+              className={cn('transition-transform duration-200', qtyMenuOpen && 'rotate-180')}
+              aria-hidden="true"
+            />
+          </button>
 
-      {/* CTA */}
-      <div className="flex flex-col gap-2.5">
-        <Button
-          variant="primary"
-          size="lg"
-          onClick={handleAddToCart}
-          className={cn('w-full h-12 text-[14px] font-[600] transition-all', addedFeedback && 'bg-success hover:bg-success')}
-          aria-label={`Add ${quantity} units to cart`}
+          {qtyMenuOpen && (
+            <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-surface border border-border-warm rounded shadow-lg max-h-[260px] overflow-y-auto">
+              <button
+                type="button"
+                onClick={handleRemoveFromCart}
+                className="w-full text-left px-4 py-2.5 text-[13px] font-[500] font-public-sans text-error hover:bg-muted-bg transition-colors border-b border-border-warm"
+              >
+                Remove from cart
+              </button>
+              {cartQtyOptions.map((qty) => (
+                <button
+                  key={qty}
+                  type="button"
+                  onClick={() => handleSelectCartQty(qty)}
+                  className={cn(
+                    'w-full text-left px-4 py-2.5 text-[13px] font-public-sans hover:bg-muted-bg transition-colors',
+                    qty === cartItem.quantity ? 'font-[700] text-primary bg-muted-bg/60' : 'text-primary'
+                  )}
+                >
+                  {qty}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Quantity */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-public-sans text-[11px] font-[500] text-muted-text">
+                Quantity&nbsp;<span className="text-primary">(min. {moq})</span>
+              </p>
+              {qtyStep > 1 && (
+                <span className="font-public-sans text-[11px] text-muted-text">Case of {qtyStep}</span>
+              )}
+            </div>
+            <QuantityStepper value={quantity} onChange={setQuantity} min={moq} step={qtyStep} />
+          </div>
+
+          {/* CTA */}
+          <div className="flex flex-col gap-2.5">
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={handleAddToCart}
+              className="w-full h-12 text-[13px] font-[600]"
+              aria-label={`Add ${quantity} units to cart — ${formatPrice(unitPrice * quantity)}`}
+            >
+              Add to cart · {formatPrice(unitPrice * quantity)}
+            </Button>
+          </div>
+        </>
+      )}
+
+      {/* Description + details — collapsed accordions, matching Faire's PDP:
+          description peeks 3 lines even while closed, everything else shows
+          nothing until opened. */}
+      <div className="flex flex-col mt-6">
+        <ExpandableSection
+          title="Product description"
+          collapsedPreview={<p className="whitespace-pre-wrap line-clamp-3">{description}</p>}
         >
-          {addedFeedback ? 'Added to cart ✓' : 'Add to Cart'}
-        </Button>
-      </div>
+          <p className="whitespace-pre-wrap">{description}</p>
+        </ExpandableSection>
 
-      <div className="border-t border-border-warm mt-6 mb-6" />
+        <ExpandableSection title="Materials">
+          <p>{materials}</p>
+        </ExpandableSection>
 
-      {/* Description */}
-      <div className="mb-2">
-        <p className="font-public-sans text-[11px] font-[600] text-muted-text uppercase tracking-[0.07em] mb-3">
-          About this product
-        </p>
-        <p className="font-public-sans text-[15px] leading-[1.75] text-muted-text whitespace-pre-wrap">
-          {description}
-        </p>
-      </div>
+        {(dimensions || weight != null) && (
+          <ExpandableSection title="Dimensions and weight">
+            <dl className="flex flex-col gap-3">
+              {[
+                ...(weight != null ? [{ label: 'Weight', value: weight }] : []),
+                ...(dimensions ? [{ label: 'Dimensions', value: dimensions }] : []),
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-baseline justify-between gap-4">
+                  <dt className="font-public-sans text-[11px] font-[600] text-primary uppercase tracking-[0.04em] flex-shrink-0">
+                    {label}
+                  </dt>
+                  <dd className="font-public-sans text-[13px] text-muted-text text-right">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </ExpandableSection>
+        )}
 
-      {/* Details accordion */}
-      <div className="mt-4 flex flex-col">
-        <ExpandableSection title="Product Details" defaultOpen>
+        <ExpandableSection title="Details">
           <dl className="flex flex-col gap-3">
             {[
-              { label: 'Materials', value: materials },
-              ...(dimensions ? [{ label: 'Dimensions', value: dimensions }] : []),
-              ...(weight != null ? [{ label: 'Weight', value: weight }] : []),
               ...(leadTime ? [{ label: 'Lead time', value: leadTime }] : []),
               { label: 'Min. order', value: `${moq} units` },
             ].map(({ label, value }) => (
               <div key={label} className="flex items-baseline justify-between gap-4">
-                <dt className="font-public-sans text-[12px] font-[600] text-primary uppercase tracking-[0.04em] flex-shrink-0">
+                <dt className="font-public-sans text-[11px] font-[600] text-primary uppercase tracking-[0.04em] flex-shrink-0">
                   {label}
                 </dt>
-                <dd className="font-public-sans text-[14px] text-muted-text text-right">{value}</dd>
+                <dd className="font-public-sans text-[13px] text-muted-text text-right">{value}</dd>
               </div>
             ))}
           </dl>
         </ExpandableSection>
-
-        {leadTime && (
-          <ExpandableSection title="Shipping">
-            <p>
-              Lead time: <span className="text-primary font-[500]">{leadTime}</span> from order confirmation.
-              Dispatched by Solomon Bharat — tracking info provided on dispatch.
-            </p>
-          </ExpandableSection>
-        )}
       </div>
 
       <CustomerReviews productId={id} />
@@ -371,7 +667,7 @@ function ReviewPhotoLightbox({
     >
       <div className="relative bg-[#1a1a1a] rounded-xl shadow-2xl flex flex-col overflow-hidden w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-          <span className="font-public-sans text-[13px] text-white/60">{index + 1} / {photos.length}</span>
+          <span className="font-public-sans text-[12px] text-white/60">{index + 1} / {photos.length}</span>
           <button
             type="button"
             onClick={onClose}
@@ -450,7 +746,7 @@ function ReviewPhotoStrip({ reviews, onOpenPhoto }: { reviews: Review[]; onOpenP
 
   return (
     <div className="flex flex-col gap-2 mb-6">
-      <p className="font-public-sans text-[11px] font-[600] text-muted-text uppercase tracking-[0.06em]">
+      <p className="font-public-sans text-[10px] font-[600] text-muted-text uppercase tracking-[0.06em]">
         Customer Photos
       </p>
       <div className="flex gap-2">
@@ -467,7 +763,7 @@ function ReviewPhotoStrip({ reviews, onOpenPhoto }: { reviews: Review[]; onOpenP
               <Image src={url} alt="" fill sizes="80px" className="object-cover" />
               {isLast && extra > 0 && (
                 <div className="absolute inset-0 bg-black/55 flex items-center justify-center">
-                  <span className="text-white text-[13px] font-[700] font-public-sans">+{extra}</span>
+                  <span className="text-white text-[12px] font-[700] font-public-sans">+{extra}</span>
                 </div>
               )}
             </button>
@@ -490,14 +786,14 @@ function ReviewCard({ review, onOpen }: { review: Review; onOpen: () => void }) 
       className="flex flex-col flex-shrink-0 w-[260px] sm:w-[280px] bg-surface border border-border-warm rounded-lg p-4 text-left hover:border-primary/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       <div className="flex items-center justify-between gap-2 mb-2">
-        <span className="inline-flex items-center gap-1 bg-primary text-white rounded px-1.5 py-0.5 text-[12px] font-[700] font-public-sans">
+        <span className="inline-flex items-center gap-1 bg-primary text-white rounded px-1.5 py-0.5 text-[11px] font-[700] font-public-sans">
           {review.rating}
           <Star size={10} fill="currentColor" aria-hidden="true" />
         </span>
-        <span className="font-public-sans text-[11px] text-muted-text flex-shrink-0">{timeAgo(review.createdAt)}</span>
+        <span className="font-public-sans text-[10px] text-muted-text flex-shrink-0">{timeAgo(review.createdAt)}</span>
       </div>
 
-      <p className="font-public-sans text-[13.5px] text-primary leading-[1.6] mb-3 line-clamp-4">
+      <p className="font-public-sans text-[12px] text-primary leading-[1.6] mb-3 line-clamp-4">
         {review.comment || <span className="text-muted-text italic">No written feedback</span>}
       </p>
 
@@ -510,15 +806,15 @@ function ReviewCard({ review, onOpen }: { review: Review; onOpen: () => void }) 
           ))}
           {review.images.length > 3 && (
             <div className="w-10 h-10 rounded bg-muted-bg flex-shrink-0 flex items-center justify-center">
-              <span className="font-public-sans text-[11px] font-[600] text-muted-text">+{review.images.length - 3}</span>
+              <span className="font-public-sans text-[10px] font-[600] text-muted-text">+{review.images.length - 3}</span>
             </div>
           )}
         </div>
       )}
 
       <div className="mt-auto flex items-center gap-1.5">
-        <span className="font-public-sans text-[12px] font-[600] text-primary">{review.buyerName}</span>
-        <span className="inline-flex items-center gap-1 text-[11px] text-muted-text">
+        <span className="font-public-sans text-[11px] font-[600] text-primary">{review.buyerName}</span>
+        <span className="inline-flex items-center gap-1 text-[10px] text-muted-text">
           <CheckCircle2 size={11} aria-hidden="true" />
           Verified Buyer
         </span>
@@ -612,21 +908,21 @@ function ReviewDetailModal({
       <DialogContent className="max-w-[560px]">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 bg-primary text-white rounded px-1.5 py-0.5 text-[12px] font-[700] font-public-sans">
+            <span className="inline-flex items-center gap-1 bg-primary text-white rounded px-1.5 py-0.5 text-[11px] font-[700] font-public-sans">
               {review.rating}
               <Star size={10} fill="currentColor" aria-hidden="true" />
             </span>
-            <span className="font-public-sans text-[12px] text-muted-text">{timeAgo(review.createdAt)}</span>
+            <span className="font-public-sans text-[11px] text-muted-text">{timeAgo(review.createdAt)}</span>
           </div>
-          <DialogTitle className="text-[17px] font-public-sans font-[600]">{review.buyerName}</DialogTitle>
-          <span className="inline-flex items-center gap-1 text-[12px] text-muted-text">
+          <DialogTitle className="text-[15px] font-public-sans font-[600]">{review.buyerName}</DialogTitle>
+          <span className="inline-flex items-center gap-1 text-[11px] text-muted-text">
             <CheckCircle2 size={12} aria-hidden="true" />
             Verified Buyer
           </span>
         </DialogHeader>
 
         <div className="px-6 pb-6 flex flex-col gap-4">
-          <p className="font-public-sans text-[14.5px] text-primary leading-[1.7] whitespace-pre-wrap">
+          <p className="font-public-sans text-[13px] text-primary leading-[1.7] whitespace-pre-wrap">
             {review.comment || <span className="text-muted-text italic">No written feedback</span>}
           </p>
 
@@ -652,16 +948,16 @@ function ReviewDetailModal({
             <button
               type="button"
               onClick={() => onIndexChange(index === 0 ? reviews.length - 1 : index - 1)}
-              className="inline-flex items-center gap-1 text-[13px] font-[600] font-public-sans text-primary hover:text-accent transition-colors"
+              className="inline-flex items-center gap-1 text-[12px] font-[600] font-public-sans text-primary hover:text-accent transition-colors"
             >
               <ChevronLeft size={15} aria-hidden="true" />
               Previous review
             </button>
-            <span className="font-public-sans text-[12px] text-muted-text">{index + 1} / {reviews.length}</span>
+            <span className="font-public-sans text-[11px] text-muted-text">{index + 1} / {reviews.length}</span>
             <button
               type="button"
               onClick={() => onIndexChange(index === reviews.length - 1 ? 0 : index + 1)}
-              className="inline-flex items-center gap-1 text-[13px] font-[600] font-public-sans text-primary hover:text-accent transition-colors"
+              className="inline-flex items-center gap-1 text-[12px] font-[600] font-public-sans text-primary hover:text-accent transition-colors"
             >
               Next review
               <ChevronRight size={15} aria-hidden="true" />
@@ -691,7 +987,7 @@ function CustomerReviews({ productId }: { productId: string }) {
         className="w-full flex items-center justify-between mb-4 text-left"
         aria-expanded={open}
       >
-        <p className="font-playfair font-[600] text-primary text-[19px] leading-tight">
+        <p className="font-playfair font-[600] text-primary text-[17px] leading-tight">
           Ratings and Reviews
         </p>
         <ChevronDown
@@ -704,15 +1000,15 @@ function CustomerReviews({ productId }: { productId: string }) {
       {open && (
         <>
           <div className="flex items-center gap-2.5 mb-1.5">
-            <span className="inline-flex items-center gap-1 font-public-sans text-[26px] font-[700] text-primary leading-none">
+            <span className="inline-flex items-center gap-1 font-public-sans text-[23px] font-[700] text-primary leading-none">
               {data.avgRating?.toFixed(1)}
               <Star size={20} className="text-accent" fill="currentColor" aria-hidden="true" />
             </span>
-            <span className={cn('inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-[600] font-public-sans', quality.className)}>
+            <span className={cn('inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-[600] font-public-sans', quality.className)}>
               {quality.label}
             </span>
           </div>
-          <p className="font-public-sans text-[13px] text-muted-text mb-5">
+          <p className="font-public-sans text-[12px] text-muted-text mb-5">
             based on {data.reviewCount} rating{data.reviewCount === 1 ? '' : 's'} by{' '}
             <span className="inline-flex items-center gap-1">
               <CheckCircle2 size={12} aria-hidden="true" />

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { cn, formatINR } from '@/lib/utils'
-import type { AdminProduct, CategoryNode, ProductPriceTier } from '@/types'
+import type { AdminProduct, CategoryNode, ProductPriceTier, ProposedPriceTier, ProposedVariant } from '@/types'
 
 // ─── Category flattening (leaf nodes only) ─────────────────────────────────────
 
@@ -96,6 +96,70 @@ export function useTierPriceForm(product: AdminProduct) {
       return input
     })
     return product.variants.length === 0
+      ? { priceTiers: tierInputs }
+      : { variantPriceTiers: tierInputs }
+  }
+
+  return { allTiers, values, setValue, agentValues, setAgentValue, buildPayload, hasAnyPriced }
+}
+
+/**
+ * Same shape as collectAllTiers, but for a seller's PROPOSED pricing/variant change —
+ * the tiers are JSON, not real DB rows yet, so each gets a synthetic key by array
+ * position (`flat-0`, `variant-0-tier-1`, ...) instead of a real tier id. The backend's
+ * approvePricingChange resolves these same keys back onto the proposal when creating
+ * the real rows, so this key scheme must match exactly.
+ */
+export function tierRowsFromProposal(change: {
+  proposedPriceTiers: ProposedPriceTier[]
+  proposedVariants: ProposedVariant[]
+}): TierRow[] {
+  if (change.proposedVariants.length === 0) {
+    return change.proposedPriceTiers.map((t, i) => ({
+      key: `flat-${i}`,
+      groupLabel: null,
+      tier: { id: `flat-${i}`, moq: t.moq, sellerPrice: t.sellerPrice, adminPrice: null, agentPrice: null },
+    }))
+  }
+  return change.proposedVariants.flatMap((v, vi) =>
+    (v.priceTiers ?? []).map((t, ti) => ({
+      key: `variant-${vi}-tier-${ti}`,
+      groupLabel: `${v.type}: ${v.value}`,
+      tier: { id: `variant-${vi}-tier-${ti}`, moq: t.moq, sellerPrice: t.sellerPrice, adminPrice: null, agentPrice: null },
+    }))
+  )
+}
+
+/** Same editable-tier-form state as useTierPriceForm, sourced from a pending change's
+ *  proposed tiers instead of a live product's real ones. */
+export function useChangeRequestPriceForm(change: {
+  proposedPriceTiers: ProposedPriceTier[]
+  proposedVariants: ProposedVariant[]
+}) {
+  const allTiers = useMemo(() => tierRowsFromProposal(change), [change])
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [agentValues, setAgentValues] = useState<Record<string, string>>({})
+
+  function setValue(key: string, value: string) {
+    setValues((v) => ({ ...v, [key]: value }))
+  }
+
+  function setAgentValue(key: string, value: string) {
+    setAgentValues((v) => ({ ...v, [key]: value }))
+  }
+
+  const priced = allTiers.filter(({ key }) => values[key] && Number(values[key]) > 0)
+  const hasAnyPriced = priced.length > 0
+
+  function buildPayload() {
+    const tierInputs = priced.map(({ key }) => {
+      const input: { id: string; adminPrice: number; agentPrice?: number } = { id: key, adminPrice: Number(values[key]) }
+      if (agentValues[key]) {
+        input.agentPrice = Number(agentValues[key])
+      }
+      return input
+    })
+    return change.proposedVariants.length === 0
       ? { priceTiers: tierInputs }
       : { variantPriceTiers: tierInputs }
   }

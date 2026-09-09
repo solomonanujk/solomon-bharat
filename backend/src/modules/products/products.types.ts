@@ -3,6 +3,7 @@ import {
   ProductApprovalStatus,
   ProductImage,
   ProductPriceTier,
+  ProductPricingChangeStatus,
   ProductVariant,
   VariantAttribute,
   VariantPriceTier,
@@ -49,6 +50,49 @@ export interface VariantInput {
   priceTiers?: PriceTierInput[];
 }
 
+// ─── Staged pricing/variant changes on an already-approved (live) product ───────
+// See ProductsService.updateProduct: once a product is APPROVED, moq/sellerPrice/
+// priceTiers/variants no longer apply directly — they're staged here until an admin
+// approves them, so buyers keep seeing the last-approved pricing/variants untouched.
+
+/** What the seller proposed — mirrors the pricing-relevant slice of UpdateProductInput. */
+export interface ProposedPricing {
+  moq: number;
+  sellerPrice: number;
+  priceTiers: PriceTierInput[];
+  variants: VariantInput[];
+}
+
+export interface PriceTierWithAdminPricing extends PriceTierInput {
+  adminPrice?: number;
+  agentPrice?: number;
+}
+
+export interface VariantInputWithAdminPricing extends Omit<VariantInput, 'priceTiers'> {
+  priceTiers?: PriceTierWithAdminPricing[];
+}
+
+/** Fully-resolved data the repository persists atomically when an admin approves a
+ *  pending change — adminPrice/agentPrice are already merged into each tier by then. */
+export interface ApplyPricingChangeInput {
+  moq: number;
+  sellerPrice: number;
+  adminPrice: number | null;
+  agentPrice: number | null;
+  priceTiers: PriceTierWithAdminPricing[];
+  variants: VariantInputWithAdminPricing[];
+}
+
+/** Buyer-invisible summary attached to the seller/admin product projections. */
+export interface PendingPricingChange {
+  id: string;
+  proposedMoq: number;
+  proposedSellerPrice: string;
+  proposedPriceTiers: PriceTierInput[];
+  proposedVariants: VariantInput[];
+  createdAt: Date;
+}
+
 export interface CreateProductInput {
   name: string;
   description: string;
@@ -60,7 +104,11 @@ export interface CreateProductInput {
   declaredStock: number;
   sellerPrice: number;
   leadTime?: string;
-  variants?: VariantInput[];
+  // Widened to the WithAdminPricing variants (a strict superset of
+  // VariantInput/PriceTierInput) so the same type serves both the plain seller-create
+  // path (adminPrice/agentPrice simply absent) and admin-create, where they're set
+  // directly per tier — see ProductsService.createProductAsAdmin.
+  variants?: VariantInputWithAdminPricing[];
   tags?: string[];
   stepQty?: number;
   isHandmade?: boolean;
@@ -68,7 +116,7 @@ export interface CreateProductInput {
   isGITagged?: boolean;
   howItIsMade?: string;
   artisanName?: string;
-  priceTiers?: PriceTierInput[];
+  priceTiers?: PriceTierWithAdminPricing[];
 }
 
 export interface UpdateProductInput {
@@ -103,6 +151,8 @@ export interface ProductListFilter {
   categoryId?: string;
   collectionId?: string;
   search?: string;
+  /** Curated unscoped browse modes for the homepage/navbar quick links — see AGENTS.md "Search". */
+  sort?: 'newest' | 'featured' | 'trending';
   material?: string;
   minPrice?: number;
   maxPrice?: number;
@@ -119,6 +169,16 @@ export interface SellerProductListFilter {
   approvalStatus?: ProductApprovalStatus;
 }
 
+/** A flat (non-variant) price tier stripped down to what a buyer may see — never the
+ *  raw ProductPriceTier row, which also carries the seller's own cost (sellerPrice). */
+export interface BuyerPriceTier {
+  id: string;
+  moq: number;
+  adminPrice: string;
+  /** Only populated when the requester is an authenticated AGENT — never sent to buyers. */
+  agentPrice: string | null;
+}
+
 /** Buyer-safe projection — never includes sellerId, sellerPrice, or declaredStock. */
 export interface BuyerProduct {
   id: string;
@@ -130,6 +190,11 @@ export interface BuyerProduct {
   weight: string | null;
   moq: number;
   adminPrice: string;
+  /** Only populated when the requester is an authenticated AGENT — never sent to buyers. */
+  agentPrice: string | null;
+  /** Only the product's own flat tiers — empty when this product uses variants
+   *  instead (each variant carries its own priceTiers on `variants` below). */
+  priceTiers: BuyerPriceTier[];
   leadTime: string | null;
   categoryId: string;
   isFeatured: boolean;
@@ -176,47 +241,10 @@ export interface SellerProduct {
   isGITagged: boolean;
   howItIsMade: string | null;
   artisanName: string | null;
+  /** Non-null only once this product is APPROVED and the seller has an unreviewed
+   *  pricing/variant edit awaiting admin approval — see ProposedPricing above. */
+  pendingPricingChange: PendingPricingChange | null;
 }
 
-/** A variant price tier stripped down to what the agent projection may expose. */
-export interface AgentPriceTier {
-  id: string;
-  moq: number;
-  agentPrice: string;
-}
 
-/** Variant projected for agents — priceTiers mapped down to {id, moq, agentPrice}, never the raw Prisma tier (which carries sellerPrice/adminPrice). */
-export type AgentVariant = Omit<VariantWithDetail, 'priceTiers'> & { priceTiers: AgentPriceTier[] };
-
-/**
- * Agent-safe projection — mirrors BuyerProduct's shape but exposes agentPrice
- * instead of adminPrice, and never includes sellerId, sellerPrice, or declaredStock.
- */
-export interface AgentProduct {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  materials: string;
-  dimensions: string | null;
-  weight: string | null;
-  moq: number;
-  agentPrice: string;
-  leadTime: string | null;
-  categoryId: string;
-  isFeatured: boolean;
-  publishedAt: Date | null;
-  images: ProductImage[];
-  variants: AgentVariant[];
-  avgRating: number | null;
-  reviewCount: number;
-  tags: string[];
-  stepQty: number;
-  isHandmade: boolean;
-  placeOfOrigin: string | null;
-  isGITagged: boolean;
-  howItIsMade: string | null;
-  artisanName: string | null;
-}
-
-export { ProductApprovalStatus };
+export { ProductApprovalStatus, ProductPricingChangeStatus };

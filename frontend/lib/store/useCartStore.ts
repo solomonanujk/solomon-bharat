@@ -4,6 +4,10 @@ import type { CartItem } from '@/types'
 
 interface CartState {
   items: CartItem[]
+  /** Drives the global "Added to cart" popup — ephemeral, never persisted (see
+   *  partialize below), so it doesn't survive a reload. */
+  lastAddedItem: CartItem | null
+  addedPopupVisible: boolean
 }
 
 interface CartActions {
@@ -12,6 +16,7 @@ interface CartActions {
   removeItems: (productIds: string[]) => void
   updateQuantity: (productId: string, qty: number, variantId?: string) => void
   clearCart: () => void
+  hideAddedPopup: () => void
   getTotalItems: () => number
   getTotalValueInr: () => number
 }
@@ -23,6 +28,8 @@ export const useCartStore = create<CartStore>()(
     (set, get) => ({
       // ─── State ──────────────────────────────────────────────────────────────
       items: [],
+      lastAddedItem: null,
+      addedPopupVisible: false,
 
       // ─── Actions ────────────────────────────────────────────────────────────
 
@@ -36,13 +43,17 @@ export const useCartStore = create<CartStore>()(
 
           if (existing) {
             const newQty = Math.max(existing.quantity + item.quantity, existing.moq)
+            const updated = { ...existing, quantity: newQty }
             return {
-              items: state.items.map((i) => (i === existing ? { ...i, quantity: newQty } : i)),
+              items: state.items.map((i) => (i === existing ? updated : i)),
+              lastAddedItem: updated,
+              addedPopupVisible: true,
             }
           }
 
           const safeQty = Math.max(item.quantity, item.moq)
-          return { items: [...state.items, { ...item, quantity: safeQty }] }
+          const created = { ...item, quantity: safeQty }
+          return { items: [...state.items, created], lastAddedItem: created, addedPopupVisible: true }
         })
       },
 
@@ -77,6 +88,8 @@ export const useCartStore = create<CartStore>()(
       },
 
       clearCart: () => set({ items: [] }),
+
+      hideAddedPopup: () => set({ addedPopupVisible: false }),
 
       getTotalItems: (): number => {
         return get().items.reduce((sum, item) => sum + item.quantity, 0)

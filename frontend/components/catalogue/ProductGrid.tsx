@@ -15,11 +15,7 @@ interface ProductGridProps {
   onLoadMore: () => void
   /** Columns at the widest breakpoint — 4 (default, category/collection grids) or 5 (buyer "Ideas for you" feed). */
   columns?: 4 | 5
-  /**
-   * Optional per-product renderer — defaults to the buyer `ProductCard`.
-   * Lets non-buyer contexts (e.g. the agent portal's `AgentProductCard`) reuse
-   * this grid's layout/skeleton/infinite-scroll plumbing without forking it.
-   */
+  /** Optional per-product renderer — defaults to the buyer `ProductCard`. */
   renderItem?: (product: Product) => React.ReactNode
 }
 

@@ -65,6 +65,9 @@ function buildMockRepo(): SellersRepository {
     updateSellerProfile: vi.fn(),
     findSellers: vi.fn(),
     findSellerWithUserById: vi.fn(),
+    findPlatformSettingValue: vi.fn(),
+    upsertPlatformSetting: vi.fn(),
+    createHouseSellerUserAndProfile: vi.fn(),
   } as unknown as SellersRepository;
 }
 
@@ -335,6 +338,48 @@ describe('SellersService', () => {
       vi.mocked(repo.findApplicationById).mockResolvedValue(null);
 
       await expect(service.getApplicationDetail('missing')).rejects.toMatchObject({ statusCode: 404 });
+    });
+  });
+
+  describe('getOrCreateHouseSellerProfile', () => {
+    it('returns the cached id without creating anything when already provisioned', async () => {
+      vi.mocked(repo.findPlatformSettingValue).mockResolvedValue({ sellerId: 'house-profile-1' });
+
+      const id = await service.getOrCreateHouseSellerProfile();
+
+      expect(id).toBe('house-profile-1');
+      expect(repo.createHouseSellerUserAndProfile).not.toHaveBeenCalled();
+    });
+
+    it('provisions the house seller once and caches its id when not yet created', async () => {
+      vi.mocked(repo.findPlatformSettingValue).mockResolvedValue(null);
+      vi.mocked(repo.createHouseSellerUserAndProfile).mockResolvedValue({
+        user: buildUser({ id: 'house-user-1', email: 'house@solomonbharat.internal' }),
+        profile: {
+          id: 'house-profile-1',
+          userId: 'house-user-1',
+          applicationId: null,
+          businessName: 'Solomon Bharat',
+          contactName: 'Solomon Bharat',
+          phone: 'N/A',
+          businessAddress: 'N/A',
+          bankDetails: null,
+          notificationPrefs: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          deletedAt: null,
+        },
+      });
+
+      const id = await service.getOrCreateHouseSellerProfile();
+
+      expect(id).toBe('house-profile-1');
+      expect(repo.createHouseSellerUserAndProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ email: 'house@solomonbharat.internal', businessName: 'Solomon Bharat' }),
+      );
+      expect(repo.upsertPlatformSetting).toHaveBeenCalledWith('house_seller_profile_id', {
+        sellerId: 'house-profile-1',
+      });
     });
   });
 });

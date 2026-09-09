@@ -89,7 +89,7 @@ export function Footer() {
           <div className="sm:col-span-2 lg:col-span-2 flex flex-col">
             <Link href="/" className="flex-shrink-0">
               <img
-                src="https://res.cloudinary.com/dxnqyvcdl/image/upload/v1781610033/solomon-logo1_bpjtco.png"
+                src="https://res.cloudinary.com/dxnqyvcdl/image/upload/v1788850557/branding/1788850490541-solomon-bharat-logo.png"
                 alt="Solomon Bharat"
                 className="h-16 w-auto object-contain block"
               />
@@ -112,7 +112,6 @@ export function Footer() {
           </div>
 
           <FooterColumn title="Marketplace">
-            <FooterLink href="/categories">Categories</FooterLink>
             <FooterLink href="/collections">Collections</FooterLink>
           </FooterColumn>
 

@@ -2,70 +2,29 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Lock, MapPin, ShieldCheck, Timer } from 'lucide-react'
+import { ArrowLeft, Lock, MapPin, Plus, ShieldCheck, Timer } from 'lucide-react'
 import { useCartStore } from '@/lib/store/useCartStore'
 import { useCurrencyStore } from '@/lib/store/useCurrencyStore'
 import { useAuth } from '@/hooks/useAuth'
 import { useCheckout, useCheckoutFxRate } from '@/hooks/queries/usePayments'
-import { useAddresses } from '@/hooks/queries/useAddresses'
+import { useAddresses, useCreateAddress } from '@/hooks/queries/useAddresses'
 import { NavBar } from '@/components/shared/NavBar'
 import { Footer } from '@/components/shared/Footer'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { useImageLightbox } from '@/components/shared/ImageLightbox'
+import { AddressFormDialog, EMPTY_ADDRESS_FORM } from '@/components/shared/AddressFormDialog'
 import { useFormatPrice } from '@/components/ui/Price'
-import { cn } from '@/lib/utils'
 import type { Address } from '@/types'
+import type { AddressInput } from '@/hooks/queries/useAddresses'
 
 const PAYMENT_ID_KEY = 'sb_checkout_payment_id'
 const ORDER_ID_KEY = 'sb_checkout_order_id'
 
 // ─── Delivery address ───────────────────────────────────────────────────────────
 
-function AddressOption({
-  address,
-  selected,
-  onSelect,
-}: {
-  address: Address
-  selected: boolean
-  onSelect: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={cn(
-        'w-full text-left border rounded p-4 flex items-start gap-3 transition-colors',
-        selected ? 'border-primary bg-primary/[0.03]' : 'border-border-warm hover:border-primary/30'
-      )}
-    >
-      <span
-        className={cn(
-          'mt-0.5 w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center',
-          selected ? 'border-primary' : 'border-border-warm'
-        )}
-      >
-        {selected && <span className="w-2 h-2 rounded-full bg-primary" />}
-      </span>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className="text-[13px] font-[600] font-public-sans text-primary">{address.label || 'Address'}</p>
-          {address.isDefault && (
-            <span className="text-[10px] font-[600] font-public-sans text-accent bg-accent/10 rounded px-1.5 py-0.5">
-              Default
-            </span>
-          )}
-        </div>
-        <p className="text-[12.5px] font-public-sans text-muted-text leading-relaxed mt-1">
-          {address.line1}{address.line2 ? `, ${address.line2}` : ''}
-          <br />
-          {[address.city, address.state, address.postalCode].filter(Boolean).join(', ')}
-          <br />
-          {address.country}
-        </p>
-      </div>
-    </button>
-  )
+function formatAddressOptionLabel(address: Address): string {
+  const parts = [address.label || address.line1, address.city, address.country].filter(Boolean)
+  return `${parts.join(', ')}${address.isDefault ? ' (Default)' : ''}`
 }
 
 function DeliveryAddressSection({
@@ -76,6 +35,19 @@ function DeliveryAddressSection({
   onSelect: (id: string) => void
 }) {
   const { data: addresses = [], isLoading } = useAddresses()
+  const createAddress = useCreateAddress()
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
+
+  const selectedAddress = addresses.find((a) => a.id === selectedId) ?? null
+
+  function handleCreateAddress(data: AddressInput) {
+    createAddress.mutate(data, {
+      onSuccess: (created) => {
+        setAddDialogOpen(false)
+        onSelect(created.id)
+      },
+    })
+  }
 
   return (
     <div className="bg-surface border border-border-warm rounded p-6">
@@ -84,41 +56,70 @@ function DeliveryAddressSection({
           <MapPin size={15} className="text-accent" aria-hidden="true" />
           Delivery Address
         </h2>
-        <Link href="/profile" className="text-[12.5px] font-[600] font-public-sans text-accent hover:text-accent-hover">
-          Manage addresses
-        </Link>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setAddDialogOpen(true)}
+            className="inline-flex items-center gap-1 text-[12.5px] font-[600] font-public-sans text-accent hover:text-accent-hover"
+          >
+            <Plus size={13} aria-hidden="true" />
+            Add new address
+          </button>
+          <Link href="/profile" className="text-[12.5px] font-[600] font-public-sans text-muted-text hover:text-primary transition-colors">
+            Manage addresses
+          </Link>
+        </div>
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="h-20 rounded bg-muted-bg animate-pulse" />
-          ))}
-        </div>
+        <div className="h-11 rounded bg-muted-bg animate-pulse" />
       ) : addresses.length === 0 ? (
         <div className="border border-dashed border-border-warm rounded p-5 text-center">
           <p className="text-[13px] font-public-sans text-muted-text mb-3">
             You haven&apos;t added a shipping address yet.
           </p>
-          <Link
-            href="/profile"
+          <button
+            type="button"
+            onClick={() => setAddDialogOpen(true)}
             className="inline-flex items-center text-[13px] font-[600] font-public-sans text-accent hover:text-accent-hover"
           >
             Add an address
-          </Link>
+          </button>
         </div>
       ) : (
-        <div className="grid sm:grid-cols-2 gap-3">
-          {addresses.map((address) => (
-            <AddressOption
-              key={address.id}
-              address={address}
-              selected={selectedId === address.id}
-              onSelect={() => onSelect(address.id)}
-            />
-          ))}
-        </div>
+        <>
+          <select
+            value={selectedId ?? ''}
+            onChange={(e) => onSelect(e.target.value)}
+            className="w-full h-11 px-3 rounded border border-border-warm bg-surface text-[14px] font-public-sans text-primary focus:outline-none focus:border-accent transition-colors"
+          >
+            <option value="" disabled>Select a delivery address</option>
+            {addresses.map((address) => (
+              <option key={address.id} value={address.id}>
+                {formatAddressOptionLabel(address)}
+              </option>
+            ))}
+          </select>
+
+          {selectedAddress && (
+            <p className="text-[12.5px] font-public-sans text-muted-text leading-relaxed mt-3">
+              {selectedAddress.line1}{selectedAddress.line2 ? `, ${selectedAddress.line2}` : ''}
+              <br />
+              {[selectedAddress.city, selectedAddress.state, selectedAddress.postalCode].filter(Boolean).join(', ')}
+              <br />
+              {selectedAddress.country}
+            </p>
+          )}
+        </>
       )}
+
+      <AddressFormDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        initial={EMPTY_ADDRESS_FORM}
+        onSubmit={handleCreateAddress}
+        isPending={createAddress.isPending}
+      />
     </div>
   )
 }
@@ -145,7 +146,7 @@ function PriceDetails({
   const { data: fxRate } = useCheckoutFxRate(currency)
 
   return (
-    <aside className="sticky top-24">
+    <aside className="sticky top-24 md:top-[140px]">
       <div className="bg-surface border border-border-warm rounded p-5">
         <p className="text-[12px] font-[700] font-public-sans text-muted-text uppercase tracking-[0.06em] pb-4 border-b border-border-warm">
           Price Details
@@ -287,7 +288,7 @@ export default function CheckoutPage() {
           <EmptyState
             title="Your cart is empty"
             description="Add items to your cart before checking out."
-            action={{ label: 'Browse categories', onClick: () => { window.location.href = '/categories' } }}
+            action={{ label: 'Continue shopping', onClick: () => { window.location.href = '/' } }}
           />
         ) : (
           <div className="lg:grid lg:grid-cols-[1fr_360px] gap-8 items-start">

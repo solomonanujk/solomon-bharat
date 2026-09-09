@@ -129,7 +129,7 @@ function PriceDetails({ itemCount, total, onCheckout }: { itemCount: number; tot
   const fmt = useFormatPrice()
 
   return (
-    <aside className="sticky top-24">
+    <aside className="sticky top-24 md:top-[140px]">
       <div className="bg-surface border border-border-warm rounded p-5">
         <p className="text-[12px] font-[700] font-public-sans text-muted-text uppercase tracking-[0.06em] pb-4 border-b border-border-warm">
           Price Details
@@ -209,7 +209,7 @@ export default function CartPage() {
           <EmptyState
             title="Your cart is empty"
             description="Browse our curated selection of Indian artisan goods."
-            action={{ label: 'Browse categories', onClick: () => router.push('/categories') }}
+            action={{ label: 'Continue shopping', onClick: () => router.push('/') }}
           />
         ) : (
           <div className="lg:grid lg:grid-cols-[1fr_340px] gap-8 items-start">

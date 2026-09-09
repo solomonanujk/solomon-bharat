@@ -58,7 +58,7 @@ export function FeaturedCollectionsSection() {
   if (!isLoading && collections.length === 0) return null
 
   return (
-    <section className="py-12 bg-surface border-y border-border-warm">
+    <section className="py-12 bg-surface border-y border-border-warm tracking-[0.02em]">
       <div className="max-w-[1400px] mx-auto px-4 lg:px-10">
         {/* Header */}
         <div className="flex items-baseline justify-between mb-10">

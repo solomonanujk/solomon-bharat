@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import api from '@/lib/api'
 import { getApiError } from '@/lib/getApiError'
-import type { AgentProfile, PaginatedResult } from '@/types'
+import type { PaginatedResult } from '@/types'
 
 function toPaginated<T>(res: { data: { data: unknown; meta?: { total?: number; page?: number; limit?: number; totalPages?: number } } }): PaginatedResult<T> {
   const items = (res.data.data ?? []) as T[]
@@ -29,8 +29,16 @@ export interface AgentCatalogue {
   createdAt: string
 }
 
+export interface CatalogueItemInput {
+  productId: string
+  /** The agent's own resale price for this product — never the platform's price. */
+  price: number
+  /** The agent's own MOQ for this product. */
+  moq: number
+}
+
 export interface GenerateCatalogueInput {
-  productIds: string[]
+  items: CatalogueItemInput[]
   title?: string
 }
 
@@ -62,16 +70,3 @@ export function useMyCatalogue(id: string | null) {
   })
 }
 
-// ─── Agent: own profile ───────────────────────────────────────────────────────
-// Deliberate small duplicate of the GET /agents/me call — a concurrently-running
-// agent owns `hooks/queries/useAgents.ts` (which will likely grow its own
-// `useMyAgentProfile`), so this hook is kept local and distinctly named here to
-// avoid a file-ownership conflict / naming collision.
-
-export function useMyAgentProfileForPortal() {
-  return useQuery<AgentProfile>({
-    queryKey: ['my-agent-profile-portal'],
-    queryFn: async () => (await api.get('/agents/me')).data.data,
-    staleTime: 5 * 60 * 1000,
-  })
-}

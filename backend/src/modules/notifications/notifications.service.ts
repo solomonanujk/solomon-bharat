@@ -41,6 +41,24 @@ export class NotificationsService {
     );
   }
 
+  notifyPricingChangeApproved(sellerUserId: string, productName: string): Promise<Notification> {
+    return this.notify(
+      sellerUserId,
+      NotificationType.PRODUCT_PRICING_CHANGE_APPROVED,
+      'Pricing change approved',
+      `Your pricing/variant update for "${productName}" has been approved and is now live.`,
+    );
+  }
+
+  notifyPricingChangeRejected(sellerUserId: string, productName: string, reason: string): Promise<Notification> {
+    return this.notify(
+      sellerUserId,
+      NotificationType.PRODUCT_PRICING_CHANGE_REJECTED,
+      'Pricing change rejected',
+      `Your pricing/variant update for "${productName}" was rejected: ${reason}`,
+    );
+  }
+
   notifyOrderStatusChanged(buyerUserId: string, orderId: string, status: string): Promise<Notification> {
     return this.notify(
       buyerUserId,

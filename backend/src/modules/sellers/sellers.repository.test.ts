@@ -12,6 +12,7 @@ describe('SellersRepository', () => {
       sellerApplication: mockModel(),
       user: mockModel(),
       sellerProfile: mockModel(),
+      platformSetting: mockModel(),
     });
     repo = new SellersRepository(db as never);
   });
@@ -92,6 +93,54 @@ describe('SellersRepository', () => {
       include: { sellerProfile: true },
     });
     expect(result).toEqual({ user: { id: 'u1', sellerProfile: { id: 'sp1' } }, profile: { id: 'sp1' } });
+  });
+
+  it('createHouseSellerUserAndProfile creates a SELLER user with no applicationId', async () => {
+    db.user.create.mockResolvedValue({ id: 'house-u1', sellerProfile: { id: 'house-sp1' } });
+
+    await repo.createHouseSellerUserAndProfile({
+      email: 'house@solomonbharat.internal',
+      passwordHash: 'hashed',
+      businessName: 'Solomon Bharat',
+      contactName: 'Solomon Bharat',
+      phone: 'N/A',
+      businessAddress: 'N/A',
+    });
+
+    expect(db.user.create).toHaveBeenCalledWith({
+      data: {
+        email: 'house@solomonbharat.internal',
+        passwordHash: 'hashed',
+        role: Role.SELLER,
+        emailVerifiedAt: expect.any(Date),
+        sellerProfile: {
+          create: {
+            businessName: 'Solomon Bharat',
+            contactName: 'Solomon Bharat',
+            phone: 'N/A',
+            businessAddress: 'N/A',
+          },
+        },
+      },
+      include: { sellerProfile: true },
+    });
+  });
+
+  it('findPlatformSettingValue returns the stored value, or null when absent', async () => {
+    db.platformSetting.findUnique.mockResolvedValue({ key: 'house_seller_profile_id', value: { sellerId: 'sp1' } });
+    await expect(repo.findPlatformSettingValue('house_seller_profile_id')).resolves.toEqual({ sellerId: 'sp1' });
+
+    db.platformSetting.findUnique.mockResolvedValue(null);
+    await expect(repo.findPlatformSettingValue('missing_key')).resolves.toBeNull();
+  });
+
+  it('upsertPlatformSetting creates or updates by key', async () => {
+    await repo.upsertPlatformSetting('house_seller_profile_id', { sellerId: 'sp1' });
+    expect(db.platformSetting.upsert).toHaveBeenCalledWith({
+      where: { key: 'house_seller_profile_id' },
+      update: { value: { sellerId: 'sp1' } },
+      create: { key: 'house_seller_profile_id', value: { sellerId: 'sp1' } },
+    });
   });
 
   it('findSellerProfileByUserId queries by userId', async () => {

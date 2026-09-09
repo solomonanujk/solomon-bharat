@@ -141,7 +141,6 @@ export default function ProductsPage() {
                 <tbody>
                   {products.map((product) => {
                     const imageUrl = product.images?.[0]?.url ?? null
-                    const canEdit = product.approvalStatus !== 'APPROVED'
                     const canResubmit = product.approvalStatus === 'REJECTED'
 
                     return (
@@ -184,6 +183,11 @@ export default function ProductsPage() {
                               {product.rejectionReason}
                             </p>
                           )}
+                          {product.pendingPricingChange && (
+                            <p className="text-[11px] font-[600] font-public-sans text-warning mt-1">
+                              Pricing update pending review
+                            </p>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-muted-text text-[13px] font-public-sans">
@@ -192,11 +196,9 @@ export default function ProductsPage() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            {canEdit && (
-                              <Link href={`/portal/products/${product.id}/edit`} className="text-[12px] font-[600] font-public-sans text-accent hover:text-accent-hover underline underline-offset-2 transition-colors">
-                                Edit
-                              </Link>
-                            )}
+                            <Link href={`/portal/products/${product.id}/edit`} className="text-[12px] font-[600] font-public-sans text-accent hover:text-accent-hover underline underline-offset-2 transition-colors">
+                              Edit
+                            </Link>
                             {canResubmit && (
                               <button
                                 type="button"

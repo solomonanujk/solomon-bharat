@@ -119,10 +119,12 @@ export function useAddApplicationNote() {
 
 // ─── Admin: approved sellers directory ───────────────────────────────────────
 
-export function useAdminSellers(params?: { page?: number; limit?: number }) {
+export function useAdminSellers(params?: { page?: number; limit?: number; enabled?: boolean }) {
+  const { enabled = true, ...queryParams } = params ?? {}
   return useQuery<PaginatedResult<SellerProfile>>({
-    queryKey: ['admin-sellers', params],
-    queryFn: async () => toPaginated<SellerProfile>(await api.get('/sellers', { params })),
+    queryKey: ['admin-sellers', queryParams],
+    queryFn: async () => toPaginated<SellerProfile>(await api.get('/sellers', { params: queryParams })),
+    enabled,
   })
 }
 

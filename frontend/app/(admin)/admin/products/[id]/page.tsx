@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Package, Star, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Package, Star, CheckCircle2, XCircle, AlertTriangle, Clock } from 'lucide-react'
 import { useAdminProduct } from '@/hooks/queries/useProducts'
 import { useAdminCategoryTree } from '@/hooks/queries/useCategories'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -95,15 +95,28 @@ export default function AdminProductDetailPage() {
                 <Star size={12} className="fill-accent" aria-hidden="true" /> Featured
               </span>
             )}
+            {product.pendingPricingChange && (
+              <Link
+                href="/admin/pricing-changes"
+                className="inline-flex items-center gap-1 text-[12px] font-[600] font-public-sans text-warning hover:underline"
+              >
+                <Clock size={12} aria-hidden="true" /> Pricing change pending
+              </Link>
+            )}
           </div>
           <h1 className="text-[28px] leading-[1.3] font-[500] font-playfair text-primary">{product.name}</h1>
           <p className="text-[13px] font-public-sans text-muted-text mt-1">/{product.slug}</p>
         </div>
-        {showEditButton && (
-          <Link href={`/admin/products/${product.id}/edit`} className={cn(buttonVariants({ variant: 'primary', size: 'sm' }), 'shrink-0')}>
-            Edit
+        <div className="flex items-center gap-2 shrink-0">
+          <Link href={`/admin/products/${product.id}/edit-product`} className={cn(buttonVariants({ variant: 'primary', size: 'sm' }))}>
+            Edit Product
           </Link>
-        )}
+          {showEditButton && (
+            <Link href={`/admin/products/${product.id}/edit`} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
+              Edit Pricing
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Rejection reason */}

@@ -167,7 +167,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ slug:
           <EmptyState
             title="Category not found"
             description="This category may have been removed or the link is incorrect."
-            action={{ label: 'Browse Categories', onClick: () => { window.location.href = '/categories' } }}
+            action={{ label: 'Back to Home', onClick: () => { window.location.href = '/' } }}
           />
         </main>
         <Footer />
@@ -255,7 +255,7 @@ export default function CategoryDetailPage({ params }: { params: Promise<{ slug:
           {/* Content: sidebar + grid */}
           <div className="flex gap-8">
             {showFilters && (
-            <div className="hidden lg:block sticky top-20 self-start w-60 flex-shrink-0 py-6 pr-6 border-r border-border-warm max-h-[calc(100vh-5rem)] overflow-y-auto overflow-x-hidden">
+            <div className="hidden lg:block sticky top-20 lg:top-[124px] self-start w-60 flex-shrink-0 py-6 pr-6 border-r border-border-warm max-h-[calc(100vh-5rem)] overflow-y-auto overflow-x-hidden">
               {/* Subcategories — this level's children, or (on a leaf) itself as the active item */}
               <div className="mb-6 pb-4 border-b border-border-warm">
                 <p className="font-playfair font-[600] text-primary text-[15px] leading-snug pb-3 border-b-2 border-border-warm mb-1">

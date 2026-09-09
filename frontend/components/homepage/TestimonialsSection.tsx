@@ -44,7 +44,7 @@ function Stars({ count }: { count: number }) {
 
 export function TestimonialsSection() {
   return (
-    <section className="py-16 lg:py-24 bg-bg">
+    <section className="py-16 lg:py-24 bg-bg tracking-[0.02em]">
       <div className="max-w-7xl mx-auto px-6 lg:px-16">
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10 lg:gap-16 items-start">

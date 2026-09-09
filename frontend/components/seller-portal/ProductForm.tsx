@@ -6,9 +6,12 @@ import { toast } from 'sonner'
 import { Plus, Trash2, Upload, X, AlertTriangle, Sparkles, RotateCcw, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useCategoryTree } from '@/hooks/queries/useCategories'
+import { useAdminSellers } from '@/hooks/queries/useSellers'
 import {
   useSubmitProduct,
   useUpdateMyProduct,
+  useAdminUpdateProduct,
+  useAdminCreateProduct,
   useResubmitProduct,
   usePolishField,
   type SubmitVariantInput,
@@ -18,7 +21,7 @@ import { ApprovalStatusBadge } from '@/components/seller-portal/StatusBadges'
 import { useImageLightbox } from '@/components/shared/ImageLightbox'
 import { ListingScoreWidget } from '@/components/seller-portal/ListingScore'
 import { getApiError } from '@/lib/getApiError'
-import type { MyProduct, ProductVariant } from '@/types'
+import type { AdminProduct, MyProduct, ProductVariant } from '@/types'
 
 const MIN_IMAGES = 2
 const MAX_IMAGES = 10
@@ -38,8 +41,8 @@ function uid() { return `v-${++_id}` }
  *  in rather than an empty table — the seller can edit the MOQs or add more tiers. */
 function defaultTierRows(): TierRow[] {
   return [
-    { id: uid(), moq: '20', sellerPrice: '' },
-    { id: uid(), moq: '30', sellerPrice: '' },
+    { id: uid(), moq: '20', sellerPrice: '', adminPrice: '', agentPrice: '' },
+    { id: uid(), moq: '30', sellerPrice: '', adminPrice: '', agentPrice: '' },
   ]
 }
 
@@ -48,8 +51,8 @@ function defaultTierRows(): TierRow[] {
  *  fresh on every render (no ref/effect needed to keep row ids stable). */
 function defaultComboTierRows(comboKey: string): TierRow[] {
   return [
-    { id: `${comboKey}::tier-20`, moq: '20', sellerPrice: '' },
-    { id: `${comboKey}::tier-30`, moq: '30', sellerPrice: '' },
+    { id: `${comboKey}::tier-20`, moq: '20', sellerPrice: '', adminPrice: '', agentPrice: '' },
+    { id: `${comboKey}::tier-30`, moq: '30', sellerPrice: '', adminPrice: '', agentPrice: '' },
   ]
 }
 
@@ -102,6 +105,94 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
   )
 }
 
+function SellerSearchSelect({ sellers, value, onChange }: {
+  sellers: { id: string; businessName: string; contactName: string }[]
+  value: string
+  onChange: (id: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [])
+
+  const selected = sellers.find((s) => s.id === value)
+  const q = query.trim().toLowerCase()
+  const filtered = q
+    ? sellers.filter((s) => s.businessName.toLowerCase().includes(q) || s.contactName.toLowerCase().includes(q))
+    : sellers
+
+  function select(id: string) {
+    onChange(id)
+    setQuery('')
+    setOpen(false)
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => {
+          setOpen((o) => !o)
+          setTimeout(() => inputRef.current?.focus(), 0)
+        }}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={INPUT_CLS + ' flex items-center justify-between gap-2 text-left'}
+      >
+        <span className={`truncate ${selected ? 'text-primary' : 'text-muted-text/40'}`}>
+          {selected ? selected.businessName : 'Select a seller…'}
+        </span>
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-30 w-full bg-surface border border-border-warm rounded shadow-lg overflow-hidden">
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search sellers…"
+            className="w-full h-9 px-3 text-[13px] font-public-sans text-primary placeholder:text-muted-text/40 border-b border-border-warm focus:outline-none"
+          />
+          <div className="max-h-60 overflow-y-auto py-1">
+            {filtered.length === 0 ? (
+              <p className="px-3 py-2 text-[13px] font-public-sans text-muted-text">No sellers match.</p>
+            ) : (
+              filtered.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => select(s.id)}
+                  className={`w-full text-left px-3 py-2 text-[13px] font-public-sans transition-colors ${
+                    value === s.id ? 'bg-primary text-white' : 'text-primary hover:bg-muted-bg/60'
+                  }`}
+                >
+                  {s.businessName}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function PolishButton({ loading, canUndo, disabled, onPolish, onUndo }: {
   loading: boolean; canUndo: boolean; disabled?: boolean; onPolish: () => void; onUndo: () => void
 }) {
@@ -122,14 +213,19 @@ function PolishButton({ loading, canUndo, disabled, onPolish, onUndo }: {
   )
 }
 
-interface TierRow { id: string; moq: string; sellerPrice: string }
+// adminPrice/agentPrice only ever get filled in for mode==='admin-create' (the
+// TierTable's showAdminPricing prop) — every other mode leaves them blank strings
+// and never sends them, matching that pricing for an already-submitted product only
+// ever changes via the dedicated Edit Pricing / pricing-change-approval flows.
+interface TierRow { id: string; moq: string; sellerPrice: string; adminPrice: string; agentPrice: string }
 
-function TierTable({ tiers, onAdd, onRemove, onUpdate, disabled }: {
+function TierTable({ tiers, onAdd, onRemove, onUpdate, disabled, showAdminPricing }: {
   tiers: TierRow[]
   onAdd: () => void
   onRemove: (id: string) => void
-  onUpdate: (id: string, field: 'moq' | 'sellerPrice', value: string) => void
+  onUpdate: (id: string, field: 'moq' | 'sellerPrice' | 'adminPrice' | 'agentPrice', value: string) => void
   disabled?: boolean
+  showAdminPricing?: boolean
 }) {
   return (
     <div className="space-y-2">
@@ -140,6 +236,12 @@ function TierTable({ tiers, onAdd, onRemove, onUpdate, disabled }: {
               <tr className="bg-muted-bg/40 border-b border-border-warm">
                 <th className="text-left py-2 px-3 font-[600] text-muted-text">Min Order Qty</th>
                 <th className="text-left py-2 px-3 font-[600] text-muted-text">Price per unit (₹)</th>
+                {showAdminPricing && (
+                  <>
+                    <th className="text-left py-2 px-3 font-[600] text-muted-text">Buyer Price (₹)</th>
+                    <th className="text-left py-2 px-3 font-[600] text-muted-text">Agent Price (₹)</th>
+                  </>
+                )}
                 <th className="py-2 px-2 w-8" />
               </tr>
             </thead>
@@ -156,6 +258,20 @@ function TierTable({ tiers, onAdd, onRemove, onUpdate, disabled }: {
                       onChange={(e) => onUpdate(tier.id, 'sellerPrice', e.target.value)}
                       placeholder="e.g. 400" className={INPUT_CLS + ' h-8'} />
                   </td>
+                  {showAdminPricing && (
+                    <>
+                      <td className="px-3 py-1.5">
+                        <input type="number" value={tier.adminPrice} min="0" step="0.01" disabled={disabled}
+                          onChange={(e) => onUpdate(tier.id, 'adminPrice', e.target.value)}
+                          placeholder="e.g. 550" className={INPUT_CLS + ' h-8'} />
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <input type="number" value={tier.agentPrice} min="0" step="0.01" disabled={disabled}
+                          onChange={(e) => onUpdate(tier.id, 'agentPrice', e.target.value)}
+                          placeholder="e.g. 480" className={INPUT_CLS + ' h-8'} />
+                      </td>
+                    </>
+                  )}
                   <td className="px-2 py-1.5 text-center">
                     {!disabled && (
                       <button type="button" onClick={() => onRemove(tier.id)}
@@ -226,8 +342,23 @@ function AxisTagInput({ values, onChange, placeholder, disabled }: {
 }
 
 interface ProductFormProps {
-  /** Omit for the "Submit Product" create flow; pass the loaded product to edit it. */
-  product?: MyProduct
+  /** Omit for a create flow (seller-submit or admin-create); pass the loaded product to edit it. */
+  product?: MyProduct | AdminProduct
+  /**
+   * 'seller' (default): the seller portal's create/edit flow. Once a product is
+   * APPROVED, everything stays editable, but pricing/variants get staged for admin
+   * re-review instead of applying directly — the pricing section itself locks while
+   * one is already pending.
+   * 'admin-edit': admin's full-detail edit of an EXISTING product — nothing is ever
+   * staged (admin already mutates approved+published products elsewhere: pricing,
+   * category, publish/feature), no create/resubmit path, and saving redirects back
+   * to the admin product detail page instead.
+   * 'admin-create': admin creates a brand-new product directly — on behalf of a real
+   * seller or as admin's own (house) inventory — setting sellerPrice AND adminPrice
+   * (buyer price) AND agentPrice per tier right here, skipping PENDING review
+   * entirely (the product publishes immediately).
+   */
+  mode?: 'seller' | 'admin-edit' | 'admin-create'
 }
 
 /** Groups legacy (pre-SKU-system) variants by whether they can be safely reconstructed into axis tag lists. */
@@ -259,7 +390,9 @@ function hydrateVariants(variants: ProductVariant[] | undefined) {
     }
     pricing[key] = {
       sku: v.sku ?? '',
-      tiers: (v.priceTiers ?? []).map((t) => ({ id: uid(), moq: String(t.moq), sellerPrice: String(t.sellerPrice) })),
+      tiers: (v.priceTiers ?? []).map((t) => ({
+        id: uid(), moq: String(t.moq), sellerPrice: String(t.sellerPrice), adminPrice: '', agentPrice: '',
+      })),
     }
   }
 
@@ -269,19 +402,36 @@ function hydrateVariants(variants: ProductVariant[] | undefined) {
   }
 }
 
-export function ProductForm({ product }: ProductFormProps) {
+export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const router = useRouter()
   const { data: tree = [] } = useCategoryTree()
+  const isAdminMode = mode !== 'seller'
+  const isAdminCreate = mode === 'admin-create'
 
   const submitMutation = useSubmitProduct()
-  const updateMutation = useUpdateMyProduct()
+  const sellerUpdateMutation = useUpdateMyProduct()
+  const adminUpdateMutation = useAdminUpdateProduct()
+  const adminCreateMutation = useAdminCreateProduct()
+  const updateMutation = mode === 'admin-edit' ? adminUpdateMutation : sellerUpdateMutation
   const resubmitMutation = useResubmitProduct()
   const polishMutation = usePolishField()
 
   const isEdit = !!product
   const isApproved = product?.approvalStatus === 'APPROVED'
   const isRejected = product?.approvalStatus === 'REJECTED'
-  const locked = isApproved // APPROVED products can't be edited — backend 400s on it
+  const pendingPricingChange = product?.pendingPricingChange ?? null
+  // Once a product is APPROVED (live to buyers), a seller can still edit everything —
+  // but pricing/variants specifically get staged for admin re-review instead of
+  // applying directly, so the pricing section itself locks while one is already
+  // pending (admin mode has no such restriction — it never stages anything).
+  const pricingLocked = !isAdminMode && isApproved && !!pendingPricingChange
+  const backHref = mode === 'seller' ? '/portal/products' : product ? `/admin/products/${product.id}` : '/admin/products'
+
+  // ── Admin-create only: which seller this product is attributed to ──────────
+  const [sellerMode, setSellerMode] = useState<'existing' | 'house'>('existing')
+  const [selectedSellerId, setSelectedSellerId] = useState('')
+  const { data: sellersPage } = useAdminSellers({ limit: 100, enabled: isAdminCreate })
+  const sellers = sellersPage?.items ?? []
 
   // ── Core details ─────────────────────────────────────────────────────────────
   const [name, setName] = useState(product?.name ?? '')
@@ -305,7 +455,9 @@ export function ProductForm({ product }: ProductFormProps) {
   const [stepQty, setStepQty] = useState(product?.stepQty != null ? String(product.stepQty) : '1')
   const [priceTiers, setPriceTiers] = useState<TierRow[]>(
     product?.priceTiers?.length
-      ? product.priceTiers.map((t) => ({ id: uid(), moq: String(t.moq), sellerPrice: String(t.sellerPrice) }))
+      ? product.priceTiers.map((t) => ({
+          id: uid(), moq: String(t.moq), sellerPrice: String(t.sellerPrice), adminPrice: '', agentPrice: '',
+        }))
       : defaultTierRows()
   )
 
@@ -439,7 +591,7 @@ export function ProductForm({ product }: ProductFormProps) {
   function addVPTier(key: string) {
     setVariantPricing((p) => {
       const vp = p[key] ?? getDefaultVP(key)
-      return { ...p, [key]: { ...vp, tiers: [...vp.tiers, { id: uid(), moq: '', sellerPrice: '' }] } }
+      return { ...p, [key]: { ...vp, tiers: [...vp.tiers, { id: uid(), moq: '', sellerPrice: '', adminPrice: '', agentPrice: '' }] } }
     })
   }
   function removeVPTier(key: string, tierId: string) {
@@ -448,7 +600,7 @@ export function ProductForm({ product }: ProductFormProps) {
       return { ...p, [key]: { ...vp, tiers: vp.tiers.filter((t) => t.id !== tierId) } }
     })
   }
-  function updateVPTier(key: string, tierId: string, field: 'moq' | 'sellerPrice', value: string) {
+  function updateVPTier(key: string, tierId: string, field: 'moq' | 'sellerPrice' | 'adminPrice' | 'agentPrice', value: string) {
     setVariantPricing((p) => {
       const vp = p[key] ?? getDefaultVP(key)
       return { ...p, [key]: { ...vp, tiers: vp.tiers.map((t) => (t.id === tierId ? { ...t, [field]: value } : t)) } }
@@ -473,7 +625,14 @@ export function ProductForm({ product }: ProductFormProps) {
         sku: vp.sku.trim() || autoSku(combo),
         attributes: combo.attributes,
         priceTiers: validTiers.length
-          ? validTiers.map((t) => ({ moq: Number(t.moq), sellerPrice: Number(t.sellerPrice) }))
+          ? validTiers.map((t) => ({
+              moq: Number(t.moq),
+              sellerPrice: Number(t.sellerPrice),
+              ...(isAdminCreate ? {
+                adminPrice: t.adminPrice ? Number(t.adminPrice) : undefined,
+                agentPrice: t.agentPrice ? Number(t.agentPrice) : undefined,
+              } : {}),
+            }))
           : undefined,
       }
     })
@@ -501,9 +660,9 @@ export function ProductForm({ product }: ProductFormProps) {
   }
 
   // ── Base price tiers ─────────────────────────────────────────────────────────
-  function addTier() { setPriceTiers((prev) => [...prev, { id: uid(), moq: '', sellerPrice: '' }]) }
+  function addTier() { setPriceTiers((prev) => [...prev, { id: uid(), moq: '', sellerPrice: '', adminPrice: '', agentPrice: '' }]) }
   function removeTier(id: string) { setPriceTiers((prev) => prev.filter((t) => t.id !== id)) }
-  function updateTier(id: string, field: 'moq' | 'sellerPrice', value: string) {
+  function updateTier(id: string, field: 'moq' | 'sellerPrice' | 'adminPrice' | 'agentPrice', value: string) {
     setPriceTiers((prev) => prev.map((t) => (t.id === id ? { ...t, [field]: value } : t)))
   }
 
@@ -537,6 +696,14 @@ export function ProductForm({ product }: ProductFormProps) {
       const hasPricedTier = priceTiers.some((t) => Number(t.moq) > 0 && Number(t.sellerPrice) > 0)
       if (!hasPricedTier) return 'Set a price for at least one MOQ tier.'
     }
+
+    if (isAdminCreate) {
+      if (sellerMode === 'existing' && !selectedSellerId) return 'Select a seller.'
+      const hasBuyerPrice = variantsEnabled
+        ? variantCombos.some((combo) => validTiersFor(combo).some((t) => Number(t.adminPrice) > 0))
+        : priceTiers.some((t) => Number(t.adminPrice) > 0)
+      if (!hasBuyerPrice) return 'Set a Buyer Price for at least one tier.'
+    }
     return null
   }
 
@@ -567,7 +734,14 @@ export function ProductForm({ product }: ProductFormProps) {
         ? []
         : priceTiers
             .filter((t) => Number(t.moq) > 0 && Number(t.sellerPrice) > 0)
-            .map((t) => ({ moq: Number(t.moq), sellerPrice: Number(t.sellerPrice) })),
+            .map((t) => ({
+              moq: Number(t.moq),
+              sellerPrice: Number(t.sellerPrice),
+              ...(isAdminCreate ? {
+                adminPrice: t.adminPrice ? Number(t.adminPrice) : undefined,
+                agentPrice: t.agentPrice ? Number(t.agentPrice) : undefined,
+              } : {}),
+            })),
       variants: variantsEnabled ? buildVariantPayload() : [],
     }
   }
@@ -576,6 +750,20 @@ export function ProductForm({ product }: ProductFormProps) {
     e.preventDefault()
     const error = validate()
     if (error) { toast.error(error); return }
+
+    if (isAdminCreate) {
+      adminCreateMutation.mutate(
+        {
+          ...buildPayload(),
+          categoryId,
+          images: newImages,
+          sellerMode,
+          sellerId: sellerMode === 'existing' ? selectedSellerId : undefined,
+        },
+        { onSuccess: (created) => router.push(`/admin/products/${created.id}`) }
+      )
+      return
+    }
 
     if (isEdit && product) {
       updateMutation.mutate(
@@ -587,12 +775,12 @@ export function ProductForm({ product }: ProductFormProps) {
             removeImageIds: removeImageIds.length ? removeImageIds : undefined,
           },
         },
-        { onSuccess: () => router.push('/portal/products') }
+        { onSuccess: () => router.push(backHref) }
       )
     } else {
       submitMutation.mutate(
         { ...buildPayload(), categoryId, images: newImages },
-        { onSuccess: () => router.push('/portal/products') }
+        { onSuccess: () => router.push(backHref) }
       )
     }
   }
@@ -611,27 +799,61 @@ export function ProductForm({ product }: ProductFormProps) {
         },
       })
       await resubmitMutation.mutateAsync(product.id)
-      router.push('/portal/products')
+      router.push(backHref)
     } catch (err) {
       toast.error(getApiError(err))
     }
   }
 
-  const saving = submitMutation.isPending || updateMutation.isPending || resubmitMutation.isPending
+  const saving = submitMutation.isPending || updateMutation.isPending || resubmitMutation.isPending || adminCreateMutation.isPending
 
   return (
     <form onSubmit={handleSave} noValidate>
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_280px] gap-6 items-start">
       <div className="space-y-6">
 
-        {locked && (
+        {isAdminCreate && (
+          <Section title="Seller">
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setSellerMode('existing')}
+                className={`flex-1 h-10 rounded border text-[13px] font-[600] font-public-sans transition-colors ${sellerMode === 'existing' ? 'border-primary bg-primary text-white' : 'border-border-warm text-primary hover:border-primary'}`}>
+                On behalf of an existing seller
+              </button>
+              <button type="button" onClick={() => setSellerMode('house')}
+                className={`flex-1 h-10 rounded border text-[13px] font-[600] font-public-sans transition-colors ${sellerMode === 'house' ? 'border-primary bg-primary text-white' : 'border-border-warm text-primary hover:border-primary'}`}>
+                My own product
+              </button>
+            </div>
+
+            {sellerMode === 'existing' && (
+              <Field label="Seller" required>
+                <SellerSearchSelect sellers={sellers} value={selectedSellerId} onChange={setSelectedSellerId} />
+              </Field>
+            )}
+          </Section>
+        )}
+
+        {!isAdminMode && isApproved && (
           <div className="flex items-start gap-3 px-4 py-3.5 rounded border border-border-warm bg-muted-bg/60">
             <AlertTriangle size={16} className="text-accent shrink-0 mt-0.5" aria-hidden="true" />
             <div>
-              <p className="text-[13px] font-[600] font-public-sans text-primary">This product is approved and live</p>
-              <p className="text-[12px] font-public-sans text-muted-text mt-0.5">
-                Approved products can&apos;t be edited from the seller portal. Contact the Solomon Bharat team if something needs to change.
-              </p>
+              {pendingPricingChange ? (
+                <>
+                  <p className="text-[13px] font-[600] font-public-sans text-primary">Pricing change awaiting review</p>
+                  <p className="text-[12px] font-public-sans text-muted-text mt-0.5">
+                    A pricing/variant update for this product is pending admin approval — buyers still see the
+                    current pricing until it&apos;s reviewed. Other edits below still save immediately.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-[13px] font-[600] font-public-sans text-primary">This product is live</p>
+                  <p className="text-[12px] font-public-sans text-muted-text mt-0.5">
+                    Edits here save immediately, except changes to pricing or variants — those need admin approval
+                    before they go live.
+                  </p>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -660,27 +882,24 @@ export function ProductForm({ product }: ProductFormProps) {
             type="file"
             accept="image/jpeg,image/png,image/webp"
             multiple
-            disabled={locked}
             className="hidden"
             onChange={(e) => { handleFiles(e.target.files); if (fileInputRef.current) fileInputRef.current.value = '' }}
           />
-          {!locked && (
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => fileInputRef.current?.click()}
-              onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
-              onDrop={(e) => { e.preventDefault(); handleFiles(e.dataTransfer.files) }}
-              onDragOver={(e) => e.preventDefault()}
-              className="border-2 border-dashed border-border-warm rounded p-6 flex flex-col items-center gap-2 text-center cursor-pointer hover:border-accent hover:bg-accent/5 transition-colors"
-            >
-              <div className="w-10 h-10 rounded-full bg-muted-bg flex items-center justify-center">
-                <Upload size={18} className="text-muted-text" />
-              </div>
-              <p className="text-[14px] font-[500] font-public-sans text-primary">Click or drag photos here</p>
-              <p className="text-[12px] font-public-sans text-muted-text">{MIN_IMAGES}–{MAX_IMAGES} images · JPG, PNG or WebP</p>
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => fileInputRef.current?.click()}
+            onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+            onDrop={(e) => { e.preventDefault(); handleFiles(e.dataTransfer.files) }}
+            onDragOver={(e) => e.preventDefault()}
+            className="border-2 border-dashed border-border-warm rounded p-6 flex flex-col items-center gap-2 text-center cursor-pointer hover:border-accent hover:bg-accent/5 transition-colors"
+          >
+            <div className="w-10 h-10 rounded-full bg-muted-bg flex items-center justify-center">
+              <Upload size={18} className="text-muted-text" />
             </div>
-          )}
+            <p className="text-[14px] font-[500] font-public-sans text-primary">Click or drag photos here</p>
+            <p className="text-[12px] font-public-sans text-muted-text">{MIN_IMAGES}–{MAX_IMAGES} images · JPG, PNG or WebP</p>
+          </div>
           {(existingImages.length > 0 || newImages.length > 0) && (
             <div className="grid grid-cols-4 sm:grid-cols-5 gap-3">
               {existingImages.map((img, i) => (
@@ -692,13 +911,11 @@ export function ProductForm({ product }: ProductFormProps) {
                     onClick={() => openLightbox(img.url, 'Product image')}
                     className="w-full h-full object-cover cursor-zoom-in"
                   />
-                  {!locked && (
-                    <button type="button" onClick={() => removeExistingImage(img.id)}
-                      className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      aria-label="Remove image">
-                      <X size={12} />
-                    </button>
-                  )}
+                  <button type="button" onClick={() => removeExistingImage(img.id)}
+                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label="Remove image">
+                    <X size={12} />
+                  </button>
                   {i === 0 && (
                     <span className="absolute bottom-1 left-1 text-[10px] font-[600] font-public-sans bg-black/60 text-white px-1.5 py-0.5 rounded">Cover</span>
                   )}
@@ -725,14 +942,14 @@ export function ProductForm({ product }: ProductFormProps) {
         {/* ── Core details ────────────────────────────────────────────────── */}
         <Section title="Core Details">
           <Field label="Product Name" required
-            action={<PolishButton loading={!!polishing.name} canUndo={!!prevValues.name} disabled={locked} onPolish={() => polishField('name')} onUndo={() => undoField('name')} />}>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} disabled={locked}
+            action={<PolishButton loading={!!polishing.name} canUndo={!!prevValues.name} onPolish={() => polishField('name')} onUndo={() => undoField('name')} />}>
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Hand-Block Printed Cotton Table Runner" maxLength={200} className={INPUT_CLS} />
           </Field>
 
           <Field label="Description" required
-            action={<PolishButton loading={!!polishing.description} canUndo={!!prevValues.description} disabled={locked} onPolish={() => polishField('description')} onUndo={() => undoField('description')} />}>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} disabled={locked}
+            action={<PolishButton loading={!!polishing.description} canUndo={!!prevValues.description} onPolish={() => polishField('description')} onUndo={() => undoField('description')} />}>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)}
               rows={5} placeholder="Describe the product — craftsmanship, use case, care instructions…" className={TEXTAREA_CLS} />
           </Field>
 
@@ -742,38 +959,38 @@ export function ProductForm({ product }: ProductFormProps) {
                 {categoryPathLabel(tree, product?.categoryId)}
               </p>
             ) : (
-              <CategoryCascadeSelect tree={tree} value={categoryId} onChange={setCategoryId} disabled={locked} />
+              <CategoryCascadeSelect tree={tree} value={categoryId} onChange={setCategoryId} />
             )}
           </Field>
 
           <Field label="Materials" required>
-            <input type="text" value={materials} onChange={(e) => setMaterials(e.target.value)} disabled={locked}
+            <input type="text" value={materials} onChange={(e) => setMaterials(e.target.value)}
               placeholder="e.g. 100% cotton, brass hardware" className={INPUT_CLS} />
           </Field>
 
           <Field label="Tags" hint="Comma-separated, up to 10"
-            action={<PolishButton loading={!!polishing.tags} canUndo={!!prevValues.tags} disabled={locked} onPolish={() => polishField('tags')} onUndo={() => undoField('tags')} />}>
-            <input type="text" value={tags} onChange={(e) => setTags(e.target.value)} disabled={locked}
+            action={<PolishButton loading={!!polishing.tags} canUndo={!!prevValues.tags} onPolish={() => polishField('tags')} onUndo={() => undoField('tags')} />}>
+            <input type="text" value={tags} onChange={(e) => setTags(e.target.value)}
               placeholder="handmade, cotton, block print" className={INPUT_CLS} />
           </Field>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Weight (kg)" required={!isEdit}>
-              <input type="number" min="0" step="0.01" value={weight} onChange={(e) => setWeight(e.target.value)} disabled={locked}
+              <input type="number" min="0" step="0.01" value={weight} onChange={(e) => setWeight(e.target.value)}
                 placeholder="e.g. 0.4" className={INPUT_CLS} />
             </Field>
           </div>
           <div className="grid grid-cols-3 gap-4">
             <Field label="Length (cm)">
-              <input type="number" min="0" value={lengthCm} onChange={(e) => setLengthCm(e.target.value)} disabled={locked}
+              <input type="number" min="0" value={lengthCm} onChange={(e) => setLengthCm(e.target.value)}
                 placeholder="e.g. 30" className={INPUT_CLS} />
             </Field>
             <Field label="Breadth (cm)">
-              <input type="number" min="0" value={breadthCm} onChange={(e) => setBreadthCm(e.target.value)} disabled={locked}
+              <input type="number" min="0" value={breadthCm} onChange={(e) => setBreadthCm(e.target.value)}
                 placeholder="e.g. 20" className={INPUT_CLS} />
             </Field>
             <Field label="Height (cm)">
-              <input type="number" min="0" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} disabled={locked}
+              <input type="number" min="0" value={heightCm} onChange={(e) => setHeightCm(e.target.value)}
                 placeholder="e.g. 10" className={INPUT_CLS} />
             </Field>
           </div>
@@ -791,7 +1008,7 @@ export function ProductForm({ product }: ProductFormProps) {
                 Does this product come in different sizes, colors, materials, or other options?
               </p>
             </div>
-            <button type="button" role="switch" aria-checked={variantsEnabled} aria-label="Toggle variants" disabled={locked}
+            <button type="button" role="switch" aria-checked={variantsEnabled} aria-label="Toggle variants" disabled={pricingLocked}
               onClick={toggleVariantsMaster}
               className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${variantsEnabled ? 'bg-primary' : 'bg-border-warm'}`}>
               <span className={`inline-block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform ${variantsEnabled ? 'translate-x-5.5' : 'translate-x-0.5'}`} />
@@ -828,30 +1045,30 @@ export function ProductForm({ product }: ProductFormProps) {
               {activeVariantTab === 'size' && (
                 <div className="space-y-2">
                   <p className="text-[12px] font-public-sans text-muted-text">e.g. S, M, L, XL, Free Size — press Enter or click + to add</p>
-                  <AxisTagInput values={sizeValues} onChange={setSizeValues} placeholder="Add size…" disabled={locked} />
+                  <AxisTagInput values={sizeValues} onChange={setSizeValues} placeholder="Add size…" disabled={pricingLocked} />
                 </div>
               )}
               {activeVariantTab === 'color' && (
                 <div className="space-y-2">
                   <p className="text-[12px] font-public-sans text-muted-text">e.g. Red, Navy Blue, Ivory — press Enter or click + to add</p>
-                  <AxisTagInput values={colorValues} onChange={setColorValues} placeholder="Add color…" disabled={locked} />
+                  <AxisTagInput values={colorValues} onChange={setColorValues} placeholder="Add color…" disabled={pricingLocked} />
                 </div>
               )}
               {activeVariantTab === 'material' && (
                 <div className="space-y-2">
                   <p className="text-[12px] font-public-sans text-muted-text">e.g. Cotton, Brass, Terracotta — press Enter or click + to add</p>
-                  <AxisTagInput values={materialValues} onChange={setMaterialValues} placeholder="Add material…" disabled={locked} />
+                  <AxisTagInput values={materialValues} onChange={setMaterialValues} placeholder="Add material…" disabled={pricingLocked} />
                 </div>
               )}
               {activeVariantTab === 'other' && (
                 <div className="space-y-3">
                   <div className="space-y-1.5">
                     <label className="text-[12px] font-[500] font-public-sans text-primary">Attribute name</label>
-                    <input type="text" value={customAxisName} onChange={(e) => setCustomAxisName(e.target.value)} disabled={locked}
+                    <input type="text" value={customAxisName} onChange={(e) => setCustomAxisName(e.target.value)} disabled={pricingLocked}
                       placeholder="e.g. Fragrance, Pattern, Finish" className="h-9 px-3 w-full max-w-xs rounded border border-border-warm bg-muted-bg/30 text-[13px] font-public-sans text-primary placeholder:text-muted-text/40 focus:outline-none focus:border-accent transition-colors disabled:opacity-50" />
                   </div>
                   <p className="text-[12px] font-public-sans text-muted-text">e.g. Sandalwood, Rose — press Enter or click + to add</p>
-                  <AxisTagInput values={customValues} onChange={setCustomValues} placeholder="Add value…" disabled={locked} />
+                  <AxisTagInput values={customValues} onChange={setCustomValues} placeholder="Add value…" disabled={pricingLocked} />
                 </div>
               )}
 
@@ -869,7 +1086,7 @@ export function ProductForm({ product }: ProductFormProps) {
                           <span className="text-[13px] font-[600] font-public-sans text-primary">{combo.label}</span>
                           <div className="flex items-center gap-1.5">
                             <span className="text-[12px] font-public-sans text-muted-text">SKU</span>
-                            <input type="text" value={vp.sku} disabled={locked}
+                            <input type="text" value={vp.sku} disabled={pricingLocked}
                               onChange={(e) => setVPSku(combo.key, e.target.value)}
                               placeholder={autoSku(combo)}
                               className="w-40 h-7 px-2 rounded border border-border-warm bg-surface text-[12px] font-public-sans text-primary focus:outline-none focus:border-accent transition-colors disabled:opacity-50" />
@@ -881,7 +1098,8 @@ export function ProductForm({ product }: ProductFormProps) {
                             onAdd={() => addVPTier(combo.key)}
                             onRemove={(tierId) => removeVPTier(combo.key, tierId)}
                             onUpdate={(tierId, field, value) => updateVPTier(combo.key, tierId, field, value)}
-                            disabled={locked}
+                            disabled={pricingLocked}
+                            showAdminPricing={isAdminCreate}
                           />
                         </div>
                       </div>
@@ -902,31 +1120,31 @@ export function ProductForm({ product }: ProductFormProps) {
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Declared Stock" required hint="Self-reported — not system-tracked. Used for every variant too.">
-              <input type="number" min="0" value={declaredStock} onChange={(e) => setDeclaredStock(e.target.value)} disabled={locked}
+              <input type="number" min="0" value={declaredStock} onChange={(e) => setDeclaredStock(e.target.value)}
                 placeholder="e.g. 500" className={INPUT_CLS} />
             </Field>
             <Field label="Order Step (units)" hint="Buyers order in multiples of this">
-              <input type="number" min="1" value={stepQty} onChange={(e) => setStepQty(e.target.value)} disabled={locked}
+              <input type="number" min="1" value={stepQty} onChange={(e) => setStepQty(e.target.value)}
                 placeholder="e.g. 1" className={INPUT_CLS} />
             </Field>
           </div>
 
           {!variantsEnabled && (
             <Field label="Volume Pricing" required hint="What Solomon Bharat pays you per unit at each order quantity. Edit the MOQs, add more tiers, or fill in a price for each.">
-              <TierTable tiers={priceTiers} onAdd={addTier} onRemove={removeTier} onUpdate={updateTier} disabled={locked} />
+              <TierTable tiers={priceTiers} onAdd={addTier} onRemove={removeTier} onUpdate={updateTier} disabled={pricingLocked} showAdminPricing={isAdminCreate} />
             </Field>
           )}
 
           <Field label="Lead Time" hint="Pick a preset or type your own.">
             <div className="flex flex-wrap gap-2 mb-2">
               {LEAD_TIME_PRESETS.map((preset) => (
-                <button key={preset} type="button" disabled={locked} onClick={() => setLeadTime(preset)}
+                <button key={preset} type="button" onClick={() => setLeadTime(preset)}
                   className={`px-3 h-8 rounded border text-[12px] font-[500] font-public-sans transition-colors disabled:opacity-50 ${leadTime === preset ? 'border-primary bg-primary text-white' : 'border-border-warm text-muted-text hover:border-primary hover:text-primary'}`}>
                   {preset}
                 </button>
               ))}
             </div>
-            <input type="text" value={leadTime} onChange={(e) => setLeadTime(e.target.value)} disabled={locked}
+            <input type="text" value={leadTime} onChange={(e) => setLeadTime(e.target.value)}
               placeholder="e.g. 2–3 weeks" className={INPUT_CLS} />
           </Field>
         </Section>
@@ -934,7 +1152,7 @@ export function ProductForm({ product }: ProductFormProps) {
         {/* ── Product Attributes ─────────────────────────────────────────────── */}
         <Section title="Product Attributes">
           <Field label="Place of Origin" hint="State or region">
-            <input type="text" value={placeOfOrigin} onChange={(e) => setPlaceOfOrigin(e.target.value)} disabled={locked}
+            <input type="text" value={placeOfOrigin} onChange={(e) => setPlaceOfOrigin(e.target.value)}
               placeholder="e.g. Jaipur, Rajasthan" className={INPUT_CLS} />
           </Field>
           <div className="flex flex-col gap-4 pt-1">
@@ -943,7 +1161,7 @@ export function ProductForm({ product }: ProductFormProps) {
                 <p className="text-[14px] font-[500] font-public-sans text-primary">Handmade</p>
                 <p className="text-[12px] font-public-sans text-muted-text">Crafted by hand, not machine-made</p>
               </div>
-              <button type="button" role="switch" aria-checked={isHandmade} disabled={locked}
+              <button type="button" role="switch" aria-checked={isHandmade}
                 onClick={() => setIsHandmade((v) => !v)}
                 className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${isHandmade ? 'bg-primary' : 'bg-border-warm'}`}>
                 <span className={`inline-block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform ${isHandmade ? 'translate-x-5.5' : 'translate-x-0.5'}`} />
@@ -954,7 +1172,7 @@ export function ProductForm({ product }: ProductFormProps) {
                 <p className="text-[14px] font-[500] font-public-sans text-primary">GI Tagged</p>
                 <p className="text-[12px] font-public-sans text-muted-text">Has a Geographical Indication tag</p>
               </div>
-              <button type="button" role="switch" aria-checked={isGITagged} disabled={locked}
+              <button type="button" role="switch" aria-checked={isGITagged}
                 onClick={() => setIsGITagged((v) => !v)}
                 className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${isGITagged ? 'bg-primary' : 'bg-border-warm'}`}>
                 <span className={`inline-block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform ${isGITagged ? 'translate-x-5.5' : 'translate-x-0.5'}`} />
@@ -966,7 +1184,7 @@ export function ProductForm({ product }: ProductFormProps) {
         {/* ── How It's Made ──────────────────────────────────────────────────── */}
         <Section title="How It's Made">
           <Field label="Craft Process" hint="Describe the making process — materials, techniques, time taken. Aim for 20+ words.">
-            <textarea value={howItIsMade} onChange={(e) => setHowItIsMade(e.target.value)} disabled={locked}
+            <textarea value={howItIsMade} onChange={(e) => setHowItIsMade(e.target.value)}
               placeholder="e.g. This table runner is hand-woven on a traditional pit loom using organic cotton yarn…"
               rows={4} className={TEXTAREA_CLS} />
             <p className="text-[11px] font-public-sans text-muted-text">
@@ -974,28 +1192,28 @@ export function ProductForm({ product }: ProductFormProps) {
             </p>
           </Field>
           <Field label="Artisan Name" hint="Name of the maker or lead artisan">
-            <input type="text" value={artisanName} onChange={(e) => setArtisanName(e.target.value)} disabled={locked}
+            <input type="text" value={artisanName} onChange={(e) => setArtisanName(e.target.value)}
               placeholder="e.g. Ramesh Kumar" className={INPUT_CLS} />
           </Field>
         </Section>
 
         {/* ── Actions ─────────────────────────────────────────────────────── */}
-        {!locked && (
-          <div className="flex items-center gap-3 pb-10">
-            {isRejected ? (
-              <Button type="button" variant="accent" size="md" disabled={saving} onClick={handleResubmit}>
-                {saving ? 'Resubmitting…' : 'Resubmit for Review'}
-              </Button>
-            ) : (
-              <Button type="submit" variant="primary" size="md" disabled={saving}>
-                {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Submit for Review'}
-              </Button>
-            )}
-            <Button type="button" variant="ghost" size="md" onClick={() => router.push('/portal/products')}>
-              Cancel
+        <div className="flex items-center gap-3 pb-10">
+          {!isAdminMode && isRejected ? (
+            <Button type="button" variant="accent" size="md" disabled={saving} onClick={handleResubmit}>
+              {saving ? 'Resubmitting…' : 'Resubmit for Review'}
             </Button>
-          </div>
-        )}
+          ) : (
+            <Button type="submit" variant="primary" size="md" disabled={saving}>
+              {isAdminCreate
+                ? (saving ? 'Publishing…' : 'Publish Product')
+                : (saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Submit for Review')}
+            </Button>
+          )}
+          <Button type="button" variant="ghost" size="md" onClick={() => router.push(backHref)}>
+            Cancel
+          </Button>
+        </div>
       </div>{/* end left column */}
 
       {/* ── Listing score sidebar ───────────────────────────────────────── */}

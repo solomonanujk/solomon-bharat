@@ -172,6 +172,37 @@ export class SellersService {
     return { ...profile, user: toSafeUser(user) };
   }
 
+  private static readonly HOUSE_SELLER_SETTING_KEY = 'house_seller_profile_id';
+  private static readonly HOUSE_SELLER_EMAIL = 'house@solomonbharat.internal';
+
+  /**
+   * Admin can create products with no real seller behind them ("my own product") —
+   * every Product.sellerId still needs a real SellerProfile (which itself needs a
+   * real User row), so this provisions one shared, never-logged-into account once
+   * and reuses it for every such product from then on. The created id is cached in
+   * PlatformSetting so repeat calls are a single indexed lookup, not a repeated
+   * email-collision check.
+   */
+  async getOrCreateHouseSellerProfile(): Promise<string> {
+    const cached = await this.repo.findPlatformSettingValue(SellersService.HOUSE_SELLER_SETTING_KEY);
+    if (cached && typeof cached === 'object' && 'sellerId' in cached) {
+      return (cached as { sellerId: string }).sellerId;
+    }
+
+    const passwordHash = await hashPassword(generateTempPassword());
+    const { profile } = await this.repo.createHouseSellerUserAndProfile({
+      email: SellersService.HOUSE_SELLER_EMAIL,
+      passwordHash,
+      businessName: 'Solomon Bharat',
+      contactName: 'Solomon Bharat',
+      phone: 'N/A',
+      businessAddress: 'N/A',
+    });
+
+    await this.repo.upsertPlatformSetting(SellersService.HOUSE_SELLER_SETTING_KEY, { sellerId: profile.id });
+    return profile.id;
+  }
+
   async getMyProfile(userId: string): Promise<SellerProfile> {
     const profile = await this.repo.findSellerProfileByUserId(userId);
     if (!profile) {

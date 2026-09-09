@@ -49,6 +49,12 @@ enum ProductApprovalStatus {
   RESUBMITTED
 }
 
+enum ProductPricingChangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum CollectionStatus {
   DRAFT
   SCHEDULED
@@ -93,6 +99,8 @@ enum NotificationType {
   AGENT_APPLICATION_APPROVED
   AGENT_APPLICATION_REJECTED
   NEW_MESSAGE
+  PRODUCT_PRICING_CHANGE_APPROVED
+  PRODUCT_PRICING_CHANGE_REJECTED
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -399,13 +407,14 @@ model Product {
   howItIsMade   String?
   artisanName   String?
 
-  images       ProductImage[]
-  variants     ProductVariant[]
-  priceTiers   ProductPriceTier[]
-  collections  ProductCollection[]
-  wishlistedBy WishlistItem[]
-  orderItems   OrderItem[]
-  reviews      Review[]
+  images                ProductImage[]
+  variants              ProductVariant[]
+  priceTiers            ProductPriceTier[]
+  collections           ProductCollection[]
+  wishlistedBy          WishlistItem[]
+  orderItems            OrderItem[]
+  reviews               Review[]
+  pricingChangeRequests ProductPricingChangeRequest[]
 
   @@index([sellerId])
   @@index([categoryId])
@@ -485,6 +494,30 @@ model VariantPriceTier {
 
   @@index([variantId])
   @@map("variant_price_tiers")
+}
+
+// A seller's proposed pricing/variant change to an already-APPROVED (live) product.
+// Buyers keep seeing Product/ProductPriceTier/ProductVariant exactly as they are —
+// nothing here touches those rows — until an admin approves it, at which point it
+// replaces them atomically (see ProductsRepository.applyPricingChange). Rejecting
+// leaves the live product completely untouched.
+model ProductPricingChangeRequest {
+  id                  String                     @id @default(uuid())
+  productId           String
+  product             Product                    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  status              ProductPricingChangeStatus @default(PENDING)
+  proposedMoq         Int
+  proposedSellerPrice Decimal                    @db.Decimal(12, 2)
+  proposedPriceTiers  Json
+  proposedVariants    Json
+  rejectionReason     String?
+  reviewedById        String?
+  reviewedAt          DateTime?
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+
+  @@index([productId, status])
+  @@map("product_pricing_change_requests")
 }
 
 enum VariantStatus {
@@ -722,14 +755,16 @@ model PlatformSetting {
 // ─────────────────────────────────────────────────────────────
 
 model Catalogue {
-  id         String       @id @default(uuid())
-  agentId    String
-  agent      AgentProfile @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  title      String
-  productIds String[]
-  fileUrl    String
-  publicId   String?
-  createdAt  DateTime     @default(now())
+  id        String       @id @default(uuid())
+  agentId   String
+  agent     AgentProfile @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  title     String
+  // Array of {productId, price, moq} — the agent's own resale price/MOQ per
+  // product, set at generation time and frozen into the PDF from then on.
+  items     Json
+  fileUrl   String
+  publicId  String?
+  createdAt DateTime     @default(now())
 
   @@index([agentId])
   @@map("catalogues")

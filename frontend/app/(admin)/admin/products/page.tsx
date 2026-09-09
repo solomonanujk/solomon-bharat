@@ -2,12 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Package, Search, Star, CheckCircle2, X } from 'lucide-react'
+import Link from 'next/link'
+import { Package, Search, Star, CheckCircle2, X, Plus } from 'lucide-react'
 import { useAdminProducts } from '@/hooks/queries/useProducts'
 import { useAdminCategoryTree } from '@/hooks/queries/useCategories'
 import { CategoryCascadeSelect } from '@/components/seller-portal/CategoryCascade'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { buttonVariants } from '@/components/ui/button'
 import { cn, formatINR } from '@/lib/utils'
 import type { AdminProduct, ApprovalStatus } from '@/types'
 
@@ -119,11 +121,17 @@ export default function AdminProductsPage() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-[28px] leading-[1.3] font-[500] font-playfair text-primary">Products</h1>
-        <p className="text-[14px] font-public-sans text-muted-text mt-1">
-          Review, price, and publish seller-submitted products — {total.toLocaleString()} total
-        </p>
+      <div className="flex items-start justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-[28px] leading-[1.3] font-[500] font-playfair text-primary">Products</h1>
+          <p className="text-[14px] font-public-sans text-muted-text mt-1">
+            Review, price, and publish seller-submitted products — {total.toLocaleString()} total
+          </p>
+        </div>
+        <Link href="/admin/products/new" className={cn(buttonVariants({ variant: 'primary', size: 'sm' }), 'gap-1.5 flex-shrink-0')}>
+          <Plus size={14} aria-hidden="true" />
+          New Product
+        </Link>
       </div>
 
       {/* Filters */}

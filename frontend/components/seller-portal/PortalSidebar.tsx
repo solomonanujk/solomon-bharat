@@ -47,7 +47,7 @@ export function PortalSidebar() {
       <div className="px-6 h-16 flex items-center border-b border-border-warm shrink-0">
         <Link href="/" className="block">
           <img
-            src="https://res.cloudinary.com/dxnqyvcdl/image/upload/v1781610714/solomon-logo1_inmwov.png"
+            src="https://res.cloudinary.com/dxnqyvcdl/image/upload/v1788850557/branding/1788850490541-solomon-bharat-logo.png"
             alt="Solomon Bharat"
             className="h-12 w-auto object-contain block"
           />
