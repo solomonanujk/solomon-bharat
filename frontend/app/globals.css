@@ -9,6 +9,9 @@
   --muted-bg: #F5F0E8;
   --muted-text: #444748;
   --border-warm: #E5E1D8;
+  /** Dimmer than --primary — used for product name/price text specifically,
+   *  so it reads a touch softer than pure near-black without being muted. */
+  --product-text: #35322C;
   --success: #6B7E6B;
   --error: #BA1A1A;
   --warning: #C29D72;
@@ -26,6 +29,7 @@
   --color-success: var(--success);
   --color-error: var(--error);
   --color-warning: var(--warning);
+  --color-product-text: var(--product-text);
   --font-family-playfair: var(--font-playfair);
   --font-family-public-sans: var(--font-public-sans);
 }

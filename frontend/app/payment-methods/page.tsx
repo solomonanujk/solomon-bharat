@@ -15,7 +15,7 @@ export default function PaymentMethodsPage() {
         <div className="w-14 h-14 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-4 text-accent">
           <CreditCard size={24} aria-hidden="true" />
         </div>
-        <h2 className="text-[18px] font-[600] font-public-sans text-primary">
+        <h2 className="text-[18px] font-[700] font-public-sans text-primary">
           Paid securely via PayPal
         </h2>
         <p className="text-[14px] font-public-sans text-muted-text mt-2 leading-relaxed">

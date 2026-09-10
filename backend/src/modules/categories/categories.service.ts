@@ -1,6 +1,7 @@
 import { Category, CategoryStatus } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { AppError } from '../../utils/errors';
-import { slugify, uniqueSlugSuffix } from '../../utils/helpers';
+import { slugify, uniqueSlugSuffix, entityFolder } from '../../utils/helpers';
 import { storageProvider } from '../../providers/storage';
 import { cache as defaultCache, CacheClient } from '../../utils/cache';
 import { CategoriesRepository, categoriesRepository } from './categories.repository';
@@ -73,8 +74,8 @@ export class CategoriesService {
     return category;
   }
 
-  private async uploadHeroImage(file: UploadedImageFile): Promise<string> {
-    const uploaded = await storageProvider.uploadImage(file.buffer, `${Date.now()}-${file.originalname}`, 'categories');
+  private async uploadHeroImage(file: UploadedImageFile, folder: string): Promise<string> {
+    const uploaded = await storageProvider.uploadImage(file.buffer, `${Date.now()}-${file.originalname}`, folder);
     return uploaded.url;
   }
 
@@ -89,8 +90,11 @@ export class CategoriesService {
     }
 
     const slug = await this.generateUniqueSlug(input.name);
-    const heroImage = heroImageFile ? await this.uploadHeroImage(heroImageFile) : input.heroImage;
-    const category = await this.repo.create({ ...input, slug, heroImage });
+    const id = randomUUID();
+    const heroImage = heroImageFile
+      ? await this.uploadHeroImage(heroImageFile, entityFolder('categories', slug, id))
+      : input.heroImage;
+    const category = await this.repo.create({ ...input, slug, id, heroImage });
     await this.invalidatePublicTreeCache();
     return category;
   }
@@ -100,7 +104,7 @@ export class CategoriesService {
     input: UpdateCategoryInput & { removeHeroImage?: boolean },
     heroImageFile?: UploadedImageFile,
   ): Promise<Category> {
-    await this.getByIdOrThrow(id);
+    const existingCategory = await this.getByIdOrThrow(id);
 
     if (input.slug) {
       const existing = await this.repo.findBySlug(input.slug);
@@ -111,7 +115,7 @@ export class CategoriesService {
 
     const { removeHeroImage, ...rest } = input;
     const heroImage = heroImageFile
-      ? await this.uploadHeroImage(heroImageFile)
+      ? await this.uploadHeroImage(heroImageFile, entityFolder('categories', existingCategory.slug, id))
       : removeHeroImage
         ? null
         : undefined;

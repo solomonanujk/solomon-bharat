@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useCategoryTree } from '@/hooks/queries/useCategories'
+import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import type { CategoryNode } from '@/types'
 
 // ─── Buyer home feed category grid ─────────────────────────────────────────────
@@ -47,20 +48,20 @@ function CategoryCard({ category }: { category: CategoryNode }) {
                 />
               </div>
             </div>
-            {/* Front crop */}
-            <div className="absolute bottom-0 left-0 w-[64px] h-[64px] rounded-[6px] overflow-hidden shadow-sm">
+            {/* Front crop — the actual category photo, never cropped */}
+            <div className="absolute bottom-0 left-0 w-[64px] h-[64px] rounded-[6px] overflow-hidden shadow-sm bg-[#EDE4D3]">
               <Image
-                src={category.heroImage}
+                src={cloudinaryFill(category.heroImage, 160, 160)}
                 alt={category.name}
                 fill
                 sizes="64px"
-                className="object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+                className="object-contain transition-transform duration-300 group-hover:scale-[1.04]"
               />
             </div>
           </>
         ) : (
           <div className="absolute bottom-0 left-0 w-[64px] h-[64px] rounded-[6px] bg-[#EDE4D3] flex items-center justify-center">
-            <span className="font-playfair text-[20px] font-[500] text-[#C8BEAE] select-none leading-none">
+            <span className="font-playfair text-[20px] font-[400] text-[#C8BEAE] select-none leading-none">
               {category.name.charAt(0)}
             </span>
           </div>
@@ -68,7 +69,7 @@ function CategoryCard({ category }: { category: CategoryNode }) {
       </div>
 
       <div className="min-w-0">
-        <p className="font-public-sans font-[700] text-[17px] text-primary leading-snug">
+        <p className="font-public-sans font-[600] text-[15px] text-primary leading-snug">
           {category.name}
         </p>
       </div>

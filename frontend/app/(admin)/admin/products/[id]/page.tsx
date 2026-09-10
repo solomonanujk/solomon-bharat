@@ -11,6 +11,7 @@ import { useImageLightbox } from '@/components/shared/ImageLightbox'
 import { buttonVariants } from '@/components/ui/button'
 import { Section, Field, collectAllTiers, TierPriceTable, flattenLeaves } from '@/components/admin/ProductAdminShared'
 import { cn, formatINR } from '@/lib/utils'
+import { cloudinaryFill } from '@/lib/cloudinaryImage'
 
 export default function AdminProductDetailPage() {
   const params = useParams<{ id: string }>()
@@ -140,9 +141,9 @@ export default function AdminProductDetailPage() {
             aria-label={`View ${product.name} full size`}
           >
             <img
-              src={sortedImages[Math.min(activeImage, sortedImages.length - 1)].url}
+              src={cloudinaryFill(sortedImages[Math.min(activeImage, sortedImages.length - 1)].url, 1200, 675)}
               alt={product.name}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
             />
           </button>
           {sortedImages.length > 1 && (
@@ -153,11 +154,11 @@ export default function AdminProductDetailPage() {
                   type="button"
                   onClick={() => setActiveImage(i)}
                   className={cn(
-                    'w-16 h-16 rounded overflow-hidden border-2 shrink-0 transition-colors',
+                    'w-16 h-16 rounded overflow-hidden border-2 shrink-0 bg-muted-bg transition-colors',
                     i === activeImage ? 'border-accent' : 'border-border-warm opacity-70 hover:opacity-100'
                   )}
                 >
-                  <img src={img.url} alt="" className="w-full h-full object-cover" />
+                  <img src={cloudinaryFill(img.url, 160, 160)} alt="" className="w-full h-full object-contain" />
                 </button>
               ))}
             </div>

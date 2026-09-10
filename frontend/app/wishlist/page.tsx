@@ -9,6 +9,7 @@ import { RatingSummary } from '@/components/shared/StarRating'
 import { useFormatPrice } from '@/components/ui/Price'
 import { useWishlist, useRemoveFromWishlist } from '@/hooks/queries/useWishlist'
 import { useCartStore } from '@/lib/store/useCartStore'
+import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import type { WishlistEntry } from '@/types'
 
 // A single wishlist view — the "Saved Brands" tab this page used to have is
@@ -52,9 +53,9 @@ function WishlistCard({ entry }: { entry: WishlistEntry }) {
         {product.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={product.imageUrl}
+            src={cloudinaryFill(product.imageUrl, 700, 700)}
             alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
+            className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-300"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-[11px] font-public-sans text-muted-text">
@@ -75,11 +76,11 @@ function WishlistCard({ entry }: { entry: WishlistEntry }) {
       <div className="p-3 flex flex-col flex-1">
         <Link
           href={`/products/${product.slug}`}
-          className="text-[14px] font-[500] font-public-sans text-primary leading-snug line-clamp-2 hover:underline"
+          className="text-[14px] font-[500] font-public-sans text-product-text leading-snug line-clamp-2 hover:underline"
         >
           {product.name}
         </Link>
-        <p className="text-[16px] font-[700] font-public-sans text-primary mt-1">
+        <p className="text-[16px] font-[700] font-public-sans text-product-text mt-1">
           {fmt(product.adminPrice)}
         </p>
 

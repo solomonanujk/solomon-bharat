@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft, Heart, Lock, Minus, Plus, ShieldCheck, Timer, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCartStore } from '@/lib/store/useCartStore'
+import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import { useAuth } from '@/hooks/useAuth'
 import { useAddToWishlist } from '@/hooks/queries/useWishlist'
 import { NavBar } from '@/components/shared/NavBar'
@@ -34,7 +35,7 @@ function CartLine({ item }: { item: CartItem }) {
     <div className="flex gap-4 py-5 border-b border-border-warm last:border-b-0">
       <Link href={`/products/${item.productSlug}`} className="w-24 h-24 flex-shrink-0 rounded overflow-hidden bg-muted-bg border border-border-warm">
         {item.image ? (
-          <img src={item.image} alt={item.productName} className="w-full h-full object-cover" />
+          <img src={cloudinaryFill(item.image, 160, 160)} alt={item.productName} className="w-full h-full object-contain" />
         ) : (
           <div className="w-full h-full bg-muted-bg" />
         )}
@@ -44,7 +45,7 @@ function CartLine({ item }: { item: CartItem }) {
         <div>
           <Link
             href={`/products/${item.productSlug}`}
-            className="text-[15px] font-[600] font-public-sans text-primary leading-snug hover:underline"
+            className="text-[15px] font-[600] font-public-sans text-product-text leading-snug hover:underline"
           >
             {item.productName}
           </Link>
@@ -56,7 +57,7 @@ function CartLine({ item }: { item: CartItem }) {
               MOQ: <span className="text-primary font-[600]">{item.moq} units</span>
             </span>
             <span className="text-[12px] font-public-sans text-muted-text">
-              <Price amountInr={item.unitAdminPriceInr} size="sm" className="inline text-primary font-[600]" />/unit
+              <Price amountInr={item.unitAdminPriceInr} size="sm" className="inline text-product-text font-[600]" />/unit
             </span>
             {item.leadTime && (
               <span className="inline-flex items-center gap-1 text-[12px] font-public-sans text-muted-text">
@@ -114,7 +115,7 @@ function CartLine({ item }: { item: CartItem }) {
             </button>
           </div>
 
-          <span className="text-[16px] font-[700] font-public-sans text-primary">
+          <span className="text-[16px] font-[700] font-public-sans text-product-text">
             {fmt(lineTotal)}
           </span>
         </div>

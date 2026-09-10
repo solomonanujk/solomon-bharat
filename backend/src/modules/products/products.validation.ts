@@ -225,6 +225,8 @@ export const publicProductListQuerySchema = paginationQuerySchema.extend({
   minPrice: z.coerce.number().min(0).optional(),
   maxPrice: z.coerce.number().min(0).optional(),
   moqMax: z.coerce.number().int().min(1).optional(),
+  placeOfOrigin: z.string().max(200).optional(),
+  leadTime: z.string().max(200).optional(),
 });
 export type PublicProductListQueryDto = z.infer<typeof publicProductListQuerySchema>;
 

@@ -20,10 +20,10 @@ function toPublicReview(review: ReviewWithBuyer): PublicReview {
 export class ReviewsService {
   constructor(private readonly repo: ReviewsRepository = reviewsRepository) {}
 
-  private async uploadImages(files: UploadedImageFile[]): Promise<string[]> {
+  private async uploadImages(files: UploadedImageFile[], folder: string): Promise<string[]> {
     const uploads = await Promise.all(
       files.map((file, index) =>
-        storageProvider.uploadImage(file.buffer, `${Date.now()}-${index}-${file.originalname}`, 'reviews'),
+        storageProvider.uploadImage(file.buffer, `${Date.now()}-${index}-${file.originalname}`, folder),
       ),
     );
     return uploads.map((u) => u.url);
@@ -52,7 +52,7 @@ export class ReviewsService {
       throw AppError.conflict('This order item has already been reviewed');
     }
 
-    const imageUrls = files.length > 0 ? await this.uploadImages(files) : [];
+    const imageUrls = files.length > 0 ? await this.uploadImages(files, `reviews/${orderItem.productId}`) : [];
 
     const review = await this.repo.create({
       productId: orderItem.productId,

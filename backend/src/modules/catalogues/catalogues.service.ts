@@ -75,7 +75,7 @@ export class CataloguesService {
     const pdfBuffer = await buildCataloguePdf(pdfProducts);
 
     const filename = `catalogue-${Date.now()}-${agentId}.pdf`;
-    const uploaded = await storageProvider.uploadFile(pdfBuffer, filename, CATALOGUE_STORAGE_FOLDER);
+    const uploaded = await storageProvider.uploadFile(pdfBuffer, filename, `${CATALOGUE_STORAGE_FOLDER}/${agentId}`);
 
     const catalogue = await this.repo.create(agentId, {
       title,

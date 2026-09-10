@@ -53,20 +53,20 @@ function Hero() {
               <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden>
                 <path d="M6.5 1L8.2 5.1H12.5L9.2 7.6L10.4 11.8L6.5 9.3L2.6 11.8L3.8 7.6L0.5 5.1H4.8L6.5 1Z" fill="#A68B67"/>
               </svg>
-              <span className="font-public-sans text-[11px] font-[600] text-accent uppercase tracking-[0.1em]">
+              <span className="font-public-sans text-[11px] font-[700] text-accent uppercase tracking-[0.1em]">
                 Become an Agent
               </span>
             </div>
 
             {/* Headline */}
-            <h1 className="font-playfair font-[600] text-primary leading-[1.05] tracking-[-0.01em] text-[26px] sm:text-[34px] lg:text-[44px]">
+            <h1 className="font-playfair font-[700] text-primary leading-[1.05] tracking-[-0.01em] text-[26px] sm:text-[34px] lg:text-[44px]">
               Resell India&apos;s finest<br />
               <span className="text-accent">catalogue.</span> Your customers,<br />
               your business.
             </h1>
 
             {/* Body */}
-            <p className="font-public-sans text-[14px] sm:text-[15px] font-[400] leading-[1.65] text-muted-text mt-4 sm:mt-6 max-w-[400px]">
+            <p className="font-public-sans text-[14px] sm:text-[15px] font-[500] leading-[1.65] text-muted-text mt-4 sm:mt-6 max-w-[400px]">
               Browse the full Solomon Bharat catalogue at a special agent price, build your own
               PDF catalogues, and share them with customers over WhatsApp or social media —
               then purchase on their behalf whenever they&apos;re ready to buy.
@@ -76,14 +76,14 @@ function Hero() {
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 href="/apply-agent"
-                className="inline-flex items-center gap-2 rounded bg-primary text-white font-[600] font-public-sans text-[14px] px-6 py-3 hover:bg-[#2a2a2a] transition-colors"
+                className="inline-flex items-center gap-2 rounded bg-primary text-white font-[700] font-public-sans text-[14px] px-6 py-3 hover:bg-[#2a2a2a] transition-colors"
               >
                 Apply now — it&apos;s free
                 <ArrowRight size={14} aria-hidden />
               </Link>
               <a
                 href="#how-it-works"
-                className="inline-flex items-center gap-2 rounded border border-border-warm bg-white/50 backdrop-blur-sm text-primary font-[600] font-public-sans text-[14px] px-5 py-3 hover:bg-white/80 transition-colors"
+                className="inline-flex items-center gap-2 rounded border border-border-warm bg-white/50 backdrop-blur-sm text-primary font-[700] font-public-sans text-[14px] px-5 py-3 hover:bg-white/80 transition-colors"
               >
                 How it works
               </a>
@@ -97,7 +97,7 @@ function Hero() {
                     <Icon size={13} className="text-accent" aria-hidden />
                   </div>
                   <div>
-                    <p className="font-public-sans text-[13px] sm:text-[14px] font-[600] text-primary leading-tight">{value}</p>
+                    <p className="font-public-sans text-[13px] sm:text-[14px] font-[700] text-primary leading-tight">{value}</p>
                     <p className="font-public-sans text-[10px] sm:text-[11px] text-muted-text leading-tight">{label}</p>
                   </div>
                 </div>
@@ -114,7 +114,7 @@ function Hero() {
           <ShoppingBag size={15} className="text-accent" aria-hidden />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-public-sans text-[13px] font-[600] text-primary leading-tight">Free to join</p>
+          <p className="font-public-sans text-[13px] font-[700] text-primary leading-tight">Free to join</p>
           <p className="font-public-sans text-[11px] text-muted-text">No listing fees, ever</p>
         </div>
         <CheckCircle2 size={17} className="text-accent flex-shrink-0 ml-2" aria-hidden />
@@ -147,7 +147,7 @@ function StatsBar() {
           {items.map((country, i) => (
             <span
               key={i}
-              className="inline-flex items-center gap-5 px-6 font-playfair text-[26px] lg:text-[33px] font-[500] text-primary whitespace-nowrap"
+              className="inline-flex items-center gap-5 px-6 font-playfair text-[26px] lg:text-[33px] font-[600] text-primary whitespace-nowrap"
             >
               {country}
               <span className="w-1.5 h-1.5 rounded-full bg-accent/50 flex-shrink-0" aria-hidden />
@@ -208,7 +208,7 @@ function WhySection() {
               Why Solomon Bharat
             </p>
           </div>
-          <h2 className="font-playfair text-[34px] sm:text-[44px] font-[500] text-primary leading-[1.1]">
+          <h2 className="font-playfair text-[34px] sm:text-[44px] font-[600] text-primary leading-[1.1]">
             Built for independent resellers
           </h2>
           <p className="font-public-sans text-[15px] text-muted-text mt-4 leading-[1.7]">
@@ -227,7 +227,7 @@ function WhySection() {
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent/15 to-accent/5 border border-accent/20 flex items-center justify-center flex-shrink-0 group-hover:from-accent/25 group-hover:to-accent/10 transition-all duration-300">
                 <Icon size={17} className="text-accent" aria-hidden />
               </div>
-              <h3 className="font-public-sans text-[14px] font-[600] text-primary leading-[1.35]">
+              <h3 className="font-public-sans text-[14px] font-[700] text-primary leading-[1.35]">
                 {title}
               </h3>
               <p className="font-public-sans text-[13px] text-muted-text leading-[1.65]">
@@ -279,7 +279,7 @@ function HowItWorks() {
               How it works
             </p>
           </div>
-          <h2 className="font-playfair text-[34px] sm:text-[44px] font-[500] text-primary leading-[1.1]">
+          <h2 className="font-playfair text-[34px] sm:text-[44px] font-[600] text-primary leading-[1.1]">
             From application to first sale
           </h2>
         </div>
@@ -291,9 +291,9 @@ function HowItWorks() {
           {STEPS.map(({ number, title, body }) => (
             <div key={number} className="flex flex-col gap-4">
               <div className="relative w-11 h-11 rounded-full bg-bg border-2 border-accent/40 flex items-center justify-center z-10 flex-shrink-0 shadow-sm">
-                <span className="font-playfair text-[14px] font-[600] text-accent">{number}</span>
+                <span className="font-playfair text-[14px] font-[700] text-accent">{number}</span>
               </div>
-              <h3 className="font-public-sans text-[15px] font-[600] text-primary leading-[1.3]">
+              <h3 className="font-public-sans text-[15px] font-[700] text-primary leading-[1.3]">
                 {title}
               </h3>
               <p className="font-public-sans text-[13px] text-muted-text leading-[1.65]">
@@ -306,7 +306,7 @@ function HowItWorks() {
         <div className="mt-10 text-center">
           <Link
             href="/apply-agent"
-            className="inline-flex items-center gap-2 rounded-lg bg-primary text-white font-[600] font-public-sans text-[15px] px-9 py-4 hover:bg-[#2a2a2a] transition-all hover:shadow-xl hover:shadow-black/12 hover:-translate-y-0.5"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary text-white font-[700] font-public-sans text-[15px] px-9 py-4 hover:bg-[#2a2a2a] transition-all hover:shadow-xl hover:shadow-black/12 hover:-translate-y-0.5"
           >
             Start your application
             <ArrowRight size={15} aria-hidden />
@@ -332,7 +332,7 @@ function PricingSection() {
               How you earn
             </p>
           </div>
-          <h2 className="font-playfair text-[34px] sm:text-[44px] font-[500] text-primary leading-[1.1] mb-5">
+          <h2 className="font-playfair text-[34px] sm:text-[44px] font-[600] text-primary leading-[1.1] mb-5">
             No commission. You set your resale price.
           </h2>
           <p className="font-public-sans text-[15px] text-muted-text leading-[1.7] mb-7">
@@ -382,7 +382,7 @@ function PortalSection() {
               Agent portal
             </p>
           </div>
-          <h2 className="font-playfair text-[34px] sm:text-[44px] font-[500] text-primary leading-[1.1]">
+          <h2 className="font-playfair text-[34px] sm:text-[44px] font-[600] text-primary leading-[1.1]">
             Everything you need to run your reselling business
           </h2>
           <p className="font-public-sans text-[15px] text-muted-text mt-4 leading-[1.7]">
@@ -400,7 +400,7 @@ function PortalSection() {
               <div className="w-10 h-10 rounded-xl bg-muted-bg border border-border-warm flex items-center justify-center flex-shrink-0">
                 <Icon size={16} className="text-accent" aria-hidden />
               </div>
-              <h3 className="font-public-sans text-[14px] font-[600] text-primary leading-[1.35]">
+              <h3 className="font-public-sans text-[14px] font-[700] text-primary leading-[1.35]">
                 {title}
               </h3>
               <p className="font-public-sans text-[13px] text-muted-text leading-[1.65]">
@@ -450,7 +450,7 @@ function Testimonials() {
               Agent stories
             </p>
           </div>
-          <h2 className="font-playfair text-[34px] sm:text-[44px] font-[500] text-primary leading-[1.1]">
+          <h2 className="font-playfair text-[34px] sm:text-[44px] font-[600] text-primary leading-[1.1]">
             Resellers building a business with us
           </h2>
         </div>
@@ -479,7 +479,7 @@ function Testimonials() {
                   <span className="font-public-sans text-[12px] font-[700] text-accent">{avatar}</span>
                 </div>
                 <div>
-                  <p className="font-public-sans text-[13px] font-[600] text-primary">{name}</p>
+                  <p className="font-public-sans text-[13px] font-[700] text-primary">{name}</p>
                   <p className="font-public-sans text-[11px] text-muted-text">{brand}</p>
                 </div>
               </div>
@@ -527,7 +527,7 @@ function FounderSection() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" aria-hidden />
               <div className="absolute bottom-5 left-5">
-                <p className="font-playfair text-[20px] font-[500] text-white leading-tight">Pranjal S Agrawal</p>
+                <p className="font-playfair text-[20px] font-[600] text-white leading-tight">Pranjal S Agrawal</p>
                 <p className="font-public-sans text-[12px] text-white/70">Founder · Solomon Bharat</p>
               </div>
             </div>
@@ -535,7 +535,7 @@ function FounderSection() {
             <div className="grid grid-cols-2 gap-4 mt-5">
               {FOUNDER_STATS.map(({ value, label }) => (
                 <div key={label} className="bg-bg border border-border-warm rounded-xl p-5">
-                  <p className="font-playfair text-[26px] font-[500] text-primary leading-none">{value}</p>
+                  <p className="font-playfair text-[26px] font-[600] text-primary leading-none">{value}</p>
                   <p className="font-public-sans text-[12px] text-muted-text mt-1.5 leading-snug">{label}</p>
                 </div>
               ))}
@@ -550,12 +550,12 @@ function FounderSection() {
                 The man behind it
               </p>
             </div>
-            <h2 className="font-playfair text-[30px] sm:text-[38px] font-[600] text-primary leading-[1.15] mb-5">
+            <h2 className="font-playfair text-[30px] sm:text-[38px] font-[700] text-primary leading-[1.15] mb-5">
               Built by someone who has{' '}
               <span className="text-accent italic">actually exported</span>.
             </h2>
             <p className="font-public-sans text-[15px] text-muted-text leading-[1.75] mb-6">
-              Solomon Bharat is led by <strong className="text-primary font-[600]">Pranjal S Agrawal</strong> — a
+              Solomon Bharat is led by <strong className="text-primary font-[700]">Pranjal S Agrawal</strong> — a
               content creator, exporter and mentor who has spent the last few years helping
               Indian founders take their craft to the world.
             </p>
@@ -573,7 +573,7 @@ function FounderSection() {
               href="https://instagram.com/pranjalsagrawal"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-full bg-accent text-white font-[600] font-public-sans text-[13px] px-5 py-2.5 hover:bg-accent-hover transition-colors mb-8"
+              className="inline-flex items-center gap-2 rounded-full bg-accent text-white font-[700] font-public-sans text-[13px] px-5 py-2.5 hover:bg-accent-hover transition-colors mb-8"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
@@ -618,7 +618,7 @@ function RequirementsSection() {
                 Who can apply
               </p>
             </div>
-            <h2 className="font-playfair text-[34px] sm:text-[44px] font-[500] text-primary leading-[1.1] mb-5">
+            <h2 className="font-playfair text-[34px] sm:text-[44px] font-[600] text-primary leading-[1.1] mb-5">
               Anyone with a customer base can become an agent
             </h2>
             <p className="font-public-sans text-[15px] text-muted-text leading-[1.7]">
@@ -637,7 +637,7 @@ function RequirementsSection() {
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent/12 to-accent/4 border border-accent/18 flex items-center justify-center group-hover:from-accent/22 transition-all duration-300">
                   <Icon size={16} className="text-accent" aria-hidden />
                 </div>
-                <p className="font-public-sans text-[14px] font-[600] text-primary">{label}</p>
+                <p className="font-public-sans text-[14px] font-[700] text-primary">{label}</p>
                 <p className="font-public-sans text-[12.5px] text-muted-text leading-[1.5]">{detail}</p>
               </div>
             ))}
@@ -689,7 +689,7 @@ function FAQ() {
             <p className="font-public-sans text-[11px] font-[700] text-accent uppercase tracking-[0.12em]">FAQ</p>
             <span className="w-10 h-px bg-accent" />
           </div>
-          <h2 className="font-playfair text-[34px] sm:text-[44px] font-[500] text-primary leading-[1.1]">
+          <h2 className="font-playfair text-[34px] sm:text-[44px] font-[600] text-primary leading-[1.1]">
             Common questions
           </h2>
         </div>
@@ -703,7 +703,7 @@ function FAQ() {
                 aria-expanded={open === i}
                 className="w-full flex items-start justify-between gap-4 py-5 text-left group"
               >
-                <span className="font-public-sans text-[15px] font-[600] text-primary leading-[1.4] group-hover:text-accent transition-colors duration-200">
+                <span className="font-public-sans text-[15px] font-[700] text-primary leading-[1.4] group-hover:text-accent transition-colors duration-200">
                   {q}
                 </span>
                 <div className={cn(
@@ -745,12 +745,12 @@ function FinalCTA() {
 
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-border-warm bg-white/60 mb-8">
           <Store size={11} className="text-accent" aria-hidden />
-          <span className="font-public-sans text-[11px] font-[600] text-accent uppercase tracking-[0.1em]">
+          <span className="font-public-sans text-[11px] font-[700] text-accent uppercase tracking-[0.1em]">
             Free to join · No contracts
           </span>
         </div>
 
-        <h2 className="font-playfair text-[38px] sm:text-[50px] font-[600] text-primary leading-[1.05] mb-5">
+        <h2 className="font-playfair text-[38px] sm:text-[50px] font-[700] text-primary leading-[1.05] mb-5">
           Ready to start<br />
           <span className="text-accent">reselling?</span>
         </h2>
@@ -761,7 +761,7 @@ function FinalCTA() {
 
         <Link
           href="/apply-agent"
-          className="inline-flex items-center gap-2 rounded bg-primary text-white font-[600] font-public-sans text-[14px] px-8 py-3.5 hover:bg-[#2a2a2a] transition-colors"
+          className="inline-flex items-center gap-2 rounded bg-primary text-white font-[700] font-public-sans text-[14px] px-8 py-3.5 hover:bg-[#2a2a2a] transition-colors"
         >
           Apply now — it&apos;s free
           <ArrowRight size={14} aria-hidden />
@@ -772,7 +772,7 @@ function FinalCTA() {
           <button
             type="button"
             onClick={() => openAuthModal('login')}
-            className="text-primary font-[600] underline underline-offset-2 hover:text-accent transition-colors"
+            className="text-primary font-[700] underline underline-offset-2 hover:text-accent transition-colors"
           >
             Log in
           </button>

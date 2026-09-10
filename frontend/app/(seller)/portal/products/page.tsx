@@ -12,6 +12,7 @@ import { useCategoryTree } from '@/hooks/queries/useCategories'
 import { categoryPathLabel } from '@/components/seller-portal/CategoryCascade'
 import { ApprovalStatusBadge } from '@/components/seller-portal/StatusBadges'
 import { useImageLightbox } from '@/components/shared/ImageLightbox'
+import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import type { ApprovalStatus } from '@/types'
 
 type FilterValue = 'All' | ApprovalStatus
@@ -153,7 +154,7 @@ export default function ProductsPage() {
                               className="w-10 h-10 rounded border border-border-warm overflow-hidden bg-muted-bg relative shrink-0 cursor-zoom-in"
                               aria-label={`View ${product.name} full size`}
                             >
-                              <Image src={imageUrl} alt="" width={40} height={40} className="object-cover w-full h-full" unoptimized />
+                              <Image src={cloudinaryFill(imageUrl, 160, 160)} alt="" width={40} height={40} className="object-contain w-full h-full" unoptimized />
                             </button>
                           ) : (
                             <div className="w-10 h-10 rounded border border-border-warm overflow-hidden bg-muted-bg relative shrink-0" />

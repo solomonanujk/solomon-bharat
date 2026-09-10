@@ -51,7 +51,7 @@ export function TestimonialsSection() {
 
           {/* Featured quote — left */}
           <div>
-            <p className="font-public-sans text-[12px] font-[600] text-accent uppercase tracking-[0.08em] mb-8">
+            <p className="font-public-sans text-[12px] font-[500] text-accent uppercase tracking-[0.08em] mb-8">
               Buyer Reviews
             </p>
 
@@ -65,7 +65,7 @@ export function TestimonialsSection() {
 
             <Stars count={FEATURED.rating} />
 
-            <blockquote className="font-playfair font-[400] text-[18px] sm:text-[22px] lg:text-[28px] text-primary leading-[1.45] mt-5">
+            <blockquote className="font-playfair font-[300] text-[18px] sm:text-[22px] lg:text-[28px] text-primary leading-[1.45] mt-5">
               {FEATURED.review}
             </blockquote>
 
@@ -78,7 +78,7 @@ export function TestimonialsSection() {
                 className="w-11 h-11 rounded-full object-cover flex-shrink-0"
               />
               <div>
-                <p className="font-playfair font-[500] text-[15px] text-primary">{FEATURED.name}</p>
+                <p className="font-playfair font-[400] text-[15px] text-primary">{FEATURED.name}</p>
                 <p className="font-public-sans text-[12px] text-muted-text mt-0.5">
                   {FEATURED.company} &middot; {FEATURED.country}
                 </p>
@@ -103,7 +103,7 @@ export function TestimonialsSection() {
                     className="w-8 h-8 rounded-full object-cover flex-shrink-0"
                   />
                   <div className="min-w-0">
-                    <p className="font-playfair font-[500] text-[13px] text-primary truncate">{t.name}</p>
+                    <p className="font-playfair font-[400] text-[13px] text-primary truncate">{t.name}</p>
                     <p className="font-public-sans text-[11px] text-muted-text truncate">
                       {t.company} &middot; {t.country}
                     </p>

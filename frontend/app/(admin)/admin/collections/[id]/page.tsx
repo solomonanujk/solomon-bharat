@@ -32,6 +32,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { HeroImageUpload } from '@/components/shared/HeroImageUpload'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import type { Product } from '@/types'
 
 // ─── Product row (current membership) ─────────────────────────────────────────
@@ -83,7 +84,7 @@ function MemberProductRow({
       {thumb ? (
         <button type="button" onClick={() => onImageClick(thumb, product.name)} className="flex-shrink-0 cursor-zoom-in" aria-label={`View ${product.name} full size`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={thumb} alt="" className="w-9 h-9 rounded object-cover border border-border-warm" />
+          <img src={cloudinaryFill(thumb, 160, 160)} alt="" className="w-9 h-9 rounded object-contain bg-muted-bg border border-border-warm" />
         </button>
       ) : (
         <div className="w-9 h-9 rounded bg-muted-bg border border-border-warm flex items-center justify-center flex-shrink-0">
@@ -157,7 +158,7 @@ function AddProductPicker({
                 {thumb ? (
                   <button type="button" onClick={() => onImageClick(thumb, p.name)} className="flex-shrink-0 cursor-zoom-in" aria-label={`View ${p.name} full size`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={thumb} alt="" className="w-8 h-8 rounded object-cover border border-border-warm" />
+                    <img src={cloudinaryFill(thumb, 160, 160)} alt="" className="w-8 h-8 rounded object-contain bg-muted-bg border border-border-warm" />
                   </button>
                 ) : (
                   <div className="w-8 h-8 rounded bg-muted-bg border border-border-warm flex items-center justify-center flex-shrink-0">
@@ -333,7 +334,7 @@ export default function AdminCollectionDetailPage() {
               aria-label={`View ${collection.name} hero image full size`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={collection.heroImage} alt="" className="w-full h-full object-cover" />
+              <img src={cloudinaryFill(collection.heroImage, 400, 400)} alt="" className="w-full h-full object-contain" />
             </button>
           ) : (
             <div className="w-14 h-14 rounded bg-muted-bg border border-border-warm flex items-center justify-center shrink-0 overflow-hidden">

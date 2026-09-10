@@ -40,7 +40,7 @@ function Section({
     <section className="border border-border-warm rounded bg-surface p-6 space-y-5">
       <div className="pb-4 border-b border-border-warm flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-[18px] font-[600] font-public-sans text-primary">{title}</h2>
+          <h2 className="text-[18px] font-[700] font-public-sans text-primary">{title}</h2>
           {description && (
             <p className="text-[14px] font-public-sans text-muted-text mt-0.5">{description}</p>
           )}
@@ -65,7 +65,7 @@ function Field({
     <div className="flex flex-col sm:flex-row sm:items-center gap-2">
       <label
         htmlFor={htmlFor}
-        className="text-[14px] font-[600] font-public-sans text-primary sm:w-[200px] flex-shrink-0"
+        className="text-[14px] font-[700] font-public-sans text-primary sm:w-[200px] flex-shrink-0"
       >
         {label}
       </label>
@@ -242,12 +242,12 @@ function AddressCard({
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           <MapPin size={15} className="text-accent flex-shrink-0" aria-hidden="true" />
-          <span className="text-[14px] font-[600] font-public-sans text-primary">
+          <span className="text-[14px] font-[700] font-public-sans text-primary">
             {address.label || 'Address'}
           </span>
         </div>
         {address.isDefault ? (
-          <span className="inline-flex items-center gap-1 text-[11px] font-[600] font-public-sans text-accent bg-accent/10 rounded px-2 py-0.5 flex-shrink-0">
+          <span className="inline-flex items-center gap-1 text-[11px] font-[700] font-public-sans text-accent bg-accent/10 rounded px-2 py-0.5 flex-shrink-0">
             <Star size={10} fill="currentColor" aria-hidden="true" />
             Default
           </span>

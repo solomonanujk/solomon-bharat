@@ -1,8 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Category, CategoryStatus } from '@prisma/client';
 import { buildMockCache } from '../../test-utils/mockCache';
+import { storageProvider } from '../../providers/storage';
 import { CategoriesRepository } from './categories.repository';
 import { CategoriesService } from './categories.service';
+
+vi.mock('../../providers/storage', () => ({
+  storageProvider: {
+    uploadImage: vi.fn().mockImplementation((_buf: Buffer, name: string) =>
+      Promise.resolve({ url: `https://cdn.example.com/${name}`, publicId: name }),
+    ),
+  },
+}));
+
+const heroImageFile = { buffer: Buffer.from('x'), originalname: 'hero.jpg', mimetype: 'image/jpeg' };
 
 function buildCategory(overrides: Partial<Category> = {}): Category {
   return {
@@ -76,6 +87,18 @@ describe('CategoriesService', () => {
 
       const createArg = vi.mocked(repo.create).mock.calls[0][0];
       expect(createArg.slug).toMatch(/^home-decor-[a-z0-9]+$/);
+    });
+
+    it('uploads the hero image into a per-category Cloudinary folder and passes the same id to repo.create', async () => {
+      vi.mocked(repo.create).mockResolvedValue(buildCategory({ name: 'Kitchenware', slug: 'kitchenware' }));
+
+      await service.createCategory({ name: 'Kitchenware', level: 1 }, heroImageFile);
+
+      const [, , folder] = vi.mocked(storageProvider.uploadImage).mock.calls.at(-1)!;
+      expect(folder).toMatch(/^categories\/kitchenware--[0-9a-f]{8}$/);
+
+      const createArg = vi.mocked(repo.create).mock.calls.at(-1)![0];
+      expect(folder).toContain(createArg.id!.slice(0, 8));
     });
   });
 
@@ -154,6 +177,16 @@ describe('CategoriesService', () => {
       await service.updateCategory('cat-1', { name: 'Updated' });
 
       expect(repo.update).toHaveBeenCalledWith('cat-1', { name: 'Updated' });
+    });
+
+    it("uploads a replacement hero image into the category's existing slug/id Cloudinary folder", async () => {
+      vi.mocked(repo.findById).mockResolvedValue(buildCategory({ id: 'cat-1', slug: 'home-decor' }));
+      vi.mocked(repo.update).mockResolvedValue(buildCategory());
+
+      await service.updateCategory('cat-1', {}, heroImageFile);
+
+      const [, , folder] = vi.mocked(storageProvider.uploadImage).mock.calls.at(-1)!;
+      expect(folder).toBe('categories/home-decor--cat-1');
     });
   });
 

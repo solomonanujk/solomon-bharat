@@ -63,7 +63,7 @@ export default function ApplyPage() {
             <div className="w-14 h-14 rounded-full bg-success/10 flex items-center justify-center">
               <Check size={24} className="text-success" />
             </div>
-            <h1 className="font-playfair text-[28px] font-[500] text-primary leading-tight">
+            <h1 className="font-playfair text-[28px] font-[600] text-primary leading-tight">
               Application submitted
             </h1>
             <p className="font-public-sans text-[14px] text-muted-text leading-[1.7]">
@@ -72,7 +72,7 @@ export default function ApplyPage() {
             </p>
             <Link
               href="/"
-              className="mt-2 inline-flex items-center justify-center h-11 px-8 bg-primary text-white text-[14px] font-[600] font-public-sans rounded hover:bg-primary/90 transition-colors"
+              className="mt-2 inline-flex items-center justify-center h-11 px-8 bg-primary text-white text-[14px] font-[700] font-public-sans rounded hover:bg-primary/90 transition-colors"
             >
               Return to home
             </Link>
@@ -89,7 +89,7 @@ export default function ApplyPage() {
 
       <main className="flex-1">
         <div className="max-w-[560px] mx-auto w-full px-4 py-14 sm:py-20">
-          <h1 className="font-playfair text-[32px] sm:text-[40px] font-[500] text-primary leading-[1.1] mb-3">
+          <h1 className="font-playfair text-[32px] sm:text-[40px] font-[600] text-primary leading-[1.1] mb-3">
             Apply as a Seller
           </h1>
           <p className="font-public-sans text-[15px] text-muted-text leading-[1.7] mb-10">
@@ -164,7 +164,7 @@ export default function ApplyPage() {
 
             <div>
               <Label htmlFor="message">
-                Message <span className="text-muted-text font-[400]">(optional)</span>
+                Message <span className="text-muted-text font-[500]">(optional)</span>
               </Label>
               <textarea
                 id="message"

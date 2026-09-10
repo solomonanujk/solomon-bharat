@@ -157,6 +157,11 @@ export interface ProductListFilter {
   minPrice?: number;
   maxPrice?: number;
   moqMax?: number;
+  /** Free-text contains-match against the product's place of origin — the closest
+   *  real field this platform has to a "ships from" concept. */
+  placeOfOrigin?: string;
+  /** Free-text contains-match against the product's lead time (e.g. "1-2 weeks"). */
+  leadTime?: string;
 }
 
 export interface AdminProductListFilter {

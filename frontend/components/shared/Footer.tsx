@@ -19,7 +19,7 @@ function FooterLink({ href, children }: { href: string; children: React.ReactNod
 function FooterColumn({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-3">
-      <p className="font-public-sans text-[11px] font-[600] text-primary/40 uppercase tracking-[0.08em]">{title}</p>
+      <p className="font-public-sans text-[11px] font-[700] text-primary/40 uppercase tracking-[0.08em]">{title}</p>
       <nav className="flex flex-col gap-2.5" aria-label={title}>{children}</nav>
     </div>
   )
@@ -104,7 +104,7 @@ export function Footer() {
               solomonbharat@gmail.com
             </a>
             <div className="mt-6">
-              <p className="font-public-sans text-[11px] font-[600] text-primary/40 uppercase tracking-[0.08em]">
+              <p className="font-public-sans text-[11px] font-[700] text-primary/40 uppercase tracking-[0.08em]">
                 Stay updated
               </p>
               <NewsletterForm />

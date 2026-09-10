@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Heart, Package, Share2, Star, X, BookmarkPlus, BookmarkCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import { displayUnitPrice } from '@/lib/pricing'
 import { useAuth } from '@/hooks/useAuth'
 import { useCartStore } from '@/lib/store/useCartStore'
@@ -320,7 +321,7 @@ export function ProductInfo({ product }: { product: Product }) {
     <div className="flex flex-col">
       {/* Product name — serif — with wishlist + share */}
       <div className="flex items-start justify-between gap-3 mb-3">
-        <h1 className="font-playfair font-[500] text-primary text-[20px] sm:text-[23px] leading-[1.2]">
+        <h1 className="font-playfair font-[500] text-product-text text-[20px] sm:text-[23px] leading-[1.2]">
           {name}
         </h1>
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -369,7 +370,7 @@ export function ProductInfo({ product }: { product: Product }) {
         <p className="font-public-sans text-[10px] font-[600] text-muted-text uppercase tracking-[0.07em] mb-1.5">
           Price per unit
         </p>
-        <Price amountInr={unitPrice} size="lg" className="!text-[34px] !font-[600] text-primary tracking-[-0.025em] leading-none" />
+        <Price amountInr={unitPrice} size="lg" className="!text-[34px] !font-[600] text-product-text tracking-[-0.025em] leading-none" />
       </div>
 
       {/* Shipping estimate — real placeOfOrigin/leadTime data only */}
@@ -412,13 +413,13 @@ export function ProductInfo({ product }: { product: Product }) {
                         type="button"
                         onClick={() => selectAttr(axis.type, val)}
                         className={cn(
-                          'relative w-11 h-11 rounded-full overflow-hidden border-2 transition-colors',
+                          'relative w-11 h-11 rounded-full overflow-hidden border-2 bg-muted-bg transition-colors',
                           selected ? 'border-primary' : 'border-transparent hover:border-border-warm'
                         )}
                         aria-label={`${axis.type}: ${val}`}
                         aria-pressed={selected}
                       >
-                        <Image src={imageUrl} alt={val} fill sizes="44px" className="object-cover" />
+                        <Image src={cloudinaryFill(imageUrl, 160, 160)} alt={val} fill sizes="44px" className="object-contain" />
                       </button>
                     )
                   }

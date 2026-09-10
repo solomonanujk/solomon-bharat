@@ -66,11 +66,11 @@ export default function MessagesPage() {
       <div className="border border-border-warm rounded overflow-hidden flex flex-col h-[calc(100dvh-260px)] min-h-[420px] md:h-[calc(100vh-320px)] md:min-h-[520px]">
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border-warm bg-surface flex-shrink-0">
-          <div className="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0 font-playfair font-[500] text-accent text-[15px]">
+          <div className="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0 font-playfair font-[600] text-accent text-[15px]">
             SB
           </div>
           <div>
-            <p className="font-public-sans text-[13px] font-[600] text-primary">Solomon Bharat Support</p>
+            <p className="font-public-sans text-[13px] font-[700] text-primary">Solomon Bharat Support</p>
             <p className="font-public-sans text-[11px] text-muted-text">We usually reply within one business day</p>
           </div>
         </div>

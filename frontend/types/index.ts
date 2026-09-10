@@ -229,6 +229,8 @@ export interface ProductsParams {
   minPrice?: number
   maxPrice?: number
   moqMax?: number
+  placeOfOrigin?: string
+  leadTime?: string
   page?: number
   limit?: number
 }

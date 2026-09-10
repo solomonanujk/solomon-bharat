@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Upload, X } from 'lucide-react'
+import { cloudinaryFill } from '@/lib/cloudinaryImage'
 
 interface HeroImageUploadProps {
   /** URL of the currently-saved image (edit mode), if any. */
@@ -58,7 +59,7 @@ export function HeroImageUpload({
       {displayUrl ? (
         <div className="relative w-full max-w-[200px] aspect-video rounded overflow-hidden border border-border-warm bg-muted-bg group">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={displayUrl} alt="" className="w-full h-full object-cover" />
+          <img src={cloudinaryFill(displayUrl, 800, 450)} alt="" className="w-full h-full object-contain" />
           {!disabled && (
             <button
               type="button"

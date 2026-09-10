@@ -257,7 +257,7 @@ function RateProductDialog({
               {photoPreviews.map((previewUrl, i) => (
                 <div key={i} className="relative w-16 h-16 rounded-md overflow-hidden bg-muted-bg flex-shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={previewUrl} alt="" className="w-full h-full object-cover" />
+                  <img src={previewUrl} alt="" className="w-full h-full object-contain" />
                   <button
                     type="button"
                     onClick={() => removePhoto(i)}
@@ -365,7 +365,7 @@ function OrderDetailSheet({
                   {order.items.map((item) => (
                     <div key={item.id} className="flex items-center justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="text-[14px] font-[600] font-public-sans text-primary leading-tight truncate">
+                        <p className="text-[14px] font-[600] font-public-sans text-product-text leading-tight truncate">
                           {item.productName ?? 'Product'}
                         </p>
                         <p className="text-[12px] font-public-sans text-muted-text mt-0.5">
@@ -373,7 +373,7 @@ function OrderDetailSheet({
                         </p>
                         <RateProductButton item={item} orderStatus={order.status} />
                       </div>
-                      <p className="text-[14px] font-[600] font-public-sans text-primary flex-shrink-0">
+                      <p className="text-[14px] font-[600] font-public-sans text-product-text flex-shrink-0">
                         {fmt(item.lineAdminTotal)}
                       </p>
                     </div>

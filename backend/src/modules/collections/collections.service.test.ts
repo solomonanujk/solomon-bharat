@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Collection, CollectionStatus } from '@prisma/client';
 import { buildMockCache } from '../../test-utils/mockCache';
+import { storageProvider } from '../../providers/storage';
 import { CollectionsRepository } from './collections.repository';
 import { CollectionsService } from './collections.service';
 import { ProductsService } from '../products/products.service';
@@ -8,6 +9,16 @@ import { ProductsService } from '../products/products.service';
 vi.mock('../../utils/auditLog', () => ({
   writeAuditLog: vi.fn().mockResolvedValue(undefined),
 }));
+
+vi.mock('../../providers/storage', () => ({
+  storageProvider: {
+    uploadImage: vi.fn().mockImplementation((_buf: Buffer, name: string) =>
+      Promise.resolve({ url: `https://cdn.example.com/${name}`, publicId: name }),
+    ),
+  },
+}));
+
+const heroImageFile = { buffer: Buffer.from('x'), originalname: 'hero.jpg', mimetype: 'image/jpeg' };
 
 function buildCollection(overrides: Partial<Collection> = {}): Collection {
   return {
@@ -120,6 +131,18 @@ describe('CollectionsService', () => {
         expect.objectContaining({ name: 'Sustainable Living', slug: 'sustainable-living' }),
       );
     });
+
+    it('uploads the hero image into a per-collection Cloudinary folder and passes the same id to repo.create', async () => {
+      vi.mocked(repo.create).mockResolvedValue(buildCollection());
+
+      await service.createCollection({ name: 'Sustainable Living' }, heroImageFile);
+
+      const [, , folder] = vi.mocked(storageProvider.uploadImage).mock.calls.at(-1)!;
+      expect(folder).toMatch(/^collections\/sustainable-living--[0-9a-f]{8}$/);
+
+      const createArg = vi.mocked(repo.create).mock.calls.at(-1)![0];
+      expect(folder).toContain(createArg.id!.slice(0, 8));
+    });
   });
 
   describe('updateCollection', () => {
@@ -142,6 +165,16 @@ describe('CollectionsService', () => {
       await service.updateCollection('col-1', { slug: 'sustainable-living', name: 'Updated' });
 
       expect(repo.update).toHaveBeenCalledWith('col-1', { slug: 'sustainable-living', name: 'Updated' });
+    });
+
+    it("uploads a replacement hero image into the collection's existing slug/id Cloudinary folder", async () => {
+      vi.mocked(repo.findById).mockResolvedValue(buildCollection({ id: 'col-1', slug: 'sustainable-living' }));
+      vi.mocked(repo.update).mockResolvedValue(buildCollection());
+
+      await service.updateCollection('col-1', {}, heroImageFile);
+
+      const [, , folder] = vi.mocked(storageProvider.uploadImage).mock.calls.at(-1)!;
+      expect(folder).toBe('collections/sustainable-living--col-1');
     });
   });
 

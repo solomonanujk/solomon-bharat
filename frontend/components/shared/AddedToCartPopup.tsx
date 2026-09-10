@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { X } from 'lucide-react'
 import { useCartStore } from '@/lib/store/useCartStore'
+import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import { useFormatPrice } from '@/components/ui/Price'
 
 const AUTO_DISMISS_MS = 4000
@@ -51,18 +52,18 @@ export function AddedToCartPopup() {
       <div className="flex items-start gap-3 px-4 py-4">
         <div className="relative w-16 h-16 rounded overflow-hidden bg-muted-bg flex-shrink-0">
           {item.image && (
-            <Image src={item.image} alt={item.productName} fill sizes="64px" className="object-cover" />
+            <Image src={cloudinaryFill(item.image, 160, 160)} alt={item.productName} fill sizes="64px" className="object-contain" />
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-public-sans text-[14px] font-[500] text-primary leading-snug line-clamp-2">
+          <p className="font-public-sans text-[14px] font-[500] text-product-text leading-snug line-clamp-2">
             {item.productName}
           </p>
           {item.variantLabel && (
             <p className="font-public-sans text-[13px] text-muted-text mt-0.5">{item.variantLabel}</p>
           )}
           <p className="font-public-sans text-[13px] text-muted-text mt-1">Qty: {item.quantity}</p>
-          <p className="font-public-sans text-[14px] font-[600] text-primary mt-0.5">
+          <p className="font-public-sans text-[14px] font-[600] text-product-text mt-0.5">
             {formatPrice(item.unitAdminPriceInr * item.quantity)}
           </p>
         </div>

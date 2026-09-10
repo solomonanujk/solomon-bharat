@@ -175,10 +175,12 @@ export const productsController = {
   },
 
   async listPublic(req: Request, res: Response): Promise<void> {
-    const { categoryId, collectionId, search, sort, material, minPrice, maxPrice, moqMax, ...pagination } =
-      req.query as unknown as PublicProductListQueryDto;
+    const {
+      categoryId, collectionId, search, sort, material, minPrice, maxPrice, moqMax,
+      placeOfOrigin, leadTime, ...pagination
+    } = req.query as unknown as PublicProductListQueryDto;
     const { data, total } = await productsService.listPublished(
-      { categoryId, collectionId, search, sort, material, minPrice, maxPrice, moqMax },
+      { categoryId, collectionId, search, sort, material, minPrice, maxPrice, moqMax, placeOfOrigin, leadTime },
       pagination,
       req.user?.role,
     );
@@ -188,6 +190,11 @@ export const productsController = {
   async getBySlug(req: Request, res: Response): Promise<void> {
     const result = await productsService.getBySlug(req.params.slug, req.user?.role);
     sendSuccess(res, result);
+  },
+
+  async listPlaceOfOriginFacets(_req: Request, res: Response): Promise<void> {
+    const values = await productsService.listPlaceOfOriginFacets();
+    sendSuccess(res, values);
   },
 
   async listRecommended(req: Request, res: Response): Promise<void> {

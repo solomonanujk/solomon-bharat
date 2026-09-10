@@ -1,20 +1,24 @@
 import type { Metadata } from 'next'
-import { Trirong, Quattrocento_Sans } from 'next/font/google'
+import { Fraunces, Hanken_Grotesk } from 'next/font/google'
 import './globals.css'
 import { Providers } from '@/providers/Providers'
 
-// Editorial serif — homepage hero and other large editorial moments only
-const trirong = Trirong({
+// Editorial serif — homepage hero and other large editorial moments only.
+// Fraunces is a free, open-license stand-in for Faire's Nantes: same warm,
+// generous-x-height serif character, without the commercial licensing.
+const fraunces = Fraunces({
   subsets: ['latin'],
-  weight: ['400', '500', '600'],
+  weight: ['300', '400', '500', '600', '700'],
   variable: '--font-playfair',
   display: 'swap',
 })
 
-// UI sans — all marketplace interface text (Quattrocento Sans: 400 + 700 only)
-const quattrocentoSans = Quattrocento_Sans({
+// UI sans — all marketplace interface text. Hanken Grotesk is a free,
+// open-license stand-in for Faire's Graphik: the same clean geometric-grotesk
+// proportions, without the commercial licensing.
+const hankenGrotesk = Hanken_Grotesk({
   subsets: ['latin'],
-  weight: ['400', '700'],
+  weight: ['300', '400', '500', '600', '700'],
   variable: '--font-public-sans',
   display: 'swap',
 })
@@ -31,7 +35,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${trirong.variable} ${quattrocentoSans.variable}`}>
+    <html lang="en" className={`${fraunces.variable} ${hankenGrotesk.variable}`}>
       <body>
         <Providers>{children}</Providers>
       </body>

@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { HeroImageUpload } from '@/components/shared/HeroImageUpload'
 import { cn } from '@/lib/utils'
+import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import type { Collection, CollectionStatus } from '@/types'
 
 const PAGE_LIMIT = 20
@@ -253,7 +254,7 @@ export default function AdminCollectionsPage() {
                       <td className="py-3 pl-4 pr-0 w-[52px]">
                         {c.heroImage ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={c.heroImage} alt="" className="w-9 h-9 rounded object-cover border border-border-warm" />
+                          <img src={cloudinaryFill(c.heroImage, 160, 160)} alt="" className="w-9 h-9 rounded object-contain bg-muted-bg border border-border-warm" />
                         ) : (
                           <div className="w-9 h-9 rounded bg-muted-bg border border-border-warm flex items-center justify-center">
                             <ImageOff size={14} className="text-muted-text" aria-hidden="true" />

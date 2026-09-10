@@ -38,7 +38,7 @@ function NoResults() {
           <path d="M8 11h6M11 8v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       </div>
-      <p className="text-[16px] font-[500] font-public-sans text-primary">No products found</p>
+      <p className="text-[16px] font-[400] font-public-sans text-primary">No products found</p>
       <p className="text-[14px] font-public-sans text-muted-text mt-1">
         Try adjusting your filters or search query.
       </p>
@@ -60,9 +60,9 @@ function CardSkeleton() {
 // Infinite scroll — a sentinel div near the bottom triggers onLoadMore as it
 // enters the viewport, instead of page-number pagination.
 
-const WIDEST_COLUMNS_CLASS = {
-  4: 'xl:grid-cols-4',
-  5: 'xl:grid-cols-5',
+const COLUMN_CLASSES = {
+  4: 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4',
+  5: 'grid-cols-2 md:grid-cols-3 xl:grid-cols-5',
 } as const
 
 export function ProductGrid({
@@ -95,7 +95,7 @@ export function ProductGrid({
     <div className="flex flex-col gap-6">
       {/* Grid */}
       <div
-        className={cn('grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6', WIDEST_COLUMNS_CLASS[columns])}
+        className={cn('grid gap-3 sm:gap-4 md:gap-6', COLUMN_CLASSES[columns])}
         aria-label="Product results"
       >
         {products.length === 0 && !isLoadingMore ? (
@@ -116,7 +116,7 @@ export function ProductGrid({
 
       {products.length > 0 && (
         <div className="flex flex-col items-center gap-2 pt-2">
-          <p className="text-[12px] leading-[1.3] font-[400] font-public-sans text-muted-text">
+          <p className="text-[12px] leading-[1.3] font-[300] font-public-sans text-muted-text">
             Showing {products.length} of {totalCount} products
           </p>
           {!hasMore && (

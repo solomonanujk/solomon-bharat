@@ -91,7 +91,7 @@ export function EmptyState({ title, description, action, className }: EmptyState
         <EmptyIllustration />
       </span>
 
-      <p className="mt-4 text-[16px] font-[600] font-public-sans text-primary">
+      <p className="mt-4 text-[16px] font-[700] font-public-sans text-primary">
         {title}
       </p>
 

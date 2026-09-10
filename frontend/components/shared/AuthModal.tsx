@@ -143,7 +143,7 @@ export function AuthModal() {
             <line x1="200" y1="120" x2="200" y2="440" stroke="#1A1A1A" strokeWidth="1" />
           </svg>
           <div className="relative z-10 text-center px-8">
-            <p className="font-playfair text-[28px] font-[500] text-primary leading-[1.2]">
+            <p className="font-playfair text-[28px] font-[600] text-primary leading-[1.2]">
               Indian Craft &amp;
               <br />
               Export Marketplace
@@ -172,17 +172,17 @@ export function AuthModal() {
               <button
                 type="button"
                 onClick={() => setForgotView(false)}
-                className="text-[13px] font-[500] font-public-sans text-muted-text hover:text-primary transition-colors mb-6 flex items-center gap-1"
+                className="text-[13px] font-[600] font-public-sans text-muted-text hover:text-primary transition-colors mb-6 flex items-center gap-1"
               >
                 ← Back to log in
               </button>
-              <h2 className="text-[20px] font-[500] font-playfair text-primary mb-1">Reset password</h2>
+              <h2 className="text-[20px] font-[600] font-playfair text-primary mb-1">Reset password</h2>
               <p className="text-[14px] font-public-sans text-muted-text mb-6">
                 Enter your email and we&apos;ll send a reset link.
               </p>
               {forgotSent ? (
                 <div className="rounded border border-success/30 bg-success/5 px-4 py-3">
-                  <p className="text-[14px] font-[500] font-public-sans text-success">
+                  <p className="text-[14px] font-[600] font-public-sans text-success">
                     If an account exists for {forgotEmail}, you&apos;ll receive a reset link shortly.
                   </p>
                 </div>
@@ -270,7 +270,7 @@ export function AuthModal() {
 
                   <div>
                     <Label htmlFor="signup-company">
-                      Company name <span className="text-muted-text font-[400]">(optional)</span>
+                      Company name <span className="text-muted-text font-[500]">(optional)</span>
                     </Label>
                     <Input
                       id="signup-company"
@@ -285,7 +285,7 @@ export function AuthModal() {
 
                   <div>
                     <Label htmlFor="signup-phone">
-                      Phone <span className="text-muted-text font-[400]">(optional)</span>
+                      Phone <span className="text-muted-text font-[500]">(optional)</span>
                     </Label>
                     <Input
                       id="signup-phone"
@@ -308,7 +308,7 @@ export function AuthModal() {
                     {signup.isPending ? 'Creating account…' : 'Create account'}
                   </Button>
 
-                  <p className="text-[12px] leading-[1.3] font-[400] font-public-sans text-muted-text text-center">
+                  <p className="text-[12px] leading-[1.3] font-[500] font-public-sans text-muted-text text-center">
                     By signing up you agree to our{' '}
                     <a href="/terms" className="underline hover:text-primary transition-colors">Terms of Service</a>{' '}
                     and{' '}

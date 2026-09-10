@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { useImageLightbox } from '@/components/shared/ImageLightbox'
 import { AddressFormDialog, EMPTY_ADDRESS_FORM } from '@/components/shared/AddressFormDialog'
 import { useFormatPrice } from '@/components/ui/Price'
+import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import type { Address } from '@/types'
 import type { AddressInput } from '@/hooks/queries/useAddresses'
 
@@ -311,13 +312,13 @@ export default function CheckoutPage() {
                         aria-label={item.image ? `View ${item.productName} full size` : undefined}
                       >
                         {item.image ? (
-                          <img src={item.image} alt={item.productName} className="w-full h-full object-cover cursor-zoom-in" />
+                          <img src={cloudinaryFill(item.image, 160, 160)} alt={item.productName} className="w-full h-full object-contain cursor-zoom-in" />
                         ) : (
                           <div className="w-full h-full bg-muted-bg" />
                         )}
                       </button>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13.5px] font-[600] font-public-sans text-primary leading-snug">
+                        <p className="text-[13.5px] font-[600] font-public-sans text-product-text leading-snug">
                           {item.productName}
                         </p>
                         {item.variantLabel && (

@@ -1,13 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
 import { ArrowRight } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
 const AUDIENCES = ['store', 'boutique', 'pop up', 'exhibitions']
+
+const HERO_VIDEO_SRC =
+  'https://res.cloudinary.com/dxnqyvcdl/video/upload/q_auto,f_auto/v1789016854/Handwoven_Textile____Threads_o_k286tz.mp4'
 
 // ─── Cycling audience word ────────────────────────────────────────────────────
 
@@ -28,7 +30,7 @@ function CyclingAudience() {
 
   return (
     <span
-      className="text-accent transition-opacity duration-300 ease-out"
+      className="font-[600] text-[#F0C468] transition-opacity duration-300 ease-out"
       style={{ opacity: visible ? 1 : 0 }}
     >
       {AUDIENCES[index]}
@@ -44,20 +46,22 @@ export function HeroSection() {
   return (
     <section className="relative overflow-hidden min-h-[580px] h-[90vh] tracking-[0.02em]">
 
-      {/* Full-bleed background image — no overlay */}
-      <Image
-        src="https://res.cloudinary.com/dxnqyvcdl/image/upload/v1781188595/heroSection_lzdtky.png"
-        alt="Indian artisan home décor products"
-        fill
-        sizes="100vw"
-        className="object-cover object-right"
-        priority
+      {/* Full-bleed background video — no overlay */}
+      <video
+        src={HERO_VIDEO_SRC}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="auto"
+        aria-hidden="true"
+        className="absolute inset-0 w-full h-full object-cover object-right"
       />
 
-      {/* Left-side fade — stronger on mobile for text readability */}
+      {/* Faint left-side scrim — just enough for text contrast, video stays visible */}
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{ background: 'linear-gradient(to right, rgba(249,247,242,0.95) 0%, rgba(249,247,242,0.80) 55%, rgba(249,247,242,0.30) 75%, rgba(249,247,242,0) 100%)' }}
+        style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 45%, rgba(0,0,0,0.05) 70%, rgba(0,0,0,0) 100%)' }}
         aria-hidden="true"
       />
 
@@ -67,12 +71,12 @@ export function HeroSection() {
           <div className="max-w-[520px]">
 
             {/* Headline */}
-            <h1 className="font-playfair font-[600] text-primary leading-[1.05] text-[26px] sm:text-[34px] lg:text-[44px]">
-              Find your <span className="text-accent">winning product</span>
+            <h1 className="font-playfair font-[500] text-white leading-[1.05] text-[26px] sm:text-[34px] lg:text-[44px]">
+              Find your <span className="text-[#F0C468]">winning product</span>
             </h1>
 
             {/* Body */}
-            <p className="font-public-sans text-[14px] sm:text-[15px] font-[400] leading-[1.65] text-muted-text mt-4 sm:mt-6 max-w-[400px]">
+            <p className="font-public-sans text-[14px] sm:text-[15px] font-[300] leading-[1.65] text-white/85 mt-4 sm:mt-6 max-w-[400px]">
               Sign up to unlock wholesale pricing.
             </p>
 
@@ -81,7 +85,7 @@ export function HeroSection() {
               <button
                 type="button"
                 onClick={() => openAuthModal('signup')}
-                className="inline-flex items-center gap-2 rounded bg-primary text-white font-[600] font-public-sans text-[14px] px-6 py-3 hover:bg-[#2a2a2a] transition-colors"
+                className="inline-flex items-center gap-2 rounded bg-white text-primary font-[500] font-public-sans text-[14px] px-6 py-3 hover:bg-white/90 transition-colors"
               >
                 Sign Up to Buy
                 <ArrowRight size={14} aria-hidden="true" />
@@ -89,7 +93,7 @@ export function HeroSection() {
             </div>
 
             {/* Audience line */}
-            <p className="font-public-sans text-[14px] sm:text-[15px] font-[500] text-primary mt-8 sm:mt-10">
+            <p className="font-public-sans text-[14px] sm:text-[15px] font-[400] text-white mt-8 sm:mt-10">
               Discover and source bestseller product for your <CyclingAudience />
             </p>
 

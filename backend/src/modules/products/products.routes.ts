@@ -489,6 +489,23 @@ productsRouter.get(
 
 /**
  * @openapi
+ * /products/facets/place-of-origin:
+ *   get:
+ *     summary: Distinct real placeOfOrigin values among published products (public) — powers the "Made in" filter's checkbox list
+ *     tags: [Products]
+ *     security: []
+ *     responses:
+ *       200: { description: List of distinct place-of-origin strings }
+ */
+// Registered before /:slug — an :slug param route declared first would swallow
+// this literal "facets" segment.
+productsRouter.get(
+  '/facets/place-of-origin',
+  asyncHandler(productsController.listPlaceOfOriginFacets),
+);
+
+/**
+ * @openapi
  * /products/{slug}:
  *   get:
  *     summary: Get published product detail (public; priced with agentPrice too when the viewer is an authenticated agent)

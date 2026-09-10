@@ -22,6 +22,15 @@ export function calculateMargin(adminPrice: number, sellerPrice: number): number
   return Math.round((adminPrice - sellerPrice) * 100) / 100;
 }
 
+/** Builds a stable, human-readable Cloudinary/local-disk folder path for one entity:
+ *  e.g. entityFolder('products', 'handwoven-cotton-table-runner', 'a3f9e2b1-...')
+ *  -> 'products/handwoven-cotton-table-runner--a3f9e2b1'. The slug makes it
+ *  recognizable when browsing Cloudinary directly; the id suffix keeps it stable
+ *  forever even if the entity is later renamed/re-slugged. */
+export function entityFolder(type: string, slug: string, id: string): string {
+  return `${type}/${slug}--${id.slice(0, 8)}`;
+}
+
 export function generateTempPassword(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%';
   let password = '';

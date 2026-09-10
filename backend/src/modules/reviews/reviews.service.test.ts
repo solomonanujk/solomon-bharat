@@ -147,7 +147,7 @@ describe('ReviewsService', () => {
 
       const result = await service.submitReview('buyer-1', { orderItemId: 'item-1', rating: 5 }, [oneFile]);
 
-      expect(storageProvider.uploadImage).toHaveBeenCalledWith(oneFile.buffer, expect.stringContaining('photo.jpg'), 'reviews');
+      expect(storageProvider.uploadImage).toHaveBeenCalledWith(oneFile.buffer, expect.stringContaining('photo.jpg'), 'reviews/prod-1');
       expect(repo.create).toHaveBeenCalledWith(
         expect.objectContaining({ imageUrls: [expect.stringContaining('reviews/')] }),
       );

@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { X, ChevronLeft, ChevronRight, Images, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { cloudinaryFill } from '@/lib/cloudinaryImage'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -271,7 +272,7 @@ export function PhotoGallery({ images, productName }: PhotoGalleryProps) {
           className="w-full aspect-[4/3] rounded overflow-hidden relative cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           aria-label={`Enlarge ${productName} image`}
         >
-          <Image src={images[0]} alt={productName} fill className="object-cover" priority sizes="(max-width: 1024px) 100vw, 55vw" />
+          <Image src={cloudinaryFill(images[0], 1000, 750)} alt={productName} fill className="object-contain" priority sizes="(max-width: 1024px) 100vw, 55vw" />
         </button>
         {lightboxIndex !== null && (
           <Lightbox images={images} initialIndex={lightboxIndex} productName={productName} onClose={() => setLightboxIndex(null)} />
@@ -298,7 +299,7 @@ export function PhotoGallery({ images, productName }: PhotoGalleryProps) {
               )}
               aria-label={`View ${productName} image 1`}
             >
-              <Image src={images[0]} alt={`${productName} — 1`} fill className="object-cover" priority sizes="(max-width: 1024px) 40vw, 22vw" />
+              <Image src={cloudinaryFill(images[0], 700, 800)} alt={`${productName} — 1`} fill className="object-contain" priority sizes="(max-width: 1024px) 40vw, 22vw" />
             </button>
             <button
               type="button"
@@ -309,7 +310,7 @@ export function PhotoGallery({ images, productName }: PhotoGalleryProps) {
               )}
               aria-label={`View ${productName} image 2`}
             >
-              <Image src={images[1]} alt={`${productName} — 2`} fill className="object-cover" priority sizes="(max-width: 1024px) 60vw, 33vw" />
+              <Image src={cloudinaryFill(images[1], 900, 700)} alt={`${productName} — 2`} fill className="object-contain" priority sizes="(max-width: 1024px) 60vw, 33vw" />
             </button>
           </div>
 
@@ -320,7 +321,7 @@ export function PhotoGallery({ images, productName }: PhotoGalleryProps) {
               className="w-full h-[180px] relative rounded-b-md overflow-hidden cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               aria-label={`View ${productName} image 3`}
             >
-              <Image src={images[2]} alt={`${productName} — 3`} fill className="object-cover" sizes="(max-width: 1024px) 100vw, 55vw" />
+              <Image src={cloudinaryFill(images[2], 1400, 360)} alt={`${productName} — 3`} fill className="object-contain" sizes="(max-width: 1024px) 100vw, 55vw" />
             </button>
           )}
         </div>
@@ -355,10 +356,10 @@ export function PhotoGallery({ images, productName }: PhotoGalleryProps) {
               aria-label={`View ${productName} image ${i + 1}`}
             >
               <Image
-                src={src}
+                src={cloudinaryFill(src, 700, 700)}
                 alt={`${productName} — ${i + 1}`}
                 fill
-                className="object-cover transition-transform duration-500 hover:scale-[1.03]"
+                className="object-contain transition-transform duration-500 hover:scale-[1.03]"
                 priority={i < 2}
                 sizes="(max-width: 1024px) 50vw, 27vw"
               />

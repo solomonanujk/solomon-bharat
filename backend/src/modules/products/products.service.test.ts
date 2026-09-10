@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Product, ProductApprovalStatus, ProductPricingChangeRequest, Role } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { prisma } from '../../config/prisma';
+import { storageProvider } from '../../providers/storage';
 import { buildMockCache } from '../../test-utils/mockCache';
 import { CategoriesService } from '../categories/categories.service';
 import { notificationsService } from '../notifications/notifications.service';
@@ -236,6 +237,32 @@ describe('ProductsService', () => {
       expect(result).not.toHaveProperty('adminPrice');
       expect(result.sellerPrice).toBe('5');
     });
+
+    it('uploads images into a per-product Cloudinary folder and passes the same id to repo.create', async () => {
+      vi.mocked(repo.create).mockResolvedValue(withMedia(buildProduct()));
+
+      await service.createProduct(
+        'seller-1',
+        {
+          name: 'Table Runner',
+          description: 'Handwoven',
+          categoryId: 'cat-l3-1',
+          materials: 'Cotton',
+          moq: 10,
+          declaredStock: 100,
+          sellerPrice: 5,
+        },
+        twoFiles,
+      );
+
+      const uploadCalls = vi.mocked(storageProvider.uploadImage).mock.calls.slice(-twoFiles.length);
+      const folder = uploadCalls[0][2];
+      expect(folder).toMatch(/^products\/table-runner--[0-9a-f]{8}$/);
+      expect(uploadCalls.every(([, , f]) => f === folder)).toBe(true);
+
+      const [, data] = vi.mocked(repo.create).mock.calls[0];
+      expect(folder).toContain((data as { id: string }).id.slice(0, 8));
+    });
   });
 
   describe('createProductAsAdmin', () => {
@@ -363,6 +390,22 @@ describe('ProductsService', () => {
       await expect(
         service.updateProduct('seller-1', 'prod-1', { removeImageIds: ['img-1'] }, []),
       ).rejects.toMatchObject({ statusCode: 400 });
+    });
+
+    it("uploads new images into the product's existing slug/id Cloudinary folder", async () => {
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildProduct({ id: 'prod-1', slug: 'table-runner' }));
+      vi.mocked(repo.findByIdWithMedia).mockResolvedValue({
+        ...withMedia(buildProduct()),
+        images: [{ id: 'img-1', productId: 'prod-1', url: 'x', sortOrder: 0 }],
+      });
+      vi.mocked(repo.update).mockResolvedValue(withMedia(buildProduct()));
+
+      await service.updateProduct('seller-1', 'prod-1', { name: 'New name' }, [twoFiles[0]]);
+
+      const [, , folder] = vi.mocked(storageProvider.uploadImage).mock.calls.at(-1)!;
+      // 'prod-1' (the product's real id) is only 6 chars, shorter than the 8-char
+      // slice entityFolder() takes, so the full id appears in the folder name here.
+      expect(folder).toBe('products/table-runner--prod-1');
     });
   });
 

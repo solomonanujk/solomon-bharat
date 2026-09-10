@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { useCatalogueStore } from '@/lib/store/useCatalogueStore'
+import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import { useGenerateCatalogue, useMyCatalogues } from '@/hooks/queries/useCatalogues'
 
 // Agents build a catalogue by tapping "Add to catalogue" on any product card or
@@ -62,9 +63,9 @@ function BuildingSection() {
             {items.map((item) => (
               <div key={item.productId} className="flex items-center gap-3 border border-border-warm rounded p-3">
                 <div className="relative w-12 h-12 rounded overflow-hidden bg-muted-bg flex-shrink-0">
-                  {item.image && <Image src={item.image} alt={item.name} fill sizes="48px" className="object-cover" />}
+                  {item.image && <Image src={cloudinaryFill(item.image, 160, 160)} alt={item.name} fill sizes="48px" className="object-contain" />}
                 </div>
-                <Link href={`/products/${item.slug}`} className="flex-1 min-w-0 text-[14px] font-[500] font-public-sans text-primary hover:underline truncate">
+                <Link href={`/products/${item.slug}`} className="flex-1 min-w-0 text-[14px] font-[500] font-public-sans text-product-text hover:underline truncate">
                   {item.name}
                 </Link>
 

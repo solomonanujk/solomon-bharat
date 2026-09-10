@@ -32,8 +32,9 @@ export class CategoriesRepository {
     return count > 0;
   }
 
-  create(input: CreateCategoryInput & { slug: string }): Promise<Category> {
+  create(input: CreateCategoryInput & { slug: string; id?: string }): Promise<Category> {
     const data: Prisma.CategoryCreateInput = {
+      ...(input.id ? { id: input.id } : {}),
       name: input.name,
       slug: input.slug,
       level: input.level,

@@ -215,6 +215,38 @@ describe('ProductsRepository', () => {
     expect(arg.where.collections).toEqual({ some: { collectionId: 'col-1' } });
   });
 
+  it('findPublished filters by placeOfOrigin and leadTime (contains, case-insensitive)', async () => {
+    db.product.findMany.mockResolvedValue([]);
+    db.product.count.mockResolvedValue(0);
+
+    await repo.findPublished({ placeOfOrigin: 'Jaipur', leadTime: '2 weeks' }, { page: 1, limit: 20 }, undefined);
+
+    const arg = db.product.findMany.mock.calls[0][0];
+    expect(arg.where.placeOfOrigin).toEqual({ contains: 'Jaipur', mode: 'insensitive' });
+    expect(arg.where.leadTime).toEqual({ contains: '2 weeks', mode: 'insensitive' });
+  });
+
+  it('findDistinctPlaceOfOrigin returns only real, non-empty values from published products', async () => {
+    db.product.findMany.mockResolvedValue([
+      { placeOfOrigin: 'Jaipur, India' },
+      { placeOfOrigin: null },
+      { placeOfOrigin: '  ' },
+      { placeOfOrigin: 'Moradabad, India' },
+    ]);
+
+    const result = await repo.findDistinctPlaceOfOrigin();
+
+    const arg = db.product.findMany.mock.calls[0][0];
+    expect(arg.where).toMatchObject({
+      deletedAt: null,
+      isPublished: true,
+      approvalStatus: ProductApprovalStatus.APPROVED,
+      placeOfOrigin: { not: null },
+    });
+    expect(arg.distinct).toEqual(['placeOfOrigin']);
+    expect(result).toEqual(['Jaipur, India', 'Moradabad, India']);
+  });
+
   it('findPublished matches a search term against name, description, or materials — no category/collection needed', async () => {
     db.product.findMany.mockResolvedValue([]);
     db.product.count.mockResolvedValue(0);

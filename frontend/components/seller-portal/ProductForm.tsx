@@ -21,6 +21,7 @@ import { ApprovalStatusBadge } from '@/components/seller-portal/StatusBadges'
 import { useImageLightbox } from '@/components/shared/ImageLightbox'
 import { ListingScoreWidget } from '@/components/seller-portal/ListingScore'
 import { getApiError } from '@/lib/getApiError'
+import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import type { AdminProduct, MyProduct, ProductVariant } from '@/types'
 
 const MIN_IMAGES = 2
@@ -906,10 +907,10 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                 <div key={img.id} className="relative group aspect-square rounded overflow-hidden border border-border-warm bg-muted-bg">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={img.url}
+                    src={cloudinaryFill(img.url, 400, 400)}
                     alt=""
                     onClick={() => openLightbox(img.url, 'Product image')}
-                    className="w-full h-full object-cover cursor-zoom-in"
+                    className="w-full h-full object-contain cursor-zoom-in"
                   />
                   <button type="button" onClick={() => removeExistingImage(img.id)}
                     className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -924,7 +925,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
               {newImages.map((_file, i) => (
                 <div key={`new-${i}`} className="relative group aspect-square rounded overflow-hidden border border-border-warm bg-muted-bg">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={newImagePreviews[i]} alt="" className="w-full h-full object-cover" />
+                  <img src={newImagePreviews[i]} alt="" className="w-full h-full object-contain" />
                   <button type="button" onClick={() => removeNewImage(i)}
                     className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                     aria-label="Remove image">

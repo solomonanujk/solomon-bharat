@@ -6,6 +6,7 @@ import { NavBar } from '@/components/shared/NavBar'
 import { Footer } from '@/components/shared/Footer'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { useCollections } from '@/hooks/queries/useCollections'
+import { cloudinaryFill } from '@/lib/cloudinaryImage'
 
 function CollectionSkeleton() {
   return (
@@ -59,11 +60,11 @@ export default function CollectionListingPage() {
                   <div className="aspect-[16/10] overflow-hidden bg-muted-bg relative">
                     {collection.heroImage ? (
                       <Image
-                        src={collection.heroImage}
+                        src={cloudinaryFill(collection.heroImage, 1000, 625)}
                         alt={collection.name}
                         fill
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                        className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                        className="object-contain transition-transform duration-500 group-hover:scale-[1.04]"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-[#F0EBE3]">

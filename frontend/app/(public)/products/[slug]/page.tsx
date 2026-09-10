@@ -21,7 +21,7 @@ function RelatedProducts({ products }: { products: import('@/types').Product[] }
   return (
     <section className="border-t border-border-warm">
       <div className="max-w-[1280px] mx-auto w-full px-6 lg:px-16 py-10">
-        <h2 className="font-playfair font-[500] text-primary text-[20px] leading-tight mb-6">
+        <h2 className="font-playfair font-[600] text-primary text-[20px] leading-tight mb-6">
           Related products
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
@@ -124,7 +124,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             <button
               type="button"
               onClick={() => router.back()}
-              className="inline-flex items-center gap-1 mr-3 font-[600] hover:text-primary transition-colors"
+              className="inline-flex items-center gap-1 mr-3 font-[700] hover:text-primary transition-colors"
             >
               <ArrowLeft size={13} />
               Back

@@ -44,11 +44,11 @@ export function AccountPageWrapper({ children, title, description }: AccountPage
               <ArrowLeft size={15} aria-hidden="true" />
             </button>
             <div>
-              <h1 className="text-[24px] leading-[1.3] font-[500] font-playfair text-primary">
+              <h1 className="text-[24px] leading-[1.3] font-[600] font-playfair text-primary">
                 {title}
               </h1>
               {description && (
-                <p className="text-[12px] leading-[1.3] font-[400] font-public-sans text-muted-text mt-0.5">
+                <p className="text-[12px] leading-[1.3] font-[500] font-public-sans text-muted-text mt-0.5">
                   {description}
                 </p>
               )}

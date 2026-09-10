@@ -307,19 +307,37 @@ function CategoryMegaMenu({ ghost }: { ghost?: boolean }) {
 
 // ─── Global search bar ────────────────────────────────────────────────────────
 // Deliberately global (not scoped to a category/collection) — see AGENTS.md "Search".
-// Doesn't prefill from the current /search?q= on mount: NavBar renders on nearly every
-// page, and reading useSearchParams here would force a Suspense boundary everywhere
-// NavBar is used, which isn't worth it just to preserve the box's text across a reload.
+// Prefills from the current /search?q= via the initialSearchQuery prop rather than
+// calling useSearchParams itself: NavBar renders on nearly every page, and reading
+// useSearchParams here directly would force a Suspense boundary everywhere NavBar is
+// used. Only the search results page (which already has the value from its own
+// Suspense-wrapped useSearchParams call) passes the prop; everywhere else it's
+// simply undefined and the box starts empty as before.
 
-function NavSearchBar({ ghost }: { ghost?: boolean }) {
+function NavSearchBar({ ghost, initialQuery }: { ghost?: boolean; initialQuery?: string }) {
   const router = useRouter()
-  const [value, setValue] = useState('')
+  const [value, setValue] = useState(initialQuery ?? '')
+
+  // Keeps the box in sync if the active search query changes without this
+  // component unmounting (e.g. following a "related search" link while /search
+  // stays the active route) — adjusting state during render (React's documented
+  // pattern for this) rather than an effect, so it takes effect in the same paint
+  // instead of one render later.
+  const [syncedQuery, setSyncedQuery] = useState(initialQuery)
+  if (initialQuery !== syncedQuery) {
+    setSyncedQuery(initialQuery)
+    setValue(initialQuery ?? '')
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const trimmed = value.trim()
     if (!trimmed) return
     router.push(`/search?q=${encodeURIComponent(trimmed)}`)
+  }
+
+  function handleClear() {
+    setValue('')
   }
 
   return (
@@ -338,6 +356,7 @@ function NavSearchBar({ ghost }: { ghost?: boolean }) {
           aria-label="Search products"
           className={cn(
             'w-full h-11 pl-10 pr-9 rounded-full text-[15px] font-public-sans border transition-colors focus:outline-none',
+            '[&::-webkit-search-cancel-button]:appearance-none',
             ghost
               ? 'bg-white/10 border-white/20 text-white placeholder:text-white/60 focus:bg-white/20'
               : 'bg-muted-bg/50 border-border-warm text-primary placeholder:text-muted-text/70 focus:border-accent focus:bg-surface'
@@ -346,7 +365,7 @@ function NavSearchBar({ ghost }: { ghost?: boolean }) {
         {value && (
           <button
             type="button"
-            onClick={() => setValue('')}
+            onClick={handleClear}
             aria-label="Clear search"
             className={cn(
               'absolute right-3 top-1/2 -translate-y-1/2 transition-colors',
@@ -753,9 +772,14 @@ function MobileNavDrawer({ open, onClose }: { open: boolean; onClose: () => void
 interface NavBarProps {
   /** When true: nav has transparent bg + white text until scrolled */
   transparent?: boolean
+  /** Prefills the search box with the current /search?q= value — passed only by
+   *  the search results page itself (which already has it via its own Suspense-
+   *  wrapped useSearchParams call), so NavBar never needs its own useSearchParams
+   *  and doesn't force a Suspense boundary on every page that renders it. */
+  initialSearchQuery?: string
 }
 
-export function NavBar({ transparent = false }: NavBarProps) {
+export function NavBar({ transparent = false, initialSearchQuery }: NavBarProps) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const openAuthModal = useAuthStore((s) => s.openAuthModal)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -791,7 +815,7 @@ export function NavBar({ transparent = false }: NavBarProps) {
             <CategoryMegaMenu ghost={ghost} />
           </nav>
 
-          <NavSearchBar ghost={ghost} />
+          <NavSearchBar ghost={ghost} initialQuery={initialSearchQuery} />
 
           {/* Right cluster */}
           <div className="hidden md:flex items-center gap-1 flex-shrink-0 ml-auto">

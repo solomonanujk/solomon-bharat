@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { ProductGrid } from '@/components/catalogue/ProductGrid'
 import { useCollection, useCollections } from '@/hooks/queries/useCollections'
 import { useInfiniteProducts } from '@/hooks/queries/useProducts'
+import { cloudinaryFill } from '@/lib/cloudinaryImage'
 
 const PAGE_SIZE = 24
 
@@ -49,7 +50,7 @@ function RelatedCollections({ currentSlug }: { currentSlug: string }) {
             >
               <div className="aspect-[4/3] overflow-hidden bg-muted-bg relative">
                 {c.heroImage ? (
-                  <Image src={c.heroImage} alt={c.name} fill sizes="25vw" className="object-cover group-hover:scale-[1.04] transition-transform duration-500" />
+                  <Image src={cloudinaryFill(c.heroImage, 700, 525)} alt={c.name} fill sizes="25vw" className="object-contain group-hover:scale-[1.04] transition-transform duration-500" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-[#F0EBE3]">
                     <span className="font-playfair text-[28px] font-[500] text-[#C8BEAE]">{c.name.charAt(0)}</span>
@@ -128,7 +129,7 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
         {/* Editorial hero */}
         <div className="relative h-[300px] sm:h-[380px] bg-muted-bg overflow-hidden">
           {collection.heroImage && (
-            <img src={collection.heroImage} alt={collection.name} className="absolute inset-0 w-full h-full object-cover" />
+            <img src={cloudinaryFill(collection.heroImage, 1600, 500)} alt={collection.name} className="absolute inset-0 w-full h-full object-contain" />
           )}
           <div className="absolute inset-0 bg-black/35" />
           <div className="relative max-w-[900px] mx-auto w-full h-full px-4 flex flex-col items-center justify-center text-center">

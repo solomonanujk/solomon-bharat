@@ -10,6 +10,7 @@ import { ApprovalStatusBadge } from '@/components/seller-portal/StatusBadges'
 import { useImageLightbox } from '@/components/shared/ImageLightbox'
 import { buttonVariants } from '@/components/ui/button'
 import { cn, formatINR } from '@/lib/utils'
+import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import type { MyProduct, ProductPriceTier } from '@/types'
 
 // ─── Small presentational helpers ──────────────────────────────────────────────
@@ -174,7 +175,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   className="relative aspect-square rounded overflow-hidden border border-border-warm bg-muted-bg cursor-zoom-in"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={img.url} alt="" className="w-full h-full object-cover" />
+                  <img src={cloudinaryFill(img.url, 400, 400)} alt="" className="w-full h-full object-contain" />
                   {i === 0 && (
                     <span className="absolute bottom-1 left-1 text-[10px] font-[600] font-public-sans bg-black/60 text-white px-1.5 py-0.5 rounded">Cover</span>
                   )}

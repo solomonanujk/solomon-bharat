@@ -11,6 +11,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { buttonVariants } from '@/components/ui/button'
 import { cn, formatINR } from '@/lib/utils'
+import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import type { AdminProduct, ApprovalStatus } from '@/types'
 
 // ─── Filter tabs ────────────────────────────────────────────────────────────────
@@ -38,7 +39,7 @@ function ProductRow({ product, onOpen }: { product: AdminProduct; onOpen: (id: s
       <td className="py-3 px-4">
         <div className="flex items-center gap-3">
           {thumb ? (
-            <img src={thumb} alt="" className="w-9 h-9 rounded object-cover border border-border-warm flex-shrink-0" />
+            <img src={cloudinaryFill(thumb, 160, 160)} alt="" className="w-9 h-9 rounded object-contain bg-muted-bg border border-border-warm flex-shrink-0" />
           ) : (
             <div className="w-9 h-9 rounded bg-muted-bg border border-border-warm flex items-center justify-center flex-shrink-0">
               <Package size={14} className="text-muted-text" />

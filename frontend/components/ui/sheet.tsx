@@ -83,7 +83,7 @@ function SheetTrigger({ children }: SheetTriggerProps) {
 // ─── Content ──────────────────────────────────────────────────────────────────
 
 interface SheetContentProps extends React.HTMLAttributes<HTMLDivElement> {
-  side?: 'right' | 'bottom'
+  side?: 'right' | 'left' | 'bottom'
   children: React.ReactNode
 }
 
@@ -112,6 +112,21 @@ function SheetContent({ side = 'right', children, className, ...props }: SheetCo
             'bg-surface border-l border-border-warm z-50',
             'transform transition-transform duration-300 ease-out',
             open ? 'translate-x-0' : 'translate-x-full',
+            className
+          )}
+          {...props}
+        >
+          {children}
+        </div>
+      ) : side === 'left' ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className={cn(
+            'fixed left-0 top-0 h-full w-[480px] max-w-[95vw]',
+            'bg-surface border-r border-border-warm z-50',
+            'transform transition-transform duration-300 ease-out',
+            open ? 'translate-x-0' : '-translate-x-full',
             className
           )}
           {...props}

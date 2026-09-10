@@ -77,7 +77,7 @@ export class ProductsRepository {
 
   create(
     sellerId: string,
-    input: CreateProductInput & { slug: string },
+    input: CreateProductInput & { slug: string; id?: string },
     imageUrls: string[],
     // Present only for the admin-create path (createProductAsAdmin) — the plain
     // seller-submit path leaves this undefined and gets the schema defaults
@@ -92,6 +92,7 @@ export class ProductsRepository {
   ): Promise<ProductWithMedia> {
     return this.db.product.create({
       data: {
+        ...(input.id ? { id: input.id } : {}),
         sellerId,
         categoryId: input.categoryId,
         name: input.name,
@@ -377,6 +378,8 @@ export class ProductsRepository {
         : {}),
       ...(filter.material ? { materials: { contains: filter.material, mode: 'insensitive' } } : {}),
       ...(filter.moqMax ? { moq: { lte: filter.moqMax } } : {}),
+      ...(filter.placeOfOrigin ? { placeOfOrigin: { contains: filter.placeOfOrigin, mode: 'insensitive' } } : {}),
+      ...(filter.leadTime ? { leadTime: { contains: filter.leadTime, mode: 'insensitive' } } : {}),
       // "newest" needs no extra filter — the default orderBy below is already
       // createdAt desc, so it's just the unscoped catalog in that natural order.
       ...(filter.sort === 'featured' ? { isFeatured: true } : {}),
@@ -400,6 +403,26 @@ export class ProductsRepository {
       this.db.product.count({ where }),
     ]);
     return { data, total };
+  }
+
+  /**
+   * Distinct, real placeOfOrigin values among published products — powers the
+   * "Made in" filter's checkbox list with actual seller-entered values instead
+   * of a fabricated fixed country list.
+   */
+  async findDistinctPlaceOfOrigin(): Promise<string[]> {
+    const rows = await this.db.product.findMany({
+      where: {
+        deletedAt: null,
+        isPublished: true,
+        approvalStatus: ProductApprovalStatus.APPROVED,
+        placeOfOrigin: { not: null },
+      },
+      distinct: ['placeOfOrigin'],
+      select: { placeOfOrigin: true },
+      orderBy: { placeOfOrigin: 'asc' },
+    });
+    return rows.map((r) => r.placeOfOrigin).filter((v): v is string => !!v && v.trim().length > 0);
   }
 
   /**

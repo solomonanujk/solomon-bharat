@@ -1,8 +1,9 @@
 import { Product, ProductApprovalStatus, ProductPricingChangeRequest, Role } from '@prisma/client';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { randomUUID } from 'crypto';
 import { env } from '../../config/env';
 import { AppError } from '../../utils/errors';
-import { slugify, uniqueSlugSuffix, calculateMargin } from '../../utils/helpers';
+import { slugify, uniqueSlugSuffix, calculateMargin, entityFolder } from '../../utils/helpers';
 import { writeAuditLog } from '../../utils/auditLog';
 import { storageProvider } from '../../providers/storage';
 import { PaginationQuery } from '../../utils/pagination';
@@ -289,10 +290,10 @@ export class ProductsService {
     return slug;
   }
 
-  private async uploadImages(files: UploadedImageFile[]): Promise<string[]> {
+  private async uploadImages(files: UploadedImageFile[], folder: string): Promise<string[]> {
     const uploads = await Promise.all(
       files.map((file, index) =>
-        storageProvider.uploadImage(file.buffer, `${Date.now()}-${index}-${file.originalname}`, 'products'),
+        storageProvider.uploadImage(file.buffer, `${Date.now()}-${index}-${file.originalname}`, folder),
       ),
     );
     return uploads.map((u) => u.url);
@@ -310,9 +311,10 @@ export class ProductsService {
     await this.categories.assertValidLeafCategory(input.categoryId);
 
     const slug = await this.generateUniqueSlug(input.name);
-    const imageUrls = await this.uploadImages(files);
+    const id = randomUUID();
+    const imageUrls = await this.uploadImages(files, entityFolder('products', slug, id));
 
-    const product = await this.repo.create(sellerProfileId, { ...input, slug }, imageUrls);
+    const product = await this.repo.create(sellerProfileId, { ...input, slug, id }, imageUrls);
     await this.invalidatePublishedListCache();
     return toSellerProduct(product, null);
   }
@@ -343,7 +345,8 @@ export class ProductsService {
     await this.categories.assertValidLeafCategory(input.categoryId);
 
     const slug = await this.generateUniqueSlug(input.name);
-    const imageUrls = await this.uploadImages(files);
+    const id = randomUUID();
+    const imageUrls = await this.uploadImages(files, entityFolder('products', slug, id));
 
     const allTiers = [
       ...(input.priceTiers ?? []),
@@ -363,7 +366,7 @@ export class ProductsService {
       throw AppError.badRequest('Set a buyer price for at least one tier to publish this product');
     }
 
-    const product = await this.repo.create(sellerProfileId, { ...input, slug }, imageUrls, {
+    const product = await this.repo.create(sellerProfileId, { ...input, slug, id }, imageUrls, {
       approvalStatus: ProductApprovalStatus.APPROVED,
       isPublished: true,
       publishedAt: new Date(),
@@ -407,7 +410,7 @@ export class ProductsService {
       throw AppError.badRequest(`Products require between ${MIN_IMAGES} and ${MAX_IMAGES} images`);
     }
 
-    const imageUrls = await this.uploadImages(files);
+    const imageUrls = await this.uploadImages(files, entityFolder('products', product.slug, productId));
 
     if (product.approvalStatus !== ProductApprovalStatus.APPROVED) {
       // Not live yet — nothing to stage, applies directly exactly as before.
@@ -449,7 +452,7 @@ export class ProductsService {
     files: UploadedImageFile[],
     adminId: string,
   ) {
-    await this.getProductOrThrow(productId);
+    const product = await this.getProductOrThrow(productId);
 
     const withMedia = await this.repo.findByIdWithMedia(productId);
     const currentImageCount = withMedia?.images.length ?? 0;
@@ -460,7 +463,7 @@ export class ProductsService {
       throw AppError.badRequest(`Products require between ${MIN_IMAGES} and ${MAX_IMAGES} images`);
     }
 
-    const imageUrls = await this.uploadImages(files);
+    const imageUrls = await this.uploadImages(files, entityFolder('products', product.slug, productId));
     await this.repo.update(productId, input, imageUrls, currentImageCount - removedCount);
     await writeAuditLog(adminId, 'PRODUCT_EDITED_BY_ADMIN', 'Product', productId, {});
     await this.invalidatePublishedListCache();
@@ -705,6 +708,11 @@ export class ProductsService {
     const result = { data: data.map((p) => toBuyerProduct(p, ratings.get(p.id), viewerRole)), total };
     await this.cache.set(key, result, PUBLISHED_LIST_CACHE_TTL_SECONDS);
     return result;
+  }
+
+  /** Real, distinct placeOfOrigin values among published products — for the "Made in" filter's checkbox list. */
+  async listPlaceOfOriginFacets(): Promise<string[]> {
+    return this.repo.findDistinctPlaceOfOrigin();
   }
 
   /** Distinct categoryIds from the buyer's wishlist and past order items — the signal used to bias recommendations. */

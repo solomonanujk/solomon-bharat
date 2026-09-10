@@ -93,6 +93,16 @@ export function useProduct(slug: string | null) {
   })
 }
 
+/** Distinct real placeOfOrigin values among published products — powers the
+ *  "Made in" filter's checkbox list with actual seller-entered values. */
+export function usePlaceOfOriginFacets() {
+  return useQuery<string[]>({
+    queryKey: ['products', 'facets', 'place-of-origin'],
+    queryFn: async () => (await api.get('/products/facets/place-of-origin')).data.data,
+    staleTime: 15 * 60 * 1000,
+  })
+}
+
 // ─── Seller: own products ──────────────────────────────────────────────────────
 
 export function useMyProducts(params?: { approvalStatus?: ApprovalStatus; page?: number; limit?: number }) {

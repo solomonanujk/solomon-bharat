@@ -35,7 +35,7 @@ function KpiCard({
         <Icon size={18} aria-hidden="true" />
       </div>
       <div>
-        <p className="text-[22px] font-[600] font-public-sans text-primary leading-none">
+        <p className="text-[22px] font-[700] font-public-sans text-primary leading-none">
           {loading ? '—' : value}
         </p>
         <p className="text-[12px] font-public-sans text-muted-text mt-1">{label}</p>
@@ -62,7 +62,7 @@ export default function DashboardPage() {
 
       <div className="bg-surface border border-border-warm rounded p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <p className="text-[16px] font-[600] font-public-sans text-primary">Ready to source more?</p>
+          <p className="text-[16px] font-[700] font-public-sans text-primary">Ready to source more?</p>
           <p className="text-[13px] font-public-sans text-muted-text mt-0.5">
             Browse the Solomon Bharat catalogue for your next wholesale order.
           </p>
@@ -77,8 +77,8 @@ export default function DashboardPage() {
 
       <div className="border border-border-warm rounded bg-surface overflow-hidden">
         <div className="px-5 py-4 border-b border-border-warm flex items-center justify-between">
-          <h2 className="text-[15px] font-[600] font-public-sans text-primary">Recent Orders</h2>
-          <Link href="/orders" className="text-[12px] font-[600] font-public-sans text-accent hover:text-accent-hover transition-colors">
+          <h2 className="text-[15px] font-[700] font-public-sans text-primary">Recent Orders</h2>
+          <Link href="/orders" className="text-[12px] font-[700] font-public-sans text-accent hover:text-accent-hover transition-colors">
             View all
           </Link>
         </div>
@@ -102,7 +102,7 @@ export default function DashboardPage() {
                 className="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-muted-bg/40 transition-colors"
               >
                 <div>
-                  <p className="text-[13px] font-[600] font-public-sans text-primary">
+                  <p className="text-[13px] font-[700] font-public-sans text-primary">
                     #{order.id.slice(0, 8).toUpperCase()}
                   </p>
                   <p className="text-[12px] font-public-sans text-muted-text mt-0.5">
@@ -110,7 +110,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
-                  <span className="text-[13px] font-[600] font-public-sans text-primary">
+                  <span className="text-[13px] font-[700] font-public-sans text-primary">
                     {fmt(order.adminPriceTotal)}
                   </span>
                   <StatusBadge status={order.status} />

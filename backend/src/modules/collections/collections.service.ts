@@ -1,6 +1,7 @@
 import { Collection, CollectionStatus } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { AppError } from '../../utils/errors';
-import { slugify, uniqueSlugSuffix } from '../../utils/helpers';
+import { slugify, uniqueSlugSuffix, entityFolder } from '../../utils/helpers';
 import { writeAuditLog } from '../../utils/auditLog';
 import { storageProvider } from '../../providers/storage';
 import { PaginationQuery } from '../../utils/pagination';
@@ -51,15 +52,18 @@ export class CollectionsService {
     return slug;
   }
 
-  private async uploadHeroImage(file: UploadedImageFile): Promise<string> {
-    const uploaded = await storageProvider.uploadImage(file.buffer, `${Date.now()}-${file.originalname}`, 'collections');
+  private async uploadHeroImage(file: UploadedImageFile, folder: string): Promise<string> {
+    const uploaded = await storageProvider.uploadImage(file.buffer, `${Date.now()}-${file.originalname}`, folder);
     return uploaded.url;
   }
 
   async createCollection(input: CreateCollectionInput, heroImageFile?: UploadedImageFile): Promise<Collection> {
     const slug = await this.generateUniqueSlug(input.name);
-    const heroImage = heroImageFile ? await this.uploadHeroImage(heroImageFile) : input.heroImage;
-    const collection = await this.repo.create({ ...input, slug, heroImage });
+    const id = randomUUID();
+    const heroImage = heroImageFile
+      ? await this.uploadHeroImage(heroImageFile, entityFolder('collections', slug, id))
+      : input.heroImage;
+    const collection = await this.repo.create({ ...input, slug, id, heroImage });
     await this.invalidateListCaches();
     return collection;
   }
@@ -69,7 +73,7 @@ export class CollectionsService {
     input: UpdateCollectionInput & { removeHeroImage?: boolean },
     heroImageFile?: UploadedImageFile,
   ): Promise<Collection> {
-    await this.getByIdOrThrow(id);
+    const existingCollection = await this.getByIdOrThrow(id);
     if (input.slug) {
       const existing = await this.repo.findBySlug(input.slug);
       if (existing && existing.id !== id) {
@@ -78,7 +82,7 @@ export class CollectionsService {
     }
     const { removeHeroImage, ...rest } = input;
     const heroImage = heroImageFile
-      ? await this.uploadHeroImage(heroImageFile)
+      ? await this.uploadHeroImage(heroImageFile, entityFolder('collections', existingCollection.slug, id))
       : removeHeroImage
         ? null
         : undefined;

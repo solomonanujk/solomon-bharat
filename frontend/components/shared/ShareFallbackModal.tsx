@@ -66,7 +66,7 @@ export function ShareFallbackModal({
           >
             <MessageCircleMore size={16} className="text-accent shrink-0" aria-hidden="true" />
             <div className="min-w-0">
-              <p className="text-[14px] font-[600] font-public-sans text-primary">Share via WhatsApp</p>
+              <p className="text-[14px] font-[700] font-public-sans text-primary">Share via WhatsApp</p>
               <p className="text-[11.5px] font-public-sans text-muted-text mt-0.5">
                 Opens WhatsApp with the product details — attach the image separately.
               </p>
@@ -80,7 +80,7 @@ export function ShareFallbackModal({
           >
             <Link2 size={16} className="text-accent shrink-0" aria-hidden="true" />
             <div className="min-w-0">
-              <p className="text-[14px] font-[600] font-public-sans text-primary">
+              <p className="text-[14px] font-[700] font-public-sans text-primary">
                 {copied ? 'Copied!' : 'Copy link'}
               </p>
               <p className="text-[11.5px] font-public-sans text-muted-text mt-0.5">
@@ -99,7 +99,7 @@ export function ShareFallbackModal({
             >
               <Download size={16} className="text-accent shrink-0" aria-hidden="true" />
               <div className="min-w-0">
-                <p className="text-[14px] font-[600] font-public-sans text-primary">Download image</p>
+                <p className="text-[14px] font-[700] font-public-sans text-primary">Download image</p>
                 <p className="text-[11.5px] font-public-sans text-muted-text mt-0.5">
                   Save the product photo to attach wherever you&apos;re sharing it.
                 </p>

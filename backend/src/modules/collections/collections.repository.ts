@@ -19,9 +19,10 @@ export class CollectionsRepository {
     return count > 0;
   }
 
-  create(input: CreateCollectionInput & { slug: string }): Promise<Collection> {
+  create(input: CreateCollectionInput & { slug: string; id?: string }): Promise<Collection> {
     return this.db.collection.create({
       data: {
+        ...(input.id ? { id: input.id } : {}),
         name: input.name,
         slug: input.slug,
         heroImage: input.heroImage,
