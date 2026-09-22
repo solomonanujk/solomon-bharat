@@ -16,10 +16,10 @@ import { useAuthStore } from '@/lib/store/useAuthStore'
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
 const HERO_STATS = [
-  { Icon: BadgeCheck, value: 'Curated', label: 'Handpicked sellers'  },
-  { Icon: Globe2,     value: '40+',     label: 'Countries Reached'  },
-  { Icon: Users,      value: '24–48h',  label: 'Review Time'        },
-  { Icon: Package,    value: 'Free',    label: 'To Apply'           },
+  { Icon: BadgeCheck, value: 'Selective', label: 'Not open to everyone'  },
+  { Icon: Globe2,     value: '40+',       label: 'Countries we sell to'  },
+  { Icon: Users,      value: '24–48h',    label: 'Application review'    },
+  { Icon: Package,    value: '₹0',        label: 'To list and apply'     },
 ]
 
 function Hero() {
@@ -60,15 +60,16 @@ function Hero() {
 
             {/* Headline */}
             <h1 className="font-display font-[700] text-primary leading-[1.05] tracking-[-0.01em] text-[26px] sm:text-[34px] lg:text-[44px]">
-              Sell your craft<br />
-              <span className="text-accent">to the world.</span><br />
-              Zero upfront fees.
+              Your craft.<br />
+              <span className="text-accent">Their shelves.</span><br />
+              Zero fees to start.
             </h1>
 
             {/* Body */}
             <p className="font-sans text-[14px] sm:text-[15px] font-[500] leading-[1.65] text-muted-text mt-4 sm:mt-6 max-w-[400px]">
-              Join a curated community of Indian artisan brands reaching boutique
-              retailers across 40+ countries — with your own branded storefront.
+              We sell Indian-made products to wholesale buyers in 40+ countries.
+              You make the product and set your price — we handle the buyers,
+              the payments, and the international paperwork.
             </p>
 
             {/* CTAs */}
@@ -164,33 +165,33 @@ function StatsBar() {
 const WHY_ITEMS = [
   {
     Icon: Globe2,
-    title: 'Reach global buyers instantly',
-    body: 'Solomon Bharat sells your products to verified wholesale buyers across the US, UK, Europe, Australia, UAE and 35+ more countries — you never have to find buyers yourself.',
+    title: 'We find the buyers — you don\'t have to',
+    body: 'Solomon Bharat sells to wholesale buyers in the US, UK, Europe, Australia, UAE, and 35+ more countries. You never cold-pitch a retailer or chase an international lead.',
   },
   {
     Icon: Wallet,
-    title: 'You set your price, we pay it',
-    body: 'You name the price you want for your product. Once approved and ordered, Solomon Bharat pays you that price directly — no commission deducted, no negotiation.',
+    title: 'No negotiation. You name your price.',
+    body: 'Set the price you want when you submit a product. If it\'s approved and someone orders it, we pay you that exact amount. No commission, no hidden cut.',
   },
   {
     Icon: Shield,
-    title: 'Solomon Bharat is the merchant',
-    body: 'We buy from you and resell to international buyers under our own name. You never have to deal with international payments, customs, or a buyer directly.',
+    title: 'We\'re the ones selling internationally — not you',
+    body: 'Solomon Bharat buys from you and sells to buyers under its own name. You don\'t deal with foreign invoices, customs paperwork, or chasing payment from an overseas retailer.',
   },
   {
     Icon: ClipboardCheck,
-    title: 'Simple application, no paperwork upfront',
-    body: 'Apply with just your business details — no documents required to get started. Once approved, list your products and start receiving orders.',
+    title: 'The application is short — no documents needed',
+    body: 'Just your business name, contact details, and a brief description of what you make. We don\'t ask for GST certificates or export docs just to apply.',
   },
   {
     Icon: BarChart3,
-    title: 'Track everything from your seller portal',
-    body: 'Submit products, follow their approval status, and see your orders and payouts — all from one dashboard built for your business.',
+    title: 'One place for your products, orders, and payouts',
+    body: 'Submit products, see where each one is in the review process, and track your orders and payments — all from your seller dashboard.',
   },
   {
     Icon: Bell,
-    title: 'Stay informed at every step',
-    body: 'Get notified the moment a product is approved or rejected, or an order comes in — so you always know where things stand.',
+    title: 'You\'ll know the moment something happens',
+    body: 'We send you a notification as soon as a product is approved, rejected, or an order comes in. No refreshing the dashboard to find out.',
   },
 ]
 
@@ -208,11 +209,12 @@ function WhySection() {
             </p>
           </div>
           <h2 className="font-display text-[34px] sm:text-[44px] font-[600] text-primary leading-[1.1]">
-            Built for Indian artisan brands
+            Built around how Indian brands actually work
           </h2>
           <p className="font-sans text-[15px] text-muted-text mt-4 leading-[1.7]">
-            We designed every feature around the reality of running a small independent
-            brand in India — from GST to bank transfers to international shipping.
+            Most export platforms were built for large manufacturers. We built this
+            for smaller Indian brands — the ones doing the actual craft work, not just
+            the packaging.
           </p>
         </div>
 
@@ -244,23 +246,23 @@ function WhySection() {
 const STEPS = [
   {
     number: '01',
-    title: 'Submit your application',
-    body: 'Fill in your brand details, upload a few photos, and add your business documents. Takes about 10 minutes. No fees, no commitments.',
+    title: 'Apply — takes about 10 minutes',
+    body: 'Fill in your brand name, what you make, and your contact details. No documents upfront, no fees to apply.',
   },
   {
     number: '02',
-    title: 'Our team reviews (24–48h)',
-    body: 'We manually review every application to maintain quality. You\'ll get a decision by email within two business days.',
+    title: 'We review your application',
+    body: 'A real person on our team looks at every application. We\'ll email you a decision within 24–48 hours.',
   },
   {
     number: '03',
-    title: 'List your products',
-    body: 'Upload your catalogue using our simple product editor — or bulk import directly from Shopify. Set your wholesale pricing and MOQ.',
+    title: 'Add your products',
+    body: 'Once approved, use your seller portal to submit products with photos and pricing. Each one gets reviewed before it goes live.',
   },
   {
     number: '04',
-    title: 'Receive orders & get paid',
-    body: 'Orders land in your seller portal. Ship, mark dispatched, and we release payment to your bank account within 15 days.',
+    title: 'Ship when orders come in',
+    body: 'Orders appear in your portal. You ship them, mark them dispatched, and we process your payment within 15 days.',
   },
 ]
 
@@ -278,7 +280,7 @@ function HowItWorks() {
             </p>
           </div>
           <h2 className="font-display text-[34px] sm:text-[44px] font-[600] text-primary leading-[1.1]">
-            From application to first sale
+            What happens after you apply
           </h2>
         </div>
 
@@ -331,20 +333,19 @@ function PricingSection() {
             </p>
           </div>
           <h2 className="font-display text-[34px] sm:text-[44px] font-[600] text-primary leading-[1.1] mb-5">
-            No commission. You set the price.
+            You set the price. We pay it. That&apos;s it.
           </h2>
           <p className="font-sans text-[15px] text-muted-text leading-[1.7] mb-7">
-            There are no listing fees, no monthly subscriptions, and no commission cut. You tell us
-            the price you want for your product when you submit it. Once it&apos;s approved and an order
-            comes in, Solomon Bharat pays you that price directly — we handle the international sale
-            and buyer relationship on our end.
+            There are no listing fees, no subscriptions, and we don&apos;t take a percentage of your sale.
+            When you submit a product, you tell us what you want for it. If someone orders it, we pay
+            you that amount — the international markup is ours to manage, not yours to negotiate.
           </p>
           <div className="flex flex-col gap-3.5">
             {[
-              'Free to apply and list — no setup costs',
-              'You set your own price when you submit a product',
-              'Get paid your price once an order is placed — no commission taken',
-              'Solomon Bharat handles the buyer relationship and international sale',
+              'Free to apply, free to list',
+              'You set your price per product — no bidding, no negotiation',
+              'We pay your price in full when an order is placed',
+              'We handle the buyer, the invoice, and the international transfer',
             ].map((text) => (
               <div key={text} className="flex items-center gap-3">
                 <div className="w-5 h-5 rounded-full bg-accent/15 flex items-center justify-center flex-shrink-0">
@@ -363,10 +364,10 @@ function PricingSection() {
 // ─── Seller portal features ───────────────────────────────────────────────────
 
 const PORTAL_FEATURES = [
-  { Icon: Package, title: 'Submit your products', body: 'Add your products with pricing, photos, and details. Every submission is reviewed before it goes live.' },
-  { Icon: ClipboardCheck, title: 'Track approval status', body: 'See exactly where each submission stands — pending review, approved, or needs changes — with reasons if it\'s rejected.' },
-  { Icon: Bell, title: 'Real-time notifications', body: 'Get notified the moment a product is approved or an order for your goods comes in.' },
-  { Icon: Wallet, title: 'Orders & payouts', body: 'See every order for your products and track payouts as they\'re processed — all in one place.' },
+  { Icon: Package, title: 'Submit products', body: 'Add photos, pricing, and product details. We review each submission before it goes live on the platform.' },
+  { Icon: ClipboardCheck, title: 'See where each product stands', body: 'Pending, approved, or needs changes — you\'ll see the status for every submission, with a reason if something was rejected.' },
+  { Icon: Bell, title: 'Notifications that actually matter', body: 'We tell you when a product gets approved, when something needs a fix, and when an order comes in for your products.' },
+  { Icon: Wallet, title: 'Orders and payout history', body: 'Every order for your products is listed here, along with your payout history as payments are processed.' },
 ]
 
 function PortalSection() {
@@ -381,11 +382,11 @@ function PortalSection() {
             </p>
           </div>
           <h2 className="font-display text-[34px] sm:text-[44px] font-[600] text-primary leading-[1.1]">
-            Everything you need to run your wholesale business
+            Your seller portal isn&apos;t just for uploading products
           </h2>
           <p className="font-sans text-[15px] text-muted-text mt-4 leading-[1.7]">
-            Your seller portal is a fully-featured business dashboard — not just a
-            product upload tool.
+            It&apos;s where you run the whole thing — submissions, approvals, orders, and
+            payments, in one place.
           </p>
         </div>
 
@@ -416,19 +417,19 @@ function PortalSection() {
 
 const TESTIMONIALS = [
   {
-    quote: "Within three months of applying we had repeat orders reaching buyers in the UK, Singapore, and Australia — Solomon Bharat handled the entire international sale.",
+    quote: "I honestly didn't expect the first order to come this quickly. Three months after applying, we had buyers reordering from the UK and Australia. I just had to ship.",
     name: 'Priya Mehta',
     brand: 'Indigo Root Textiles · Jaipur',
     avatar: 'PM',
   },
   {
-    quote: "As a solo artisan I was scared of the paperwork, but the application process was clear and our approval came in 36 hours. The seller portal is genuinely easy to use.",
+    quote: "I run this by myself and international paperwork was always the thing stopping me. The application was straightforward — approval came in about 36 hours and the portal is simple enough that I figured it out on my own.",
     name: 'Rajan Nair',
     brand: 'Canework & Clay · Thrissur',
     avatar: 'RN',
   },
   {
-    quote: "We connected with a French boutique chain through Solomon Bharat and they became our single largest wholesale account. The platform handles all the payment complexity.",
+    quote: "A buyer in France placed a large order and kept reordering. We never spoke to them directly — Solomon Bharat managed all of that. It became our biggest wholesale account.",
     name: 'Anika Sharma',
     brand: 'Bagh Print House · Bhopal',
     avatar: 'AS',
@@ -449,7 +450,7 @@ function Testimonials() {
             </p>
           </div>
           <h2 className="font-display text-[34px] sm:text-[44px] font-[600] text-primary leading-[1.1]">
-            Brands that are growing with us
+            From the sellers already on the platform
           </h2>
         </div>
 
@@ -549,13 +550,15 @@ function FounderSection() {
               </p>
             </div>
             <h2 className="font-display text-[30px] sm:text-[38px] font-[700] text-primary leading-[1.15] mb-5">
-              Built by someone who has{' '}
-              <span className="text-accent italic">actually exported</span>.
+              This was built by someone who{' '}
+              <span className="text-accent italic">has actually done this</span>.
             </h2>
             <p className="font-sans text-[15px] text-muted-text leading-[1.75] mb-6">
-              Solomon Bharat is led by <strong className="text-primary font-[700]">Pranjal S Agrawal</strong> — a
-              content creator, exporter and mentor who has spent the last few years helping
-              Indian founders take their craft to the world.
+              <strong className="text-primary font-[700]">Pranjal S Agrawal</strong> started Solomon Bharat after
+              years of personally exporting Indian goods and watching other brands struggle
+              to find international buyers without a middleman. He&apos;s also a mentor, a
+              content creator with a community of over 7,000 people, and someone who&apos;s
+              shipped to five countries himself.
             </p>
 
             <div className="flex flex-col gap-3 mb-8">
@@ -583,7 +586,9 @@ function FounderSection() {
 
             <div className="bg-bg border border-border-warm rounded-xl p-6">
               <p className="font-display text-[17px] italic text-primary leading-[1.5]">
-                &ldquo;Now I&apos;m taking Indian businesses global — at scale.&rdquo;
+                &ldquo;I&apos;ve done this myself. I know what the paperwork looks like,
+                what it takes to find a real buyer, and what Indian makers actually need.
+                That&apos;s what I built this for.&rdquo;
               </p>
               <p className="font-sans text-[13px] text-muted-text mt-3">— Pranjal S Agrawal</p>
             </div>
@@ -598,10 +603,10 @@ function FounderSection() {
 // ─── Requirements ─────────────────────────────────────────────────────────────
 
 const REQUIREMENTS = [
-  { Icon: BadgeCheck, label: 'Based in India', detail: 'Products must be made or sourced in India' },
-  { Icon: Package, label: 'Wholesale-ready', detail: 'Minimum 10 wholesale styles available' },
-  { Icon: Clock, label: 'Reliable fulfilment', detail: 'Ability to ship within your stated lead time' },
-  { Icon: Award, label: 'Quality products', detail: 'Handcrafted, artisan, or design-led goods' },
+  { Icon: BadgeCheck, label: 'India-based', detail: 'Your products must be made or sourced in India' },
+  { Icon: Package, label: 'At least 10 wholesale styles', detail: 'We look for brands that have a real range to offer, not just one or two items' },
+  { Icon: Clock, label: 'You can actually fulfil orders', detail: 'You need to be able to ship within the lead times you quote — buyers depend on it' },
+  { Icon: Award, label: 'Craft or design-led products', detail: 'Handmade, artisanal, or thoughtfully designed — not mass-produced generic goods' },
 ]
 
 function RequirementsSection() {
@@ -617,12 +622,12 @@ function RequirementsSection() {
               </p>
             </div>
             <h2 className="font-display text-[34px] sm:text-[44px] font-[600] text-primary leading-[1.1] mb-5">
-              We&apos;re looking for quality, not scale
+              We&apos;re not looking for the biggest brands
             </h2>
             <p className="font-sans text-[15px] text-muted-text leading-[1.7]">
-              Solomon Bharat is designed for independent Indian brands with between
-              1 and 200 employees. You don&apos;t need to be an established exporter —
-              just a maker with a genuine product and the ability to fulfil wholesale orders.
+              Most of our sellers are small independent makers — somewhere between 1 and 200 people.
+              You don&apos;t need an export history or an import-export code to apply.
+              You just need a genuine product and the ability to ship it reliably.
             </p>
           </div>
 
@@ -650,28 +655,28 @@ function RequirementsSection() {
 
 const FAQS = [
   {
-    q: 'How long does approval take?',
-    a: 'Our team manually reviews every application within 24–48 business hours. You\'ll receive an email confirming whether your application is approved.',
+    q: 'How long does the review take?',
+    a: 'We look at every application ourselves — it\'s not automated. You\'ll get an email with a decision within 24–48 hours on business days.',
   },
   {
-    q: 'Are there any fees to join?',
-    a: 'No. There are no listing fees, no monthly subscriptions, and no setup costs, and we never take a commission out of the price you set.',
+    q: 'Is there any cost to join?',
+    a: 'No. Applying is free, listing is free, and we don\'t take a commission from the price you set. The only money that moves is us paying you when orders come in.',
   },
   {
-    q: 'How do I set my price?',
-    a: 'You name the price you want for each product when you submit it. Once approved and an order is placed, Solomon Bharat pays you that exact price.',
+    q: 'How does pricing work?',
+    a: 'When you submit a product, you set the price you want to receive for it. If we approve it and an order comes in, we pay you that amount. We mark it up on our side when we sell internationally — that\'s our business, not yours to manage.',
   },
   {
-    q: 'Do I deal with international buyers directly?',
-    a: 'No. Solomon Bharat buys your approved products and resells them to international buyers under its own name — you never have to manage an international buyer relationship, customs, or cross-border payments yourself.',
+    q: 'Do I have to talk to the buyers myself?',
+    a: 'No. Solomon Bharat is the seller on record internationally. You never deal with a foreign buyer directly — no invoicing, no customs back-and-forth, no chasing payment from someone overseas.',
   },
   {
-    q: 'Can I list the same products on other platforms?',
-    a: 'Yes. We do not require exclusivity. You can sell through your own channels alongside Solomon Bharat.',
+    q: 'Can I sell on other platforms at the same time?',
+    a: 'Yes. We don\'t ask for exclusivity. Sell through your own site, on Etsy, through other platforms — it\'s your business.',
   },
   {
     q: 'What do I need to apply?',
-    a: 'Just your business name, a contact name, email, phone number, and business address. No documents are required to submit an application.',
+    a: 'Your business name, what you make, a contact name, email, phone, and address. That\'s it for the application — we don\'t ask for GST certificates or IEC codes just to get started.',
   },
 ]
 
@@ -749,12 +754,12 @@ function FinalCTA() {
         </div>
 
         <h2 className="font-display text-[38px] sm:text-[50px] font-[700] text-primary leading-[1.05] mb-5">
-          Ready to take your<br />
-          <span className="text-accent">brand global?</span>
+          If the product is good,<br />
+          <span className="text-accent">let&apos;s talk.</span>
         </h2>
         <p className="font-sans text-[15px] text-muted-text leading-[1.75] max-w-[480px] mx-auto mb-10">
-          Join a curated community of Indian artisan brands selling wholesale to
-          retailers across 40+ countries. Apply in 10 minutes.
+          The application takes about 10 minutes. We review it ourselves, and
+          you&apos;ll hear back within two business days.
         </p>
 
         <Link
