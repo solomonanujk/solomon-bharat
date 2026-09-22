@@ -61,7 +61,7 @@ export default function SellerPortalLayout({
          (e.g. the variant options table) would push this whole column wider
          than the viewport instead of scrolling within its own overflow-x-auto
          wrapper, causing the entire page to scroll horizontally. */}
-      <div className="flex-1 min-w-0 lg:ml-[190px] flex flex-col min-h-screen">
+      <div className="flex-1 min-w-0 lg:ml-[200px] flex flex-col min-h-screen">
         {/* Top bar */}
         <header className="h-16 border-b border-border-warm bg-white flex items-center justify-between px-6 sticky top-0 z-20">
           {/* Search */}
