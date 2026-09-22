@@ -37,7 +37,7 @@ export function categoryPathLabel(tree: CategoryNode[], id: string | null | unde
 
 const COLUMN_CLS = 'w-52 max-h-72 overflow-y-auto py-1'
 const ROW_BASE_CLS =
-  'w-full flex items-center justify-between gap-2 px-3 py-2 text-[13px] font-public-sans text-left transition-colors'
+  'w-full flex items-center justify-between gap-2 px-3 py-2 text-[13px] font-sans text-left transition-colors'
 
 interface CategoryCascadeSelectProps {
   tree: CategoryNode[]
@@ -93,7 +93,7 @@ export function CategoryCascadeSelect({ tree, value, onChange, disabled }: Categ
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="w-full h-10 px-3 rounded border border-border-warm bg-muted-bg/30 text-[14px] font-public-sans focus:outline-none focus:border-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between gap-2"
+        className="w-full h-10 px-3 rounded border border-border-warm bg-muted-bg/30 text-[14px] font-sans focus:outline-none focus:border-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between gap-2"
       >
         <span className={`truncate ${value ? 'text-primary' : 'text-muted-text/40'}`}>
           {value ? categoryPathLabel(tree, value) : 'Select category…'}

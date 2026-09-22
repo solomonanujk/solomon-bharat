@@ -45,26 +45,26 @@ function ProductRow({ product, onOpen }: { product: AdminProduct; onOpen: (id: s
               <Package size={14} className="text-muted-text" />
             </div>
           )}
-          <p className="text-[13px] font-[600] font-public-sans text-primary truncate max-w-[220px]">{product.name}</p>
+          <p className="text-[13px] font-[600] font-sans text-primary truncate max-w-[220px]">{product.name}</p>
         </div>
       </td>
-      <td className="py-3 px-4 text-[13px] font-public-sans text-primary">{formatINR(product.sellerPrice)}</td>
-      <td className="py-3 px-4 text-[13px] font-public-sans">
+      <td className="py-3 px-4 text-[13px] font-sans text-primary">{formatINR(product.sellerPrice)}</td>
+      <td className="py-3 px-4 text-[13px] font-sans">
         {product.adminPrice != null ? (
           <span className="text-primary font-[600]">{formatINR(product.adminPrice)}</span>
         ) : (
           <span className="text-muted-text italic">not set</span>
         )}
       </td>
-      <td className="py-3 px-4 text-[13px] font-public-sans text-muted-text text-center">{product.moq}</td>
+      <td className="py-3 px-4 text-[13px] font-sans text-muted-text text-center">{product.moq}</td>
       <td className="py-3 px-4"><StatusBadge status={product.approvalStatus} /></td>
       <td className="py-3 px-4 text-center">
         {product.isPublished ? (
-          <span className="inline-flex items-center gap-1 text-[11px] font-[600] font-public-sans text-success">
+          <span className="inline-flex items-center gap-1 text-[11px] font-[600] font-sans text-success">
             <CheckCircle2 size={12} aria-hidden="true" /> Published
           </span>
         ) : (
-          <span className="text-[11px] font-public-sans text-muted-text">Unpublished</span>
+          <span className="text-[11px] font-sans text-muted-text">Unpublished</span>
         )}
       </td>
       <td className="py-3 px-4 text-center">
@@ -74,7 +74,7 @@ function ProductRow({ product, onOpen }: { product: AdminProduct; onOpen: (id: s
           <span className="text-muted-text">—</span>
         )}
       </td>
-      <td className="py-3 px-4 text-[12px] font-public-sans text-muted-text whitespace-nowrap">
+      <td className="py-3 px-4 text-[12px] font-sans text-muted-text whitespace-nowrap">
         {new Date(product.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
       </td>
     </tr>
@@ -124,8 +124,8 @@ export default function AdminProductsPage() {
     <div>
       <div className="flex items-start justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-[28px] leading-[1.3] font-[500] font-playfair text-primary">Products</h1>
-          <p className="text-[14px] font-public-sans text-muted-text mt-1">
+          <h1 className="text-[28px] leading-[1.3] font-[500] font-display text-primary">Products</h1>
+          <p className="text-[14px] font-sans text-muted-text mt-1">
             Review, price, and publish seller-submitted products — {total.toLocaleString()} total
           </p>
         </div>
@@ -144,7 +144,7 @@ export default function AdminProductsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search products by name…"
-            className="w-full h-9 pl-9 pr-4 rounded border border-border-warm bg-surface text-[13px] font-public-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors"
+            className="w-full h-9 pl-9 pr-4 rounded border border-border-warm bg-surface text-[13px] font-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors"
           />
         </div>
         <div className="flex items-center gap-2 w-full sm:w-[280px]">
@@ -173,7 +173,7 @@ export default function AdminProductsPage() {
             type="button"
             onClick={() => handleTabChange(value)}
             className={cn(
-              'flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-[600] font-public-sans border-b-2 -mb-px transition-colors whitespace-nowrap',
+              'flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-[600] font-sans border-b-2 -mb-px transition-colors whitespace-nowrap',
               approvalStatus === value ? 'border-primary text-primary' : 'border-transparent text-muted-text hover:text-primary'
             )}
           >
@@ -221,7 +221,7 @@ export default function AdminProductsPage() {
                       <th
                         key={label}
                         className={cn(
-                          'py-3 px-4 text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em]',
+                          'py-3 px-4 text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em]',
                           align === 'center' ? 'text-center' : 'text-left'
                         )}
                       >
@@ -240,7 +240,7 @@ export default function AdminProductsPage() {
 
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-border-warm">
-                <p className="text-[12px] font-public-sans text-muted-text">
+                <p className="text-[12px] font-sans text-muted-text">
                   {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total.toLocaleString()}
                 </p>
                 <div className="flex gap-2">
@@ -248,7 +248,7 @@ export default function AdminProductsPage() {
                     type="button"
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-public-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
+                    className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
                   >
                     Prev
                   </button>
@@ -256,7 +256,7 @@ export default function AdminProductsPage() {
                     type="button"
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page >= totalPages}
-                    className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-public-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
+                    className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
                   >
                     Next
                   </button>

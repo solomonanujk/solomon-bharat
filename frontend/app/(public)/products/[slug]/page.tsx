@@ -7,6 +7,7 @@ import { ArrowLeft } from 'lucide-react'
 import { NavBar } from '@/components/shared/NavBar'
 import { Footer } from '@/components/shared/Footer'
 import { PhotoGallery } from '@/components/pdp/PhotoGallery'
+import { ProductVideoStrip } from '@/components/pdp/ProductVideoStrip'
 import { ProductInfo } from '@/components/pdp/ProductInfo'
 import { ProductCard } from '@/components/shared/ProductCard'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -21,7 +22,7 @@ function RelatedProducts({ products }: { products: import('@/types').Product[] }
   return (
     <section className="border-t border-border-warm">
       <div className="max-w-[1280px] mx-auto w-full px-6 lg:px-16 py-10">
-        <h2 className="font-playfair font-[600] text-primary text-[20px] leading-tight mb-6">
+        <h2 className="font-display font-[600] text-primary text-[20px] leading-tight mb-6">
           Related products
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
@@ -120,7 +121,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       <main className="flex-1">
         <div className="max-w-[1280px] mx-auto w-full px-4 sm:px-6 lg:px-16 py-6 sm:py-10">
           {/* Breadcrumb */}
-          <nav className="flex items-center gap-0.5 mb-8 text-[11px] font-public-sans text-muted-text" aria-label="Breadcrumb">
+          <nav className="flex items-center gap-0.5 mb-8 text-[11px] font-sans text-muted-text" aria-label="Breadcrumb">
             <button
               type="button"
               onClick={() => router.back()}
@@ -139,6 +140,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           <div className="flex flex-col lg:flex-row gap-10 lg:gap-12 lg:items-start">
             <div className="w-full lg:w-[67%] lg:sticky lg:top-[88px] lg:self-start">
               <PhotoGallery images={images} productName={product.name} />
+              <ProductVideoStrip videos={product.videos ?? []} productName={product.name} />
             </div>
 
             <div className="w-full lg:w-[33%]">

@@ -57,9 +57,14 @@ function buildProduct(overrides: Partial<Product> = {}): ProductWithMedia {
     howItIsMade: null,
     artisanName: null,
     agentPrice: null,
+    ecoMaterials: [],
+    ecoPackaging: [],
+    ecoProduction: [],
+    isBestseller: false,
+    tariffCode: null,
     ...overrides,
   };
-  return { ...product, images: [], variants: [], priceTiers: [] };
+  return { ...product, images: [], videos: [], variants: [], priceTiers: [] };
 }
 
 function buildOrder(overrides: Partial<Order> = {}): Order {

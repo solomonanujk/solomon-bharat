@@ -6,6 +6,7 @@ import type { ApprovalStatus, OrderStatus, PayoutStatus } from '@/types'
 // ─── Product approval status ──────────────────────────────────────────────────
 
 const APPROVAL_CONFIG: Record<ApprovalStatus, { label: string; variant: NonNullable<BadgeProps['variant']> }> = {
+  DRAFT: { label: 'Draft', variant: 'default' },
   PENDING: { label: 'Pending Review', variant: 'warning' },
   APPROVED: { label: 'Approved', variant: 'success' },
   REJECTED: { label: 'Rejected', variant: 'error' },

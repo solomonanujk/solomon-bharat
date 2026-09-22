@@ -47,7 +47,7 @@ export function RatingSummary({ avgRating, reviewCount, size = 13, className }: 
   return (
     <span className={cn('inline-flex items-center gap-1', className)}>
       <Star size={size} className="text-accent" fill="currentColor" aria-hidden="true" />
-      <span className="font-public-sans text-[12px] text-muted-text">
+      <span className="font-sans text-[12px] text-muted-text">
         {avgRating.toFixed(1)} ({reviewCount})
       </span>
     </span>

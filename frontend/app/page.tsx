@@ -7,7 +7,6 @@ import { NavBar } from '@/components/shared/NavBar'
 import { Footer } from '@/components/shared/Footer'
 import { HeroSection } from '@/components/homepage/HeroSection'
 import { CategorySection } from '@/components/homepage/CategorySection'
-import { FeaturedCollectionsSection } from '@/components/homepage/FeaturedCollectionsSection'
 import { RetailerHighlightSection } from '@/components/homepage/RetailerHighlightSection'
 import { HowItWorksSection } from '@/components/homepage/HowItWorksSection'
 import { TestimonialsSection } from '@/components/homepage/TestimonialsSection'
@@ -56,7 +55,6 @@ export default function HomePage() {
           <>
             <HeroSection />
             <CategorySection />
-            <FeaturedCollectionsSection />
             <RetailerHighlightSection />
             <HowItWorksSection />
             <TestimonialsSection />

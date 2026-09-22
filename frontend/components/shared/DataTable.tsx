@@ -199,7 +199,7 @@ export function DataTable<T extends Record<string, unknown>>({
       {sortedData.length > 0 && (
         <div className="flex items-center justify-between px-4 py-3 border-t border-border-warm">
           {/* Count label */}
-          <span className="text-[12px] leading-[1.3] font-[400] font-public-sans text-muted-text">
+          <span className="text-[12px] leading-[1.3] font-[400] font-sans text-muted-text">
             Showing {rangeStart}&ndash;{rangeEnd} of {sortedData.length}
           </span>
 
@@ -215,7 +215,7 @@ export function DataTable<T extends Record<string, unknown>>({
               Prev
             </Button>
 
-            <span className="text-[12px] font-[500] font-public-sans text-muted-text px-2 select-none tabular-nums">
+            <span className="text-[12px] font-[500] font-sans text-muted-text px-2 select-none tabular-nums">
               {safePage} / {totalPages}
             </span>
 

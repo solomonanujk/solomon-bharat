@@ -45,4 +45,22 @@ export class CloudinaryStorageProvider implements StorageProvider {
       stream.end(buffer);
     });
   }
+
+  uploadVideo(buffer: Buffer, filename: string, folder: string): Promise<UploadedFile> {
+    return new Promise((resolve, reject) => {
+      // upload_large_stream chunks the upload (chunk_size in bytes) — recommended by
+      // Cloudinary for anything beyond a few MB, which every product video will be.
+      const stream = cloudinary.uploader.upload_large_stream(
+        { folder, public_id: filename, resource_type: 'video', chunk_size: 6_000_000 },
+        (error, result) => {
+          if (error || !result) {
+            reject(error ?? new Error('Cloudinary video upload failed'));
+            return;
+          }
+          resolve({ url: result.secure_url, publicId: result.public_id });
+        },
+      );
+      stream.end(buffer);
+    });
+  }
 }

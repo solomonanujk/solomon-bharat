@@ -51,7 +51,7 @@ function Tile({ href, image, label }: { href: string; image: string | null; labe
           </>
         ) : (
           <div className="absolute bottom-0 left-0 w-[64px] h-[64px] rounded-[6px] bg-[#EDE4D3] flex items-center justify-center">
-            <span className="font-playfair text-[20px] font-[400] text-[#C8BEAE] select-none leading-none">
+            <span className="font-display text-[20px] font-[400] text-[#C8BEAE] select-none leading-none">
               {label.charAt(0)}
             </span>
           </div>
@@ -59,7 +59,7 @@ function Tile({ href, image, label }: { href: string; image: string | null; labe
       </div>
 
       <div className="min-w-0">
-        <p className="font-public-sans font-[600] text-[15px] text-primary leading-snug">
+        <p className="font-sans font-[600] text-[15px] text-primary leading-snug">
           {label}
         </p>
       </div>
@@ -104,7 +104,7 @@ export function CategoryTileCarousel({ categoryName, categorySlug, categoryImage
   return (
     <div className="mb-8">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="font-playfair text-[26px] sm:text-[32px] font-[500] text-primary leading-tight">
+        <h1 className="font-display text-[26px] sm:text-[32px] font-[500] text-primary leading-tight">
           {categoryName}
         </h1>
         {totalPages > 1 && (

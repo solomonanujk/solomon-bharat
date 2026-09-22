@@ -90,7 +90,7 @@ function AddSettingForm() {
 
   return (
     <div className="bg-surface border border-border-warm rounded p-6 space-y-4">
-      <h2 className="text-[16px] font-[600] font-public-sans text-primary pb-3 border-b border-border-warm flex items-center gap-2">
+      <h2 className="text-[16px] font-[600] font-sans text-primary pb-3 border-b border-border-warm flex items-center gap-2">
         <Plus size={15} aria-hidden="true" />
         Add setting
       </h2>
@@ -134,8 +134,8 @@ export default function AdminSettingsPage() {
   return (
     <div className="max-w-2xl">
       <div className="mb-6">
-        <h1 className="text-[28px] leading-[1.3] font-[500] font-playfair text-primary">Settings</h1>
-        <p className="text-[14px] font-public-sans text-muted-text mt-1">
+        <h1 className="text-[28px] leading-[1.3] font-[500] font-display text-primary">Settings</h1>
+        <p className="text-[14px] font-sans text-muted-text mt-1">
           Platform-wide key/value configuration
         </p>
       </div>
@@ -159,7 +159,7 @@ export default function AdminSettingsPage() {
 
       <AddSettingForm />
 
-      <p className="text-[12px] font-public-sans text-muted-text mt-4 flex items-center gap-1.5">
+      <p className="text-[12px] font-sans text-muted-text mt-4 flex items-center gap-1.5">
         <SettingsIcon size={12} aria-hidden="true" />
         Values are stored as JSON when they look like a number, boolean, object, or array — otherwise as plain text.
       </p>

@@ -92,7 +92,7 @@ function MemberProductRow({
         </div>
       )}
 
-      <p className="text-[13px] font-[600] font-public-sans text-primary flex-1 truncate">{product.name}</p>
+      <p className="text-[13px] font-[600] font-sans text-primary flex-1 truncate">{product.name}</p>
 
       <button
         type="button"
@@ -138,15 +138,15 @@ function AddProductPicker({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search approved products by name…"
-          className="w-full h-9 pl-9 pr-3 rounded border border-border-warm bg-surface text-[13px] font-public-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors"
+          className="w-full h-9 pl-9 pr-3 rounded border border-border-warm bg-surface text-[13px] font-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors"
         />
       </div>
 
       <div className="border border-border-warm rounded max-h-72 overflow-y-auto">
         {isLoading ? (
-          <div className="p-4 text-[13px] font-public-sans text-muted-text">Loading products…</div>
+          <div className="p-4 text-[13px] font-sans text-muted-text">Loading products…</div>
         ) : results.length === 0 ? (
-          <div className="p-4 text-[13px] font-public-sans text-muted-text">
+          <div className="p-4 text-[13px] font-sans text-muted-text">
             {query ? 'No approved products match your search.' : 'No approved products available.'}
           </div>
         ) : (
@@ -165,7 +165,7 @@ function AddProductPicker({
                     <Package size={12} className="text-muted-text" />
                   </div>
                 )}
-                <p className="text-[13px] font-public-sans text-primary flex-1 truncate">{p.name}</p>
+                <p className="text-[13px] font-sans text-primary flex-1 truncate">{p.name}</p>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -290,13 +290,13 @@ export default function AdminCollectionDetailPage() {
         <button
           type="button"
           onClick={() => router.push('/admin/collections')}
-          className="flex items-center gap-1.5 text-[13px] font-public-sans text-muted-text hover:text-primary mb-6 transition-colors"
+          className="flex items-center gap-1.5 text-[13px] font-sans text-muted-text hover:text-primary mb-6 transition-colors"
         >
           <ArrowLeft size={14} /> Back
         </button>
         <div className="bg-surface border border-border-warm rounded py-20 flex flex-col items-center gap-3">
           <ImageOff size={28} className="text-border-warm" aria-hidden="true" />
-          <p className="text-[15px] font-[600] font-public-sans text-primary">
+          <p className="text-[15px] font-[600] font-sans text-primary">
             {isError ? 'Failed to load collection' : 'Collection not found'}
           </p>
         </div>
@@ -315,7 +315,7 @@ export default function AdminCollectionDetailPage() {
         <button
           type="button"
           onClick={() => router.push('/admin/collections')}
-          className="flex items-center gap-1.5 text-[13px] font-public-sans text-muted-text hover:text-primary transition-colors"
+          className="flex items-center gap-1.5 text-[13px] font-sans text-muted-text hover:text-primary transition-colors"
         >
           <ArrowLeft size={14} />
           Back to collections
@@ -342,8 +342,8 @@ export default function AdminCollectionDetailPage() {
             </div>
           )}
           <div>
-            <h1 className="text-[24px] leading-[1.3] font-[500] font-playfair text-primary">{collection.name}</h1>
-            <p className="text-[13px] font-public-sans text-muted-text mt-0.5">/{collection.slug}</p>
+            <h1 className="text-[24px] leading-[1.3] font-[500] font-display text-primary">{collection.name}</h1>
+            <p className="text-[13px] font-sans text-muted-text mt-0.5">/{collection.slug}</p>
           </div>
         </div>
       </div>
@@ -407,7 +407,7 @@ export default function AdminCollectionDetailPage() {
 
       {/* Edit form */}
       <div className="bg-surface border border-border-warm rounded p-6 space-y-4 mb-6">
-        <h2 className="text-[16px] font-[600] font-public-sans text-primary pb-3 border-b border-border-warm">
+        <h2 className="text-[16px] font-[600] font-sans text-primary pb-3 border-b border-border-warm">
           Details
         </h2>
         <div>
@@ -428,7 +428,7 @@ export default function AdminCollectionDetailPage() {
             value={editorialIntro}
             onChange={(e) => setEditorialIntro(e.target.value)}
             rows={3}
-            className="w-full px-3 py-2 rounded border border-border-warm bg-surface text-[14px] font-public-sans text-primary placeholder:text-muted-text/60 focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-colors resize-none"
+            className="w-full px-3 py-2 rounded border border-border-warm bg-surface text-[14px] font-sans text-primary placeholder:text-muted-text/60 focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-colors resize-none"
           />
         </div>
         <div className="flex justify-end">
@@ -445,11 +445,11 @@ export default function AdminCollectionDetailPage() {
 
       {/* Product membership */}
       <div className="bg-surface border border-border-warm rounded p-6 space-y-4 mb-6">
-        <h2 className="text-[16px] font-[600] font-public-sans text-primary pb-3 border-b border-border-warm">
+        <h2 className="text-[16px] font-[600] font-sans text-primary pb-3 border-b border-border-warm">
           Products in this collection ({orderedProducts.length})
         </h2>
         {orderedProducts.length === 0 ? (
-          <p className="text-[13px] font-public-sans text-muted-text py-4 text-center">
+          <p className="text-[13px] font-sans text-muted-text py-4 text-center">
             No products in this collection yet — add some below.
           </p>
         ) : (
@@ -473,7 +473,7 @@ export default function AdminCollectionDetailPage() {
 
       {/* Add product */}
       <div className="bg-surface border border-border-warm rounded p-6 space-y-4 mb-6">
-        <h2 className="text-[16px] font-[600] font-public-sans text-primary pb-3 border-b border-border-warm">
+        <h2 className="text-[16px] font-[600] font-sans text-primary pb-3 border-b border-border-warm">
           Add a product
         </h2>
         <AddProductPicker collectionId={id} existingIds={existingIds} onImageClick={openLightbox} />

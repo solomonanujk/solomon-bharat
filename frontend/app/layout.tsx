@@ -6,9 +6,11 @@ import { Providers } from '@/providers/Providers'
 // Editorial serif — homepage hero and other large editorial moments only.
 // Fraunces is a free, open-license stand-in for Faire's Nantes: same warm,
 // generous-x-height serif character, without the commercial licensing.
+// Kept as a distinctly-named raw variable (not `--font-display` itself) so the
+// Tailwind theme token below can point at it without a self-referential cycle.
 const fraunces = Fraunces({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
+  weight: ['400', '500', '600', '700'],
   variable: '--font-playfair',
   display: 'swap',
 })

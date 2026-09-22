@@ -56,8 +56,12 @@ export default function SellerPortalLayout({
         <PortalSidebar />
       </div>
 
-      {/* Main area */}
-      <div className="flex-1 lg:ml-[260px] flex flex-col min-h-screen">
+      {/* Main area — min-w-0 is load-bearing: without it, a flex item won't
+         shrink below its content's intrinsic width, so a wide table deep inside
+         (e.g. the variant options table) would push this whole column wider
+         than the viewport instead of scrolling within its own overflow-x-auto
+         wrapper, causing the entire page to scroll horizontally. */}
+      <div className="flex-1 min-w-0 lg:ml-[190px] flex flex-col min-h-screen">
         {/* Top bar */}
         <header className="h-16 border-b border-border-warm bg-white flex items-center justify-between px-6 sticky top-0 z-20">
           {/* Search */}
@@ -70,7 +74,7 @@ export default function SellerPortalLayout({
             <input
               type="search"
               placeholder="Search products, orders..."
-              className="w-full h-9 pl-9 pr-4 rounded-md border border-border-warm bg-bg text-[13.5px] font-public-sans text-primary placeholder:text-[#9CA3AF] focus:outline-none focus:border-accent transition-colors"
+              className="w-full h-9 pl-9 pr-4 rounded-md border border-border-warm bg-bg text-[13.5px] font-sans text-primary placeholder:text-[#9CA3AF] focus:outline-none focus:border-accent transition-colors"
             />
           </div>
 
@@ -90,7 +94,7 @@ export default function SellerPortalLayout({
               className="w-8 h-8 rounded-full bg-muted-bg border border-border-warm flex items-center justify-center shrink-0"
               aria-label="User menu"
             >
-              <span className="text-[11px] font-[700] font-public-sans text-accent">
+              <span className="text-[11px] font-[700] font-sans text-accent">
                 {sellerInitials}
               </span>
             </div>
@@ -98,7 +102,7 @@ export default function SellerPortalLayout({
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-8 max-lg:p-4 pb-24 lg:pb-8">
+        <main className="flex-1 min-w-0 p-8 max-lg:p-4 pb-24 lg:pb-8">
           {children}
         </main>
       </div>
@@ -109,7 +113,7 @@ export default function SellerPortalLayout({
           <Link
             key={href}
             href={href}
-            className="flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 text-[10px] font-[600] font-public-sans text-[#9CA3AF] hover:text-primary transition-colors"
+            className="flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 text-[10px] font-[600] font-sans text-[#9CA3AF] hover:text-primary transition-colors"
           >
             {label}
           </Link>

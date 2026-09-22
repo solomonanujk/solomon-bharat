@@ -62,7 +62,7 @@ export function FiltersDrawer({ open, onOpenChange, filters, onChange, totalCoun
       <SheetContent side="left" className="flex flex-col w-[400px]">
         <SheetHeader>
           {hasActiveFilters ? (
-            <p className="text-[16px] font-[600] font-public-sans text-primary">
+            <p className="text-[16px] font-[600] font-sans text-primary">
               {filterCount} filter{filterCount === 1 ? '' : 's'} applied
             </p>
           ) : (
@@ -73,7 +73,7 @@ export function FiltersDrawer({ open, onOpenChange, filters, onChange, totalCoun
               <button
                 type="button"
                 onClick={() => onChange(EMPTY_FILTERS)}
-                className="text-[13px] font-[500] font-public-sans text-primary underline underline-offset-2 hover:opacity-70 transition-opacity"
+                className="text-[13px] font-[500] font-sans text-primary underline underline-offset-2 hover:opacity-70 transition-opacity"
               >
                 Clear all
               </button>
@@ -90,7 +90,7 @@ export function FiltersDrawer({ open, onOpenChange, filters, onChange, totalCoun
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="w-full h-12 rounded bg-primary text-white text-[14px] font-[600] font-public-sans hover:bg-[#2a2a2a] transition-colors"
+            className="w-full h-12 rounded bg-primary text-white text-[14px] font-[600] font-sans hover:bg-[#2a2a2a] transition-colors"
           >
             Show {totalCount.toLocaleString()} product{totalCount === 1 ? '' : 's'}
           </button>

@@ -39,6 +39,10 @@ export class LocalDiskStorageProvider implements StorageProvider {
       publicId: relativePath,
     };
   }
+
+  async uploadVideo(buffer: Buffer, filename: string, folder: string): Promise<UploadedFile> {
+    return this.uploadFile(buffer, filename, folder);
+  }
 }
 
 export { UPLOADS_ROOT };

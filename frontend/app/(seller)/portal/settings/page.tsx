@@ -8,17 +8,17 @@ import { useMySellerProfile, useUpdateMySellerProfile } from '@/hooks/queries/us
 import { useMe, useForgotPassword } from '@/hooks/queries/useAuth'
 
 const INPUT_CLS =
-  'w-full h-10 px-3 rounded border border-border-warm bg-transparent text-[14px] font-public-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors'
+  'w-full h-10 px-3 rounded border border-border-warm bg-transparent text-[14px] font-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors'
 
 const TEXTAREA_CLS =
-  'w-full px-3 py-2.5 rounded border border-border-warm bg-transparent text-[14px] font-public-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors resize-none'
+  'w-full px-3 py-2.5 rounded border border-border-warm bg-transparent text-[14px] font-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors resize-none'
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
     <section className="border border-border-warm rounded bg-surface mb-6">
       <div className="px-6 py-5 border-b border-border-warm">
-        <h2 className="text-[16px] leading-[1.3] font-[600] font-public-sans text-primary">{title}</h2>
-        {description && <p className="text-[13px] font-public-sans text-muted-text mt-0.5">{description}</p>}
+        <h2 className="text-[16px] leading-[1.3] font-[600] font-sans text-primary">{title}</h2>
+        {description && <p className="text-[13px] font-sans text-muted-text mt-0.5">{description}</p>}
       </div>
       <div className="p-6">{children}</div>
     </section>
@@ -28,11 +28,11 @@ function Section({ title, description, children }: { title: string; description?
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.05em] mb-1.5">
+      <label className="block text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.05em] mb-1.5">
         {label}
       </label>
       {children}
-      {hint && <p className="text-[11px] font-public-sans text-muted-text mt-1">{hint}</p>}
+      {hint && <p className="text-[11px] font-sans text-muted-text mt-1">{hint}</p>}
     </div>
   )
 }
@@ -119,7 +119,7 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-[24px] leading-[1.3] font-[500] font-playfair text-primary mb-6">Settings</h1>
+      <h1 className="text-[24px] leading-[1.3] font-[500] font-display text-primary mb-6">Settings</h1>
 
       {/* ── Business Profile ────────────────────────────────────────────── */}
       <Section title="Business Profile" description="Basic information Solomon Bharat uses to work with you.">
@@ -155,8 +155,8 @@ export default function SettingsPage() {
           {NOTIFICATION_KEYS.map(({ key, label, hint }) => (
             <div key={key} className="flex items-center justify-between gap-4 py-3.5 first:pt-0 last:pb-0">
               <div className="min-w-0">
-                <p className="text-[14px] font-[500] font-public-sans text-primary">{label}</p>
-                <p className="text-[12px] font-public-sans text-muted-text mt-0.5">{hint}</p>
+                <p className="text-[14px] font-[500] font-sans text-primary">{label}</p>
+                <p className="text-[12px] font-sans text-muted-text mt-0.5">{hint}</p>
               </div>
               <Toggle checked={notificationPrefs[key] !== false} onChange={(v) => toggleNotification(key, v)} />
             </div>
@@ -174,8 +174,8 @@ export default function SettingsPage() {
       <Section title="Security" description="Manage your login credentials.">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-[14px] font-[500] font-public-sans text-primary">Password</p>
-            <p className="text-[12px] font-public-sans text-muted-text mt-0.5">
+            <p className="text-[14px] font-[500] font-sans text-primary">Password</p>
+            <p className="text-[12px] font-sans text-muted-text mt-0.5">
               {me?.email ? `We'll email a reset link to ${me.email}.` : 'Send a password reset link to your account email.'}
             </p>
           </div>

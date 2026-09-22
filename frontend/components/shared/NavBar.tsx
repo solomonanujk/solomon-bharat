@@ -128,7 +128,7 @@ function CurrencySelector({ ghost }: { ghost?: boolean }) {
         aria-expanded={open}
         aria-label={`Currency: ${currency}`}
         className={cn(
-          'inline-flex items-center gap-1.5 h-9 px-2.5 rounded text-[15px] font-[600] font-public-sans transition-colors',
+          'inline-flex items-center gap-1.5 h-9 px-2.5 rounded text-[15px] font-[600] font-sans transition-colors',
           ghost ? 'text-white hover:bg-white/10' : 'text-muted-text hover:text-primary hover:bg-muted-bg'
         )}
       >
@@ -148,10 +148,10 @@ function CurrencySelector({ ghost }: { ghost?: boolean }) {
                 onClick={() => { setCurrency(c); setOpen(false) }}
                 className={cn('w-full flex items-center justify-between px-4 py-2.5 transition-colors', active ? 'bg-muted-bg' : 'hover:bg-muted-bg')}
               >
-                <span className={cn('text-[13px] font-public-sans', active ? 'text-primary font-[600]' : 'text-muted-text')}>
+                <span className={cn('text-[13px] font-sans', active ? 'text-primary font-[600]' : 'text-muted-text')}>
                   {getCurrencyName(c)}
                 </span>
-                <span className={cn('text-[12px] font-[600] font-public-sans ml-3', active ? 'text-primary' : 'text-muted-text/70')}>
+                <span className={cn('text-[12px] font-[600] font-sans ml-3', active ? 'text-primary' : 'text-muted-text/70')}>
                   {c}
                 </span>
               </button>
@@ -210,7 +210,7 @@ function CategoryMegaMenu({ ghost }: { ghost?: boolean }) {
         aria-expanded={open}
         aria-haspopup="true"
         className={cn(
-          'inline-flex items-center gap-1.5 h-9 px-4 rounded-full text-[15px] font-[500] font-public-sans transition-colors',
+          'inline-flex items-center gap-1.5 h-9 px-4 rounded-full text-[15px] font-[500] font-sans transition-colors',
           ghost ? 'text-white hover:bg-white/10' : 'text-primary hover:bg-muted-bg'
         )}
       >
@@ -233,7 +233,7 @@ function CategoryMegaMenu({ ghost }: { ghost?: boolean }) {
             <div className="flex gap-14 flex-wrap">
               {/* Column 1 — level 1 */}
               <div className="flex flex-col gap-1 min-w-[180px] flex-shrink-0">
-                <p className="text-[11px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em] mb-2">
+                <p className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-2">
                   Categories
                 </p>
                 {tree.map((category, i) => (
@@ -243,7 +243,7 @@ function CategoryMegaMenu({ ghost }: { ghost?: boolean }) {
                     onClick={() => setOpen(false)}
                     onMouseEnter={() => handleHoverL1(i)}
                     className={cn(
-                      'py-1.5 text-[15px] font-public-sans transition-colors',
+                      'py-1.5 text-[15px] font-sans transition-colors',
                       i === activeL1
                         ? 'text-primary font-[600] underline underline-offset-4'
                         : 'text-muted-text hover:text-primary'
@@ -257,7 +257,7 @@ function CategoryMegaMenu({ ghost }: { ghost?: boolean }) {
               {/* Column 2 — level 2 of the active level 1 */}
               {level2.length > 0 && (
                 <div className="flex flex-col gap-1 min-w-[200px] flex-shrink-0">
-                  <p className="text-[11px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em] mb-2">
+                  <p className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-2">
                     {activeL1Category?.name}
                   </p>
                   {level2.map((category, i) => (
@@ -267,7 +267,7 @@ function CategoryMegaMenu({ ghost }: { ghost?: boolean }) {
                       onClick={() => setOpen(false)}
                       onMouseEnter={() => setActiveL2(i)}
                       className={cn(
-                        'py-1.5 text-[15px] font-public-sans transition-colors',
+                        'py-1.5 text-[15px] font-sans transition-colors',
                         i === activeL2
                           ? 'text-primary font-[600] underline underline-offset-4'
                           : 'text-muted-text hover:text-primary'
@@ -282,7 +282,7 @@ function CategoryMegaMenu({ ghost }: { ghost?: boolean }) {
               {/* Column 3 — level 3 of the active level 2 */}
               {level3.length > 0 && (
                 <div className="flex flex-col gap-1 min-w-[200px] flex-shrink-0">
-                  <p className="text-[11px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em] mb-2">
+                  <p className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-2">
                     {activeL2Category?.name}
                   </p>
                   {level3.map((category) => (
@@ -290,7 +290,7 @@ function CategoryMegaMenu({ ghost }: { ghost?: boolean }) {
                       key={category.id}
                       href={`/categories/${category.slug}`}
                       onClick={() => setOpen(false)}
-                      className="py-1.5 text-[15px] font-public-sans text-muted-text hover:text-primary transition-colors"
+                      className="py-1.5 text-[15px] font-sans text-muted-text hover:text-primary transition-colors"
                     >
                       {category.name}
                     </Link>
@@ -355,7 +355,7 @@ function NavSearchBar({ ghost, initialQuery }: { ghost?: boolean; initialQuery?:
           placeholder='Search for "tote bags"'
           aria-label="Search products"
           className={cn(
-            'w-full h-11 pl-10 pr-9 rounded-full text-[15px] font-public-sans border transition-colors focus:outline-none',
+            'w-full h-11 pl-10 pr-9 rounded-full text-[15px] font-sans border transition-colors focus:outline-none',
             '[&::-webkit-search-cancel-button]:appearance-none',
             ghost
               ? 'bg-white/10 border-white/20 text-white placeholder:text-white/60 focus:bg-white/20'
@@ -403,7 +403,7 @@ function CategoryQuickLinksRow({ ghost }: { ghost?: boolean }) {
             key={link.href}
             href={link.href}
             className={cn(
-              'flex-shrink-0 whitespace-nowrap text-[14px] font-[500] font-public-sans transition-colors',
+              'flex-shrink-0 whitespace-nowrap text-[14px] font-[500] font-sans transition-colors',
               ghost ? 'text-white/85 hover:text-white' : 'text-muted-text hover:text-primary'
             )}
           >
@@ -415,7 +415,7 @@ function CategoryQuickLinksRow({ ghost }: { ghost?: boolean }) {
             key={category.id}
             href={`/categories/${category.slug}`}
             className={cn(
-              'flex-shrink-0 whitespace-nowrap text-[14px] font-[500] font-public-sans transition-colors',
+              'flex-shrink-0 whitespace-nowrap text-[14px] font-[500] font-sans transition-colors',
               ghost ? 'text-white/85 hover:text-white' : 'text-muted-text hover:text-primary'
             )}
           >
@@ -444,7 +444,7 @@ function CartButton({ ghost }: { ghost?: boolean }) {
     >
       <ShoppingCart size={17} aria-hidden="true" />
       {totalItems > 0 && (
-        <span className="absolute top-1 right-1 min-w-[14px] h-[14px] rounded-full bg-accent text-white text-[9px] font-[700] font-public-sans flex items-center justify-center px-0.5 tabular-nums leading-none pointer-events-none">
+        <span className="absolute top-1 right-1 min-w-[14px] h-[14px] rounded-full bg-accent text-white text-[9px] font-[700] font-sans flex items-center justify-center px-0.5 tabular-nums leading-none pointer-events-none">
           {totalItems > 99 ? '99+' : totalItems}
         </span>
       )}
@@ -484,7 +484,7 @@ function NotificationBell({ ghost }: { ghost?: boolean }) {
       >
         <Bell size={17} aria-hidden="true" />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 min-w-[14px] h-[14px] rounded-full bg-accent text-white text-[9px] font-[700] font-public-sans flex items-center justify-center px-0.5 tabular-nums leading-none pointer-events-none">
+          <span className="absolute top-1 right-1 min-w-[14px] h-[14px] rounded-full bg-accent text-white text-[9px] font-[700] font-sans flex items-center justify-center px-0.5 tabular-nums leading-none pointer-events-none">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -493,12 +493,12 @@ function NotificationBell({ ghost }: { ghost?: boolean }) {
       {open && (
         <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border-warm rounded shadow-[0_4px_20px_rgba(26,26,26,0.08)] w-[340px] max-h-[420px] flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border-warm flex-shrink-0">
-            <span className="text-[13px] font-[600] font-public-sans text-primary">Notifications</span>
+            <span className="text-[13px] font-[600] font-sans text-primary">Notifications</span>
             {unreadCount > 0 && (
               <button
                 type="button"
                 onClick={() => markAllRead.mutate()}
-                className="text-[11.5px] font-[600] font-public-sans text-accent hover:underline"
+                className="text-[11.5px] font-[600] font-sans text-accent hover:underline"
               >
                 Mark all read
               </button>
@@ -507,15 +507,15 @@ function NotificationBell({ ghost }: { ghost?: boolean }) {
 
           <div className="flex-1 overflow-y-auto">
             {notifications.length === 0 ? (
-              <p className="px-4 py-8 text-center text-[13px] font-public-sans text-muted-text">
+              <p className="px-4 py-8 text-center text-[13px] font-sans text-muted-text">
                 No notifications yet.
               </p>
             ) : (
               notifications.map((n) => {
                 const body = (
                   <div className={cn('px-4 py-3 border-b border-border-warm last:border-0', !n.isRead && 'bg-accent/5')}>
-                    <p className="text-[13px] font-[600] font-public-sans text-primary leading-snug">{n.title}</p>
-                    <p className="text-[12px] font-public-sans text-muted-text mt-0.5 leading-snug line-clamp-2">
+                    <p className="text-[13px] font-[600] font-sans text-primary leading-snug">{n.title}</p>
+                    <p className="text-[12px] font-sans text-muted-text mt-0.5 leading-snug line-clamp-2">
                       {n.message}
                     </p>
                   </div>
@@ -546,7 +546,7 @@ function NotificationBell({ ghost }: { ghost?: boolean }) {
           <Link
             href="/notifications"
             onClick={() => setOpen(false)}
-            className="block text-center py-2.5 text-[12.5px] font-[600] font-public-sans text-accent border-t border-border-warm hover:bg-muted-bg transition-colors flex-shrink-0"
+            className="block text-center py-2.5 text-[12.5px] font-[600] font-sans text-accent border-t border-border-warm hover:bg-muted-bg transition-colors flex-shrink-0"
           >
             View all
           </Link>
@@ -584,7 +584,7 @@ function UserDropdown() {
       {open && (
         <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border-warm rounded shadow-[0_4px_20px_rgba(26,26,26,0.08)] min-w-[220px]">
           <div className="px-4 py-3 border-b border-border-warm">
-            <p className="text-[13px] font-[600] font-public-sans text-primary truncate">{user.email}</p>
+            <p className="text-[13px] font-[600] font-sans text-primary truncate">{user.email}</p>
           </div>
 
           {(user.role === 'BUYER' || user.role === 'AGENT') && (
@@ -594,7 +594,7 @@ function UserDropdown() {
                   key={href}
                   href={href}
                   onClick={() => setOpen(false)}
-                  className="flex items-center gap-2.5 px-4 py-2 text-[13px] font-[500] font-public-sans text-muted-text hover:text-primary hover:bg-muted-bg transition-colors"
+                  className="flex items-center gap-2.5 px-4 py-2 text-[13px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg transition-colors"
                 >
                   <Icon size={13} aria-hidden="true" />
                   {label}
@@ -604,7 +604,7 @@ function UserDropdown() {
                 <Link
                   href="/catalogue"
                   onClick={() => setOpen(false)}
-                  className="flex items-center gap-2.5 px-4 py-2 text-[13px] font-[500] font-public-sans text-muted-text hover:text-primary hover:bg-muted-bg transition-colors"
+                  className="flex items-center gap-2.5 px-4 py-2 text-[13px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg transition-colors"
                 >
                   <Layers size={13} aria-hidden="true" />
                   My Catalogues
@@ -618,7 +618,7 @@ function UserDropdown() {
               <Link
                 href="/admin"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-2 text-[13px] font-[500] font-public-sans text-muted-text hover:text-primary hover:bg-muted-bg transition-colors"
+                className="flex items-center gap-2.5 px-4 py-2 text-[13px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg transition-colors"
               >
                 <LayoutDashboard size={13} aria-hidden="true" />
                 Admin Panel
@@ -631,7 +631,7 @@ function UserDropdown() {
               <Link
                 href="/portal"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-2 text-[13px] font-[500] font-public-sans text-muted-text hover:text-primary hover:bg-muted-bg transition-colors"
+                className="flex items-center gap-2.5 px-4 py-2 text-[13px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg transition-colors"
               >
                 <LayoutDashboard size={13} aria-hidden="true" />
                 Seller Portal
@@ -643,7 +643,7 @@ function UserDropdown() {
             <button
               type="button"
               onClick={() => { logout(); setOpen(false) }}
-              className="w-full flex items-center gap-2.5 px-4 py-2 text-[13px] font-[500] font-public-sans text-muted-text hover:text-red-500 hover:bg-muted-bg transition-colors"
+              className="w-full flex items-center gap-2.5 px-4 py-2 text-[13px] font-[500] font-sans text-muted-text hover:text-red-500 hover:bg-muted-bg transition-colors"
             >
               <LogOut size={13} aria-hidden="true" />
               Sign out
@@ -680,7 +680,7 @@ function MobileNavDrawer({ open, onClose }: { open: boolean; onClose: () => void
         <nav className="flex flex-col px-6 py-4 flex-1 overflow-y-auto gap-0">
           {isAuthenticated && user && (
             <div className="mb-4 pb-4 border-b border-border-warm">
-              <p className="text-[13px] font-public-sans text-muted-text">{user.email}</p>
+              <p className="text-[13px] font-sans text-muted-text">{user.email}</p>
 
               {(user.role === 'BUYER' || user.role === 'AGENT') && (
                 <div className="mt-3 flex flex-col gap-0.5">
@@ -689,7 +689,7 @@ function MobileNavDrawer({ open, onClose }: { open: boolean; onClose: () => void
                       key={href}
                       href={href}
                       onClick={onClose}
-                      className="flex items-center gap-2.5 py-2 text-[13px] font-[500] font-public-sans text-muted-text hover:text-primary transition-colors"
+                      className="flex items-center gap-2.5 py-2 text-[13px] font-[500] font-sans text-muted-text hover:text-primary transition-colors"
                     >
                       <Icon size={13} aria-hidden="true" />
                       {label}
@@ -699,7 +699,7 @@ function MobileNavDrawer({ open, onClose }: { open: boolean; onClose: () => void
                     <Link
                       href="/catalogue"
                       onClick={onClose}
-                      className="flex items-center gap-2.5 py-2 text-[13px] font-[500] font-public-sans text-muted-text hover:text-primary transition-colors"
+                      className="flex items-center gap-2.5 py-2 text-[13px] font-[500] font-sans text-muted-text hover:text-primary transition-colors"
                     >
                       <Layers size={13} aria-hidden="true" />
                       My Catalogues
@@ -710,12 +710,12 @@ function MobileNavDrawer({ open, onClose }: { open: boolean; onClose: () => void
             </div>
           )}
 
-          <Link href="/" onClick={onClose} className="py-3 text-[15px] font-[500] font-public-sans text-primary hover:text-accent transition-colors border-b border-border-warm/50">
+          <Link href="/" onClick={onClose} className="py-3 text-[15px] font-[500] font-sans text-primary hover:text-accent transition-colors border-b border-border-warm/50">
             Home
           </Link>
 
           <div className="mt-5 pt-4 border-t border-border-warm">
-            <p className="text-[11px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em] mb-3">
+            <p className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-3">
               Currency
             </p>
             <div className="flex flex-col gap-1 max-h-[220px] overflow-y-auto">
@@ -731,10 +731,10 @@ function MobileNavDrawer({ open, onClose }: { open: boolean; onClose: () => void
                       active ? 'border-primary bg-primary/5' : 'border-border-warm hover:border-primary/40 hover:bg-muted-bg'
                     )}
                   >
-                    <span className={cn('text-[13px] font-public-sans', active ? 'text-primary font-[600]' : 'text-muted-text')}>
+                    <span className={cn('text-[13px] font-sans', active ? 'text-primary font-[600]' : 'text-muted-text')}>
                       {getCurrencyName(c)}
                     </span>
-                    <span className={cn('text-[12px] font-[600] font-public-sans', active ? 'text-primary' : 'text-muted-text/60')}>
+                    <span className={cn('text-[12px] font-[600] font-sans', active ? 'text-primary' : 'text-muted-text/60')}>
                       {c}
                     </span>
                   </button>
@@ -832,7 +832,7 @@ export function NavBar({ transparent = false, initialSearchQuery }: NavBarProps)
                 <Link
                   href="/sell"
                   className={cn(
-                    'inline-flex items-center h-9 px-3 rounded text-[15px] font-[500] font-public-sans transition-colors',
+                    'inline-flex items-center h-9 px-3 rounded text-[15px] font-[500] font-sans transition-colors',
                     pathname?.startsWith('/sell')
                       ? ghost ? 'text-white bg-white/10' : 'text-primary font-[600] bg-muted-bg'
                       : ghost ? 'text-white/80 hover:text-white hover:bg-white/10' : 'text-muted-text hover:text-primary hover:bg-muted-bg'
@@ -844,7 +844,7 @@ export function NavBar({ transparent = false, initialSearchQuery }: NavBarProps)
                   type="button"
                   onClick={() => openAuthModal('login')}
                   className={cn(
-                    'inline-flex items-center h-9 px-3 rounded text-[15px] font-[500] font-public-sans transition-colors',
+                    'inline-flex items-center h-9 px-3 rounded text-[15px] font-[500] font-sans transition-colors',
                     ghost ? 'text-white/80 hover:text-white hover:bg-white/10' : 'text-muted-text hover:text-primary hover:bg-muted-bg'
                   )}
                 >
@@ -854,7 +854,7 @@ export function NavBar({ transparent = false, initialSearchQuery }: NavBarProps)
                   type="button"
                   onClick={() => openAuthModal('signup')}
                   className={cn(
-                    'inline-flex items-center h-9 px-5 ml-1 rounded font-[600] font-public-sans text-[15px] transition-colors',
+                    'inline-flex items-center h-9 px-5 ml-1 rounded font-[600] font-sans text-[15px] transition-colors',
                     ghost ? 'bg-white text-primary hover:bg-white/90' : 'bg-primary text-white hover:bg-[#2a2a2a]'
                   )}
                 >

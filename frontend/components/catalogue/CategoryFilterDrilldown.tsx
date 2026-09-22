@@ -28,7 +28,7 @@ function Row({ label, active, indent, onClick }: { label: string; active: boolea
       type="button"
       onClick={onClick}
       className={cn(
-        'block text-left py-1.5 text-[14px] font-public-sans transition-colors',
+        'block text-left py-1.5 text-[14px] font-sans transition-colors',
         indent && 'pl-4',
         active ? 'text-primary underline underline-offset-2' : 'text-primary hover:opacity-70'
       )}
@@ -44,7 +44,7 @@ function ShowMoreToggle({ expanded, onClick, indent }: { expanded: boolean; onCl
       type="button"
       onClick={onClick}
       className={cn(
-        'text-left py-1.5 text-[14px] font-[500] font-public-sans text-primary underline underline-offset-2 hover:opacity-70 transition-opacity',
+        'text-left py-1.5 text-[14px] font-[500] font-sans text-primary underline underline-offset-2 hover:opacity-70 transition-opacity',
         indent && 'pl-4'
       )}
     >

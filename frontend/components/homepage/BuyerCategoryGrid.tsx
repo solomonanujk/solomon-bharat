@@ -61,7 +61,7 @@ function CategoryCard({ category }: { category: CategoryNode }) {
           </>
         ) : (
           <div className="absolute bottom-0 left-0 w-[64px] h-[64px] rounded-[6px] bg-[#EDE4D3] flex items-center justify-center">
-            <span className="font-playfair text-[20px] font-[400] text-[#C8BEAE] select-none leading-none">
+            <span className="font-display text-[20px] font-[400] text-[#C8BEAE] select-none leading-none">
               {category.name.charAt(0)}
             </span>
           </div>
@@ -69,7 +69,7 @@ function CategoryCard({ category }: { category: CategoryNode }) {
       </div>
 
       <div className="min-w-0">
-        <p className="font-public-sans font-[600] text-[15px] text-primary leading-snug">
+        <p className="font-sans font-[600] text-[15px] text-primary leading-snug">
           {category.name}
         </p>
       </div>

@@ -15,7 +15,7 @@ export type OrderStatus =
   | 'DELIVERED'
   | 'CANCELLED'
 
-export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'RESUBMITTED'
+export type ApprovalStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'RESUBMITTED'
 export type CategoryStatus = 'ACTIVE' | 'ARCHIVED'
 export type CollectionStatus = 'DRAFT' | 'SCHEDULED' | 'PUBLISHED' | 'ARCHIVED'
 export type SellerApplicationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'MORE_INFO_REQUESTED'
@@ -80,6 +80,12 @@ export interface ProductImage {
   sortOrder: number
 }
 
+export interface ProductVideo {
+  id: string
+  url: string
+  sortOrder: number
+}
+
 export interface ProductPriceTier {
   /** Absent for a tier the seller hasn't saved yet (not yet assigned a real id). */
   id?: string
@@ -107,6 +113,9 @@ export interface VariantAttribute {
 
 export type VariantStatus = 'ACTIVE' | 'INACTIVE' | 'OUT_OF_STOCK'
 
+export type WeightUnit = 'kg' | 'lb'
+export type DimensionUnit = 'cm' | 'in'
+
 export interface ProductVariant {
   id: string
   type: string
@@ -116,6 +125,15 @@ export interface ProductVariant {
   imageUrl?: string | null
   attributes?: VariantAttribute[]
   priceTiers?: ProductPriceTier[]
+  // Faire-parity per-variant shipping/inventory detail (PRD §8.5/§8.9, §15.3).
+  weight?: number | null
+  weightUnit?: WeightUnit | null
+  length?: number | null
+  width?: number | null
+  height?: number | null
+  dimensionUnit?: DimensionUnit | null
+  tariffCode?: string | null
+  inventory?: number | null
 }
 
 /** Listing-detail fields shared by every product projection. */
@@ -127,6 +145,11 @@ export interface ProductListingDetails {
   isGITagged: boolean
   howItIsMade: string | null
   artisanName: string | null
+  ecoMaterials: string[]
+  ecoPackaging: string[]
+  ecoProduction: string[]
+  isBestseller: boolean
+  tariffCode: string | null
 }
 
 /** Buyer-safe projection — never includes sellerId/sellerPrice/declaredStock. */
@@ -150,6 +173,7 @@ export interface Product extends ProductListingDetails {
   isFeatured: boolean
   publishedAt: string | null
   images: ProductImage[]
+  videos: ProductVideo[]
   variants: ProductVariant[]
   related?: Product[]
   avgRating: number | null
@@ -202,6 +226,7 @@ export interface MyProduct extends ProductListingDetails {
   rejectionReason: string | null
   isPublished: boolean
   images: ProductImage[]
+  videos: ProductVideo[]
   variants: ProductVariant[]
   priceTiers: ProductPriceTier[]
   createdAt: string

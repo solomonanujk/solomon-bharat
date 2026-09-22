@@ -167,7 +167,7 @@ function DialogTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingEl
   return (
     <h2
       className={cn(
-        'text-[24px] leading-[1.3] font-[500] font-playfair text-primary',
+        'text-[24px] leading-[1.3] font-[500] font-display text-primary',
         className
       )}
       {...props}
@@ -181,7 +181,7 @@ function DialogDescription({ className, ...props }: React.HTMLAttributes<HTMLPar
   return (
     <p
       className={cn(
-        'text-[14px] leading-[1.4] font-[400] font-public-sans text-muted-text',
+        'text-[14px] leading-[1.4] font-[400] font-sans text-muted-text',
         className
       )}
       {...props}

@@ -27,14 +27,14 @@ function ChatBubble({ message }: { message: BuyerMessage }) {
     <div className={cn('flex', isMe ? 'justify-end' : 'justify-start')}>
       <div className="max-w-[72%]">
         <div className={cn(
-          'px-4 py-2.5 rounded-2xl font-public-sans text-[14px] leading-[1.6]',
+          'px-4 py-2.5 rounded-2xl font-sans text-[14px] leading-[1.6]',
           isMe
             ? 'bg-primary text-white rounded-br-sm'
             : 'bg-surface border border-border-warm text-primary rounded-bl-sm'
         )}>
           {message.body}
         </div>
-        <p className={cn('font-public-sans text-[11px] text-muted-text mt-1', isMe ? 'text-right' : 'text-left')}>
+        <p className={cn('font-sans text-[11px] text-muted-text mt-1', isMe ? 'text-right' : 'text-left')}>
           {isMe ? 'You' : 'Solomon Bharat'} &middot; {formatTime(message.createdAt)}
         </p>
       </div>
@@ -66,12 +66,12 @@ export default function MessagesPage() {
       <div className="border border-border-warm rounded overflow-hidden flex flex-col h-[calc(100dvh-260px)] min-h-[420px] md:h-[calc(100vh-320px)] md:min-h-[520px]">
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border-warm bg-surface flex-shrink-0">
-          <div className="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0 font-playfair font-[600] text-accent text-[15px]">
+          <div className="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0 font-display font-[600] text-accent text-[15px]">
             SB
           </div>
           <div>
-            <p className="font-public-sans text-[13px] font-[700] text-primary">Solomon Bharat Support</p>
-            <p className="font-public-sans text-[11px] text-muted-text">We usually reply within one business day</p>
+            <p className="font-sans text-[13px] font-[700] text-primary">Solomon Bharat Support</p>
+            <p className="font-sans text-[11px] text-muted-text">We usually reply within one business day</p>
           </div>
         </div>
 
@@ -85,7 +85,7 @@ export default function MessagesPage() {
           {!isLoading && messages.length === 0 && (
             <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
               <MessageSquare size={24} className="text-muted-text mb-2" aria-hidden="true" />
-              <p className="font-public-sans text-[13px] text-muted-text">
+              <p className="font-sans text-[13px] text-muted-text">
                 No messages yet. Send a note to the Solomon Bharat team below.
               </p>
             </div>
@@ -106,7 +106,7 @@ export default function MessagesPage() {
               }}
               placeholder="Message Solomon Bharat…"
               rows={1}
-              className="flex-1 resize-none rounded border border-border-warm bg-muted-bg px-3 py-2 font-public-sans text-[13px] text-primary placeholder:text-muted-text/60 focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-colors leading-[1.5] max-h-[120px]"
+              className="flex-1 resize-none rounded border border-border-warm bg-muted-bg px-3 py-2 font-sans text-[13px] text-primary placeholder:text-muted-text/60 focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-colors leading-[1.5] max-h-[120px]"
               style={{ fieldSizing: 'content' } as React.CSSProperties}
             />
             <button
@@ -119,7 +119,7 @@ export default function MessagesPage() {
               <Send size={14} aria-hidden="true" />
             </button>
           </div>
-          <p className="font-public-sans text-[11px] text-muted-text/60 mt-1.5">
+          <p className="font-sans text-[11px] text-muted-text/60 mt-1.5">
             Press Enter to send &middot; Shift+Enter for new line
           </p>
         </div>

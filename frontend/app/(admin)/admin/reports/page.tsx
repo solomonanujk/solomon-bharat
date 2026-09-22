@@ -73,8 +73,8 @@ export default function AdminReportsPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-[28px] leading-[1.3] font-[500] font-playfair text-primary">Reports</h1>
-        <p className="text-[14px] font-public-sans text-muted-text mt-1">
+        <h1 className="text-[28px] leading-[1.3] font-[500] font-display text-primary">Reports</h1>
+        <p className="text-[14px] font-sans text-muted-text mt-1">
           Analytics and exports across revenue, orders, sellers, products, categories, and collections
         </p>
       </div>
@@ -102,7 +102,7 @@ export default function AdminReportsPage() {
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="h-10 px-3 rounded border border-border-warm bg-surface text-[14px] font-public-sans text-primary focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-colors"
+            className="h-10 px-3 rounded border border-border-warm bg-surface text-[14px] font-sans text-primary focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-colors"
           />
         </div>
 
@@ -113,7 +113,7 @@ export default function AdminReportsPage() {
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            className="h-10 px-3 rounded border border-border-warm bg-surface text-[14px] font-public-sans text-primary focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-colors"
+            className="h-10 px-3 rounded border border-border-warm bg-surface text-[14px] font-sans text-primary focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-colors"
           />
         </div>
 
@@ -121,7 +121,7 @@ export default function AdminReportsPage() {
           <button
             type="button"
             onClick={() => { setFrom(''); setTo('') }}
-            className="h-10 text-[12px] font-public-sans text-muted-text hover:text-primary transition-colors underline underline-offset-2"
+            className="h-10 text-[12px] font-sans text-muted-text hover:text-primary transition-colors underline underline-offset-2"
           >
             Clear dates
           </button>
@@ -160,7 +160,7 @@ export default function AdminReportsPage() {
       )}
 
       {rows.length === 0 && !isLoading && !isFetching && (
-        <p className="text-[12px] font-public-sans text-muted-text mt-3 flex items-center gap-1.5">
+        <p className="text-[12px] font-sans text-muted-text mt-3 flex items-center gap-1.5">
           <FileBarChart size={12} aria-hidden="true" />
           Reports refresh automatically as you change the type or date range.
         </p>

@@ -8,7 +8,7 @@ import { useCategoryTree } from '@/hooks/queries/useCategories'
 import { cn } from '@/lib/utils'
 import { cloudinaryFill } from '@/lib/cloudinaryImage'
 
-const SCROLL_BY = 252 // card width 240 + gap 12
+const SCROLL_BY = 212 // card width 200 + gap 12
 const AUTO_ADVANCE_MS = 4000
 const FADE_MS = 250
 
@@ -18,7 +18,7 @@ function PillSkeleton() {
 
 function CategorySkeleton() {
   return (
-    <div className="flex flex-col animate-pulse flex-shrink-0 w-[240px]">
+    <div className="flex flex-col animate-pulse flex-shrink-0 w-[200px]">
       <div className="aspect-square rounded-[6px] bg-muted-bg" />
       <div className="mt-3">
         <div className="h-4 bg-muted-bg rounded w-3/4" />
@@ -113,10 +113,10 @@ export function CategorySection() {
 
         {/* Header */}
         <div className="mb-8">
-          <p className="font-public-sans text-[12px] font-[500] text-accent uppercase tracking-[0.08em] mb-3">
+          <p className="font-sans text-[12px] font-[500] text-accent uppercase tracking-[0.08em] mb-3">
             Browse by Category
           </p>
-          <h2 className="font-playfair font-[400] text-primary leading-[1.2] text-[28px] lg:text-[32px]">
+          <h2 className="font-display font-[400] text-primary leading-[1.2] text-[28px] lg:text-[32px]">
             Featured Category
           </h2>
         </div>
@@ -131,7 +131,7 @@ export function CategorySection() {
                   type="button"
                   onClick={() => handlePillClick(i)}
                   className={cn(
-                    'flex-shrink-0 px-5 py-2.5 rounded-full border font-public-sans text-[14px] font-[500] whitespace-nowrap transition-colors duration-200',
+                    'flex-shrink-0 px-5 py-2.5 rounded-full border font-sans text-[14px] font-[500] whitespace-nowrap transition-colors duration-200',
                     i === activeIndex
                       ? 'bg-primary border-primary text-white'
                       : 'bg-transparent border-border-warm text-primary hover:border-primary/40'
@@ -172,31 +172,31 @@ export function CategorySection() {
                   <Link
                     key={category.slug}
                     href={`/categories/${category.slug}`}
-                    className="group flex flex-col flex-shrink-0 w-[240px]"
+                    className="group flex flex-col flex-shrink-0 w-[200px]"
                   >
                     <div className="aspect-square overflow-hidden rounded-[6px] bg-muted-bg relative">
                       {category.heroImage ? (
                         <Image
-                          src={cloudinaryFill(category.heroImage, 480, 480)}
+                          src={cloudinaryFill(category.heroImage, 400, 400)}
                           alt={category.name}
                           fill
-                          sizes="240px"
+                          sizes="200px"
                           className="object-contain transition-transform duration-500 group-hover:scale-[1.04]"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-[#F0EBE3]">
-                          <span className="font-playfair text-[36px] font-[400] text-[#C8BEAE] select-none leading-none">
+                          <span className="font-display text-[36px] font-[400] text-[#C8BEAE] select-none leading-none">
                             {category.name.charAt(0)}
                           </span>
                         </div>
                       )}
                     </div>
                     <div className="mt-3">
-                      <p className="font-public-sans font-[600] text-primary text-[14px] leading-snug">
+                      <p className="font-sans font-[600] text-primary text-[14px] leading-snug">
                         {category.name}
                       </p>
                       {(category.productCount ?? 0) > 0 && (
-                        <p className="font-public-sans text-[13px] text-muted-text mt-0.5">
+                        <p className="font-sans text-[13px] text-muted-text mt-0.5">
                           {category.productCount} products
                         </p>
                       )}

@@ -9,8 +9,8 @@ import { PayoutStatusBadge } from '@/components/seller-portal/StatusBadges'
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-surface border border-border-warm rounded p-5">
-      <p className="text-[12px] font-public-sans text-muted-text">{label}</p>
-      <p className="text-[26px] font-[600] font-public-sans text-primary mt-1 tabular-nums leading-none">{value}</p>
+      <p className="text-[12px] font-sans text-muted-text">{label}</p>
+      <p className="text-[26px] font-[600] font-sans text-primary mt-1 tabular-nums leading-none">{value}</p>
     </div>
   )
 }
@@ -49,7 +49,7 @@ export default function PayoutsPage() {
 
   return (
     <div>
-      <h1 className="text-[24px] leading-[1.3] font-[500] font-playfair text-primary mb-6">Payouts</h1>
+      <h1 className="text-[24px] leading-[1.3] font-[500] font-display text-primary mb-6">Payouts</h1>
 
       {/* Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -69,12 +69,12 @@ export default function PayoutsPage() {
         )}
       </div>
       {!summaryLoading && summary?.lastPayoutDate && (
-        <p className="text-[12px] font-public-sans text-muted-text -mt-6 mb-8">
+        <p className="text-[12px] font-sans text-muted-text -mt-6 mb-8">
           Last paid on {new Date(summary.lastPayoutDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
         </p>
       )}
 
-      <p className="text-[13px] font-public-sans text-muted-text mb-4">
+      <p className="text-[13px] font-sans text-muted-text mb-4">
         Payouts are processed manually by Solomon Bharat. This list updates once a payout is marked as paid.
       </p>
 
@@ -89,12 +89,12 @@ export default function PayoutsPage() {
         </div>
       ) : error ? (
         <div className="py-8 text-center">
-          <p className="text-[14px] font-public-sans text-error">Failed to load payouts.</p>
+          <p className="text-[14px] font-sans text-error">Failed to load payouts.</p>
         </div>
       ) : payouts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center bg-surface border border-border-warm rounded">
-          <p className="text-[16px] font-[500] font-public-sans text-primary mb-2">No payouts yet</p>
-          <p className="text-[13px] font-public-sans text-muted-text">Payouts for delivered orders will appear here.</p>
+          <p className="text-[16px] font-[500] font-sans text-primary mb-2">No payouts yet</p>
+          <p className="text-[13px] font-sans text-muted-text">Payouts for delivered orders will appear here.</p>
         </div>
       ) : (
         <>
@@ -104,7 +104,7 @@ export default function PayoutsPage() {
                 <thead>
                   <tr className="border-b border-border-warm">
                     {['Date', 'Order Ref', 'Product', 'Amount', 'Status'].map((col) => (
-                      <th key={col} className="px-4 py-3 text-left text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.04em]">
+                      <th key={col} className="px-4 py-3 text-left text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.04em]">
                         {col}
                       </th>
                     ))}
@@ -114,22 +114,22 @@ export default function PayoutsPage() {
                   {payouts.map((payout) => (
                     <tr key={payout.id} className="border-b border-border-warm last:border-0 hover:bg-muted-bg/30 transition-colors">
                       <td className="px-4 py-3">
-                        <span className="text-muted-text text-[13px] font-public-sans">
+                        <span className="text-muted-text text-[13px] font-sans">
                           {new Date(payout.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="font-[500] text-[13px] font-public-sans tabular-nums text-muted-text">
+                        <span className="font-[500] text-[13px] font-sans tabular-nums text-muted-text">
                           {payout.orderId.slice(0, 8).toUpperCase()}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-[14px] font-public-sans text-primary">
+                        <span className="text-[14px] font-sans text-primary">
                           {productNameByOrderItemId.get(payout.orderItemId) ?? payout.orderItemId.slice(0, 8).toUpperCase()}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="tabular-nums text-[14px] font-[600] font-public-sans text-primary">{formatINR(payout.amount)}</span>
+                        <span className="tabular-nums text-[14px] font-[600] font-sans text-primary">{formatINR(payout.amount)}</span>
                       </td>
                       <td className="px-4 py-3">
                         <PayoutStatusBadge status={payout.status} />
@@ -143,22 +143,22 @@ export default function PayoutsPage() {
 
           {totalPages > 1 && (
             <div className="flex items-center justify-between">
-              <p className="text-[13px] font-public-sans text-muted-text">{total} payout{total !== 1 ? 's' : ''} total</p>
+              <p className="text-[13px] font-sans text-muted-text">{total} payout{total !== 1 ? 's' : ''} total</p>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="h-8 px-3 rounded border border-border-warm text-[13px] font-[600] font-public-sans text-primary hover:bg-muted-bg transition-colors disabled:opacity-40"
+                  className="h-8 px-3 rounded border border-border-warm text-[13px] font-[600] font-sans text-primary hover:bg-muted-bg transition-colors disabled:opacity-40"
                 >
                   Prev
                 </button>
-                <span className="text-[13px] font-public-sans text-muted-text px-2">{page} / {totalPages}</span>
+                <span className="text-[13px] font-sans text-muted-text px-2">{page} / {totalPages}</span>
                 <button
                   type="button"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="h-8 px-3 rounded border border-border-warm text-[13px] font-[600] font-public-sans text-primary hover:bg-muted-bg transition-colors disabled:opacity-40"
+                  className="h-8 px-3 rounded border border-border-warm text-[13px] font-[600] font-sans text-primary hover:bg-muted-bg transition-colors disabled:opacity-40"
                 >
                   Next
                 </button>

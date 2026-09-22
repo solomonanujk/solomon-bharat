@@ -66,16 +66,16 @@ export default function ApplyAgentPage() {
             <div className="w-14 h-14 rounded-full bg-success/10 flex items-center justify-center">
               <Check size={24} className="text-success" />
             </div>
-            <h1 className="font-playfair text-[28px] font-[600] text-primary leading-tight">
+            <h1 className="font-display text-[28px] font-[600] text-primary leading-tight">
               Application submitted
             </h1>
-            <p className="font-public-sans text-[14px] text-muted-text leading-[1.7]">
+            <p className="font-sans text-[14px] text-muted-text leading-[1.7]">
               Thanks for applying to become a Solomon Bharat agent. Our team will review your
               application and get back to you by email.
             </p>
             <Link
               href="/"
-              className="mt-2 inline-flex items-center justify-center h-11 px-8 bg-primary text-white text-[14px] font-[700] font-public-sans rounded hover:bg-primary/90 transition-colors"
+              className="mt-2 inline-flex items-center justify-center h-11 px-8 bg-primary text-white text-[14px] font-[700] font-sans rounded hover:bg-primary/90 transition-colors"
             >
               Return to home
             </Link>
@@ -92,10 +92,10 @@ export default function ApplyAgentPage() {
 
       <main className="flex-1">
         <div className="max-w-[560px] mx-auto w-full px-4 py-14 sm:py-20">
-          <h1 className="font-playfair text-[32px] sm:text-[40px] font-[600] text-primary leading-[1.1] mb-3">
+          <h1 className="font-display text-[32px] sm:text-[40px] font-[600] text-primary leading-[1.1] mb-3">
             Apply as an Agent
           </h1>
-          <p className="font-public-sans text-[15px] text-muted-text leading-[1.7] mb-10">
+          <p className="font-sans text-[15px] text-muted-text leading-[1.7] mb-10">
             Tell us about your business. Our team reviews every application and will follow up by email.
           </p>
 
@@ -161,7 +161,7 @@ export default function ApplyAgentPage() {
                 onChange={(e) => set('businessAddress', e.target.value)}
                 disabled={applyAsAgent.isPending}
                 rows={3}
-                className="mt-1.5 w-full rounded border border-border-warm bg-surface px-3 py-2 text-[14px] font-public-sans text-primary placeholder:text-muted-text/50 outline-none focus:border-accent transition-colors resize-none"
+                className="mt-1.5 w-full rounded border border-border-warm bg-surface px-3 py-2 text-[14px] font-sans text-primary placeholder:text-muted-text/50 outline-none focus:border-accent transition-colors resize-none"
               />
             </div>
 
@@ -189,12 +189,12 @@ export default function ApplyAgentPage() {
                 onChange={(e) => set('message', e.target.value)}
                 disabled={applyAsAgent.isPending}
                 rows={4}
-                className="mt-1.5 w-full rounded border border-border-warm bg-surface px-3 py-2 text-[14px] font-public-sans text-primary placeholder:text-muted-text/50 outline-none focus:border-accent transition-colors resize-none"
+                className="mt-1.5 w-full rounded border border-border-warm bg-surface px-3 py-2 text-[14px] font-sans text-primary placeholder:text-muted-text/50 outline-none focus:border-accent transition-colors resize-none"
               />
             </div>
 
             {validationError && (
-              <p className="text-[13px] font-public-sans text-error" role="alert">{validationError}</p>
+              <p className="text-[13px] font-sans text-error" role="alert">{validationError}</p>
             )}
 
             <Button type="submit" variant="primary" size="lg" disabled={applyAsAgent.isPending} className="w-full mt-2">

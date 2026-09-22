@@ -196,6 +196,7 @@ describe('products controller', () => {
         expect.objectContaining({ name: 'Updated Name' }),
         [],
         expect.any(String),
+        [],
       );
     });
   });
@@ -310,6 +311,89 @@ describe('products controller', () => {
         .field('sellerPrice', '5');
       expect(res.status).toBe(401);
     });
+
+    it('creates a product with an attached video alongside images for SELLER', async () => {
+      vi.mocked(productsService.createProduct).mockResolvedValue({ id: PRODUCT_ID } as never);
+
+      const res = await request(app)
+        .post('/api/v1/products')
+        .set(authHeader(Role.SELLER))
+        .field('name', 'Table Runner')
+        .field('description', 'A handwoven table runner')
+        .field('categoryId', CATEGORY_ID)
+        .field('materials', 'Cotton')
+        .field('moq', '10')
+        .field('declaredStock', '100')
+        .field('sellerPrice', '5.5')
+        .field('weight', '0.5')
+        .attach('images', Buffer.from('fake-image-1'), 'one.jpg')
+        .attach('images', Buffer.from('fake-image-2'), 'two.jpg')
+        .attach('videos', Buffer.from('fake-video-1'), { filename: 'demo.mp4', contentType: 'video/mp4' });
+
+      expect(res.status).toBe(201);
+      const [, , images, videos] = vi.mocked(productsService.createProduct).mock.calls[0];
+      expect(images).toHaveLength(2);
+      expect(videos).toHaveLength(1);
+    });
+
+    it('rejects an unsupported video type', async () => {
+      const res = await request(app)
+        .post('/api/v1/products')
+        .set(authHeader(Role.SELLER))
+        .field('name', 'Table Runner')
+        .field('description', 'A handwoven table runner')
+        .field('categoryId', CATEGORY_ID)
+        .field('materials', 'Cotton')
+        .field('moq', '10')
+        .field('declaredStock', '100')
+        .field('sellerPrice', '5.5')
+        .field('weight', '0.5')
+        .attach('images', Buffer.from('fake-image-1'), 'one.jpg')
+        .attach('images', Buffer.from('fake-image-2'), 'two.jpg')
+        .attach('videos', Buffer.from('fake-video-1'), { filename: 'demo.avi', contentType: 'video/x-msvideo' });
+
+      expect(res.status).toBe(400);
+      expect(productsService.createProduct).not.toHaveBeenCalled();
+    });
+
+    it('rejects an eco-attribute value outside the fixed vocabulary', async () => {
+      const res = await request(app)
+        .post('/api/v1/products')
+        .set(authHeader(Role.SELLER))
+        .field('name', 'Table Runner')
+        .field('description', 'A handwoven table runner')
+        .field('categoryId', CATEGORY_ID)
+        .field('materials', 'Cotton')
+        .field('moq', '10')
+        .field('declaredStock', '100')
+        .field('sellerPrice', '5.5')
+        .field('weight', '0.5')
+        .field('ecoMaterials', JSON.stringify(['Not-A-Real-Attribute']))
+        .attach('images', Buffer.from('fake-image-1'), 'one.jpg')
+        .attach('images', Buffer.from('fake-image-2'), 'two.jpg');
+
+      expect(res.status).toBe(422);
+      expect(productsService.createProduct).not.toHaveBeenCalled();
+    });
+
+    it('rejects a name longer than 60 characters', async () => {
+      const res = await request(app)
+        .post('/api/v1/products')
+        .set(authHeader(Role.SELLER))
+        .field('name', 'X'.repeat(61))
+        .field('description', 'A handwoven table runner')
+        .field('categoryId', CATEGORY_ID)
+        .field('materials', 'Cotton')
+        .field('moq', '10')
+        .field('declaredStock', '100')
+        .field('sellerPrice', '5.5')
+        .field('weight', '0.5')
+        .attach('images', Buffer.from('fake-image-1'), 'one.jpg')
+        .attach('images', Buffer.from('fake-image-2'), 'two.jpg');
+
+      expect(res.status).toBe(422);
+      expect(productsService.createProduct).not.toHaveBeenCalled();
+    });
   });
 
   describe('POST /api/v1/products/admin', () => {
@@ -355,6 +439,7 @@ describe('products controller', () => {
         expect.objectContaining({ name: 'Table Runner' }),
         expect.any(Array),
         expect.any(String),
+        expect.any(Array),
       );
     });
 

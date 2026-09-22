@@ -24,6 +24,7 @@ import {
   ProductListFilter,
   ProductWithMedia,
   ProposedPricing,
+  SaveDraftInput,
   SellerProduct,
   SellerProductListFilter,
   TierAdminPriceInput,
@@ -34,6 +35,11 @@ import {
 
 const MIN_IMAGES = 2;
 const MAX_IMAGES = 10;
+// Mirrors the multer instance-wide limit in middleware/upload.ts, which has to be
+// sized for video (200MB) — this is the separate, tighter per-image cap that multer
+// alone can no longer enforce now that images and videos share one multer instance.
+const MAX_IMAGE_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_VIDEOS = 3;
 
 const OPEN_REVIEW_STATUSES: ProductApprovalStatus[] = [
   ProductApprovalStatus.PENDING,
@@ -74,6 +80,7 @@ function toBuyerProduct(
     isFeatured: product.isFeatured,
     publishedAt: product.publishedAt,
     images: product.images,
+    videos: product.videos,
     variants: product.variants,
     avgRating: rating?.avgRating ?? null,
     reviewCount: rating?.reviewCount ?? 0,
@@ -84,6 +91,11 @@ function toBuyerProduct(
     isGITagged: product.isGITagged,
     howItIsMade: product.howItIsMade,
     artisanName: product.artisanName,
+    ecoMaterials: product.ecoMaterials,
+    ecoPackaging: product.ecoPackaging,
+    ecoProduction: product.ecoProduction,
+    isBestseller: product.isBestseller,
+    tariffCode: product.tariffCode,
   };
 }
 
@@ -107,6 +119,7 @@ function toSellerProduct(product: ProductWithMedia, pendingPricingChange: Pendin
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
     images: product.images,
+    videos: product.videos,
     variants: product.variants,
     priceTiers: product.priceTiers,
     tags: product.tags,
@@ -116,6 +129,11 @@ function toSellerProduct(product: ProductWithMedia, pendingPricingChange: Pendin
     isGITagged: product.isGITagged,
     howItIsMade: product.howItIsMade,
     artisanName: product.artisanName,
+    ecoMaterials: product.ecoMaterials,
+    ecoPackaging: product.ecoPackaging,
+    ecoProduction: product.ecoProduction,
+    isBestseller: product.isBestseller,
+    tariffCode: product.tariffCode,
     pendingPricingChange,
   };
 }
@@ -156,6 +174,14 @@ function normalizeVariants(
     imageUrl?: string | null;
     attributes?: { name: string; value: string }[];
     priceTiers?: { moq: number; sellerPrice: number | string | { toString(): string } }[];
+    weight?: number | string | { toString(): string } | null;
+    weightUnit?: string | null;
+    length?: number | string | { toString(): string } | null;
+    width?: number | string | { toString(): string } | null;
+    height?: number | string | { toString(): string } | null;
+    dimensionUnit?: string | null;
+    tariffCode?: string | null;
+    inventory?: number | null;
   }[],
 ): string {
   return JSON.stringify(
@@ -168,6 +194,14 @@ function normalizeVariants(
         imageUrl: v.imageUrl ?? null,
         attributes: [...(v.attributes ?? [])].sort((a, b) => a.name.localeCompare(b.name) || a.value.localeCompare(b.value)),
         priceTiers: normalizeTiers(v.priceTiers ?? []),
+        weight: v.weight != null ? Number(v.weight) : null,
+        weightUnit: v.weightUnit ?? null,
+        length: v.length != null ? Number(v.length) : null,
+        width: v.width != null ? Number(v.width) : null,
+        height: v.height != null ? Number(v.height) : null,
+        dimensionUnit: v.dimensionUnit ?? null,
+        tariffCode: v.tariffCode ?? null,
+        inventory: v.inventory ?? null,
       }))
       .sort((a, b) => `${a.type}|${a.value}`.localeCompare(`${b.type}|${b.value}`)),
   );
@@ -291,6 +325,9 @@ export class ProductsService {
   }
 
   private async uploadImages(files: UploadedImageFile[], folder: string): Promise<string[]> {
+    if (files.some((f) => f.buffer.length > MAX_IMAGE_FILE_SIZE_BYTES)) {
+      throw AppError.badRequest('Each image must be 5MB or smaller');
+    }
     const uploads = await Promise.all(
       files.map((file, index) =>
         storageProvider.uploadImage(file.buffer, `${Date.now()}-${index}-${file.originalname}`, folder),
@@ -299,10 +336,64 @@ export class ProductsService {
     return uploads.map((u) => u.url);
   }
 
+  private async uploadVideos(files: UploadedImageFile[], folder: string): Promise<string[]> {
+    if (files.length === 0) return [];
+    if (files.length > MAX_VIDEOS) {
+      throw AppError.badRequest(`Products allow at most ${MAX_VIDEOS} videos`);
+    }
+    const uploads = await Promise.all(
+      files.map((file, index) =>
+        storageProvider.uploadVideo(file.buffer, `${Date.now()}-${index}-${file.originalname}`, folder),
+      ),
+    );
+    return uploads.map((u) => u.url);
+  }
+
+  /**
+   * When a product uses variants AND at least one variant carries a per-variant
+   * `inventory` value, the shared Product.declaredStock is no longer something the
+   * seller fills in directly — it's derived as the sum across variants, so admin/buyer
+   * reporting still has one authoritative stock number. When variants don't use
+   * per-variant inventory at all (including products with no variants), the
+   * client-supplied declaredStock stays authoritative exactly as before — this guards
+   * legacy variants (pre-migration) that never set `inventory` from having their
+   * stock silently zeroed out.
+   */
+  private deriveDeclaredStock<T extends { variants?: { inventory?: number }[]; declaredStock?: number }>(
+    input: T,
+  ): number | undefined {
+    const usesVariantInventory = input.variants?.some((v) => v.inventory != null) ?? false;
+    if (!usesVariantInventory) return input.declaredStock;
+    return input.variants!.reduce((sum, v) => sum + (v.inventory ?? 0), 0);
+  }
+
+  /**
+   * A color-swatch image the seller picked from a photo they're uploading in this
+   * same request (not one already saved to an earlier version of the product) has
+   * no real URL yet at the time the form was built — the frontend sends
+   * `newImageIndex` (its position in the `images` files array of this exact
+   * request) instead of `imageUrl`, and this resolves it to the real, just-uploaded
+   * URL now that one exists. A variant that already has a real `imageUrl` (an
+   * already-saved image, picked while editing) is left untouched.
+   */
+  private resolveVariantImageUrls<T extends { imageUrl?: string; newImageIndex?: number }>(
+    variants: T[] | undefined,
+    imageUrls: string[],
+  ): T[] | undefined {
+    return variants?.map((v) => {
+      if (v.imageUrl || v.newImageIndex == null) return v;
+      const resolved = imageUrls[v.newImageIndex];
+      if (!resolved) return v;
+      const { newImageIndex: _newImageIndex, ...rest } = v;
+      return { ...rest, imageUrl: resolved } as T;
+    });
+  }
+
   async createProduct(
     sellerProfileId: string,
     input: CreateProductInput,
     files: UploadedImageFile[],
+    videoFiles: UploadedImageFile[] = [],
   ): Promise<SellerProduct> {
     if (files.length < MIN_IMAGES || files.length > MAX_IMAGES) {
       throw AppError.badRequest(`Products require between ${MIN_IMAGES} and ${MAX_IMAGES} images`);
@@ -312,10 +403,53 @@ export class ProductsService {
 
     const slug = await this.generateUniqueSlug(input.name);
     const id = randomUUID();
-    const imageUrls = await this.uploadImages(files, entityFolder('products', slug, id));
+    const folder = entityFolder('products', slug, id);
+    const imageUrls = await this.uploadImages(files, folder);
+    const videoUrls = await this.uploadVideos(videoFiles, folder);
+    const variants = this.resolveVariantImageUrls(input.variants, imageUrls);
+    const declaredStock = this.deriveDeclaredStock({ ...input, variants }) ?? input.declaredStock;
 
-    const product = await this.repo.create(sellerProfileId, { ...input, slug, id }, imageUrls);
+    const product = await this.repo.create(
+      sellerProfileId,
+      { ...input, variants, slug, id, declaredStock },
+      imageUrls,
+      videoUrls,
+    );
     await this.invalidatePublishedListCache();
+    return toSellerProduct(product, null);
+  }
+
+  /**
+   * Saves a minimally-valid, seller-only, invisible-everywhere-else draft the seller
+   * can come back and finish later — deliberately skips the image-count check and
+   * every other requirement createProduct enforces; DB-required-but-business-optional
+   * columns (materials/description/moq/declaredStock/sellerPrice) get a safe
+   * placeholder instead. Never touches admin review queues or public listings, since
+   * DRAFT isn't in OPEN_REVIEW_STATUSES or any "published" filter.
+   */
+  async saveDraft(sellerProfileId: string, input: SaveDraftInput): Promise<SellerProduct> {
+    await this.categories.assertValidLeafCategory(input.categoryId);
+
+    const slug = await this.generateUniqueSlug(input.name);
+    const id = randomUUID();
+    const declaredStock = this.deriveDeclaredStock(input) ?? input.declaredStock ?? 0;
+
+    const product = await this.repo.create(
+      sellerProfileId,
+      {
+        ...input,
+        slug,
+        id,
+        description: input.description ?? '',
+        materials: input.materials ?? '',
+        moq: input.moq ?? 0,
+        declaredStock,
+        sellerPrice: input.sellerPrice ?? 0,
+      },
+      [],
+      [],
+      { approvalStatus: ProductApprovalStatus.DRAFT },
+    );
     return toSellerProduct(product, null);
   }
 
@@ -332,6 +466,7 @@ export class ProductsService {
     input: CreateProductInput,
     files: UploadedImageFile[],
     adminId: string,
+    videoFiles: UploadedImageFile[] = [],
   ) {
     const sellerProfileId =
       sellerMode === 'existing'
@@ -346,11 +481,15 @@ export class ProductsService {
 
     const slug = await this.generateUniqueSlug(input.name);
     const id = randomUUID();
-    const imageUrls = await this.uploadImages(files, entityFolder('products', slug, id));
+    const folder = entityFolder('products', slug, id);
+    const imageUrls = await this.uploadImages(files, folder);
+    const videoUrls = await this.uploadVideos(videoFiles, folder);
+    const variants = this.resolveVariantImageUrls(input.variants, imageUrls);
+    const declaredStock = this.deriveDeclaredStock({ ...input, variants }) ?? input.declaredStock;
 
     const allTiers = [
       ...(input.priceTiers ?? []),
-      ...(input.variants ?? []).flatMap((v) => v.priceTiers ?? []),
+      ...(variants ?? []).flatMap((v) => v.priceTiers ?? []),
     ];
     const cheapestOf = (field: 'adminPrice' | 'agentPrice'): number | null => {
       const prices = allTiers
@@ -366,13 +505,19 @@ export class ProductsService {
       throw AppError.badRequest('Set a buyer price for at least one tier to publish this product');
     }
 
-    const product = await this.repo.create(sellerProfileId, { ...input, slug, id }, imageUrls, {
-      approvalStatus: ProductApprovalStatus.APPROVED,
-      isPublished: true,
-      publishedAt: new Date(),
-      adminPrice,
-      agentPrice,
-    });
+    const product = await this.repo.create(
+      sellerProfileId,
+      { ...input, variants, slug, id, declaredStock },
+      imageUrls,
+      videoUrls,
+      {
+        approvalStatus: ProductApprovalStatus.APPROVED,
+        isPublished: true,
+        publishedAt: new Date(),
+        adminPrice,
+        agentPrice,
+      },
+    );
 
     await writeAuditLog(adminId, 'PRODUCT_CREATED_BY_ADMIN', 'Product', product.id, { sellerMode });
     await this.invalidatePublishedListCache();
@@ -396,31 +541,100 @@ export class ProductsService {
   async updateProduct(
     sellerProfileId: string,
     productId: string,
-    input: UpdateProductInput,
+    rawInput: UpdateProductInput,
     files: UploadedImageFile[],
+    videoFiles: UploadedImageFile[] = [],
   ): Promise<SellerProduct> {
     const product = await this.getOwnedProductOrThrow(sellerProfileId, productId);
+
+    // `publish` only ever matters for a DRAFT — strip it here so it never reaches the
+    // repository layer (there's no such column). Every other current status ignores it.
+    const { publish, ...input } = rawInput;
+    const isDraft = product.approvalStatus === ProductApprovalStatus.DRAFT;
+    const publishingDraft = isDraft && publish === true;
 
     const withMedia = await this.repo.findByIdWithMedia(productId);
     const currentImageCount = withMedia?.images.length ?? 0;
     const removedCount = input.removeImageIds?.length ?? 0;
     const finalImageCount = currentImageCount - removedCount + files.length;
 
-    if (finalImageCount < MIN_IMAGES || finalImageCount > MAX_IMAGES) {
+    // A draft can be saved with any number of images (including zero) while the
+    // seller is still filling it in — the full range is only enforced once they
+    // actually publish it (leaving DRAFT for good).
+    if (isDraft && !publishingDraft) {
+      if (finalImageCount > MAX_IMAGES) {
+        throw AppError.badRequest(`Products allow at most ${MAX_IMAGES} images`);
+      }
+    } else if (finalImageCount < MIN_IMAGES || finalImageCount > MAX_IMAGES) {
       throw AppError.badRequest(`Products require between ${MIN_IMAGES} and ${MAX_IMAGES} images`);
     }
 
-    const imageUrls = await this.uploadImages(files, entityFolder('products', product.slug, productId));
+    if (publishingDraft) {
+      if (!input.description?.trim()) throw AppError.badRequest('Description is required to publish this product');
+      if (!input.materials?.trim()) throw AppError.badRequest('Materials are required to publish this product');
+      if (!input.weight || Number(input.weight) <= 0) throw AppError.badRequest('Weight is required to publish this product');
+      if (!input.moq || input.moq < 1) throw AppError.badRequest('MOQ is required to publish this product');
+      if (input.declaredStock == null || input.declaredStock < 0) {
+        throw AppError.badRequest('Declared stock is required to publish this product');
+      }
+      if (!input.sellerPrice || input.sellerPrice <= 0) throw AppError.badRequest('Seller price is required to publish this product');
+    }
+
+    const currentVideoCount = withMedia?.videos.length ?? 0;
+    const removedVideoCount = input.removeVideoIds?.length ?? 0;
+    const finalVideoCount = currentVideoCount - removedVideoCount + videoFiles.length;
+    if (finalVideoCount > MAX_VIDEOS) {
+      throw AppError.badRequest(`Products allow at most ${MAX_VIDEOS} videos`);
+    }
+
+    const folder = entityFolder('products', product.slug, productId);
+    const imageUrls = await this.uploadImages(files, folder);
+    const videoUrls = await this.uploadVideos(videoFiles, folder);
+    // Resolves any variant swatch picked from a photo being uploaded in this same
+    // request (sent as newImageIndex, no real URL yet) to its just-uploaded URL.
+    const variants = this.resolveVariantImageUrls(input.variants, imageUrls);
+    const usesVariantInventory = variants?.some((v) => v.inventory != null) ?? false;
 
     if (product.approvalStatus !== ProductApprovalStatus.APPROVED) {
-      // Not live yet — nothing to stage, applies directly exactly as before.
-      const updated = await this.repo.update(productId, input, imageUrls, currentImageCount - removedCount);
+      // Not live yet — applies directly exactly as before, variants included, so
+      // deriving declaredStock from them here is safe (nothing is staged in this branch).
+      const declaredStock = usesVariantInventory
+        ? variants!.reduce((sum, v) => sum + (v.inventory ?? 0), 0)
+        : input.declaredStock;
+      const finalInput = {
+        ...input,
+        variants,
+        ...(declaredStock !== undefined ? { declaredStock } : {}),
+        ...(publishingDraft ? { approvalStatus: ProductApprovalStatus.PENDING } : {}),
+      };
+      const updated = await this.repo.update(
+        productId,
+        finalInput,
+        imageUrls,
+        currentImageCount - removedCount,
+        videoUrls,
+        currentVideoCount - removedVideoCount,
+      );
       await this.invalidatePublishedListCache();
       return this.toSellerProductWithPending(updated);
     }
 
-    const { moq, sellerPrice, priceTiers, variants, ...nonPricingFields } = input;
-    const updated = await this.repo.update(productId, nonPricingFields, imageUrls, currentImageCount - removedCount);
+    // Approved (live) product: variants are staged, not applied — so a declaredStock
+    // derived from *proposed* variant inventory must wait until the pending change is
+    // actually approved (see approvePricingChange), not be applied to the live product
+    // now. When inventory isn't variant-driven, declaredStock still applies immediately
+    // exactly as before (it was never part of the staged pricing bundle).
+    const { moq, sellerPrice, priceTiers, variants: _rawVariants, declaredStock, ...restFields } = input;
+    const nonPricingFields =
+      usesVariantInventory || declaredStock === undefined ? restFields : { ...restFields, declaredStock };
+    const updated = await this.repo.update(
+      productId,
+      nonPricingFields,
+      imageUrls,
+      currentImageCount - removedCount,
+      videoUrls,
+      currentVideoCount - removedVideoCount,
+    );
 
     const proposed: ProposedPricing = {
       moq: moq ?? product.moq,
@@ -451,6 +665,7 @@ export class ProductsService {
     input: UpdateProductInput,
     files: UploadedImageFile[],
     adminId: string,
+    videoFiles: UploadedImageFile[] = [],
   ) {
     const product = await this.getProductOrThrow(productId);
 
@@ -463,8 +678,28 @@ export class ProductsService {
       throw AppError.badRequest(`Products require between ${MIN_IMAGES} and ${MAX_IMAGES} images`);
     }
 
-    const imageUrls = await this.uploadImages(files, entityFolder('products', product.slug, productId));
-    await this.repo.update(productId, input, imageUrls, currentImageCount - removedCount);
+    const currentVideoCount = withMedia?.videos.length ?? 0;
+    const removedVideoCount = input.removeVideoIds?.length ?? 0;
+    const finalVideoCount = currentVideoCount - removedVideoCount + videoFiles.length;
+    if (finalVideoCount > MAX_VIDEOS) {
+      throw AppError.badRequest(`Products allow at most ${MAX_VIDEOS} videos`);
+    }
+
+    const folder = entityFolder('products', product.slug, productId);
+    const imageUrls = await this.uploadImages(files, folder);
+    const videoUrls = await this.uploadVideos(videoFiles, folder);
+    // Admin edits always apply directly (no staging), so deriving from variant
+    // inventory here is safe exactly like the not-yet-approved seller path.
+    const declaredStock = this.deriveDeclaredStock(input);
+    const finalInput = declaredStock !== undefined ? { ...input, declaredStock } : input;
+    await this.repo.update(
+      productId,
+      finalInput,
+      imageUrls,
+      currentImageCount - removedCount,
+      videoUrls,
+      currentVideoCount - removedVideoCount,
+    );
     await writeAuditLog(adminId, 'PRODUCT_EDITED_BY_ADMIN', 'Product', productId, {});
     await this.invalidatePublishedListCache();
     return this.getForAdmin(productId);
@@ -898,11 +1133,21 @@ export class ProductsService {
       throw AppError.badRequest('Set an admin price for at least one tier to approve this pricing change');
     }
 
+    // Mirrors ProductsService.deriveDeclaredStock — the same variant-inventory-derived
+    // stock the seller's proposal implied, applied now that the variants themselves
+    // are actually going live (see the note in updateProduct about why this can't be
+    // applied any earlier).
+    const usesVariantInventory = proposedVariants.some((v) => v.inventory != null);
+    const declaredStock = usesVariantInventory
+      ? variants.reduce((sum, v) => sum + (v.inventory ?? 0), 0)
+      : undefined;
+
     const applyData: ApplyPricingChangeInput = {
       moq: change.proposedMoq,
       sellerPrice: Number(change.proposedSellerPrice),
       adminPrice,
       agentPrice,
+      declaredStock,
       priceTiers,
       variants,
     };

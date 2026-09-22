@@ -20,7 +20,7 @@ export default function AdminProductEditDetailsPage({ params }: { params: Promis
         >
           <ArrowLeft size={15} />
         </Link>
-        <h1 className="text-[24px] leading-[1.3] font-[500] font-playfair text-primary">
+        <h1 className="text-[24px] leading-[1.3] font-[500] font-display text-primary">
           {product?.name ?? 'Product'}
         </h1>
       </div>
@@ -32,7 +32,7 @@ export default function AdminProductEditDetailsPage({ params }: { params: Promis
           ))}
         </div>
       ) : error || !product ? (
-        <p className="text-[14px] font-public-sans text-error">Could not load this product.</p>
+        <p className="text-[14px] font-sans text-error">Could not load this product.</p>
       ) : (
         <ProductForm product={product} mode="admin-edit" />
       )}

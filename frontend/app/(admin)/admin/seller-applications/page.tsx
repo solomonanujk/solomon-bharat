@@ -50,7 +50,7 @@ function RejectDialog({ application, onClose }: { application: SellerApplication
             onChange={(e) => setReason(e.target.value)}
             placeholder="Reason for rejection (required)…"
             rows={4}
-            className="w-full px-3 py-2.5 rounded border border-border-warm bg-bg text-[13.5px] font-public-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors resize-none"
+            className="w-full px-3 py-2.5 rounded border border-border-warm bg-bg text-[13.5px] font-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors resize-none"
           />
         </div>
         <DialogFooter>
@@ -93,7 +93,7 @@ function RequestInfoDialog({ application, onClose }: { application: SellerApplic
             onChange={(e) => setMessage(e.target.value)}
             placeholder="What information do you need from the applicant?"
             rows={4}
-            className="w-full px-3 py-2.5 rounded border border-border-warm bg-bg text-[13.5px] font-public-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors resize-none"
+            className="w-full px-3 py-2.5 rounded border border-border-warm bg-bg text-[13.5px] font-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors resize-none"
           />
         </div>
         <DialogFooter>
@@ -122,15 +122,15 @@ function NotesPanel({ application }: { application: SellerApplication }) {
 
   return (
     <div className="mt-3 pt-3 border-t border-border-warm space-y-2.5">
-      <p className="text-[11px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em]">
+      <p className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em]">
         Internal notes
       </p>
       {application.internalNotes ? (
-        <p className="text-[13px] font-public-sans text-primary whitespace-pre-wrap bg-muted-bg/40 rounded px-3 py-2.5">
+        <p className="text-[13px] font-sans text-primary whitespace-pre-wrap bg-muted-bg/40 rounded px-3 py-2.5">
           {application.internalNotes}
         </p>
       ) : (
-        <p className="text-[12.5px] font-public-sans text-muted-text">No internal notes yet.</p>
+        <p className="text-[12.5px] font-sans text-muted-text">No internal notes yet.</p>
       )}
       <div className="flex gap-2">
         <input
@@ -138,7 +138,7 @@ function NotesPanel({ application }: { application: SellerApplication }) {
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Add a note (not visible to applicant)…"
-          className="flex-1 h-9 px-3 rounded border border-border-warm bg-surface text-[13px] font-public-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors"
+          className="flex-1 h-9 px-3 rounded border border-border-warm bg-surface text-[13px] font-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors"
         />
         <Button
           variant="ghost"
@@ -175,12 +175,12 @@ function ApplicationCard({
         {/* Left: application info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <p className="text-[15px] font-[600] font-public-sans text-primary">{application.businessName}</p>
+            <p className="text-[15px] font-[600] font-sans text-primary">{application.businessName}</p>
             <StatusBadge status={application.status} />
           </div>
-          <p className="text-[13px] font-public-sans text-muted-text mb-2.5">{application.contactName}</p>
+          <p className="text-[13px] font-sans text-muted-text mb-2.5">{application.contactName}</p>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12.5px] font-public-sans text-muted-text">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12.5px] font-sans text-muted-text">
             <span className="flex items-center gap-1"><Mail size={11} aria-hidden="true" />{application.email}</span>
             <span className="flex items-center gap-1"><Phone size={11} aria-hidden="true" />{application.phone}</span>
             <span className="flex items-center gap-1"><MapPin size={11} aria-hidden="true" />{application.businessAddress}</span>
@@ -191,14 +191,14 @@ function ApplicationCard({
           </div>
 
           {application.message && (
-            <p className="mt-2.5 text-[13px] font-public-sans text-primary bg-muted-bg/40 rounded px-3 py-2 flex gap-2">
+            <p className="mt-2.5 text-[13px] font-sans text-primary bg-muted-bg/40 rounded px-3 py-2 flex gap-2">
               <MessageSquare size={13} className="text-muted-text mt-0.5 shrink-0" aria-hidden="true" />
               <span className="whitespace-pre-wrap">{application.message}</span>
             </p>
           )}
 
           {application.status === 'REJECTED' && application.rejectionReason && (
-            <p className="mt-2.5 text-[13px] font-public-sans text-error bg-error/10 rounded px-3 py-2">
+            <p className="mt-2.5 text-[13px] font-sans text-error bg-error/10 rounded px-3 py-2">
               Rejection reason: {application.rejectionReason}
             </p>
           )}
@@ -267,11 +267,11 @@ export default function SellerApplicationsPage() {
       {/* Header */}
       <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[28px] leading-[1.3] font-[500] font-playfair text-primary">Seller Applications</h1>
-          <p className="text-[14px] font-public-sans text-muted-text mt-1">Review and action seller applications</p>
+          <h1 className="text-[28px] leading-[1.3] font-[500] font-display text-primary">Seller Applications</h1>
+          <p className="text-[14px] font-sans text-muted-text mt-1">Review and action seller applications</p>
         </div>
         {total > 0 && (
-          <p className="text-[13px] font-public-sans text-muted-text self-end">
+          <p className="text-[13px] font-sans text-muted-text self-end">
             {total.toLocaleString()} application{total !== 1 ? 's' : ''}
           </p>
         )}
@@ -287,7 +287,7 @@ export default function SellerApplicationsPage() {
           placeholder="Search by business name or email…"
           className={cn(
             'w-full h-9 pl-9 pr-3 rounded border border-border-warm bg-surface',
-            'text-[14px] font-public-sans text-primary placeholder:text-muted-text',
+            'text-[14px] font-sans text-primary placeholder:text-muted-text',
             'focus:outline-none focus:border-primary/40 transition-colors'
           )}
         />
@@ -301,7 +301,7 @@ export default function SellerApplicationsPage() {
             type="button"
             onClick={() => { setStatus(value); setPage(1) }}
             className={cn(
-              'px-4 py-2.5 text-[13px] font-[600] font-public-sans border-b-2 -mb-px transition-colors whitespace-nowrap',
+              'px-4 py-2.5 text-[13px] font-[600] font-sans border-b-2 -mb-px transition-colors whitespace-nowrap',
               status === value ? 'border-primary text-primary' : 'border-transparent text-muted-text hover:text-primary'
             )}
           >
@@ -333,11 +333,11 @@ export default function SellerApplicationsPage() {
           <div className="w-12 h-12 rounded-full bg-muted-bg flex items-center justify-center">
             <ClipboardList size={22} className="text-muted-text" aria-hidden="true" />
           </div>
-          <p className="text-[16px] font-[600] font-public-sans text-primary">
+          <p className="text-[16px] font-[600] font-sans text-primary">
             {search ? 'No matching applications' : 'No applications found'}
           </p>
           {(search || status) && (
-            <p className="text-[13px] font-public-sans text-muted-text">Try adjusting your filters.</p>
+            <p className="text-[13px] font-sans text-muted-text">Try adjusting your filters.</p>
           )}
         </div>
       ) : (
@@ -355,7 +355,7 @@ export default function SellerApplicationsPage() {
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-1 py-4">
-          <p className="text-[12px] font-public-sans text-muted-text">
+          <p className="text-[12px] font-sans text-muted-text">
             Page {page} of {totalPages} &middot; {total.toLocaleString()} total
           </p>
           <div className="flex gap-2">
@@ -363,7 +363,7 @@ export default function SellerApplicationsPage() {
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-public-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
+              className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
             >
               Prev
             </button>
@@ -371,7 +371,7 @@ export default function SellerApplicationsPage() {
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-public-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
+              className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
             >
               Next
             </button>

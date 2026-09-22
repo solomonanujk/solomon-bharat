@@ -46,8 +46,8 @@ function BuildingSection() {
   return (
     <section className="border border-border-warm rounded bg-surface p-6 space-y-5">
       <div className="pb-4 border-b border-border-warm">
-        <h2 className="text-[18px] font-[600] font-public-sans text-primary">Building a catalogue</h2>
-        <p className="text-[14px] font-public-sans text-muted-text mt-0.5">
+        <h2 className="text-[18px] font-[600] font-sans text-primary">Building a catalogue</h2>
+        <p className="text-[14px] font-sans text-muted-text mt-0.5">
           Add products from anywhere in the marketplace, set your own price and MOQ for each, then generate a PDF to share.
         </p>
       </div>
@@ -65,29 +65,29 @@ function BuildingSection() {
                 <div className="relative w-12 h-12 rounded overflow-hidden bg-muted-bg flex-shrink-0">
                   {item.image && <Image src={cloudinaryFill(item.image, 160, 160)} alt={item.name} fill sizes="48px" className="object-contain" />}
                 </div>
-                <Link href={`/products/${item.slug}`} className="flex-1 min-w-0 text-[14px] font-[500] font-public-sans text-product-text hover:underline truncate">
+                <Link href={`/products/${item.slug}`} className="flex-1 min-w-0 text-[14px] font-[500] font-sans text-product-text hover:underline truncate">
                   {item.name}
                 </Link>
 
                 <label className="flex flex-col gap-0.5">
-                  <span className="text-[11px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.04em]">Price (₹)</span>
+                  <span className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.04em]">Price (₹)</span>
                   <input
                     type="number"
                     min={1}
                     value={item.price}
                     onChange={(e) => updateItem(item.productId, { price: Number(e.target.value) })}
-                    className="w-24 h-9 px-2 rounded border border-border-warm bg-muted-bg/30 text-[13px] font-public-sans text-primary focus:outline-none focus:border-primary/40 focus:bg-surface transition-colors"
+                    className="w-24 h-9 px-2 rounded border border-border-warm bg-muted-bg/30 text-[13px] font-sans text-primary focus:outline-none focus:border-primary/40 focus:bg-surface transition-colors"
                   />
                 </label>
 
                 <label className="flex flex-col gap-0.5">
-                  <span className="text-[11px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.04em]">MOQ</span>
+                  <span className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.04em]">MOQ</span>
                   <input
                     type="number"
                     min={1}
                     value={item.moq}
                     onChange={(e) => updateItem(item.productId, { moq: Number(e.target.value) })}
-                    className="w-20 h-9 px-2 rounded border border-border-warm bg-muted-bg/30 text-[13px] font-public-sans text-primary focus:outline-none focus:border-primary/40 focus:bg-surface transition-colors"
+                    className="w-20 h-9 px-2 rounded border border-border-warm bg-muted-bg/30 text-[13px] font-sans text-primary focus:outline-none focus:border-primary/40 focus:bg-surface transition-colors"
                   />
                 </label>
 
@@ -109,7 +109,7 @@ function BuildingSection() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Catalogue title (optional)"
-              className="flex-1 h-10 px-3 rounded border border-border-warm bg-muted-bg/30 text-[14px] font-public-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-primary/40 focus:bg-surface transition-colors"
+              className="flex-1 h-10 px-3 rounded border border-border-warm bg-muted-bg/30 text-[14px] font-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-primary/40 focus:bg-surface transition-colors"
             />
             <div className="flex gap-2">
               <Button variant="primary" size="md" onClick={handleGenerate} disabled={generateCatalogue.isPending}>
@@ -142,8 +142,8 @@ function MyCataloguesSection() {
   return (
     <section className="border border-border-warm rounded bg-surface p-6 space-y-5">
       <div className="pb-4 border-b border-border-warm">
-        <h2 className="text-[18px] font-[600] font-public-sans text-primary">My Catalogues</h2>
-        <p className="text-[14px] font-public-sans text-muted-text mt-0.5">
+        <h2 className="text-[18px] font-[600] font-sans text-primary">My Catalogues</h2>
+        <p className="text-[14px] font-sans text-muted-text mt-0.5">
           Catalogues you&apos;ve generated — open or share the PDF with your customers.
         </p>
       </div>
@@ -161,10 +161,10 @@ function MyCataloguesSection() {
           {catalogues.map((c) => (
             <div key={c.id} className="flex items-center justify-between gap-3 border border-border-warm rounded p-4">
               <div className="min-w-0">
-                <a href={c.fileUrl} target="_blank" rel="noreferrer" className="text-[14px] font-[600] font-public-sans text-primary hover:underline truncate block">
+                <a href={c.fileUrl} target="_blank" rel="noreferrer" className="text-[14px] font-[600] font-sans text-primary hover:underline truncate block">
                   {c.title}
                 </a>
-                <p className="text-[12px] font-public-sans text-muted-text mt-0.5">
+                <p className="text-[12px] font-sans text-muted-text mt-0.5">
                   {new Date(c.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
                 </p>
               </div>

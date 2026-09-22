@@ -111,7 +111,7 @@ export function AdminSidebar() {
       <nav className="flex-1 overflow-y-auto py-3 px-3">
         {NAV_GROUPS.map((group) => (
           <div key={group.label} className="mb-5">
-            <p className="px-3 mb-1 text-[10px] font-[700] font-public-sans text-[#A68B67] tracking-[0.1em] uppercase">
+            <p className="px-3 mb-1 text-[10px] font-[700] font-sans text-[#A68B67] tracking-[0.1em] uppercase">
               {group.label}
             </p>
             <ul className="space-y-0.5">
@@ -123,7 +123,7 @@ export function AdminSidebar() {
                       href={href}
                       className={cn(
                         'flex items-center gap-2.5 px-3 py-2 rounded-md',
-                        'text-[13.5px] font-public-sans transition-colors',
+                        'text-[13.5px] font-sans transition-colors',
                         active
                           ? 'bg-[#F5F0E8] text-[#1A1A1A] font-[600]'
                           : 'text-[#444748] font-[400] hover:bg-[#F9F7F2] hover:text-[#1A1A1A]'
@@ -151,15 +151,15 @@ export function AdminSidebar() {
       <div className="px-4 py-4 border-t border-[#E5E1D8] shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-[#F5F0E8] border border-[#E5E1D8] flex items-center justify-center shrink-0">
-            <span className="text-[11px] font-[700] font-public-sans text-[#A68B67]">
+            <span className="text-[11px] font-[700] font-sans text-[#A68B67]">
               {adminInitials}
             </span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-[600] font-public-sans text-[#1A1A1A] truncate leading-tight">
+            <p className="text-[13px] font-[600] font-sans text-[#1A1A1A] truncate leading-tight">
               {adminName}
             </p>
-            <p className="text-[11px] font-public-sans text-[#9CA3AF] leading-tight">Administrator</p>
+            <p className="text-[11px] font-sans text-[#9CA3AF] leading-tight">Administrator</p>
           </div>
           <button
             type="button"

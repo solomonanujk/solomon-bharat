@@ -14,7 +14,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           className={cn(
             // Base
             'h-10 w-full rounded border border-border-warm bg-surface px-3',
-            'text-[16px] font-public-sans text-primary',
+            'text-[16px] font-sans text-primary',
             'placeholder:text-muted-text/60',
             // Focus — override browser default, use accent ring
             'outline-none focus:ring-1 focus:ring-accent focus:border-accent',
@@ -27,7 +27,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           {...props}
         />
         {error && (
-          <p className="mt-1 text-[12px] leading-[1.3] font-[400] font-public-sans text-error">
+          <p className="mt-1 text-[12px] leading-[1.3] font-[400] font-sans text-error">
             {error}
           </p>
         )}

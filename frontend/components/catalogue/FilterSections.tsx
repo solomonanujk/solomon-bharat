@@ -34,7 +34,7 @@ const LEAD_TIME_PRESETS = ['1–3 days', '1–2 weeks', '2–4 weeks']
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="py-5 border-b border-border-warm">
-      <p className="text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em] mb-3">
+      <p className="text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-3">
         {title}
       </p>
       {children}
@@ -93,7 +93,7 @@ export function FilterSections({ filters, onChange: commit, hideCategoryLabel, c
             return (
               <label
                 key={range.label}
-                className="flex items-center gap-2.5 text-[14px] font-public-sans text-primary cursor-pointer select-none"
+                className="flex items-center gap-2.5 text-[14px] font-sans text-primary cursor-pointer select-none"
               >
                 <input
                   type="checkbox"
@@ -121,19 +121,19 @@ export function FilterSections({ filters, onChange: commit, hideCategoryLabel, c
             onChange={(e) => setPlaceOfOriginSearch(e.target.value)}
             placeholder="Search"
             aria-label="Search place of origin"
-            className="w-full h-10 pl-10 pr-3 rounded-full border border-border-warm bg-bg text-[14px] font-public-sans text-primary placeholder:text-muted-text/70 focus:outline-none focus:border-accent transition-colors"
+            className="w-full h-10 pl-10 pr-3 rounded-full border border-border-warm bg-bg text-[14px] font-sans text-primary placeholder:text-muted-text/70 focus:outline-none focus:border-accent transition-colors"
           />
         </div>
         <div className="flex flex-col gap-3 max-h-52 overflow-y-auto">
           {filteredOrigins.length === 0 ? (
-            <p className="text-[13px] font-public-sans text-muted-text">No matches.</p>
+            <p className="text-[13px] font-sans text-muted-text">No matches.</p>
           ) : (
             filteredOrigins.map((origin) => {
               const checked = filters.placeOfOrigin === origin
               return (
                 <label
                   key={origin}
-                  className="flex items-center gap-2.5 text-[14px] font-public-sans text-primary cursor-pointer select-none"
+                  className="flex items-center gap-2.5 text-[14px] font-sans text-primary cursor-pointer select-none"
                 >
                   <input
                     type="checkbox"
@@ -156,7 +156,7 @@ export function FilterSections({ filters, onChange: commit, hideCategoryLabel, c
             return (
               <label
                 key={preset}
-                className="flex items-center gap-2.5 text-[14px] font-public-sans text-primary cursor-pointer select-none"
+                className="flex items-center gap-2.5 text-[14px] font-sans text-primary cursor-pointer select-none"
               >
                 <input
                   type="checkbox"

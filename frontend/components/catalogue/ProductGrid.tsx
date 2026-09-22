@@ -38,8 +38,8 @@ function NoResults() {
           <path d="M8 11h6M11 8v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       </div>
-      <p className="text-[16px] font-[400] font-public-sans text-primary">No products found</p>
-      <p className="text-[14px] font-public-sans text-muted-text mt-1">
+      <p className="text-[16px] font-[400] font-sans text-primary">No products found</p>
+      <p className="text-[14px] font-sans text-muted-text mt-1">
         Try adjusting your filters or search query.
       </p>
     </div>
@@ -115,11 +115,11 @@ export function ProductGrid({
 
       {products.length > 0 && (
         <div className="flex flex-col items-center gap-2 pt-2">
-          <p className="text-[12px] leading-[1.3] font-[300] font-public-sans text-muted-text">
+          <p className="text-[12px] leading-[1.3] font-[300] font-sans text-muted-text">
             Showing {products.length} of {totalCount} products
           </p>
           {!hasMore && (
-            <p className="text-[12px] font-public-sans text-muted-text/70">You&apos;ve reached the end</p>
+            <p className="text-[12px] font-sans text-muted-text/70">You&apos;ve reached the end</p>
           )}
         </div>
       )}

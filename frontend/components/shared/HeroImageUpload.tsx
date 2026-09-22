@@ -45,7 +45,7 @@ export function HeroImageUpload({
 
   return (
     <div>
-      <label className="block text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.05em] mb-1.5">
+      <label className="block text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.05em] mb-1.5">
         {label} <span className="normal-case font-[400] text-muted-text/70">(optional)</span>
       </label>
       <input
@@ -86,8 +86,8 @@ export function HeroImageUpload({
             className="border-2 border-dashed border-border-warm rounded p-4 flex flex-col items-center gap-1.5 text-center cursor-pointer hover:border-accent hover:bg-accent/5 transition-colors"
           >
             <Upload size={16} className="text-muted-text" />
-            <p className="text-[12px] font-[500] font-public-sans text-primary">Click or drag an image here</p>
-            <p className="text-[11px] font-public-sans text-muted-text">JPG, PNG or WebP</p>
+            <p className="text-[12px] font-[500] font-sans text-primary">Click or drag an image here</p>
+            <p className="text-[11px] font-sans text-muted-text">JPG, PNG or WebP</p>
           </div>
         )
       )}

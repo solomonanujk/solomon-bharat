@@ -17,13 +17,13 @@ function StatCard({ label, value, icon: Icon, hint }: {
   return (
     <div className="bg-surface border border-border-warm rounded p-5">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-[12px] leading-[1.3] font-public-sans text-muted-text">{label}</p>
+        <p className="text-[12px] leading-[1.3] font-sans text-muted-text">{label}</p>
         <Icon size={14} className="text-accent" aria-hidden="true" />
       </div>
-      <p className="text-[26px] font-[600] font-public-sans text-primary leading-none tabular-nums">
+      <p className="text-[26px] font-[600] font-sans text-primary leading-none tabular-nums">
         {value}
       </p>
-      {hint && <p className="text-[11px] font-public-sans text-muted-text mt-2">{hint}</p>}
+      {hint && <p className="text-[11px] font-sans text-muted-text mt-2">{hint}</p>}
     </div>
   )
 }
@@ -49,7 +49,7 @@ function ActivityRow({ activity }: { activity: Activity }) {
   return (
     <div className="flex items-center justify-between gap-4 py-3 border-b border-border-warm last:border-0">
       <div className="min-w-0">{activity.content}</div>
-      <span className="text-[12px] font-public-sans text-muted-text shrink-0">
+      <span className="text-[12px] font-sans text-muted-text shrink-0">
         {new Date(activity.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
       </span>
     </div>
@@ -92,7 +92,7 @@ export default function SellerDashboardPage() {
         id: `product-${p.id}`,
         date: p.updatedAt,
         content: (
-          <p className="text-[13px] font-public-sans text-primary truncate">
+          <p className="text-[13px] font-sans text-primary truncate">
             <span className="font-[600]">{p.name}</span>{' '}
             <span className="text-muted-text">—</span>{' '}
             <ApprovalStatusBadge status={p.approvalStatus} />
@@ -106,7 +106,7 @@ export default function SellerDashboardPage() {
         id: `order-${item.orderItemId}`,
         date: item.createdAt,
         content: (
-          <p className="text-[13px] font-public-sans text-primary truncate flex items-center gap-2">
+          <p className="text-[13px] font-sans text-primary truncate flex items-center gap-2">
             Order for <span className="font-[600]">{item.productName}</span> × {item.quantity}
             <OrderItemStatusBadge status={item.status} />
           </p>
@@ -119,7 +119,7 @@ export default function SellerDashboardPage() {
         id: `payout-${payout.id}`,
         date: payout.createdAt,
         content: (
-          <p className="text-[13px] font-public-sans text-primary truncate flex items-center gap-2">
+          <p className="text-[13px] font-sans text-primary truncate flex items-center gap-2">
             Payout of <span className="font-[600]">{formatINR(payout.amount)}</span>
             <PayoutStatusBadge status={payout.status} />
           </p>
@@ -134,7 +134,7 @@ export default function SellerDashboardPage() {
 
   return (
     <div>
-      <h1 className="text-[24px] leading-[1.3] font-[500] font-playfair text-primary mb-6">
+      <h1 className="text-[24px] leading-[1.3] font-[500] font-display text-primary mb-6">
         Dashboard
       </h1>
 
@@ -173,7 +173,7 @@ export default function SellerDashboardPage() {
 
       {/* Recent activity */}
       <section>
-        <h2 className="text-[14px] leading-[1.4] font-[600] font-public-sans text-primary mb-3">
+        <h2 className="text-[14px] leading-[1.4] font-[600] font-sans text-primary mb-3">
           Recent Activity
         </h2>
         <div className="bg-surface border border-border-warm rounded px-5">
@@ -183,8 +183,8 @@ export default function SellerDashboardPage() {
             </div>
           ) : activity.length === 0 ? (
             <div className="py-10 text-center">
-              <p className="text-[14px] font-public-sans text-muted-text">Nothing to show yet.</p>
-              <p className="text-[12px] font-public-sans text-muted-text mt-1">
+              <p className="text-[14px] font-sans text-muted-text">Nothing to show yet.</p>
+              <p className="text-[12px] font-sans text-muted-text mt-1">
                 Product approvals, orders, and payouts will appear here.
               </p>
             </div>
@@ -195,7 +195,7 @@ export default function SellerDashboardPage() {
       </section>
 
       <div className="flex items-center gap-4 mt-6">
-        <Link href="/portal/products/new" className="text-[13px] font-[600] font-public-sans text-accent hover:opacity-70 transition-opacity">
+        <Link href="/portal/products/new" className="text-[13px] font-[600] font-sans text-accent hover:opacity-70 transition-opacity">
           Submit a new product →
         </Link>
       </div>

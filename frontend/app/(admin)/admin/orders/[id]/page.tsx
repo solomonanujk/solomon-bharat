@@ -69,7 +69,7 @@ function InfoCard({ title, children, action }: { title: string; children: React.
   return (
     <div className="bg-surface border border-border-warm rounded overflow-hidden">
       <div className="px-5 py-3.5 border-b border-border-warm bg-muted-bg/40 flex items-center justify-between gap-3">
-        <h3 className="text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em]">{title}</h3>
+        <h3 className="text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em]">{title}</h3>
         {action}
       </div>
       <div className="px-5 py-4 space-y-3.5">{children}</div>
@@ -81,8 +81,8 @@ function InfoRow({ label, value }: { label: string; value?: React.ReactNode }) {
   if (value === undefined || value === null || value === '') return null
   return (
     <div>
-      <p className="text-[11px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em] mb-0.5">{label}</p>
-      <div className="text-[14px] font-public-sans text-primary leading-[1.5]">{value}</div>
+      <p className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-0.5">{label}</p>
+      <div className="text-[14px] font-sans text-primary leading-[1.5]">{value}</div>
     </div>
   )
 }
@@ -149,16 +149,16 @@ export default function AdminOrderDetailPage() {
         <button
           type="button"
           onClick={() => router.push('/admin/orders')}
-          className="flex items-center gap-1.5 text-[13px] font-public-sans text-muted-text hover:text-primary mb-6 transition-colors"
+          className="flex items-center gap-1.5 text-[13px] font-sans text-muted-text hover:text-primary mb-6 transition-colors"
         >
           <ArrowLeft size={14} /> Back to orders
         </button>
         <div className="bg-surface border border-border-warm rounded py-20 flex flex-col items-center gap-3">
           <ShoppingBag size={28} className="text-border-warm" aria-hidden="true" />
-          <p className="text-[15px] font-[600] font-public-sans text-primary">
+          <p className="text-[15px] font-[600] font-sans text-primary">
             {isError ? 'Failed to load order — check that the backend is running' : 'Order not found'}
           </p>
-          <p className="text-[12px] font-public-sans text-muted-text">ID: {id}</p>
+          <p className="text-[12px] font-sans text-muted-text">ID: {id}</p>
         </div>
       </div>
     )
@@ -238,7 +238,7 @@ export default function AdminOrderDetailPage() {
       <button
         type="button"
         onClick={() => router.push('/admin/orders')}
-        className="flex items-center gap-1.5 text-[13px] font-public-sans text-muted-text hover:text-primary mb-6 transition-colors"
+        className="flex items-center gap-1.5 text-[13px] font-sans text-muted-text hover:text-primary mb-6 transition-colors"
       >
         <ArrowLeft size={14} /> Back to orders
       </button>
@@ -247,10 +247,10 @@ export default function AdminOrderDetailPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-[28px] leading-[1.3] font-[500] font-playfair text-primary">Order #{shortId(order.id)}</h1>
+            <h1 className="text-[28px] leading-[1.3] font-[500] font-display text-primary">Order #{shortId(order.id)}</h1>
             <StatusBadge status={order.status} />
           </div>
-          <p className="text-[14px] font-public-sans text-muted-text mt-1">
+          <p className="text-[14px] font-sans text-muted-text mt-1">
             Placed {formatDate(order.createdAt, { day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
@@ -303,7 +303,7 @@ export default function AdminOrderDetailPage() {
                     <th
                       key={h}
                       className={cn(
-                        'py-2.5 px-4 text-[11px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em]',
+                        'py-2.5 px-4 text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em]',
                         h === 'Product' ? 'text-left' : 'text-right'
                       )}
                     >
@@ -315,22 +315,22 @@ export default function AdminOrderDetailPage() {
               <tbody>
                 {order.items.map((item) => (
                   <tr key={item.id} className="border-b border-border-warm last:border-0">
-                    <td className="py-3 px-4 text-[13px] font-public-sans text-primary">
+                    <td className="py-3 px-4 text-[13px] font-sans text-primary">
                       {item.productName ?? item.productId}
                     </td>
-                    <td className="py-3 px-4 text-[13px] font-public-sans text-muted-text text-right tabular-nums">
+                    <td className="py-3 px-4 text-[13px] font-sans text-muted-text text-right tabular-nums">
                       {item.quantity}
                     </td>
-                    <td className="py-3 px-4 text-[13px] font-public-sans text-muted-text text-right tabular-nums">
+                    <td className="py-3 px-4 text-[13px] font-sans text-muted-text text-right tabular-nums">
                       {formatCurrency(item.unitAdminPrice)}
                     </td>
-                    <td className="py-3 px-4 text-[13px] font-[600] font-public-sans text-primary text-right tabular-nums">
+                    <td className="py-3 px-4 text-[13px] font-[600] font-sans text-primary text-right tabular-nums">
                       {formatCurrency(item.lineAdminTotal)}
                     </td>
-                    <td className="py-3 px-4 text-[13px] font-public-sans text-muted-text text-right tabular-nums">
+                    <td className="py-3 px-4 text-[13px] font-sans text-muted-text text-right tabular-nums">
                       {item.unitSellerPrice != null ? formatCurrency(item.unitSellerPrice) : '—'}
                     </td>
-                    <td className="py-3 px-4 text-[13px] font-public-sans text-muted-text text-right tabular-nums">
+                    <td className="py-3 px-4 text-[13px] font-sans text-muted-text text-right tabular-nums">
                       {item.lineSellerTotal != null ? formatCurrency(item.lineSellerTotal) : '—'}
                     </td>
                   </tr>
@@ -348,7 +348,7 @@ export default function AdminOrderDetailPage() {
               value={trackingInput}
               onChange={(e) => setTrackingInput(e.target.value)}
               placeholder="Enter tracking number…"
-              className="flex-1 h-9 px-3 rounded border border-border-warm bg-surface text-[14px] font-public-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-primary/40 transition-colors"
+              className="flex-1 h-9 px-3 rounded border border-border-warm bg-surface text-[14px] font-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-primary/40 transition-colors"
             />
             <Button
               variant="ghost"
@@ -365,7 +365,7 @@ export default function AdminOrderDetailPage() {
         <InfoCard title="Export Documents">
           <div className="space-y-2">
             {docs.length === 0 ? (
-              <p className="text-[13px] font-public-sans text-muted-text">No export documents attached yet.</p>
+              <p className="text-[13px] font-sans text-muted-text">No export documents attached yet.</p>
             ) : (
               <ul className="space-y-1.5">
                 {docs.map((url) => (
@@ -374,7 +374,7 @@ export default function AdminOrderDetailPage() {
                       href={url}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center gap-1.5 text-[13px] font-public-sans text-accent hover:underline truncate"
+                      className="flex items-center gap-1.5 text-[13px] font-sans text-accent hover:underline truncate"
                     >
                       <FileText size={13} className="shrink-0" aria-hidden="true" />
                       <span className="truncate">{url}</span>
@@ -406,7 +406,7 @@ export default function AdminOrderDetailPage() {
                 }
               }}
               placeholder="https://…"
-              className="flex-1 h-9 px-3 rounded border border-border-warm bg-surface text-[14px] font-public-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-primary/40 transition-colors"
+              className="flex-1 h-9 px-3 rounded border border-border-warm bg-surface text-[14px] font-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-primary/40 transition-colors"
             />
             <Button variant="ghost" size="sm" onClick={addDocUrl} className="gap-1">
               <Plus size={13} aria-hidden="true" />
@@ -428,9 +428,9 @@ export default function AdminOrderDetailPage() {
           <div className="space-y-3">
             <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
               {messagesLoading ? (
-                <p className="text-[13px] font-public-sans text-muted-text">Loading conversation…</p>
+                <p className="text-[13px] font-sans text-muted-text">Loading conversation…</p>
               ) : messages.length === 0 ? (
-                <p className="text-[13px] font-public-sans text-muted-text">No messages with this buyer yet.</p>
+                <p className="text-[13px] font-sans text-muted-text">No messages with this buyer yet.</p>
               ) : (
                 messages.map((m) => (
                   <div
@@ -440,10 +440,10 @@ export default function AdminOrderDetailPage() {
                       m.sender === 'ADMIN' ? 'ml-auto bg-primary text-white' : 'bg-muted-bg text-primary'
                     )}
                   >
-                    <p className="text-[13px] font-public-sans whitespace-pre-wrap">{m.body}</p>
+                    <p className="text-[13px] font-sans whitespace-pre-wrap">{m.body}</p>
                     <p
                       className={cn(
-                        'text-[10px] font-public-sans mt-1',
+                        'text-[10px] font-sans mt-1',
                         m.sender === 'ADMIN' ? 'text-white/60' : 'text-muted-text'
                       )}
                     >
@@ -460,7 +460,7 @@ export default function AdminOrderDetailPage() {
                 onChange={(e) => setMessageBody(e.target.value)}
                 placeholder="Reply to buyer…"
                 rows={2}
-                className="flex-1 px-3 py-2 rounded border border-border-warm bg-surface text-[14px] font-public-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-primary/40 transition-colors resize-none"
+                className="flex-1 px-3 py-2 rounded border border-border-warm bg-surface text-[14px] font-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-primary/40 transition-colors resize-none"
               />
               <Button
                 variant="accent"
@@ -487,14 +487,14 @@ export default function AdminOrderDetailPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="px-6 pb-2">
-            <label className="text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em]">
+            <label className="text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em]">
               Expected Collection Date
             </label>
             <input
               type="date"
               value={expectedCollectionDate}
               onChange={(e) => setExpectedCollectionDate(e.target.value)}
-              className="mt-1.5 w-full h-10 px-3 rounded border border-border-warm bg-surface text-[14px] font-public-sans text-primary focus:outline-none focus:border-primary/40 transition-colors"
+              className="mt-1.5 w-full h-10 px-3 rounded border border-border-warm bg-surface text-[14px] font-sans text-primary focus:outline-none focus:border-primary/40 transition-colors"
             />
           </div>
           <DialogFooter>
@@ -518,7 +518,7 @@ export default function AdminOrderDetailPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="px-6 pb-2">
-            <label className="text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em]">
+            <label className="text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em]">
               Reason<span className="text-error ml-0.5">*</span>
             </label>
             <textarea
@@ -526,7 +526,7 @@ export default function AdminOrderDetailPage() {
               onChange={(e) => setCancelReason(e.target.value)}
               rows={3}
               placeholder="Why is this order being cancelled?"
-              className="mt-1.5 w-full px-3 py-2 rounded border border-border-warm bg-surface text-[14px] font-public-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-primary/40 transition-colors resize-none"
+              className="mt-1.5 w-full px-3 py-2 rounded border border-border-warm bg-surface text-[14px] font-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-primary/40 transition-colors resize-none"
             />
           </div>
           <DialogFooter>

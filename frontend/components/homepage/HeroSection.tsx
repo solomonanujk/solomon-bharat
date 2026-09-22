@@ -71,12 +71,12 @@ export function HeroSection() {
           <div className="max-w-[520px]">
 
             {/* Headline */}
-            <h1 className="font-playfair font-[500] text-white leading-[1.05] text-[26px] sm:text-[34px] lg:text-[44px]">
+            <h1 className="font-display font-[500] text-white leading-[1.05] text-[26px] sm:text-[34px] lg:text-[44px]">
               Find your <span className="text-[#F0C468]">winning product</span>
             </h1>
 
             {/* Body */}
-            <p className="font-public-sans text-[14px] sm:text-[15px] font-[300] leading-[1.65] text-white/85 mt-4 sm:mt-6 max-w-[400px]">
+            <p className="font-sans text-[14px] sm:text-[15px] font-[300] leading-[1.65] text-white/85 mt-4 sm:mt-6 max-w-[400px]">
               Sign up to unlock wholesale pricing.
             </p>
 
@@ -85,7 +85,7 @@ export function HeroSection() {
               <button
                 type="button"
                 onClick={() => openAuthModal('signup')}
-                className="inline-flex items-center gap-2 rounded bg-white text-primary font-[500] font-public-sans text-[14px] px-6 py-3 hover:bg-white/90 transition-colors"
+                className="inline-flex items-center gap-2 rounded bg-white text-primary font-[500] font-sans text-[14px] px-6 py-3 hover:bg-white/90 transition-colors"
               >
                 Sign Up to Buy
                 <ArrowRight size={14} aria-hidden="true" />
@@ -93,7 +93,7 @@ export function HeroSection() {
             </div>
 
             {/* Audience line */}
-            <p className="font-public-sans text-[14px] sm:text-[15px] font-[400] text-white mt-8 sm:mt-10">
+            <p className="font-sans text-[14px] sm:text-[15px] font-[400] text-white mt-8 sm:mt-10">
               Discover and source bestseller product for your <CyclingAudience />
             </p>
 

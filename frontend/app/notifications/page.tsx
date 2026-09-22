@@ -44,9 +44,9 @@ function NotificationRow({
         aria-hidden="true"
       />
       <div className="flex-1 min-w-0">
-        <p className="text-[14px] font-[700] font-public-sans text-primary">{notification.title}</p>
-        <p className="text-[13px] font-public-sans text-muted-text mt-0.5">{notification.message}</p>
-        <p className="text-[11px] font-public-sans text-muted-text/70 mt-1">
+        <p className="text-[14px] font-[700] font-sans text-primary">{notification.title}</p>
+        <p className="text-[13px] font-sans text-muted-text mt-0.5">{notification.message}</p>
+        <p className="text-[11px] font-sans text-muted-text/70 mt-1">
           {formatDateTime(notification.createdAt)}
         </p>
       </div>

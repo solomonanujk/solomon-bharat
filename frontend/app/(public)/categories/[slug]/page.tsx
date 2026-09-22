@@ -87,7 +87,7 @@ function SortDropdown({ value, onChange }: { value: SortValue; onChange: (v: Sor
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full border border-[#D0C8BE] text-[13px] font-public-sans text-primary hover:border-primary transition-colors"
+        className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full border border-[#D0C8BE] text-[13px] font-sans text-primary hover:border-primary transition-colors"
       >
         Sort by {current.label}
         <ChevronDown size={13} className={cn('transition-transform', open && 'rotate-180')} aria-hidden="true" />
@@ -101,7 +101,7 @@ function SortDropdown({ value, onChange }: { value: SortValue; onChange: (v: Sor
               type="button"
               onClick={() => { onChange(o.value); setOpen(false) }}
               className={cn(
-                'w-full text-left px-4 py-2 text-[13px] font-public-sans transition-colors',
+                'w-full text-left px-4 py-2 text-[13px] font-sans transition-colors',
                 o.value === value ? 'text-primary font-[600] bg-muted-bg' : 'text-muted-text hover:bg-muted-bg'
               )}
             >
@@ -217,14 +217,14 @@ function CategoryDetailInner({ slug }: { slug: string }) {
           <div className="flex items-center gap-2 mb-6">
             {filtersOpen && (
               <div className="hidden lg:flex items-center justify-between w-[260px] flex-shrink-0">
-                <p className="text-[15px] font-[600] font-public-sans text-primary underline underline-offset-4">
+                <p className="text-[15px] font-[600] font-sans text-primary underline underline-offset-4">
                   {category.name}
                 </p>
                 {filterCount > 0 && (
                   <button
                     type="button"
                     onClick={() => setFilters(EMPTY_FILTERS)}
-                    className="text-[13px] font-[500] font-public-sans text-primary underline underline-offset-2 hover:opacity-70 transition-opacity"
+                    className="text-[13px] font-[500] font-sans text-primary underline underline-offset-2 hover:opacity-70 transition-opacity"
                   >
                     Clear all
                   </button>
@@ -236,7 +236,7 @@ function CategoryDetailInner({ slug }: { slug: string }) {
               type="button"
               onClick={() => setFiltersOpen((v) => !v)}
               className={cn(
-                'inline-flex items-center gap-2 h-9 px-4 rounded-full text-[13px] font-[400] font-public-sans transition-colors',
+                'inline-flex items-center gap-2 h-9 px-4 rounded-full text-[13px] font-[400] font-sans transition-colors',
                 filtersOpen
                   ? 'bg-primary text-white'
                   : 'border border-[#D0C8BE] text-muted-text hover:text-primary hover:border-primary'

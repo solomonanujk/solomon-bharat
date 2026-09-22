@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Plus, Trash2, Upload, X, AlertTriangle, Sparkles, RotateCcw, Loader2 } from 'lucide-react'
+import { Check, ChevronDown, Eye, EyeOff, Film, GripVertical, Lightbulb, Search, SlidersHorizontal, Trash2, Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useCategoryTree } from '@/hooks/queries/useCategories'
 import { useAdminSellers } from '@/hooks/queries/useSellers'
@@ -13,329 +13,151 @@ import {
   useAdminUpdateProduct,
   useAdminCreateProduct,
   useResubmitProduct,
-  usePolishField,
+  useSaveDraft,
   type SubmitVariantInput,
 } from '@/hooks/queries/useProducts'
-import { CategoryCascadeSelect, categoryPathLabel } from '@/components/seller-portal/CategoryCascade'
+import { CategoryTypeahead, categoryPathLabel } from '@/components/seller-portal/CategoryTypeahead'
+import { ColorSwatchModal, correctedSwatchFocus, DEFAULT_SWATCH_ZOOM, newImageRef, parseNewImageRef } from '@/components/seller-portal/ColorSwatchModal'
+import { ProductOptionsModal } from '@/components/seller-portal/ProductOptionsModal'
+import { ColorSwatchPromptModal } from '@/components/seller-portal/ColorSwatchPromptModal'
 import { ApprovalStatusBadge } from '@/components/seller-portal/StatusBadges'
 import { useImageLightbox } from '@/components/shared/ImageLightbox'
-import { ListingScoreWidget } from '@/components/seller-portal/ListingScore'
 import { getApiError } from '@/lib/getApiError'
-import { cloudinaryFill } from '@/lib/cloudinaryImage'
-import type { AdminProduct, MyProduct, ProductVariant } from '@/types'
+import { cloudinaryFill, cloudinaryFit } from '@/lib/cloudinaryImage'
+import { ECO_MATERIALS, ECO_PACKAGING, ECO_PRODUCTION } from '@/lib/ecoAttributes'
+import { INDIAN_PLACES } from '@/lib/indianPlaces'
+import type { AdminProduct, MyProduct, VariantStatus } from '@/types'
 
 const MIN_IMAGES = 2
 const MAX_IMAGES = 10
-
-const LEAD_TIME_PRESETS = ['1–3 days', '1–2 weeks', '2–4 weeks']
+const MAX_VIDEOS = 3
 
 const INPUT_CLS =
-  'w-full h-10 px-3 rounded border border-border-warm bg-muted-bg/30 text-[14px] font-public-sans text-primary placeholder:text-muted-text/40 focus:outline-none focus:border-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
-
-const TEXTAREA_CLS =
-  'w-full px-3 py-2 rounded border border-border-warm bg-muted-bg/30 text-[14px] font-public-sans text-primary placeholder:text-muted-text/40 focus:outline-none focus:border-accent transition-colors resize-none disabled:opacity-50 disabled:cursor-not-allowed'
-
-let _id = 0
-function uid() { return `v-${++_id}` }
-
-/** Two blank-price starter tiers (MOQ 20/30) so a fresh tier table shows what to fill
- *  in rather than an empty table — the seller can edit the MOQs or add more tiers. */
-function defaultTierRows(): TierRow[] {
-  return [
-    { id: uid(), moq: '20', sellerPrice: '', adminPrice: '', agentPrice: '' },
-    { id: uid(), moq: '30', sellerPrice: '', adminPrice: '', agentPrice: '' },
-  ]
-}
-
-/** Same starter tiers for a variant combo, but with ids derived from the combo's own
- *  key instead of the uid() counter — deterministic and pure, so it's safe to compute
- *  fresh on every render (no ref/effect needed to keep row ids stable). */
-function defaultComboTierRows(comboKey: string): TierRow[] {
-  return [
-    { id: `${comboKey}::tier-20`, moq: '20', sellerPrice: '', adminPrice: '', agentPrice: '' },
-    { id: `${comboKey}::tier-30`, moq: '30', sellerPrice: '', adminPrice: '', agentPrice: '' },
-  ]
-}
-
-/** Best-effort parse of a legacy "L x B x H cm" string back into the 3 input fields. */
-function parseDimensions(dimensions: string | null | undefined): { length: string; breadth: string; height: string } | null {
-  if (!dimensions) return null
-  const match = dimensions.trim().match(/^(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*cm$/i)
-  if (!match) return null
-  return { length: match[1], breadth: match[2], height: match[3] }
-}
-
-/** Composes the 3 input fields back into a single "L x B x H cm" string for storage. */
-function composeDimensions(length: string, breadth: string, height: string): string | undefined {
-  const parts = [length, breadth, height].filter((p) => p.trim())
-  if (parts.length === 0) return undefined
-  return `${parts.join(' x ')} cm`
-}
+  'w-full h-10 px-3 rounded border border-border-warm bg-surface text-[14px] font-sans text-primary placeholder:text-muted-text/50 focus:outline-none focus:border-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+const TEXTAREA_CLS = INPUT_CLS.replace('h-10', 'py-2.5') + ' resize-y'
 
 function cartesian<T>(arrays: T[][]): T[][] {
-  if (!arrays.length) return []
-  return arrays.reduce<T[][]>((acc, arr) => acc.flatMap((combo) => arr.map((val) => [...combo, val])), [[]])
+  return arrays.reduce<T[][]>((acc, curr) => acc.flatMap((a) => curr.map((c) => [...a, c])), [[]])
 }
+
+interface VariantPricing {
+  sku: string
+  price: string
+  inventory: string
+  weight: string
+  weightUnit: 'kg' | 'lb'
+  length: string
+  width: string
+  height: string
+  dimensionUnit: 'cm' | 'in'
+  tariffCode: string
+  status: VariantStatus
+}
+function defaultVP(): VariantPricing {
+  return { sku: '', price: '', inventory: '', weight: '', weightUnit: 'kg', length: '', width: '', height: '', dimensionUnit: 'cm', tariffCode: '', status: 'ACTIVE' }
+}
+interface VariantCombo { key: string; label: string; attributes: { name: string; value: string }[] }
 
 function Field({ label, required, hint, action, children }: {
   label: string; required?: boolean; hint?: string; action?: React.ReactNode; children: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between gap-2">
-        <label className="text-[13px] font-[600] font-public-sans text-primary">
+    <div>
+      <div className="flex items-center justify-between gap-2 mb-1.5">
+        <label className="text-[14px] font-[600] font-sans text-primary">
           {label}{required && <span className="text-error ml-0.5">*</span>}
         </label>
         {action}
       </div>
       {children}
-      {hint && <p className="text-[12px] font-public-sans text-muted-text">{hint}</p>}
+      {hint && <p className="text-[12px] font-sans text-muted-text mt-1">{hint}</p>}
     </div>
   )
 }
 
-function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-surface border border-border-warm rounded p-6 space-y-5">
-      <div className="pb-3 border-b border-border-warm">
-        <h2 className="text-[16px] font-[600] font-public-sans text-primary">{title}</h2>
-        {subtitle && <p className="text-[12px] font-public-sans text-muted-text mt-0.5">{subtitle}</p>}
-      </div>
-      {children}
-    </div>
-  )
-}
-
-function SellerSearchSelect({ sellers, value, onChange }: {
-  sellers: { id: string; businessName: string; contactName: string }[]
-  value: string
-  onChange: (id: string) => void
+/** Controlled-vocabulary multiselect for the eco-attribute fields, dropdown + pills. */
+function MultiSelectDropdown({ label, options, values, onChange, disabled }: {
+  label: string; options: readonly string[]; values: string[]; onChange: (v: string[]) => void; disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState('')
-  const containerRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-
+  const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     function onMouseDown(e: MouseEvent) {
-      if (!containerRef.current?.contains(e.target as Node)) setOpen(false)
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
     }
     document.addEventListener('mousedown', onMouseDown)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', onMouseDown)
-      document.removeEventListener('keydown', onKeyDown)
-    }
+    return () => document.removeEventListener('mousedown', onMouseDown)
   }, [])
-
-  const selected = sellers.find((s) => s.id === value)
-  const q = query.trim().toLowerCase()
-  const filtered = q
-    ? sellers.filter((s) => s.businessName.toLowerCase().includes(q) || s.contactName.toLowerCase().includes(q))
-    : sellers
-
-  function select(id: string) {
-    onChange(id)
-    setQuery('')
-    setOpen(false)
-  }
-
+  const remaining = options.filter((o) => !values.includes(o))
   return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        onClick={() => {
-          setOpen((o) => !o)
-          setTimeout(() => inputRef.current?.focus(), 0)
-        }}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className={INPUT_CLS + ' flex items-center justify-between gap-2 text-left'}
-      >
-        <span className={`truncate ${selected ? 'text-primary' : 'text-muted-text/40'}`}>
-          {selected ? selected.businessName : 'Select a seller…'}
-        </span>
-      </button>
-
-      {open && (
-        <div className="absolute top-full left-0 mt-1 z-30 w-full bg-surface border border-border-warm rounded shadow-lg overflow-hidden">
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search sellers…"
-            className="w-full h-9 px-3 text-[13px] font-public-sans text-primary placeholder:text-muted-text/40 border-b border-border-warm focus:outline-none"
-          />
-          <div className="max-h-60 overflow-y-auto py-1">
-            {filtered.length === 0 ? (
-              <p className="px-3 py-2 text-[13px] font-public-sans text-muted-text">No sellers match.</p>
-            ) : (
-              filtered.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => select(s.id)}
-                  className={`w-full text-left px-3 py-2 text-[13px] font-public-sans transition-colors ${
-                    value === s.id ? 'bg-primary text-white' : 'text-primary hover:bg-muted-bg/60'
-                  }`}
-                >
-                  {s.businessName}
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function PolishButton({ loading, canUndo, disabled, onPolish, onUndo }: {
-  loading: boolean; canUndo: boolean; disabled?: boolean; onPolish: () => void; onUndo: () => void
-}) {
-  if (canUndo) {
-    return (
-      <button type="button" onClick={onUndo} disabled={disabled}
-        className="inline-flex items-center gap-1 text-[12px] font-[500] font-public-sans text-muted-text hover:text-primary transition-colors shrink-0 disabled:opacity-40">
-        <RotateCcw size={11} />Undo
-      </button>
-    )
-  }
-  return (
-    <button type="button" onClick={onPolish} disabled={loading || disabled}
-      className="inline-flex items-center gap-1 text-[12px] font-[500] font-public-sans text-accent hover:opacity-70 transition-opacity disabled:opacity-40 shrink-0">
-      {loading ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
-      {loading ? 'Polishing…' : 'Polish'}
-    </button>
-  )
-}
-
-// adminPrice/agentPrice only ever get filled in for mode==='admin-create' (the
-// TierTable's showAdminPricing prop) — every other mode leaves them blank strings
-// and never sends them, matching that pricing for an already-submitted product only
-// ever changes via the dedicated Edit Pricing / pricing-change-approval flows.
-interface TierRow { id: string; moq: string; sellerPrice: string; adminPrice: string; agentPrice: string }
-
-function TierTable({ tiers, onAdd, onRemove, onUpdate, disabled, showAdminPricing }: {
-  tiers: TierRow[]
-  onAdd: () => void
-  onRemove: (id: string) => void
-  onUpdate: (id: string, field: 'moq' | 'sellerPrice' | 'adminPrice' | 'agentPrice', value: string) => void
-  disabled?: boolean
-  showAdminPricing?: boolean
-}) {
-  return (
-    <div className="space-y-2">
-      {tiers.length > 0 && (
-        <div className="rounded border border-border-warm overflow-hidden">
-          <table className="w-full text-[13px] font-public-sans">
-            <thead>
-              <tr className="bg-muted-bg/40 border-b border-border-warm">
-                <th className="text-left py-2 px-3 font-[600] text-muted-text">Min Order Qty</th>
-                <th className="text-left py-2 px-3 font-[600] text-muted-text">Price per unit (₹)</th>
-                {showAdminPricing && (
-                  <>
-                    <th className="text-left py-2 px-3 font-[600] text-muted-text">Buyer Price (₹)</th>
-                    <th className="text-left py-2 px-3 font-[600] text-muted-text">Agent Price (₹)</th>
-                  </>
-                )}
-                <th className="py-2 px-2 w-8" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-warm">
-              {tiers.map((tier) => (
-                <tr key={tier.id}>
-                  <td className="px-3 py-1.5">
-                    <input type="number" value={tier.moq} min="1" disabled={disabled}
-                      onChange={(e) => onUpdate(tier.id, 'moq', e.target.value)}
-                      placeholder="e.g. 50" className={INPUT_CLS + ' h-8'} />
-                  </td>
-                  <td className="px-3 py-1.5">
-                    <input type="number" value={tier.sellerPrice} min="0" step="0.01" disabled={disabled}
-                      onChange={(e) => onUpdate(tier.id, 'sellerPrice', e.target.value)}
-                      placeholder="e.g. 400" className={INPUT_CLS + ' h-8'} />
-                  </td>
-                  {showAdminPricing && (
-                    <>
-                      <td className="px-3 py-1.5">
-                        <input type="number" value={tier.adminPrice} min="0" step="0.01" disabled={disabled}
-                          onChange={(e) => onUpdate(tier.id, 'adminPrice', e.target.value)}
-                          placeholder="e.g. 550" className={INPUT_CLS + ' h-8'} />
-                      </td>
-                      <td className="px-3 py-1.5">
-                        <input type="number" value={tier.agentPrice} min="0" step="0.01" disabled={disabled}
-                          onChange={(e) => onUpdate(tier.id, 'agentPrice', e.target.value)}
-                          placeholder="e.g. 480" className={INPUT_CLS + ' h-8'} />
-                      </td>
-                    </>
-                  )}
-                  <td className="px-2 py-1.5 text-center">
-                    {!disabled && (
-                      <button type="button" onClick={() => onRemove(tier.id)}
-                        className="text-muted-text hover:text-error transition-colors" aria-label="Remove tier">
-                        <Trash2 size={12} />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {!disabled && (
-        <button type="button" onClick={onAdd}
-          className="inline-flex items-center gap-1 text-[12px] font-[500] font-public-sans text-muted-text hover:text-primary transition-colors">
-          <Plus size={12} />Add price tier
+    <div>
+      <label className="text-[14px] font-[600] font-sans text-primary block mb-1.5">{label}</label>
+      <div ref={ref} className="relative">
+        <button type="button" disabled={disabled} onClick={() => setOpen((o) => !o)}
+          className={INPUT_CLS + ' flex items-center justify-between text-left'}>
+          <span className="text-muted-text/60">Select all that apply</span>
+          <ChevronDown size={14} className="text-muted-text" />
         </button>
+        {open && remaining.length > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-surface border border-border-warm rounded shadow-lg max-h-56 overflow-y-auto py-1">
+            {remaining.map((o) => (
+              <button key={o} type="button" onClick={() => { onChange([...values, o]); setOpen(false) }}
+                className="w-full text-left px-4 py-2.5 text-[14px] font-sans text-primary hover:bg-muted-bg/60 transition-colors">
+                {o}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {values.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-3">
+          {values.map((v) => (
+            <span key={v} className="inline-flex items-center gap-2 bg-primary text-white rounded-full pl-3.5 pr-1.5 py-1.5 text-[13px] font-sans">
+              {v}
+              <button type="button" onClick={() => onChange(values.filter((x) => x !== v))} aria-label={`Remove ${v}`}
+                className="w-4.5 h-4.5 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors">
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+        </div>
       )}
     </div>
   )
 }
 
-type Axis = 'size' | 'color' | 'material' | 'other'
-
-interface VariantCombo { key: string; label: string; attributes: { name: string; value: string }[] }
-// Stock isn't set per variant — every variant uses the single Declared Stock value from Trade Terms.
-interface VariantPricing { sku: string; tiers: TierRow[] }
-
-function AxisTagInput({ values, onChange, placeholder, disabled }: {
-  values: string[]; onChange: (v: string[]) => void; placeholder: string; disabled?: boolean
-}) {
-  const [input, setInput] = useState('')
-  function add() {
-    const v = input.trim()
-    if (!v || values.includes(v)) return
-    onChange([...values, v])
-    setInput('')
-  }
+/** "Made in" typeahead — searches Indian states/UTs and known artisan/manufacturing
+ *  hub cities (Solomon Bharat sources exclusively from Indian sellers), but still
+ *  accepts and displays a free-text value that isn't in the list. */
+function MadeInCombobox({ value, onChange, disabled }: { value: string; onChange: (v: string) => void; disabled?: boolean }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  }, [])
+  const q = value.trim().toLowerCase()
+  const filtered = q ? INDIAN_PLACES.filter((c) => c.toLowerCase().includes(q)).slice(0, 8) : []
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {values.map((v) => (
-        <span key={v} className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-border-warm bg-muted-bg/30 text-[13px] font-public-sans text-primary">
-          {v}
-          {!disabled && (
-            <button type="button" onClick={() => onChange(values.filter((x) => x !== v))}
-              className="text-muted-text hover:text-error transition-colors" aria-label={`Remove ${v}`}>
-              <X size={11} />
+    <div ref={ref} className="relative max-w-md">
+      <div className="relative">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-text/50" />
+        <input type="text" value={value} disabled={disabled}
+          onChange={(e) => { onChange(e.target.value); setOpen(true) }}
+          onFocus={() => setOpen(true)}
+          placeholder="Select place in India" className={INPUT_CLS + ' pl-9'} />
+      </div>
+      {open && filtered.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-surface border border-border-warm rounded shadow-lg max-h-56 overflow-y-auto py-1">
+          {filtered.map((c) => (
+            <button key={c} type="button" onClick={() => { onChange(c); setOpen(false) }}
+              className="w-full text-left px-4 py-2.5 text-[14px] font-sans text-primary hover:bg-muted-bg/60 transition-colors">
+              {c}
             </button>
-          )}
-        </span>
-      ))}
-      {!disabled && (
-        <div className="flex items-center gap-1">
-          <input type="text" value={input} onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
-            placeholder={placeholder}
-            className="h-8 px-2 w-28 rounded border border-dashed border-border-warm bg-transparent text-[13px] font-public-sans text-primary placeholder:text-muted-text/40 focus:outline-none focus:border-accent transition-colors" />
-          <button type="button" onClick={add}
-            className="h-8 w-8 flex items-center justify-center rounded border border-border-warm text-muted-text hover:text-primary hover:bg-muted-bg transition-colors">
-            <Plus size={13} />
-          </button>
+          ))}
         </div>
       )}
     </div>
@@ -345,61 +167,70 @@ function AxisTagInput({ values, onChange, placeholder, disabled }: {
 interface ProductFormProps {
   /** Omit for a create flow (seller-submit or admin-create); pass the loaded product to edit it. */
   product?: MyProduct | AdminProduct
-  /**
-   * 'seller' (default): the seller portal's create/edit flow. Once a product is
-   * APPROVED, everything stays editable, but pricing/variants get staged for admin
-   * re-review instead of applying directly — the pricing section itself locks while
-   * one is already pending.
-   * 'admin-edit': admin's full-detail edit of an EXISTING product — nothing is ever
-   * staged (admin already mutates approved+published products elsewhere: pricing,
-   * category, publish/feature), no create/resubmit path, and saving redirects back
-   * to the admin product detail page instead.
-   * 'admin-create': admin creates a brand-new product directly — on behalf of a real
-   * seller or as admin's own (house) inventory — setting sellerPrice AND adminPrice
-   * (buyer price) AND agentPrice per tier right here, skipping PENDING review
-   * entirely (the product publishes immediately).
-   */
   mode?: 'seller' | 'admin-edit' | 'admin-create'
 }
 
-/** Groups legacy (pre-SKU-system) variants by whether they can be safely reconstructed into axis tag lists. */
-function hydrateVariants(variants: ProductVariant[] | undefined) {
-  const all = variants ?? []
-  const rich = all.filter((v) => v.sku)
-  if (rich.length === 0 || rich.length !== all.length) {
-    // Mixed or all-legacy — too ambiguous to safely reconstruct into combos (a legacy
-    // variant list is an independent set of options, not one to cross-multiply).
-    return { size: [] as string[], color: [] as string[], material: [] as string[], customAxisName: '', customValues: [] as string[], pricing: {} as Record<string, VariantPricing>, legacy: all }
-  }
+function parseDimensions(dimensions: string | null | undefined) {
+  if (!dimensions) return null
+  const m = dimensions.match(/^([\d.]+)\s*x\s*([\d.]+)\s*x\s*([\d.]+)\s*(cm|in)$/i)
+  if (!m) return null
+  return { length: m[1], width: m[2], height: m[3], unit: (m[4].toLowerCase() as 'cm' | 'in') }
+}
 
+/** Reconstructs the Size + one-other-axis rows from an existing product's variants,
+ *  matching this form's simplified 2-axis model. */
+function hydrateVariants(product: MyProduct | AdminProduct | undefined) {
+  const variants = product?.variants ?? []
   const size = new Set<string>()
-  const color = new Set<string>()
-  const material = new Set<string>()
-  const other = new Set<string>()
-  let customAxisName = ''
+  let axisType = ''
+  const axisValues = new Set<string>()
   const pricing: Record<string, VariantPricing> = {}
+  const colorSwatches: Record<string, string> = {}
 
-  for (const v of rich) {
+  for (const v of variants) {
     const attrs = v.attributes?.length ? v.attributes : [{ name: v.type, value: v.value }]
     const key = attrs.map((a) => a.value).join('__')
     for (const a of attrs) {
-      const lower = a.name.toLowerCase()
-      if (lower === 'size') size.add(a.value)
-      else if (lower === 'color') color.add(a.value)
-      else if (lower === 'material') material.add(a.value)
-      else { other.add(a.value); customAxisName = a.name }
+      if (a.name.toLowerCase() === 'size') size.add(a.value)
+      else {
+        axisType = a.name
+        axisValues.add(a.value)
+        if (a.name === 'Color' && v.imageUrl) colorSwatches[a.value] = v.imageUrl
+      }
     }
+    const tier = v.priceTiers?.[0]
     pricing[key] = {
       sku: v.sku ?? '',
-      tiers: (v.priceTiers ?? []).map((t) => ({
-        id: uid(), moq: String(t.moq), sellerPrice: String(t.sellerPrice), adminPrice: '', agentPrice: '',
-      })),
+      price: tier ? String(tier.sellerPrice) : '',
+      inventory: v.inventory != null ? String(v.inventory) : '',
+      weight: v.weight != null ? String(v.weight) : '',
+      weightUnit: v.weightUnit ?? 'kg',
+      length: v.length != null ? String(v.length) : '',
+      width: v.width != null ? String(v.width) : '',
+      height: v.height != null ? String(v.height) : '',
+      dimensionUnit: v.dimensionUnit ?? 'cm',
+      tariffCode: v.tariffCode ?? '',
+      status: v.status ?? 'ACTIVE',
     }
   }
 
+  const hasOptions: '' | 'yes' | 'no' = variants.length > 0 ? 'yes' : product ? 'no' : ''
+  const dims = parseDimensions(product?.dimensions)
+  const singlePricing: Record<string, VariantPricing> | null =
+    variants.length === 0 && product
+      ? {
+          single: {
+            sku: '', price: String(product.sellerPrice), inventory: String(product.declaredStock),
+            weight: product.weight ?? '', weightUnit: 'kg',
+            length: dims?.length ?? '', width: dims?.width ?? '', height: dims?.height ?? '',
+            dimensionUnit: dims?.unit ?? 'cm', tariffCode: product.tariffCode ?? '', status: 'ACTIVE',
+          },
+        }
+      : null
+
   return {
-    size: Array.from(size), color: Array.from(color), material: Array.from(material),
-    customAxisName, customValues: Array.from(other), pricing, legacy: [] as ProductVariant[],
+    size: Array.from(size), axisType, axisValues: Array.from(axisValues),
+    pricing: singlePricing ?? pricing, colorSwatches, hasOptions, optionsSaved: hasOptions !== '',
   }
 }
 
@@ -408,6 +239,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const { data: tree = [] } = useCategoryTree()
   const isAdminMode = mode !== 'seller'
   const isAdminCreate = mode === 'admin-create'
+  const isEdit = !!product
 
   const submitMutation = useSubmitProduct()
   const sellerUpdateMutation = useUpdateMyProduct()
@@ -415,390 +247,368 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const adminCreateMutation = useAdminCreateProduct()
   const updateMutation = mode === 'admin-edit' ? adminUpdateMutation : sellerUpdateMutation
   const resubmitMutation = useResubmitProduct()
-  const polishMutation = usePolishField()
+  const saveDraftMutation = useSaveDraft()
 
-  const isEdit = !!product
   const isApproved = product?.approvalStatus === 'APPROVED'
   const isRejected = product?.approvalStatus === 'REJECTED'
   const pendingPricingChange = product?.pendingPricingChange ?? null
-  // Once a product is APPROVED (live to buyers), a seller can still edit everything —
-  // but pricing/variants specifically get staged for admin re-review instead of
-  // applying directly, so the pricing section itself locks while one is already
-  // pending (admin mode has no such restriction — it never stages anything).
   const pricingLocked = !isAdminMode && isApproved && !!pendingPricingChange
   const backHref = mode === 'seller' ? '/portal/products' : product ? `/admin/products/${product.id}` : '/admin/products'
 
-  // ── Admin-create only: which seller this product is attributed to ──────────
   const [sellerMode, setSellerMode] = useState<'existing' | 'house'>('existing')
   const [selectedSellerId, setSelectedSellerId] = useState('')
   const { data: sellersPage } = useAdminSellers({ limit: 100, enabled: isAdminCreate })
   const sellers = sellersPage?.items ?? []
 
-  // ── Core details ─────────────────────────────────────────────────────────────
+  // ── Basic information ──────────────────────────────────────────────────────
   const [name, setName] = useState(product?.name ?? '')
+  const [categoryId, setCategoryId] = useState(product?.categoryId ?? '')
   const [description, setDescription] = useState(product?.description ?? '')
-  const [categoryId, setCategoryId] = useState(product?.categoryId ?? '') // create-only, see below
   const [materials, setMaterials] = useState(product?.materials ?? '')
-  const [tags, setTags] = useState(product?.tags?.length ? product.tags.join(', ') : '')
-  const parsedDimensions = useMemo(() => parseDimensions(product?.dimensions), [product])
-  const [lengthCm, setLengthCm] = useState(parsedDimensions?.length ?? '')
-  const [breadthCm, setBreadthCm] = useState(parsedDimensions?.breadth ?? '')
-  const [heightCm, setHeightCm] = useState(parsedDimensions?.height ?? '')
-  const [weight, setWeight] = useState(product?.weight != null ? String(product.weight) : '')
 
-  // ── Trade terms ──────────────────────────────────────────────────────────────
-  // No standalone MOQ/Seller Price fields — pricing always comes from tiers (flat
-  // tiers here, or each variant's own tiers when variants are enabled), and the
-  // product-level moq/sellerPrice the backend requires are derived from the
-  // cheapest tier on save.
-  const [declaredStock, setDeclaredStock] = useState(product?.declaredStock != null ? String(product.declaredStock) : '')
-  const [leadTime, setLeadTime] = useState(product?.leadTime ?? '')
-  const [stepQty, setStepQty] = useState(product?.stepQty != null ? String(product.stepQty) : '1')
-  const [priceTiers, setPriceTiers] = useState<TierRow[]>(
-    product?.priceTiers?.length
-      ? product.priceTiers.map((t) => ({
-          id: uid(), moq: String(t.moq), sellerPrice: String(t.sellerPrice), adminPrice: '', agentPrice: '',
-        }))
-      : defaultTierRows()
-  )
-
-  // ── Product attributes / craft story ────────────────────────────────────────
+  // ── Additional details ─────────────────────────────────────────────────────
   const [placeOfOrigin, setPlaceOfOrigin] = useState(product?.placeOfOrigin ?? '')
-  const [isHandmade, setIsHandmade] = useState(product?.isHandmade ?? false)
-  const [isGITagged, setIsGITagged] = useState(product?.isGITagged ?? false)
-  const [howItIsMade, setHowItIsMade] = useState(product?.howItIsMade ?? '')
-  const [artisanName, setArtisanName] = useState(product?.artisanName ?? '')
+  const [isBestseller, setIsBestseller] = useState(product?.isBestseller ?? false)
+  const [ecoMaterials, setEcoMaterials] = useState<string[]>(product?.ecoMaterials ?? [])
+  const [ecoPackaging, setEcoPackaging] = useState<string[]>(product?.ecoPackaging ?? [])
+  const [ecoProduction, setEcoProduction] = useState<string[]>(product?.ecoProduction ?? [])
 
-  // ── AI polish ────────────────────────────────────────────────────────────────
-  type PolishableField = 'name' | 'description' | 'tags'
-  const [polishing, setPolishing] = useState<Partial<Record<PolishableField, boolean>>>({})
-  const [prevValues, setPrevValues] = useState<Partial<Record<PolishableField, string>>>({})
-  const fieldValue: Record<PolishableField, string> = { name, description, tags }
-  const fieldSetter: Record<PolishableField, (v: string) => void> = { name: setName, description: setDescription, tags: setTags }
-
-  async function polishField(field: PolishableField) {
-    const value = fieldValue[field]
-    if (!value.trim()) return
-    setPolishing((p) => ({ ...p, [field]: true }))
-    try {
-      const cleaned = await polishMutation.mutateAsync({ field, value })
-      setPrevValues((p) => ({ ...p, [field]: value }))
-      fieldSetter[field](cleaned)
-    } finally {
-      setPolishing((p) => ({ ...p, [field]: false }))
-    }
-  }
-  function undoField(field: PolishableField) {
-    const prev = prevValues[field]
-    if (prev === undefined) return
-    fieldSetter[field](prev)
-    setPrevValues((p) => { const n = { ...p }; delete n[field]; return n })
-  }
-
-  // ── Images ───────────────────────────────────────────────────────────────────
+  // ── Images & videos ─────────────────────────────────────────────────────────
   const [existingImages, setExistingImages] = useState(product?.images ?? [])
   const [removeImageIds, setRemoveImageIds] = useState<string[]>([])
   const [newImages, setNewImages] = useState<File[]>([])
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const { openLightbox, lightboxNode } = useImageLightbox()
-  const totalImageCount = existingImages.length + newImages.length
-
+  // Blob URLs are a real external-resource side effect (must be paired with
+  // revokeObjectURL on cleanup) — genuinely can't be derived during render.
   useEffect(() => {
     const urls = newImages.map((f) => URL.createObjectURL(f))
     setNewImagePreviews(urls)
     return () => { urls.forEach((u) => URL.revokeObjectURL(u)) }
   }, [newImages])
+  const totalImageCount = existingImages.length + newImages.length
+  const [manageImagesMode, setManageImagesMode] = useState(false)
 
-  function handleFiles(files: FileList | null) {
-    if (!files || files.length === 0) return
-    const accepted = Array.from(files).filter((f) => f.type.startsWith('image/'))
-    const room = MAX_IMAGES - totalImageCount
-    if (room <= 0) {
-      toast.error(`You can have at most ${MAX_IMAGES} images.`)
-      return
-    }
-    setNewImages((prev) => [...prev, ...accepted].slice(0, prev.length + room))
+  const [existingVideos, setExistingVideos] = useState(product?.videos ?? [])
+  const [removeVideoIds, setRemoveVideoIds] = useState<string[]>([])
+  const [newVideos, setNewVideos] = useState<File[]>([])
+  const [newVideoPreviews, setNewVideoPreviews] = useState<string[]>([])
+  const videoInputRef = useRef<HTMLInputElement>(null)
+  // Same justified exception as the image-preview effect above.
+  useEffect(() => {
+    const urls = newVideos.map((f) => URL.createObjectURL(f))
+    setNewVideoPreviews(urls)
+    return () => { urls.forEach((u) => URL.revokeObjectURL(u)) }
+  }, [newVideos])
+  const totalVideoCount = existingVideos.length + newVideos.length
+  const [manageVideosMode, setManageVideosMode] = useState(false)
+
+  const { openLightbox, lightboxNode } = useImageLightbox()
+
+  // Faire-style guided slots — the first 7 real images fill these labeled positions
+  // in order (any beyond that just render as plain unlabeled tiles, up to MAX_IMAGES).
+  const FIXED_IMAGE_SLOT_LABELS = ['Featured image (Required)', 'Detail', 'Detail', 'Detail', 'Detail', 'Detail', 'Variations']
+  type ImageTile = { key: string; url: string; onRemove: () => void }
+  const imageTiles: ImageTile[] = [
+    ...existingImages.map((img): ImageTile => ({ key: img.id, url: img.url, onRemove: () => removeExistingImage(img.id) })),
+    ...newImagePreviews.map((src, i): ImageTile => ({ key: src, url: src, onRemove: () => removeNewImage(i) })),
+  ]
+
+  /** A stored swatch value is either a real URL or a new:<index> reference to a
+   *  not-yet-uploaded photo — resolves either to something actually displayable. */
+  function resolveSwatchDisplayUrl(value: string | undefined): string | undefined {
+    const newIndex = parseNewImageRef(value)
+    if (newIndex === null) return value
+    return newImagePreviews[newIndex]
   }
-  function removeNewImage(idx: number) {
-    setNewImages((prev) => prev.filter((_, i) => i !== idx))
+
+  const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+  function handleFiles(files: FileList | null) {
+    if (!files) return
+    const room = MAX_IMAGES - totalImageCount
+    if (room <= 0) { toast.error(`You can have at most ${MAX_IMAGES} images.`); return }
+    // A file the browser's accept filter let through anyway (e.g. an iPhone HEIC
+    // photo, or "All files" on some pickers) would otherwise silently fail to
+    // decode as an <img> — reject it here with a clear reason instead.
+    const all = Array.from(files)
+    const accepted = all.filter((f) => ACCEPTED_IMAGE_TYPES.includes(f.type))
+    const rejected = all.length - accepted.length
+    if (rejected > 0) {
+      toast.error(`${rejected} file${rejected > 1 ? 's' : ''} skipped — only JPEG, PNG, or WEBP images are supported (not HEIC/PDF/etc).`)
+    }
+    if (accepted.length === 0) return
+    setNewImages((prev) => [...prev, ...accepted.slice(0, room)])
   }
   function removeExistingImage(id: string) {
-    setExistingImages((prev) => prev.filter((img) => img.id !== id))
+    setExistingImages((prev) => prev.filter((i) => i.id !== id))
     setRemoveImageIds((prev) => [...prev, id])
   }
+  function removeNewImage(index: number) {
+    setNewImages((prev) => prev.filter((_, i) => i !== index))
+    // A color swatch referencing this not-yet-uploaded image by index needs to
+    // either clear (it was removed) or shift down (indices after it moved back one).
+    setColorSwatches((prev) => {
+      const next: Record<string, string> = {}
+      for (const [color, value] of Object.entries(prev)) {
+        const refIndex = parseNewImageRef(value)
+        if (refIndex === null) { next[color] = value; continue }
+        if (refIndex === index) continue
+        next[color] = newImageRef(refIndex > index ? refIndex - 1 : refIndex)
+      }
+      return next
+    })
+  }
+  function handleVideoFiles(files: FileList | null) {
+    if (!files) return
+    const room = MAX_VIDEOS - totalVideoCount
+    if (room <= 0) { toast.error(`You can have at most ${MAX_VIDEOS} videos.`); return }
+    setNewVideos((prev) => [...prev, ...Array.from(files).slice(0, room)])
+  }
+  function removeExistingVideo(id: string) {
+    setExistingVideos((prev) => prev.filter((v) => v.id !== id))
+    setRemoveVideoIds((prev) => [...prev, id])
+  }
+  function removeNewVideo(index: number) {
+    setNewVideos((prev) => prev.filter((_, i) => i !== index))
+  }
 
-  // ── Variants (Size / Color / Material / Other combo builder) ────────────────
-  // Master toggle, mirroring solomon-bharat2: when on, per-variant price tiers are
-  // the source of MOQ/Seller Price and the flat Trade Terms pricing is hidden —
-  // when off, the flat MOQ/Seller Price/Volume Pricing fields are what's used and
-  // no variants are sent at all.
-  const hydrated = useMemo(() => hydrateVariants(product?.variants), [product])
-  const hadExistingVariants =
-    hydrated.size.length > 0 || hydrated.color.length > 0 || hydrated.material.length > 0 ||
-    hydrated.customValues.length > 0 || hydrated.legacy.length > 0
-  const [variantsEnabled, setVariantsEnabled] = useState(hadExistingVariants)
-  const [activeVariantTab, setActiveVariantTab] = useState<Axis>('size')
+  // ── Product options ────────────────────────────────────────────────────────
+  const hydrated = useMemo(() => hydrateVariants(product), [product])
+  const [hasOptions, setHasOptions] = useState<'' | 'yes' | 'no'>(hydrated.hasOptions)
+  const [optionsSaved, setOptionsSaved] = useState(hydrated.optionsSaved)
   const [sizeValues, setSizeValues] = useState<string[]>(hydrated.size)
-  const [colorValues, setColorValues] = useState<string[]>(hydrated.color)
-  const [materialValues, setMaterialValues] = useState<string[]>(hydrated.material)
-  const [customAxisName, setCustomAxisName] = useState(hydrated.customAxisName)
-  const [customValues, setCustomValues] = useState<string[]>(hydrated.customValues)
+  const [axisType, setAxisType] = useState(hydrated.axisType)
+  const [axisValues, setAxisValues] = useState<string[]>(hydrated.axisValues)
   const [variantPricing, setVariantPricing] = useState<Record<string, VariantPricing>>(hydrated.pricing)
-  const legacyVariants = hydrated.legacy
+  const [colorSwatches, setColorSwatches] = useState<Record<string, string>>(hydrated.colorSwatches)
+  // Where each color's swatch is cropped (0-100%) — lifted up here (not local to
+  // the modal) so it survives closing/reopening the modal and also drives the
+  // table's own Photo column thumbnail, not just the modal's nav dots.
+  const [swatchFocus, setSwatchFocus] = useState<Record<string, { x: number; y: number; zoom: number }>>({})
+  const [excludedCombos, setExcludedCombos] = useState<Set<string>>(new Set())
 
-  function toggleVariantsMaster() {
-    if (variantsEnabled) {
-      setSizeValues([]); setColorValues([]); setMaterialValues([]); setCustomValues([]); setCustomAxisName('')
-      setActiveVariantTab('size')
-      setVariantPricing({})
-    }
-    setVariantsEnabled((v) => !v)
+  const [optionsModalOpen, setOptionsModalOpen] = useState(false)
+  const [swatchPromptOpen, setSwatchPromptOpen] = useState(false)
+  const [swatchModalOpen, setSwatchModalOpen] = useState(false)
+  const [swatchInitialColor, setSwatchInitialColor] = useState<string | undefined>()
+
+  function chooseYes() {
+    setHasOptions('yes')
+    setOptionsModalOpen(true)
+  }
+  function chooseNo() {
+    setHasOptions('no')
+    setOptionsSaved(false)
+  }
+  function saveOptionsModal(result: { size: string[]; axisType: string; axisValues: string[] }) {
+    setSizeValues(result.size)
+    setAxisType(result.axisType)
+    setAxisValues(result.axisValues)
+    const willHaveColor = result.axisType === 'Color' && result.axisValues.length > 0
+    setOptionsModalOpen(false)
+    setOptionsSaved(!willHaveColor)
+    setSwatchPromptOpen(willHaveColor)
+  }
+  function setColorSwatch(color: string, url: string | undefined) {
+    setColorSwatches((prev) => {
+      const next = { ...prev }
+      if (url) next[color] = url
+      else delete next[color]
+      return next
+    })
   }
 
   const variantCombos = useMemo((): VariantCombo[] => {
-    const axes = [
-      { name: 'Size', values: sizeValues },
-      { name: 'Color', values: colorValues },
-      { name: 'Material', values: materialValues },
-      { name: customAxisName.trim() || 'Other', values: customValues },
-    ].filter((a) => a.values.length > 0)
-    if (axes.length === 0) return []
+    if (hasOptions !== 'yes') return [{ key: 'single', label: 'Default', attributes: [] }]
+    const axes: { name: string; values: string[] }[] = []
+    if (sizeValues.length > 0) axes.push({ name: 'Size', values: sizeValues })
+    if (axisType && axisValues.length > 0) axes.push({ name: axisType, values: axisValues })
+    if (axes.length === 0) return [{ key: 'single', label: 'Default', attributes: [] }]
     return cartesian(axes.map((a) => a.values)).map((combo) => ({
       key: combo.join('__'),
       label: combo.join(' / '),
       attributes: axes.map((a, i) => ({ name: a.name, value: combo[i] })),
     }))
-  }, [sizeValues, colorValues, materialValues, customValues, customAxisName])
+  }, [hasOptions, sizeValues, axisType, axisValues])
 
-  // A combo with no entry yet in `variantPricing` gets the same 2 blank-price
-  // starter tiers as the flat table — deterministic ids keep them stable across
-  // renders without needing a ref or effect — and are only committed to real state
-  // on the seller's first edit; existing combos are never touched by this.
-  function getDefaultVP(key: string): VariantPricing {
-    return { sku: '', tiers: defaultComboTierRows(key) }
+  const activeCombos = useMemo(() => variantCombos.filter((c) => !excludedCombos.has(c.key)), [variantCombos, excludedCombos])
+  const showOptionsTable = hasOptions === 'no' || (hasOptions === 'yes' && optionsSaved)
+  // "Yes" with no size/axis values actually chosen collapses to the same single
+  // fallback row as "No" — treat it as a flat (non-variant) product, since a combo
+  // with no real attribute value would fail the backend's non-empty `value` check.
+  const usingSingleRow = activeCombos.length === 1 && activeCombos[0].key === 'single'
+
+  function getVP(key: string): VariantPricing {
+    return variantPricing[key] ?? defaultVP()
   }
-
-  function getVP(combo: VariantCombo): VariantPricing {
-    return variantPricing[combo.key] ?? getDefaultVP(combo.key)
+  function setVPField(key: string, field: keyof VariantPricing, value: string) {
+    setVariantPricing((p) => ({ ...p, [key]: { ...(p[key] ?? defaultVP()), [field]: value } }))
+  }
+  function toggleVPStatus(key: string) {
+    const current = variantPricing[key]?.status ?? 'ACTIVE'
+    setVariantPricing((p) => ({ ...p, [key]: { ...(p[key] ?? defaultVP()), status: current === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE' } }))
+  }
+  function removeCombo(key: string) {
+    setExcludedCombos((prev) => new Set(prev).add(key))
   }
   function autoSku(combo: VariantCombo): string {
     const prefix = name.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').toUpperCase().slice(0, 12) || 'PROD'
     return `${prefix}-${combo.key.replace(/[^a-zA-Z0-9]/g, '-').toUpperCase()}`
   }
-  function setVPSku(key: string, value: string) {
-    setVariantPricing((p) => ({ ...p, [key]: { ...(p[key] ?? getDefaultVP(key)), sku: value } }))
-  }
-  function addVPTier(key: string) {
-    setVariantPricing((p) => {
-      const vp = p[key] ?? getDefaultVP(key)
-      return { ...p, [key]: { ...vp, tiers: [...vp.tiers, { id: uid(), moq: '', sellerPrice: '', adminPrice: '', agentPrice: '' }] } }
-    })
-  }
-  function removeVPTier(key: string, tierId: string) {
-    setVariantPricing((p) => {
-      const vp = p[key] ?? getDefaultVP(key)
-      return { ...p, [key]: { ...vp, tiers: vp.tiers.filter((t) => t.id !== tierId) } }
-    })
-  }
-  function updateVPTier(key: string, tierId: string, field: 'moq' | 'sellerPrice' | 'adminPrice' | 'agentPrice', value: string) {
-    setVariantPricing((p) => {
-      const vp = p[key] ?? getDefaultVP(key)
-      return { ...p, [key]: { ...vp, tiers: vp.tiers.map((t) => (t.id === tierId ? { ...t, [field]: value } : t)) } }
-    })
-  }
 
-  function validTiersFor(combo: VariantCombo): TierRow[] {
-    return getVP(combo).tiers.filter((t) => Number(t.moq) > 0 && Number(t.sellerPrice) > 0)
-  }
+  // ── Publish confirmation ─────────────────────────────────────────────────────
+  const [publishModalOpen, setPublishModalOpen] = useState(false)
+  const savingDraft = saveDraftMutation.isPending
+  const saving = submitMutation.isPending || updateMutation.isPending || adminCreateMutation.isPending || resubmitMutation.isPending
 
-  function buildVariantPayload(): SubmitVariantInput[] {
-    // Stock and price/moq aren't stored per variant — stock always uses the single
-    // Declared Stock value above, and price/moq live solely in each variant's own
-    // priceTiers (its cheapest tier is used wherever "the" price is needed).
-    return variantCombos.map((combo) => {
-      const vp = getVP(combo)
-      const validTiers = [...validTiersFor(combo)].sort((a, b) => Number(a.sellerPrice) - Number(b.sellerPrice))
-      const primary = combo.attributes[0]
-      return {
-        type: primary.name,
-        value: primary.value,
-        sku: vp.sku.trim() || autoSku(combo),
-        attributes: combo.attributes,
-        priceTiers: validTiers.length
-          ? validTiers.map((t) => ({
-              moq: Number(t.moq),
-              sellerPrice: Number(t.sellerPrice),
-              ...(isAdminCreate ? {
-                adminPrice: t.adminPrice ? Number(t.adminPrice) : undefined,
-                agentPrice: t.agentPrice ? Number(t.agentPrice) : undefined,
-              } : {}),
-            }))
-          : undefined,
-      }
-    })
-  }
-
-  /** Derives the product-level MOQ/Seller Price the backend requires from the
-   *  cheapest tier — each variant's own tiers when variants are enabled, or the
-   *  flat Volume Pricing tiers otherwise. There's no standalone MOQ/Seller Price
-   *  field anymore; pricing always lives in a tier. */
-  function computeBasePricing(): { moq: number; sellerPrice: number } | null {
-    if (variantsEnabled) {
-      if (variantCombos.length === 0) return null
-      const cheapestPerCombo: (TierRow | undefined)[] = variantCombos.map(
-        (combo) => [...validTiersFor(combo)].sort((a, b) => Number(a.sellerPrice) - Number(b.sellerPrice))[0]
-      )
-      if (cheapestPerCombo.some((t) => !t)) return null
-      const valid = cheapestPerCombo as TierRow[]
-      const cheapest = valid.reduce((min, t) => (Number(t.sellerPrice) < Number(min.sellerPrice) ? t : min))
-      return { moq: Number(cheapest.moq), sellerPrice: Number(cheapest.sellerPrice) }
-    }
-    const validFlatTiers = priceTiers.filter((t) => Number(t.moq) > 0 && Number(t.sellerPrice) > 0)
-    if (!validFlatTiers.length) return null
-    const cheapest = [...validFlatTiers].sort((a, b) => Number(a.sellerPrice) - Number(b.sellerPrice))[0]
-    return { moq: Number(cheapest.moq), sellerPrice: Number(cheapest.sellerPrice) }
-  }
-
-  // ── Base price tiers ─────────────────────────────────────────────────────────
-  function addTier() { setPriceTiers((prev) => [...prev, { id: uid(), moq: '', sellerPrice: '', adminPrice: '', agentPrice: '' }]) }
-  function removeTier(id: string) { setPriceTiers((prev) => prev.filter((t) => t.id !== id)) }
-  function updateTier(id: string, field: 'moq' | 'sellerPrice' | 'adminPrice' | 'agentPrice', value: string) {
-    setPriceTiers((prev) => prev.map((t) => (t.id === id ? { ...t, [field]: value } : t)))
-  }
-
-  // ── Listing score (informational only — admin review is the real quality gate) ──
-  const scoreInput = useMemo(() => ({
-    name, description, categoryId, tags, weight, placeOfOrigin, howItIsMade, artisanName,
-    imageCount: totalImageCount,
-    hasPricing: variantsEnabled
-      ? variantCombos.length > 0 && variantCombos.every((c) => validTiersFor(c).length > 0)
-      : priceTiers.some((t) => Number(t.moq) > 0 && Number(t.sellerPrice) > 0),
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- validTiersFor reads variantPricing, already listed
-  }), [name, description, categoryId, tags, weight, placeOfOrigin, howItIsMade, artisanName, totalImageCount, priceTiers, variantsEnabled, variantCombos, variantPricing])
-
-  // ── Validation + submit ──────────────────────────────────────────────────────
   function validate(): string | null {
-    if (!name.trim()) return 'Product name is required.'
-    if (!description.trim()) return 'Description is required.'
-    if (!isEdit && !categoryId) return 'Select a category — all 3 levels.'
-    if (!materials.trim()) return 'Materials is required.'
-    if (!isEdit && (!weight || Number(weight) <= 0)) return 'Weight must be a positive number (kg).'
-    if (!declaredStock || Number(declaredStock) < 0) return 'Declared stock must be 0 or more.'
+    if (!name.trim()) return 'Enter a product name.'
+    if (!categoryId) return 'Select a product category.'
+    if (!description.trim()) return 'Enter a description.'
+    if (!materials.trim()) return 'Enter the product materials.'
     if (totalImageCount < MIN_IMAGES || totalImageCount > MAX_IMAGES) {
       return `Upload between ${MIN_IMAGES} and ${MAX_IMAGES} images (currently ${totalImageCount}).`
     }
-
-    if (variantsEnabled) {
-      if (variantCombos.length === 0) return 'Add at least one size, color, material, or other value, or turn off variants.'
-      const uncosted = variantCombos.find((combo) => validTiersFor(combo).length === 0)
-      if (uncosted) return `Set a price for "${uncosted.label}".`
-    } else {
-      const hasPricedTier = priceTiers.some((t) => Number(t.moq) > 0 && Number(t.sellerPrice) > 0)
-      if (!hasPricedTier) return 'Set a price for at least one MOQ tier.'
-    }
-
-    if (isAdminCreate) {
-      if (sellerMode === 'existing' && !selectedSellerId) return 'Select a seller.'
-      const hasBuyerPrice = variantsEnabled
-        ? variantCombos.some((combo) => validTiersFor(combo).some((t) => Number(t.adminPrice) > 0))
-        : priceTiers.some((t) => Number(t.adminPrice) > 0)
-      if (!hasBuyerPrice) return 'Set a Buyer Price for at least one tier.'
-    }
+    if (totalVideoCount > MAX_VIDEOS) return `You can have at most ${MAX_VIDEOS} videos.`
+    if (!hasOptions) return 'Select whether this product comes in multiple options.'
+    if (hasOptions === 'yes' && !optionsSaved) return 'Finish adding product options, or choose No.'
+    if (activeCombos.length === 0) return 'Add at least one product option, or choose No.'
+    const uncosted = activeCombos.find((c) => !(Number(getVP(c.key).price) > 0))
+    if (uncosted) return `Set a price for "${uncosted.label === 'Default' ? 'this product' : uncosted.label}".`
+    const unweighted = activeCombos.find((c) => !(Number(getVP(c.key).weight) > 0))
+    if (unweighted) return `Set a weight for "${unweighted.label === 'Default' ? 'this product' : unweighted.label}".`
+    const uninventoried = activeCombos.find((c) => {
+      const inv = getVP(c.key).inventory
+      return !inv.trim() || Number(inv) < 0
+    })
+    if (uninventoried) return `Set inventory for "${uninventoried.label === 'Default' ? 'this product' : uninventoried.label}".`
+    if (isAdminCreate && sellerMode === 'existing' && !selectedSellerId) return 'Select a seller.'
     return null
   }
 
-  function buildPayload() {
-    const basePricing = computeBasePricing()
-    return {
-      name: name.trim(),
-      description: description.trim(),
-      materials: materials.trim(),
-      dimensions: composeDimensions(lengthCm, breadthCm, heightCm),
-      weight: weight ? Number(weight) : undefined,
-      // validate() already guarantees a priced tier exists (flat or per-variant)
-      // before submit is reachable, so basePricing is never null here in practice.
-      moq: basePricing?.moq ?? 0,
-      declaredStock: Number(declaredStock),
-      sellerPrice: basePricing?.sellerPrice ?? 0,
-      leadTime: leadTime.trim() || undefined,
-      stepQty: Number(stepQty) || 1,
-      tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
-      placeOfOrigin: placeOfOrigin.trim() || undefined,
-      isHandmade,
-      isGITagged,
-      howItIsMade: howItIsMade.trim() || undefined,
-      artisanName: artisanName.trim() || undefined,
-      // Volume tiers only apply to the flat price — per-variant tiers are what's used instead
-      // once variants are enabled (mirrors solomon-bharat2 hiding this table in that mode).
-      priceTiers: variantsEnabled
-        ? []
-        : priceTiers
-            .filter((t) => Number(t.moq) > 0 && Number(t.sellerPrice) > 0)
-            .map((t) => ({
-              moq: Number(t.moq),
-              sellerPrice: Number(t.sellerPrice),
-              ...(isAdminCreate ? {
-                adminPrice: t.adminPrice ? Number(t.adminPrice) : undefined,
-                agentPrice: t.agentPrice ? Number(t.agentPrice) : undefined,
-              } : {}),
-            })),
-      variants: variantsEnabled ? buildVariantPayload() : [],
-    }
+  function computeBase(): { sellerPrice: number; weight: number } | null {
+    const rows = activeCombos.map((c) => getVP(c.key))
+    const prices = rows.map((r) => Number(r.price)).filter((n) => n > 0)
+    if (prices.length !== rows.length) return null
+    const weightsKg = rows
+      .map((r) => (Number(r.weight) > 0 ? (r.weightUnit === 'lb' ? Number(r.weight) * 0.453592 : Number(r.weight)) : null))
+      .filter((n): n is number => n !== null)
+    if (weightsKg.length === 0) return null
+    return { sellerPrice: Math.min(...prices), weight: weightsKg[0] }
+  }
+
+  /** Declared Stock is derived from the table's own per-row Inventory — the flat
+   *  (single-row) case sums to just that one row; the backend re-derives the same
+   *  total server-side from variant inventory too (see deriveDeclaredStock), so this
+   *  is really just keeping the client's own required-field value consistent with it. */
+  function totalInventory(): number {
+    return activeCombos.reduce((sum, c) => sum + (Number(getVP(c.key).inventory) || 0), 0)
+  }
+
+  function buildVariantPayload(): SubmitVariantInput[] {
+    if (hasOptions !== 'yes' || usingSingleRow) return []
+    return activeCombos.map((combo) => {
+      const vp = getVP(combo.key)
+      const primary = combo.attributes[0]
+      const colorAttr = combo.attributes.find((a) => a.name === 'Color')
+      const swatchValue = colorAttr ? colorSwatches[colorAttr.value] : undefined
+      const newImageIndex = parseNewImageRef(swatchValue) ?? undefined
+      return {
+        type: primary?.name ?? 'Option',
+        value: primary?.value ?? '',
+        sku: vp.sku.trim() || autoSku(combo),
+        status: vp.status,
+        attributes: combo.attributes,
+        // A swatch picked from a photo added this session (not yet uploaded) has
+        // no real URL — send its index instead, the backend resolves it once the
+        // images in this same submission are uploaded (see newImageIndex server-side).
+        imageUrl: newImageIndex === undefined ? swatchValue : undefined,
+        newImageIndex,
+        priceTiers: [{ moq: 1, sellerPrice: Number(vp.price) }],
+        inventory: vp.inventory ? Number(vp.inventory) : undefined,
+        weight: vp.weight ? Number(vp.weight) : undefined,
+        weightUnit: vp.weight ? vp.weightUnit : undefined,
+        length: vp.length ? Number(vp.length) : undefined,
+        width: vp.width ? Number(vp.width) : undefined,
+        height: vp.height ? Number(vp.height) : undefined,
+        dimensionUnit: (vp.length || vp.width || vp.height) ? vp.dimensionUnit : undefined,
+        tariffCode: vp.tariffCode.trim() || undefined,
+      }
+    })
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     const error = validate()
     if (error) { toast.error(error); return }
+    const base = computeBase()
+    if (!base) { toast.error('Set a price and weight for every option.'); return }
 
-    if (isAdminCreate) {
-      adminCreateMutation.mutate(
-        {
-          ...buildPayload(),
-          categoryId,
-          images: newImages,
-          sellerMode,
-          sellerId: sellerMode === 'existing' ? selectedSellerId : undefined,
-        },
-        { onSuccess: (created) => router.push(`/admin/products/${created.id}`) }
-      )
-      return
+    const single = usingSingleRow ? getVP('single') : null
+    const dimensions = single && (single.length || single.width || single.height)
+      ? `${single.length || 0} x ${single.width || 0} x ${single.height || 0} ${single.dimensionUnit}`
+      : undefined
+
+    const commonFields = {
+      name: name.trim(),
+      description: description.trim(),
+      materials: materials.trim(),
+      dimensions,
+      weight: base.weight,
+      moq: 1,
+      declaredStock: totalInventory(),
+      sellerPrice: base.sellerPrice,
+      variants: buildVariantPayload(),
+      tags: [],
+      isHandmade: false,
+      placeOfOrigin: placeOfOrigin.trim() || undefined,
+      isGITagged: false,
+      ecoMaterials, ecoPackaging, ecoProduction,
+      isBestseller,
+      tariffCode: single ? (single.tariffCode.trim() || undefined) : undefined,
     }
 
-    if (isEdit && product) {
-      updateMutation.mutate(
-        {
+    try {
+      if (isEdit && product) {
+        await updateMutation.mutateAsync({
           id: product.id,
           data: {
-            ...buildPayload(),
-            images: newImages.length ? newImages : undefined,
-            removeImageIds: removeImageIds.length ? removeImageIds : undefined,
+            ...commonFields,
+            // Publishing an existing draft (its only ever-false→true transition) —
+            // a normal edit of a non-draft product ignores this field entirely.
+            publish: product.approvalStatus === 'DRAFT',
+            removeImageIds, images: newImages,
+            removeVideoIds, videos: newVideos,
           },
-        },
-        { onSuccess: () => router.push(backHref) }
-      )
-    } else {
-      submitMutation.mutate(
-        { ...buildPayload(), categoryId, images: newImages },
-        { onSuccess: () => router.push(backHref) }
-      )
+        })
+        router.push(backHref)
+      } else if (isAdminCreate) {
+        await adminCreateMutation.mutateAsync({
+          ...commonFields,
+          categoryId,
+          images: newImages,
+          videos: newVideos,
+          sellerMode,
+          sellerId: sellerMode === 'existing' ? selectedSellerId : undefined,
+        })
+        setPublishModalOpen(true)
+      } else {
+        await submitMutation.mutateAsync({
+          ...commonFields,
+          categoryId,
+          images: newImages,
+          videos: newVideos,
+        })
+        setPublishModalOpen(true)
+      }
+    } catch (err) {
+      toast.error(getApiError(err))
     }
   }
 
   async function handleResubmit() {
     if (!product) return
-    const error = validate()
-    if (error) { toast.error(error); return }
     try {
-      await updateMutation.mutateAsync({
-        id: product.id,
-        data: {
-          ...buildPayload(),
-          images: newImages.length ? newImages : undefined,
-          removeImageIds: removeImageIds.length ? removeImageIds : undefined,
-        },
-      })
       await resubmitMutation.mutateAsync(product.id)
       router.push(backHref)
     } catch (err) {
@@ -806,424 +616,606 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
     }
   }
 
-  const saving = submitMutation.isPending || updateMutation.isPending || resubmitMutation.isPending || adminCreateMutation.isPending
+  /** Saves whatever's filled in so far without requiring the full publish checklist —
+   *  only name + category are real requirements. Variant pricing/weight only goes
+   *  along for the ride once every option row is actually priced (computeBase()
+   *  succeeds); a half-filled options table just isn't included yet. Doesn't touch
+   *  images/videos on first save (no id to attach them to) — add those on a later
+   *  draft save once the product exists. */
+  async function handleSaveDraft() {
+    if (!name.trim()) { toast.error('Enter a product name to save a draft.'); return }
+    if (!categoryId) { toast.error('Select a product category to save a draft.'); return }
+
+    const base = computeBase()
+    const single = usingSingleRow ? getVP('single') : null
+    const dimensions = single && (single.length || single.width || single.height)
+      ? `${single.length || 0} x ${single.width || 0} x ${single.height || 0} ${single.dimensionUnit}`
+      : undefined
+
+    const draftFields = {
+      name: name.trim(),
+      description: description.trim() || undefined,
+      materials: materials.trim() || undefined,
+      dimensions,
+      weight: base?.weight,
+      declaredStock: totalInventory(),
+      sellerPrice: base?.sellerPrice,
+      variants: base ? buildVariantPayload() : undefined,
+      placeOfOrigin: placeOfOrigin.trim() || undefined,
+      ecoMaterials, ecoPackaging, ecoProduction,
+      isBestseller,
+      tariffCode: single ? (single.tariffCode.trim() || undefined) : undefined,
+    }
+
+    try {
+      if (isEdit && product) {
+        await updateMutation.mutateAsync({
+          id: product.id,
+          data: {
+            ...draftFields,
+            publish: false,
+            removeImageIds, images: newImages,
+            removeVideoIds, videos: newVideos,
+          },
+        })
+      } else {
+        const created = await saveDraftMutation.mutateAsync({ ...draftFields, categoryId })
+        router.push(`/portal/products/${created.id}/edit`)
+      }
+    } catch (err) {
+      toast.error(getApiError(err))
+    }
+  }
+
+  const selectedCategoryPath = categoryId ? categoryPathLabel(tree, categoryId) : ''
 
   return (
-    <form onSubmit={handleSave} noValidate>
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_280px] gap-6 items-start">
-      <div className="space-y-6">
+    <form onSubmit={handleSave} noValidate className="max-w-[1100px]">
+      {isEdit && (
+        <div className="flex items-center gap-3 mb-6">
+          <span className="text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.05em]">Status</span>
+          <ApprovalStatusBadge status={product!.approvalStatus} />
+        </div>
+      )}
 
-        {isAdminCreate && (
-          <Section title="Seller">
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setSellerMode('existing')}
-                className={`flex-1 h-10 rounded border text-[13px] font-[600] font-public-sans transition-colors ${sellerMode === 'existing' ? 'border-primary bg-primary text-white' : 'border-border-warm text-primary hover:border-primary'}`}>
-                On behalf of an existing seller
-              </button>
-              <button type="button" onClick={() => setSellerMode('house')}
-                className={`flex-1 h-10 rounded border text-[13px] font-[600] font-public-sans transition-colors ${sellerMode === 'house' ? 'border-primary bg-primary text-white' : 'border-border-warm text-primary hover:border-primary'}`}>
-                My own product
-              </button>
-            </div>
-
-            {sellerMode === 'existing' && (
-              <Field label="Seller" required>
-                <SellerSearchSelect sellers={sellers} value={selectedSellerId} onChange={setSelectedSellerId} />
-              </Field>
-            )}
-          </Section>
-        )}
-
-        {!isAdminMode && isApproved && (
-          <div className="flex items-start gap-3 px-4 py-3.5 rounded border border-border-warm bg-muted-bg/60">
-            <AlertTriangle size={16} className="text-accent shrink-0 mt-0.5" aria-hidden="true" />
-            <div>
-              {pendingPricingChange ? (
-                <>
-                  <p className="text-[13px] font-[600] font-public-sans text-primary">Pricing change awaiting review</p>
-                  <p className="text-[12px] font-public-sans text-muted-text mt-0.5">
-                    A pricing/variant update for this product is pending admin approval — buyers still see the
-                    current pricing until it&apos;s reviewed. Other edits below still save immediately.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="text-[13px] font-[600] font-public-sans text-primary">This product is live</p>
-                  <p className="text-[12px] font-public-sans text-muted-text mt-0.5">
-                    Edits here save immediately, except changes to pricing or variants — those need admin approval
-                    before they go live.
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        {isRejected && product?.rejectionReason && (
-          <div className="flex items-start gap-3 px-4 py-3.5 rounded border border-error/30 bg-error/5">
-            <AlertTriangle size={16} className="text-error shrink-0 mt-0.5" aria-hidden="true" />
-            <div>
-              <p className="text-[13px] font-[600] font-public-sans text-error">Rejected — reason from Solomon Bharat</p>
-              <p className="text-[13px] font-public-sans text-primary mt-0.5">{product.rejectionReason}</p>
-            </div>
-          </div>
-        )}
-
-        {isEdit && (
-          <div className="flex items-center gap-2">
-            <span className="text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.05em]">Status</span>
-            <ApprovalStatusBadge status={product!.approvalStatus} />
-          </div>
-        )}
-
-        {/* ── Photos ──────────────────────────────────────────────────────── */}
-        <Section title="Photos">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            multiple
-            className="hidden"
-            onChange={(e) => { handleFiles(e.target.files); if (fileInputRef.current) fileInputRef.current.value = '' }}
-          />
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => fileInputRef.current?.click()}
-            onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
-            onDrop={(e) => { e.preventDefault(); handleFiles(e.dataTransfer.files) }}
-            onDragOver={(e) => e.preventDefault()}
-            className="border-2 border-dashed border-border-warm rounded p-6 flex flex-col items-center gap-2 text-center cursor-pointer hover:border-accent hover:bg-accent/5 transition-colors"
-          >
-            <div className="w-10 h-10 rounded-full bg-muted-bg flex items-center justify-center">
-              <Upload size={18} className="text-muted-text" />
-            </div>
-            <p className="text-[14px] font-[500] font-public-sans text-primary">Click or drag photos here</p>
-            <p className="text-[12px] font-public-sans text-muted-text">{MIN_IMAGES}–{MAX_IMAGES} images · JPG, PNG or WebP</p>
-          </div>
-          {(existingImages.length > 0 || newImages.length > 0) && (
-            <div className="grid grid-cols-4 sm:grid-cols-5 gap-3">
-              {existingImages.map((img, i) => (
-                <div key={img.id} className="relative group aspect-square rounded overflow-hidden border border-border-warm bg-muted-bg">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={cloudinaryFill(img.url, 400, 400)}
-                    alt=""
-                    onClick={() => openLightbox(img.url, 'Product image')}
-                    className="w-full h-full object-contain cursor-zoom-in"
-                  />
-                  <button type="button" onClick={() => removeExistingImage(img.id)}
-                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    aria-label="Remove image">
-                    <X size={12} />
-                  </button>
-                  {i === 0 && (
-                    <span className="absolute bottom-1 left-1 text-[10px] font-[600] font-public-sans bg-black/60 text-white px-1.5 py-0.5 rounded">Cover</span>
-                  )}
-                </div>
-              ))}
-              {newImages.map((_file, i) => (
-                <div key={`new-${i}`} className="relative group aspect-square rounded overflow-hidden border border-border-warm bg-muted-bg">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={newImagePreviews[i]} alt="" className="w-full h-full object-contain" />
-                  <button type="button" onClick={() => removeNewImage(i)}
-                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    aria-label="Remove image">
-                    <X size={12} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          <p className="text-[11px] font-public-sans text-muted-text">
-            {totalImageCount}/{MAX_IMAGES} selected — minimum {MIN_IMAGES} required
-          </p>
-        </Section>
-
-        {/* ── Core details ────────────────────────────────────────────────── */}
-        <Section title="Core Details">
-          <Field label="Product Name" required
-            action={<PolishButton loading={!!polishing.name} canUndo={!!prevValues.name} onPolish={() => polishField('name')} onUndo={() => undoField('name')} />}>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Hand-Block Printed Cotton Table Runner" maxLength={200} className={INPUT_CLS} />
-          </Field>
-
-          <Field label="Description" required
-            action={<PolishButton loading={!!polishing.description} canUndo={!!prevValues.description} onPolish={() => polishField('description')} onUndo={() => undoField('description')} />}>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)}
-              rows={5} placeholder="Describe the product — craftsmanship, use case, care instructions…" className={TEXTAREA_CLS} />
-          </Field>
-
-          <Field label="Category" required hint={isEdit ? 'Category can’t be changed after submission.' : 'Choose all 3 levels.'}>
-            {isEdit ? (
-              <p className="text-[14px] font-public-sans text-primary px-3 py-2.5 rounded border border-border-warm bg-muted-bg/30">
-                {categoryPathLabel(tree, product?.categoryId)}
-              </p>
-            ) : (
-              <CategoryCascadeSelect tree={tree} value={categoryId} onChange={setCategoryId} />
-            )}
-          </Field>
-
-          <Field label="Materials" required>
-            <input type="text" value={materials} onChange={(e) => setMaterials(e.target.value)}
-              placeholder="e.g. 100% cotton, brass hardware" className={INPUT_CLS} />
-          </Field>
-
-          <Field label="Tags" hint="Comma-separated, up to 10"
-            action={<PolishButton loading={!!polishing.tags} canUndo={!!prevValues.tags} onPolish={() => polishField('tags')} onUndo={() => undoField('tags')} />}>
-            <input type="text" value={tags} onChange={(e) => setTags(e.target.value)}
-              placeholder="handmade, cotton, block print" className={INPUT_CLS} />
-          </Field>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Weight (kg)" required={!isEdit}>
-              <input type="number" min="0" step="0.01" value={weight} onChange={(e) => setWeight(e.target.value)}
-                placeholder="e.g. 0.4" className={INPUT_CLS} />
-            </Field>
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            <Field label="Length (cm)">
-              <input type="number" min="0" value={lengthCm} onChange={(e) => setLengthCm(e.target.value)}
-                placeholder="e.g. 30" className={INPUT_CLS} />
-            </Field>
-            <Field label="Breadth (cm)">
-              <input type="number" min="0" value={breadthCm} onChange={(e) => setBreadthCm(e.target.value)}
-                placeholder="e.g. 20" className={INPUT_CLS} />
-            </Field>
-            <Field label="Height (cm)">
-              <input type="number" min="0" value={heightCm} onChange={(e) => setHeightCm(e.target.value)}
-                placeholder="e.g. 10" className={INPUT_CLS} />
-            </Field>
-          </div>
-          {isEdit && product?.dimensions && !parsedDimensions && (
-            <p className="text-[12px] font-public-sans text-muted-text">Previously recorded as: {product.dimensions}</p>
-          )}
-        </Section>
-
-        {/* ── Variants ─────────────────────────────────────────────────────── */}
-        <div className="bg-surface border border-border-warm rounded p-6 space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-[16px] font-[600] font-public-sans text-primary">Variants</h2>
-              <p className="text-[12px] font-public-sans text-muted-text mt-0.5">
-                Does this product come in different sizes, colors, materials, or other options?
-              </p>
-            </div>
-            <button type="button" role="switch" aria-checked={variantsEnabled} aria-label="Toggle variants" disabled={pricingLocked}
-              onClick={toggleVariantsMaster}
-              className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${variantsEnabled ? 'bg-primary' : 'bg-border-warm'}`}>
-              <span className={`inline-block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform ${variantsEnabled ? 'translate-x-5.5' : 'translate-x-0.5'}`} />
+      {isAdminCreate && (
+        <div className="border border-border-warm rounded-xl p-8 mb-6">
+          <h2 className="text-[20px] font-[700] font-sans text-primary mb-1">Seller</h2>
+          <p className="text-[13px] font-sans text-muted-text mb-4">Attribute this product to a seller, or create it as house inventory.</p>
+          <div className="flex gap-3 mb-4">
+            <button type="button" onClick={() => setSellerMode('existing')}
+              className={`choice-box-like h-10 px-4 rounded border text-[14px] font-[600] font-sans transition-colors ${sellerMode === 'existing' ? 'border-primary bg-primary text-white' : 'border-border-warm text-primary'}`}>
+              Existing seller
+            </button>
+            <button type="button" onClick={() => setSellerMode('house')}
+              className={`h-10 px-4 rounded border text-[14px] font-[600] font-sans transition-colors ${sellerMode === 'house' ? 'border-primary bg-primary text-white' : 'border-border-warm text-primary'}`}>
+              House inventory
             </button>
           </div>
+          {sellerMode === 'existing' && (
+            <select value={selectedSellerId} onChange={(e) => setSelectedSellerId(e.target.value)} className={INPUT_CLS}>
+              <option value="">Select a seller…</option>
+              {sellers.map((s) => <option key={s.id} value={s.id}>{s.businessName} — {s.contactName}</option>)}
+            </select>
+          )}
+        </div>
+      )}
 
-          {variantsEnabled && (
-            <div className="space-y-4 pt-4 border-t border-border-warm">
-              {legacyVariants.length > 0 && variantCombos.length === 0 && (
-                <div className="px-3 py-2.5 rounded border border-border-warm bg-muted-bg/40">
-                  <p className="text-[12px] font-public-sans text-muted-text">
-                    Existing options: {legacyVariants.map((v) => `${v.type}: ${v.value}`).join(', ')}.
-                    Add variants below to replace them with priced options.
+      {/* ── Basic information ────────────────────────────────────────────── */}
+      <div className="border border-border-warm rounded-xl p-8 mb-6">
+        <h2 className="text-[20px] font-[700] font-sans text-primary mb-5">Basic information</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          <div>
+            <p className="text-[14px] font-[600] font-sans text-primary">Product details<span className="text-error ml-0.5">*</span></p>
+            <p className="text-[13px] font-sans text-muted-text mb-3.5">Add a name and description to help retailers learn more about your product.</p>
+            <Field label="Name">
+              <input type="text" value={name} onChange={(e) => setName(e.target.value.slice(0, 60))}
+                placeholder="Give your product a clear, concise name." maxLength={60} className={INPUT_CLS} />
+              <p className="text-right text-[12px] font-sans text-muted-text mt-1">{name.length}/60</p>
+            </Field>
+          </div>
+
+          <div>
+            <p className="text-[14px] font-[600] font-sans text-primary">Product category<span className="text-error ml-0.5">*</span></p>
+            <p className="text-[13px] font-sans text-muted-text mb-3.5">Provide additional information to help us categorize your products.</p>
+            <Field label="Product type">
+              {isEdit ? (
+                <p className="h-10 flex items-center px-3 rounded border border-border-warm bg-muted-bg/30 text-[14px] font-sans text-primary">
+                  {categoryPathLabel(tree, product?.categoryId)}
+                </p>
+              ) : (
+                <CategoryTypeahead tree={tree} value={categoryId} onChange={setCategoryId} className={INPUT_CLS} />
+              )}
+            </Field>
+          </div>
+        </div>
+
+        {categoryId && (
+          <div className="mt-7 grid grid-cols-1 md:grid-cols-2 gap-10">
+            <Field label="Description" required>
+              <textarea value={description} onChange={(e) => setDescription(e.target.value.slice(0, 1000))}
+                rows={4} maxLength={1000}
+                placeholder="Include information about details like materials, durability, use, and more."
+                className={TEXTAREA_CLS} />
+              <p className="text-right text-[12px] font-sans text-muted-text mt-1">{description.length}/1000</p>
+              {selectedCategoryPath && (
+                <p className="text-[13px] font-sans text-primary mt-3">
+                  This product will appear in:<br /><span className="font-[700]">{selectedCategoryPath}</span>
+                </p>
+              )}
+            </Field>
+            <Field label="Materials" required>
+              <input type="text" value={materials} onChange={(e) => setMaterials(e.target.value)}
+                placeholder="e.g. 100% cotton, brass hardware" className={INPUT_CLS} />
+            </Field>
+          </div>
+        )}
+      </div>
+
+      {categoryId && (
+        <>
+          {/* ── Additional details ────────────────────────────────────────── */}
+          <div className="border border-border-warm rounded-xl p-8 mb-6">
+            <h2 className="text-[20px] font-[700] font-sans text-primary mb-1">Additional details</h2>
+            <p className="text-[13px] font-sans text-muted-text mb-5">Include additional details to help retailers make better buying decisions.</p>
+
+            <Field label="Made in">
+              <MadeInCombobox value={placeOfOrigin} onChange={setPlaceOfOrigin} />
+            </Field>
+
+            <label className="flex items-center gap-2.5 cursor-pointer mt-5">
+              <input type="checkbox" checked={isBestseller} onChange={(e) => setIsBestseller(e.target.checked)}
+                className="w-4 h-4 rounded border-border-warm accent-primary" />
+              <span className="text-[14px] font-sans text-primary">Mark as bestseller</span>
+            </label>
+
+            <div className="border-t border-border-warm mt-7 pt-6">
+              <h3 className="text-[16px] font-[700] font-sans text-primary mb-1">Attribute tags</h3>
+              <p className="text-[14px] font-[600] font-sans text-primary mt-4">Eco-friendly information</p>
+              <p className="text-[13px] font-sans text-muted-text mb-5">Add eco-friendly materials, packaging, and production practices.</p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <MultiSelectDropdown label="Product Materials" options={ECO_MATERIALS} values={ecoMaterials} onChange={setEcoMaterials} />
+                <MultiSelectDropdown label="Packaging" options={ECO_PACKAGING} values={ecoPackaging} onChange={setEcoPackaging} />
+                <MultiSelectDropdown label="Production" options={ECO_PRODUCTION} values={ecoProduction} onChange={setEcoProduction} />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Images & videos ───────────────────────────────────────────── */}
+          <div className="border border-border-warm rounded-xl p-8 mb-6">
+            <h2 className="text-[20px] font-[700] font-sans text-primary mb-5">Images &amp; videos</h2>
+
+            <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
+              <div>
+                <p className="text-[15px] font-[600] font-sans text-primary">Product images<span className="text-error ml-0.5">*</span></p>
+                <p className="text-[13px] font-sans text-muted-text">Add a minimum of {MIN_IMAGES} high-quality images that are at least 1,050 by 1,050 pixels in size.</p>
+              </div>
+              <div className="flex items-center gap-4 flex-shrink-0">
+                <button type="button" onClick={() => setManageImagesMode((v) => !v)}
+                  className={`inline-flex items-center gap-1.5 text-[12px] font-[500] font-sans transition-colors ${manageImagesMode ? 'text-primary' : 'text-muted-text hover:text-primary'}`}>
+                  <SlidersHorizontal size={13} />Manage images
+                </button>
+                <button type="button" onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 text-[12px] font-[500] font-sans text-muted-text hover:text-primary transition-colors">
+                  <Upload size={13} />Upload image
+                </button>
+              </div>
+            </div>
+
+            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden"
+              onChange={(e) => { handleFiles(e.target.files); if (fileInputRef.current) fileInputRef.current.value = '' }} />
+
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="lg:w-[220px] flex-shrink-0 rounded-lg bg-muted-bg/50 p-4 space-y-2">
+                <div className="flex items-start gap-2">
+                  <span className="w-7 h-7 rounded-full bg-surface flex items-center justify-center flex-shrink-0">
+                    <Lightbulb size={14} className="text-primary" />
+                  </span>
+                  <p className="text-[13px] font-sans text-primary leading-snug">
+                    High-quality product images increase sales by up to 2x. Try these tips to get the best photo:
                   </p>
                 </div>
-              )}
+                <ul className="text-[12px] font-sans text-muted-text list-disc pl-8 space-y-1">
+                  <li>Upload {MIN_IMAGES}+ images.</li>
+                  <li>Use a white or neutral background.</li>
+                  <li>Include images of each product option.</li>
+                </ul>
+                <a href="#" onClick={(e) => e.preventDefault()}
+                  className="inline-block text-[12px] font-[500] font-sans text-primary underline hover:text-accent transition-colors">
+                  Review photography guidelines
+                </a>
+              </div>
 
-              <div className="flex gap-2">
-                {(['size', 'color', 'material', 'other'] as const).map((axis) => {
-                  const count = { size: sizeValues.length, color: colorValues.length, material: materialValues.length, other: customValues.length }[axis]
-                  const label = axis === 'other' ? 'Other' : axis[0].toUpperCase() + axis.slice(1)
+              <div className="flex-1 grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3.5 content-start">
+                {totalImageCount < MAX_IMAGES && (
+                  <button type="button" onClick={() => fileInputRef.current?.click()}
+                    className="aspect-square rounded-lg border border-dashed border-border-warm bg-muted-bg/30 flex flex-col items-center justify-center gap-2 text-muted-text hover:border-accent hover:text-primary transition-colors text-[13px] font-sans">
+                    <Upload size={18} />Upload image
+                  </button>
+                )}
+                {Array.from({ length: Math.max(FIXED_IMAGE_SLOT_LABELS.length, imageTiles.length) }).map((_, i) => {
+                  const tile = imageTiles[i]
+                  if (tile) {
+                    return (
+                      <div key={tile.key} className="relative aspect-square rounded-lg overflow-hidden border border-border-warm group">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={cloudinaryFill(tile.url, 300, 300)} alt="" className="w-full h-full object-cover cursor-pointer"
+                          onClick={() => openLightbox(tile.url)} />
+                        {i === 0 && <span className="absolute bottom-1.5 left-1.5 bg-black/60 text-white text-[10px] font-sans px-1.5 py-0.5 rounded">Featured</span>}
+                        <button type="button" onClick={tile.onRemove} aria-label="Remove image"
+                          className={`absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center transition-opacity ${manageImagesMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                          <X size={12} />
+                        </button>
+                      </div>
+                    )
+                  }
+                  if (i >= FIXED_IMAGE_SLOT_LABELS.length) return null
                   return (
-                    <button key={axis} type="button" onClick={() => setActiveVariantTab(axis)}
-                      className={`flex items-center gap-2 px-4 h-9 rounded border text-[13px] font-[500] font-public-sans transition-colors ${activeVariantTab === axis ? 'border-primary bg-primary text-white' : 'border-border-warm text-muted-text hover:border-primary hover:text-primary'}`}>
-                      {label}
-                      {count > 0 && (
-                        <span className={`text-[11px] font-[600] px-1.5 py-0.5 rounded-full ${activeVariantTab === axis ? 'bg-white/20' : 'bg-muted-bg'}`}>{count}</span>
-                      )}
-                    </button>
+                    <div key={`placeholder-${i}`}
+                      className="aspect-square rounded-lg border border-border-warm flex items-center justify-center text-center px-2 text-[13px] font-sans text-muted-text/60">
+                      {FIXED_IMAGE_SLOT_LABELS[i]}
+                    </div>
                   )
                 })}
               </div>
-
-              {activeVariantTab === 'size' && (
-                <div className="space-y-2">
-                  <p className="text-[12px] font-public-sans text-muted-text">e.g. S, M, L, XL, Free Size — press Enter or click + to add</p>
-                  <AxisTagInput values={sizeValues} onChange={setSizeValues} placeholder="Add size…" disabled={pricingLocked} />
-                </div>
-              )}
-              {activeVariantTab === 'color' && (
-                <div className="space-y-2">
-                  <p className="text-[12px] font-public-sans text-muted-text">e.g. Red, Navy Blue, Ivory — press Enter or click + to add</p>
-                  <AxisTagInput values={colorValues} onChange={setColorValues} placeholder="Add color…" disabled={pricingLocked} />
-                </div>
-              )}
-              {activeVariantTab === 'material' && (
-                <div className="space-y-2">
-                  <p className="text-[12px] font-public-sans text-muted-text">e.g. Cotton, Brass, Terracotta — press Enter or click + to add</p>
-                  <AxisTagInput values={materialValues} onChange={setMaterialValues} placeholder="Add material…" disabled={pricingLocked} />
-                </div>
-              )}
-              {activeVariantTab === 'other' && (
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <label className="text-[12px] font-[500] font-public-sans text-primary">Attribute name</label>
-                    <input type="text" value={customAxisName} onChange={(e) => setCustomAxisName(e.target.value)} disabled={pricingLocked}
-                      placeholder="e.g. Fragrance, Pattern, Finish" className="h-9 px-3 w-full max-w-xs rounded border border-border-warm bg-muted-bg/30 text-[13px] font-public-sans text-primary placeholder:text-muted-text/40 focus:outline-none focus:border-accent transition-colors disabled:opacity-50" />
-                  </div>
-                  <p className="text-[12px] font-public-sans text-muted-text">e.g. Sandalwood, Rose — press Enter or click + to add</p>
-                  <AxisTagInput values={customValues} onChange={setCustomValues} placeholder="Add value…" disabled={pricingLocked} />
-                </div>
-              )}
-
-              {variantCombos.length > 0 && (
-                <div className="space-y-4 pt-1">
-                  <p className="text-[12px] font-public-sans text-muted-text">
-                    Set a SKU (optional) for each variant, then edit the MOQs, add more tiers, or fill in
-                    a price for each. Stock uses the Declared Stock value below for every variant.
-                  </p>
-                  {variantCombos.map((combo) => {
-                    const vp = getVP(combo)
-                    return (
-                      <div key={combo.key} className="rounded border border-border-warm overflow-hidden">
-                        <div className="flex flex-wrap items-center justify-between gap-2 bg-muted-bg/40 px-3 py-2 border-b border-border-warm">
-                          <span className="text-[13px] font-[600] font-public-sans text-primary">{combo.label}</span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[12px] font-public-sans text-muted-text">SKU</span>
-                            <input type="text" value={vp.sku} disabled={pricingLocked}
-                              onChange={(e) => setVPSku(combo.key, e.target.value)}
-                              placeholder={autoSku(combo)}
-                              className="w-40 h-7 px-2 rounded border border-border-warm bg-surface text-[12px] font-public-sans text-primary focus:outline-none focus:border-accent transition-colors disabled:opacity-50" />
-                          </div>
-                        </div>
-                        <div className="p-3">
-                          <TierTable
-                            tiers={vp.tiers}
-                            onAdd={() => addVPTier(combo.key)}
-                            onRemove={(tierId) => removeVPTier(combo.key, tierId)}
-                            onUpdate={(tierId, field, value) => updateVPTier(combo.key, tierId, field, value)}
-                            disabled={pricingLocked}
-                            showAdminPricing={isAdminCreate}
-                          />
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
             </div>
-          )}
-        </div>
+            <p className="text-[12px] font-sans text-muted-text mt-3 flex items-center gap-1.5">
+              <GripVertical size={12} />Drag and drop images to rearrange their order.
+            </p>
 
-        {/* ── Trade terms ─────────────────────────────────────────────────── */}
-        <Section
-          title="Trade Terms"
-          subtitle={variantsEnabled
-            ? 'Per-variant pricing is set above. Configure stock, order step, and lead time here.'
-            : undefined}
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Declared Stock" required hint="Self-reported — not system-tracked. Used for every variant too.">
-              <input type="number" min="0" value={declaredStock} onChange={(e) => setDeclaredStock(e.target.value)}
-                placeholder="e.g. 500" className={INPUT_CLS} />
-            </Field>
-            <Field label="Order Step (units)" hint="Buyers order in multiples of this">
-              <input type="number" min="1" value={stepQty} onChange={(e) => setStepQty(e.target.value)}
-                placeholder="e.g. 1" className={INPUT_CLS} />
-            </Field>
-          </div>
+            <div className="border-t border-border-warm my-6" />
 
-          {!variantsEnabled && (
-            <Field label="Volume Pricing" required hint="What Solomon Bharat pays you per unit at each order quantity. Edit the MOQs, add more tiers, or fill in a price for each.">
-              <TierTable tiers={priceTiers} onAdd={addTier} onRemove={removeTier} onUpdate={updateTier} disabled={pricingLocked} showAdminPricing={isAdminCreate} />
-            </Field>
-          )}
-
-          <Field label="Lead Time" hint="Pick a preset or type your own.">
-            <div className="flex flex-wrap gap-2 mb-2">
-              {LEAD_TIME_PRESETS.map((preset) => (
-                <button key={preset} type="button" onClick={() => setLeadTime(preset)}
-                  className={`px-3 h-8 rounded border text-[12px] font-[500] font-public-sans transition-colors disabled:opacity-50 ${leadTime === preset ? 'border-primary bg-primary text-white' : 'border-border-warm text-muted-text hover:border-primary hover:text-primary'}`}>
-                  {preset}
+            <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
+              <div>
+                <h3 className="text-[16px] font-[700] font-sans text-primary mb-1">Product videos</h3>
+                <p className="text-[13px] font-sans text-muted-text">Add up to {MAX_VIDEOS} videos to show your product in motion. Each video should be 2 GB or smaller. ({totalVideoCount}/{MAX_VIDEOS})</p>
+              </div>
+              <div className="flex items-center gap-4 flex-shrink-0">
+                <button type="button" onClick={() => setManageVideosMode((v) => !v)}
+                  className={`inline-flex items-center gap-1.5 text-[12px] font-[500] font-sans transition-colors ${manageVideosMode ? 'text-primary' : 'text-muted-text hover:text-primary'}`}>
+                  <SlidersHorizontal size={13} />Manage videos
                 </button>
+                <button type="button" onClick={() => videoInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 text-[12px] font-[500] font-sans text-muted-text hover:text-primary transition-colors">
+                  <Upload size={13} />Upload video
+                </button>
+              </div>
+            </div>
+
+            <input ref={videoInputRef} type="file" accept="video/mp4,video/quicktime,video/webm" multiple className="hidden"
+              onChange={(e) => { handleVideoFiles(e.target.files); if (videoInputRef.current) videoInputRef.current.value = '' }} />
+
+            <div className="flex flex-wrap gap-3.5">
+              {totalVideoCount < MAX_VIDEOS && (
+                <button type="button" onClick={() => videoInputRef.current?.click()}
+                  className="w-[160px] aspect-[16/10] rounded-lg bg-muted-bg/50 flex flex-col items-center justify-center gap-2 text-muted-text hover:text-primary transition-colors text-[13px] font-sans">
+                  <Upload size={18} />Upload video
+                </button>
+              )}
+              {existingVideos.map((v) => (
+                <div key={v.id} className="relative w-[160px] aspect-[16/10] rounded-lg overflow-hidden border border-border-warm bg-black/80 flex items-center justify-center group">
+                  <Film size={22} className="text-white/70" />
+                  <button type="button" onClick={() => removeExistingVideo(v.id)} aria-label="Remove video"
+                    className={`absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center transition-opacity ${manageVideosMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+              {newVideoPreviews.map((src, i) => (
+                <div key={src} className="relative w-[160px] aspect-[16/10] rounded-lg overflow-hidden border border-border-warm bg-black group">
+                  <video src={src} className="w-full h-full object-cover" muted />
+                  <button type="button" onClick={() => removeNewVideo(i)} aria-label="Remove video"
+                    className={`absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center transition-opacity ${manageVideosMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                    <X size={12} />
+                  </button>
+                </div>
               ))}
             </div>
-            <input type="text" value={leadTime} onChange={(e) => setLeadTime(e.target.value)}
-              placeholder="e.g. 2–3 weeks" className={INPUT_CLS} />
-          </Field>
-        </Section>
-
-        {/* ── Product Attributes ─────────────────────────────────────────────── */}
-        <Section title="Product Attributes">
-          <Field label="Place of Origin" hint="State or region">
-            <input type="text" value={placeOfOrigin} onChange={(e) => setPlaceOfOrigin(e.target.value)}
-              placeholder="e.g. Jaipur, Rajasthan" className={INPUT_CLS} />
-          </Field>
-          <div className="flex flex-col gap-4 pt-1">
-            <label className="flex items-center justify-between cursor-pointer">
-              <div>
-                <p className="text-[14px] font-[500] font-public-sans text-primary">Handmade</p>
-                <p className="text-[12px] font-public-sans text-muted-text">Crafted by hand, not machine-made</p>
-              </div>
-              <button type="button" role="switch" aria-checked={isHandmade}
-                onClick={() => setIsHandmade((v) => !v)}
-                className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${isHandmade ? 'bg-primary' : 'bg-border-warm'}`}>
-                <span className={`inline-block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform ${isHandmade ? 'translate-x-5.5' : 'translate-x-0.5'}`} />
-              </button>
-            </label>
-            <label className="flex items-center justify-between cursor-pointer">
-              <div>
-                <p className="text-[14px] font-[500] font-public-sans text-primary">GI Tagged</p>
-                <p className="text-[12px] font-public-sans text-muted-text">Has a Geographical Indication tag</p>
-              </div>
-              <button type="button" role="switch" aria-checked={isGITagged}
-                onClick={() => setIsGITagged((v) => !v)}
-                className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${isGITagged ? 'bg-primary' : 'bg-border-warm'}`}>
-                <span className={`inline-block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform ${isGITagged ? 'translate-x-5.5' : 'translate-x-0.5'}`} />
-              </button>
-            </label>
           </div>
-        </Section>
 
-        {/* ── How It's Made ──────────────────────────────────────────────────── */}
-        <Section title="How It's Made">
-          <Field label="Craft Process" hint="Describe the making process — materials, techniques, time taken. Aim for 20+ words.">
-            <textarea value={howItIsMade} onChange={(e) => setHowItIsMade(e.target.value)}
-              placeholder="e.g. This table runner is hand-woven on a traditional pit loom using organic cotton yarn…"
-              rows={4} className={TEXTAREA_CLS} />
-            <p className="text-[11px] font-public-sans text-muted-text">
-              {howItIsMade.trim().split(/\s+/).filter(Boolean).length} words
+          {/* ── Product options: Yes/No — always visible so the seller can switch
+             between Yes and No at any time, not just before answering once. ──── */}
+          <div className="border border-border-warm rounded-xl p-8 mb-6">
+            <h2 className="text-[20px] font-[700] font-sans text-primary mb-1">Product options</h2>
+            <p className="text-[14px] font-sans text-muted-text mb-4">
+              Does this product come in multiple options, like different sizes, colors, or materials?<span className="text-error ml-0.5">*</span>
             </p>
-          </Field>
-          <Field label="Artisan Name" hint="Name of the maker or lead artisan">
-            <input type="text" value={artisanName} onChange={(e) => setArtisanName(e.target.value)}
-              placeholder="e.g. Ramesh Kumar" className={INPUT_CLS} />
-          </Field>
-        </Section>
+            <div className="flex gap-4">
+              <button type="button" disabled={pricingLocked} onClick={chooseYes}
+                className={`w-[140px] h-11 rounded border text-[14px] font-[600] font-sans transition-colors disabled:opacity-50 ${hasOptions === 'yes' ? 'border-primary bg-primary text-white' : 'border-border-warm text-primary hover:border-primary'}`}>
+                Yes
+              </button>
+              <button type="button" disabled={pricingLocked} onClick={chooseNo}
+                className={`w-[140px] h-11 rounded border text-[14px] font-[600] font-sans transition-colors disabled:opacity-50 ${hasOptions === 'no' ? 'border-primary bg-primary text-white' : 'border-border-warm text-primary hover:border-primary'}`}>
+                No
+              </button>
+            </div>
+          </div>
 
-        {/* ── Actions ─────────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-3 pb-10">
-          {!isAdminMode && isRejected ? (
-            <Button type="button" variant="accent" size="md" disabled={saving} onClick={handleResubmit}>
-              {saving ? 'Resubmitting…' : 'Resubmit for Review'}
-            </Button>
-          ) : (
-            <Button type="submit" variant="primary" size="md" disabled={saving}>
-              {isAdminCreate
-                ? (saving ? 'Publishing…' : 'Publish Product')
-                : (saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Submit for Review')}
-            </Button>
+          {/* ── Product options: table ────────────────────────────────────── */}
+          {showOptionsTable && (
+            <div className="border border-border-warm rounded-xl p-8 mb-6">
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div>
+                  <h2 className="text-[20px] font-[700] font-sans text-primary mb-1">Product options</h2>
+                  <p className="text-[13px] font-sans text-muted-text max-w-lg">
+                    Configure variants, pricing, and shipping in one place. One price applies to every order — no separate pricing by country.
+                  </p>
+                </div>
+                {hasOptions === 'yes' && !pricingLocked && (
+                  <button type="button" onClick={() => setOptionsModalOpen(true)}
+                    className="h-9 px-3.5 rounded border border-border-warm text-[13px] font-[600] font-sans text-primary hover:border-primary transition-colors flex-shrink-0">
+                    Manage options
+                  </button>
+                )}
+              </div>
+
+              <div className="overflow-x-auto rounded-lg border border-border-warm">
+                <table className="w-full text-[13px] font-sans min-w-[1050px]">
+                  <thead>
+                    <tr className="bg-muted-bg/40 border-b border-border-warm">
+                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Photo</th>
+                      {sizeValues.length > 0 && hasOptions === 'yes' && <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Size</th>}
+                      {axisType && axisValues.length > 0 && hasOptions === 'yes' && <th className="text-left py-2.5 px-3 font-[600] text-muted-text">{axisType}</th>}
+                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">SKU</th>
+                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Price (₹)*</th>
+                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Inventory</th>
+                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Weight</th>
+                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Length</th>
+                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Width</th>
+                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Height</th>
+                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Tariff code</th>
+                      <th className="text-center py-2.5 px-3 font-[600] text-muted-text">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border-warm">
+                    {activeCombos.map((combo) => {
+                      const vp = getVP(combo.key)
+                      const colorAttr = combo.attributes.find((a) => a.name === 'Color')
+                      const swatchUrl = colorAttr ? resolveSwatchDisplayUrl(colorSwatches[colorAttr.value]) : undefined
+                      const swatchFocusDefault = { x: 50, y: 50, zoom: DEFAULT_SWATCH_ZOOM }
+                      const swatchFocusPos = correctedSwatchFocus(colorAttr ? (swatchFocus[colorAttr.value] ?? swatchFocusDefault) : swatchFocusDefault)
+                      const sizeAttr = combo.attributes.find((a) => a.name === 'Size')
+                      const axisAttr = combo.attributes.find((a) => a.name === axisType)
+                      return (
+                        <tr key={combo.key}>
+                          <td className="px-3 py-2">
+                            {swatchUrl ? (
+                              // The full, uncropped image — not the zoomed swatch crop (that
+                              // lives in the Color column instead, right next to the color name).
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img src={cloudinaryFit(swatchUrl, 160)} alt="" className="w-9 h-9 rounded object-cover border border-border-warm" />
+                            ) : (
+                              <div className="w-9 h-9 rounded bg-muted-bg border border-border-warm" />
+                            )}
+                          </td>
+                          {sizeValues.length > 0 && hasOptions === 'yes' && <td className="px-3 py-2 text-primary">{sizeAttr?.value ?? '—'}</td>}
+                          {axisType && axisValues.length > 0 && hasOptions === 'yes' && (
+                            <td className="px-3 py-2">
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                  {axisType === 'Color' && (
+                                    swatchUrl ? (
+                                      // The wrapping div's fixed size + overflow-hidden is load-bearing:
+                                      // the img's own scale(zoom) transform balloons it well past 32px,
+                                      // and this is what clips that back down to a small circle instead
+                                      // of the zoomed image bleeding into neighboring cells.
+                                      <div className="w-8 h-8 rounded-full overflow-hidden border border-border-warm flex-shrink-0">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={cloudinaryFit(swatchUrl, 160)} alt="" className="w-full h-full object-cover"
+                                          style={{
+                                            objectPosition: `${swatchFocusPos.x}% ${swatchFocusPos.y}%`,
+                                            transform: `scale(${swatchFocusPos.zoom})`,
+                                            transformOrigin: `${swatchFocusPos.x}% ${swatchFocusPos.y}%`,
+                                          }} />
+                                      </div>
+                                    ) : (
+                                      <div className="w-8 h-8 rounded-full bg-muted-bg border border-border-warm flex-shrink-0" />
+                                    )
+                                  )}
+                                  <span className="text-primary">{axisAttr?.value ?? '—'}</span>
+                                </div>
+                                {axisType === 'Color' && axisAttr && !pricingLocked && (
+                                  <button type="button"
+                                    onClick={() => { setSwatchInitialColor(axisAttr.value); setSwatchModalOpen(true) }}
+                                    className="text-[11px] font-[500] text-accent underline hover:opacity-70 transition-opacity whitespace-nowrap self-start">
+                                    Edit swatch
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          )}
+                          <td className="px-3 py-2">
+                            <input type="text" value={vp.sku} disabled={pricingLocked}
+                              onChange={(e) => setVPField(combo.key, 'sku', e.target.value)}
+                              placeholder={autoSku(combo)} className={INPUT_CLS + ' h-9 w-[110px]'} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="relative w-[110px]">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-text text-[13px]">₹</span>
+                              <input type="number" min="0" step="0.01" value={vp.price} disabled={pricingLocked}
+                                onChange={(e) => setVPField(combo.key, 'price', e.target.value)}
+                                className={INPUT_CLS + ' h-9 pl-6'} />
+                            </div>
+                          </td>
+                          <td className="px-3 py-2">
+                            <input type="number" min="0" value={vp.inventory} disabled={pricingLocked}
+                              onChange={(e) => setVPField(combo.key, 'inventory', e.target.value)}
+                              placeholder="units" className={INPUT_CLS + ' h-9 w-[90px]'} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex border border-border-warm rounded overflow-hidden w-[100px]">
+                              <input type="number" min="0" step="0.01" value={vp.weight} disabled={pricingLocked}
+                                onChange={(e) => setVPField(combo.key, 'weight', e.target.value)}
+                                className="w-full h-9 px-2 text-[13px] font-sans text-primary outline-none disabled:opacity-50" />
+                              <select value={vp.weightUnit} disabled={pricingLocked}
+                                onChange={(e) => setVPField(combo.key, 'weightUnit', e.target.value)}
+                                className="h-9 px-1 border-l border-border-warm bg-muted-bg/30 text-[12px] font-sans text-primary disabled:opacity-50">
+                                <option value="kg">kg</option>
+                                <option value="lb">lb</option>
+                              </select>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex border border-border-warm rounded overflow-hidden w-[92px]">
+                              <input type="number" min="0" value={vp.length} disabled={pricingLocked}
+                                onChange={(e) => setVPField(combo.key, 'length', e.target.value)}
+                                className="w-full h-9 px-2 text-[13px] font-sans text-primary outline-none disabled:opacity-50" />
+                              <select value={vp.dimensionUnit} disabled={pricingLocked}
+                                onChange={(e) => setVPField(combo.key, 'dimensionUnit', e.target.value)}
+                                className="h-9 px-1 border-l border-border-warm bg-muted-bg/30 text-[12px] font-sans text-primary disabled:opacity-50">
+                                <option value="cm">cm</option>
+                                <option value="in">in</option>
+                              </select>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex border border-border-warm rounded overflow-hidden w-[92px]">
+                              <input type="number" min="0" value={vp.width} disabled={pricingLocked}
+                                onChange={(e) => setVPField(combo.key, 'width', e.target.value)}
+                                className="w-full h-9 px-2 text-[13px] font-sans text-primary outline-none disabled:opacity-50" />
+                              <select value={vp.dimensionUnit} disabled={pricingLocked}
+                                onChange={(e) => setVPField(combo.key, 'dimensionUnit', e.target.value)}
+                                className="h-9 px-1 border-l border-border-warm bg-muted-bg/30 text-[12px] font-sans text-primary disabled:opacity-50">
+                                <option value="cm">cm</option>
+                                <option value="in">in</option>
+                              </select>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex border border-border-warm rounded overflow-hidden w-[92px]">
+                              <input type="number" min="0" value={vp.height} disabled={pricingLocked}
+                                onChange={(e) => setVPField(combo.key, 'height', e.target.value)}
+                                className="w-full h-9 px-2 text-[13px] font-sans text-primary outline-none disabled:opacity-50" />
+                              <select value={vp.dimensionUnit} disabled={pricingLocked}
+                                onChange={(e) => setVPField(combo.key, 'dimensionUnit', e.target.value)}
+                                className="h-9 px-1 border-l border-border-warm bg-muted-bg/30 text-[12px] font-sans text-primary disabled:opacity-50">
+                                <option value="cm">cm</option>
+                                <option value="in">in</option>
+                              </select>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2">
+                            <input type="text" value={vp.tariffCode} disabled={pricingLocked}
+                              onChange={(e) => setVPField(combo.key, 'tariffCode', e.target.value)}
+                              placeholder="e.g. 5701.10" className={INPUT_CLS + ' h-9 w-[110px]'} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center justify-center gap-2.5">
+                              <button type="button" disabled={pricingLocked} onClick={() => toggleVPStatus(combo.key)}
+                                aria-label={vp.status === 'INACTIVE' ? `Show ${combo.label}` : `Hide ${combo.label}`}
+                                title={vp.status === 'INACTIVE' ? 'Hidden — click to show' : 'Visible — click to hide'}
+                                className={`transition-colors disabled:opacity-40 ${vp.status === 'INACTIVE' ? 'text-primary' : 'text-muted-text hover:text-primary'}`}>
+                                {vp.status === 'INACTIVE' ? <EyeOff size={15} /> : <Eye size={15} />}
+                              </button>
+                              {hasOptions === 'yes' && activeCombos.length > 1 && (
+                                <button type="button" disabled={pricingLocked} onClick={() => removeCombo(combo.key)}
+                                  aria-label={`Delete ${combo.label}`} title="Delete this option"
+                                  className="text-muted-text hover:text-red-600 transition-colors disabled:opacity-40">
+                                  <Trash2 size={15} />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
-          <Button type="button" variant="ghost" size="md" onClick={() => router.push(backHref)}>
-            Cancel
-          </Button>
-        </div>
-      </div>{/* end left column */}
+        </>
+      )}
 
-      {/* ── Listing score sidebar ───────────────────────────────────────── */}
-      <div className="xl:sticky xl:top-24 xl:self-start">
-        <ListingScoreWidget input={scoreInput} />
+      {/* Reserves space for the fixed bar below so it never covers the last section. */}
+      <div className="h-24 max-lg:h-32" />
+
+      {/* ── Fixed publish bar — pinned to the viewport bottom the whole time,
+         not just once you've scrolled to the end, so Publish/Cancel/Draft are
+         always reachable on a long form. Sits above the portal's own mobile
+         bottom tab bar and to the right of the desktop sidebar. ────────────── */}
+      <div className="fixed left-0 right-0 bottom-14 lg:left-[190px] lg:bottom-0 z-20 bg-bg border-t border-border-warm">
+        <div className="max-w-[1100px] mx-auto px-8 max-lg:px-4 py-4 flex items-center justify-between gap-4 flex-wrap">
+          <span className="text-[13px] font-sans text-muted-text">
+            Fields marked with <span className="text-primary">*</span> are required to publish product
+          </span>
+          <div className="flex items-center gap-5">
+            {mode === 'seller' && (!product || product.approvalStatus === 'DRAFT') && (
+              <button type="button" disabled={saving || savingDraft} onClick={handleSaveDraft}
+                className="text-[13px] font-[500] font-sans text-primary underline hover:text-accent transition-colors disabled:opacity-50">
+                {savingDraft ? 'Saving draft…' : 'Save as draft'}
+              </button>
+            )}
+            {!isAdminMode && isRejected ? (
+              <Button type="button" variant="accent" size="md" disabled={saving || savingDraft} onClick={handleResubmit}>
+                {saving ? 'Resubmitting…' : 'Resubmit for Review'}
+              </Button>
+            ) : (
+              <Button type="submit" variant="primary" size="lg" disabled={saving || savingDraft}>
+                {saving ? 'Publishing…' : isEdit ? 'Save Changes' : 'Publish product'}
+              </Button>
+            )}
+            <button type="button" onClick={() => router.push(backHref)}
+              className="text-[13px] font-[500] font-sans text-primary underline hover:text-accent transition-colors">
+              Cancel
+            </button>
+          </div>
+        </div>
       </div>
 
-      </div>{/* end grid */}
       {lightboxNode}
+
+      {optionsModalOpen && (
+        <ProductOptionsModal
+          sizeValues={sizeValues}
+          axisType={axisType}
+          axisValues={axisValues}
+          disabled={pricingLocked}
+          onCancel={() => setOptionsModalOpen(false)}
+          onSave={saveOptionsModal}
+        />
+      )}
+
+      {swatchPromptOpen && (
+        <ColorSwatchPromptModal
+          onAddSwatches={() => { setSwatchPromptOpen(false); setSwatchModalOpen(true) }}
+          onMaybeLater={() => { setSwatchPromptOpen(false); setOptionsSaved(true) }}
+        />
+      )}
+
+      {swatchModalOpen && (
+        <ColorSwatchModal
+          colorValues={axisValues}
+          images={existingImages}
+          newImages={newImagePreviews.map((previewUrl, index) => ({ index, previewUrl }))}
+          swatches={colorSwatches}
+          focus={swatchFocus}
+          onFocusChange={(color, pos) => setSwatchFocus((prev) => ({ ...prev, [color]: pos }))}
+          initialColor={swatchInitialColor}
+          onChange={setColorSwatch}
+          onClose={() => { setSwatchModalOpen(false); setSwatchInitialColor(undefined); setOptionsSaved(true) }}
+        />
+      )}
+
+      {publishModalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-black/45" role="dialog" aria-modal="true">
+          <div className="bg-surface rounded-xl p-9 max-w-md w-full text-center">
+            <div className="w-14 h-14 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-4">
+              <Check size={26} />
+            </div>
+            <h2 className="text-[20px] font-[600] font-display text-primary mb-3">Submitted for review</h2>
+            <p className="text-[14px] font-sans text-muted-text mb-7">
+              Your product has been submitted to Solomon Bharat for review. We&apos;ll notify you once it&apos;s live.
+            </p>
+            <Button type="button" variant="primary" size="md" className="w-full" onClick={() => router.push(backHref)}>
+              Done
+            </Button>
+          </div>
+        </div>
+      )}
     </form>
   )
 }

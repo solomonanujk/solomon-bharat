@@ -39,7 +39,7 @@ function RejectDialog({ change, onClose }: { change: PendingPricingChangeListIte
             onChange={(e) => setReason(e.target.value)}
             placeholder="Reason for rejection (required)…"
             rows={4}
-            className="w-full px-3 py-2.5 rounded border border-border-warm bg-bg text-[13.5px] font-public-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors resize-none"
+            className="w-full px-3 py-2.5 rounded border border-border-warm bg-bg text-[13.5px] font-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors resize-none"
           />
         </div>
         <DialogFooter>
@@ -70,11 +70,11 @@ function PendingChangeCard({ change, onReject }: { change: PendingPricingChangeL
         <div>
           <Link
             href={`/admin/products/${change.product.id}`}
-            className="text-[15px] font-[600] font-public-sans text-primary hover:underline"
+            className="text-[15px] font-[600] font-sans text-primary hover:underline"
           >
             {change.product.name}
           </Link>
-          <p className="flex items-center gap-1 text-[12.5px] font-public-sans text-muted-text mt-1">
+          <p className="flex items-center gap-1 text-[12.5px] font-sans text-muted-text mt-1">
             <CalendarDays size={11} aria-hidden="true" />
             Submitted {new Date(change.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
           </p>
@@ -94,7 +94,7 @@ function PendingChangeCard({ change, onReject }: { change: PendingPricingChangeL
         </div>
       </div>
 
-      <p className="text-[12px] font-public-sans text-muted-text mb-3">
+      <p className="text-[12px] font-sans text-muted-text mb-3">
         Set an admin price (and optionally an agent price) for at least one tier below to approve — buyers keep
         seeing the current live pricing until then.
       </p>
@@ -126,13 +126,13 @@ export default function PricingChangesPage() {
     <div>
       <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[28px] leading-[1.3] font-[500] font-playfair text-primary">Pricing Changes</h1>
-          <p className="text-[14px] font-public-sans text-muted-text mt-1">
+          <h1 className="text-[28px] leading-[1.3] font-[500] font-display text-primary">Pricing Changes</h1>
+          <p className="text-[14px] font-sans text-muted-text mt-1">
             Sellers&apos; proposed pricing/variant updates on already-live products, awaiting review
           </p>
         </div>
         {total > 0 && (
-          <p className="text-[13px] font-public-sans text-muted-text self-end">
+          <p className="text-[13px] font-sans text-muted-text self-end">
             {total.toLocaleString()} pending change{total !== 1 ? 's' : ''}
           </p>
         )}
@@ -152,8 +152,8 @@ export default function PricingChangesPage() {
           <div className="w-12 h-12 rounded-full bg-muted-bg flex items-center justify-center">
             <Clock size={22} className="text-muted-text" aria-hidden="true" />
           </div>
-          <p className="text-[16px] font-[600] font-public-sans text-primary">No pending pricing changes</p>
-          <p className="text-[13px] font-public-sans text-muted-text">
+          <p className="text-[16px] font-[600] font-sans text-primary">No pending pricing changes</p>
+          <p className="text-[13px] font-sans text-muted-text">
             Sellers&apos; pricing/variant edits to live products will show up here for review.
           </p>
         </div>
@@ -167,7 +167,7 @@ export default function PricingChangesPage() {
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-1 py-4">
-          <p className="text-[12px] font-public-sans text-muted-text">
+          <p className="text-[12px] font-sans text-muted-text">
             Page {page} of {totalPages} &middot; {total.toLocaleString()} total
           </p>
           <div className="flex gap-2">
@@ -175,7 +175,7 @@ export default function PricingChangesPage() {
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-public-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
+              className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
             >
               Prev
             </button>
@@ -183,7 +183,7 @@ export default function PricingChangesPage() {
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-public-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
+              className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
             >
               Next
             </button>

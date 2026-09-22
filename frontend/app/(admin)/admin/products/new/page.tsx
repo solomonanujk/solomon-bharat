@@ -15,7 +15,7 @@ export default function AdminNewProductPage() {
         >
           <ArrowLeft size={15} />
         </Link>
-        <h1 className="text-[24px] leading-[1.3] font-[500] font-playfair text-primary">New Product</h1>
+        <h1 className="text-[24px] leading-[1.3] font-[500] font-display text-primary">New Product</h1>
       </div>
 
       <ProductForm mode="admin-create" />

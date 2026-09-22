@@ -20,7 +20,7 @@ import { ShareProductButton } from '@/components/shared/ShareProductButton'
  *  without needing a full `Product`. */
 export type ProductCardData = Pick<
   Product,
-  'id' | 'name' | 'slug' | 'adminPrice' | 'agentPrice' | 'moq' | 'images' | 'leadTime' | 'avgRating' | 'reviewCount'
+  'id' | 'name' | 'slug' | 'adminPrice' | 'agentPrice' | 'moq' | 'images' | 'leadTime' | 'avgRating' | 'reviewCount' | 'isBestseller'
 >
 
 interface ProductCardProps {
@@ -35,7 +35,7 @@ interface ProductCardProps {
  * cart quick-add control only.
  */
 export function ProductCard({ product, className }: ProductCardProps) {
-  const { id, name, slug, adminPrice, agentPrice, moq, images, leadTime } = product
+  const { id, name, slug, adminPrice, agentPrice, moq, images, leadTime, isBestseller } = product
   const imageSrc = images?.[0]?.url ?? null
 
   const { user, requireAuth, isAuthenticated } = useAuth()
@@ -121,6 +121,12 @@ export function ProductCard({ product, className }: ProductCardProps) {
           </div>
         )}
 
+        {isBestseller && (
+          <span className="absolute top-2 left-2 text-[10px] font-[600] font-sans uppercase tracking-[0.04em] bg-accent text-white px-2 py-1 rounded-sm">
+            Bestseller
+          </span>
+        )}
+
         {/* Top-right controls: wishlist (everyone), plus catalogue/share for agents */}
         <div className="absolute top-2 right-2 flex flex-col gap-1.5">
           <button
@@ -161,7 +167,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
             added; hovering it expands into a remove/quantity/add-more stepper. */}
         {cartItem ? (
           <div className="absolute bottom-2 right-2 group/qty">
-            <div className="flex items-center justify-center w-9 h-9 rounded-full bg-primary text-white text-[12px] font-[600] font-public-sans shadow-sm group-hover/qty:hidden">
+            <div className="flex items-center justify-center w-9 h-9 rounded-full bg-primary text-white text-[12px] font-[600] font-sans shadow-sm group-hover/qty:hidden">
               {cartItem.quantity}
             </div>
             <div className="hidden group-hover/qty:flex items-center gap-0.5 h-9 pl-1 pr-1 rounded-full bg-white shadow-sm border border-border-warm">
@@ -173,7 +179,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
               >
                 <Trash2 size={13} />
               </button>
-              <span className="text-[12px] font-[600] font-public-sans text-primary min-w-[16px] text-center">
+              <span className="text-[12px] font-[600] font-sans text-primary min-w-[16px] text-center">
                 {cartItem.quantity}
               </span>
               <button
@@ -200,7 +206,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
 
       {/* Info */}
       <div className="mt-2.5 flex flex-col gap-1">
-        <div className="text-[18px] font-[600] font-public-sans text-product-text leading-none">
+        <div className="text-[18px] font-[600] font-sans text-product-text leading-none">
           {isAuthenticated ? (
             <Price amountInr={price} size="md" className="!text-[18px] !font-[600]" />
           ) : (
@@ -221,14 +227,14 @@ export function ProductCard({ product, className }: ProductCardProps) {
 
         <Link
           href={`/products/${slug}`}
-          className="text-[14px] font-[600] font-public-sans text-product-text leading-snug line-clamp-2 tracking-[0.02em] hover:underline"
+          className="text-[14px] font-[600] font-sans text-product-text leading-snug line-clamp-2 tracking-[0.02em] hover:underline"
         >
           {name}
         </Link>
 
         <RatingSummary avgRating={product.avgRating} reviewCount={product.reviewCount} size={14} />
 
-        <span className="text-[12px] font-public-sans text-muted-text">
+        <span className="text-[12px] font-sans text-muted-text">
           MOQ: {moq} units
         </span>
       </div>

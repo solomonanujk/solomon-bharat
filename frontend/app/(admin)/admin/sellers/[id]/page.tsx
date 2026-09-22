@@ -15,7 +15,7 @@ function InfoCard({ title, children }: { title: string; children: React.ReactNod
   return (
     <div className="bg-surface border border-border-warm rounded overflow-hidden">
       <div className="px-5 py-3.5 border-b border-border-warm bg-muted-bg/40">
-        <h3 className="text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em]">
+        <h3 className="text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em]">
           {title}
         </h3>
       </div>
@@ -30,10 +30,10 @@ function InfoRow({ icon: Icon, label, value }: { icon?: React.ElementType; label
     <div className="flex items-start gap-2.5">
       {Icon && <Icon size={14} className="text-muted-text mt-0.5 shrink-0" aria-hidden="true" />}
       <div>
-        <p className="text-[11px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em] mb-0.5">
+        <p className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-0.5">
           {label}
         </p>
-        <div className="text-[14px] font-public-sans text-primary leading-[1.5]">{value}</div>
+        <div className="text-[14px] font-sans text-primary leading-[1.5]">{value}</div>
       </div>
     </div>
   )
@@ -68,16 +68,16 @@ export default function AdminSellerDetailPage() {
         <button
           type="button"
           onClick={() => router.push('/admin/sellers')}
-          className="flex items-center gap-1.5 text-[13px] font-public-sans text-muted-text hover:text-primary mb-6 transition-colors"
+          className="flex items-center gap-1.5 text-[13px] font-sans text-muted-text hover:text-primary mb-6 transition-colors"
         >
           <ArrowLeft size={14} /> Back
         </button>
         <div className="bg-surface border border-border-warm rounded py-20 flex flex-col items-center gap-3">
           <Building2 size={28} className="text-border-warm" aria-hidden="true" />
-          <p className="text-[15px] font-[600] font-public-sans text-primary">
+          <p className="text-[15px] font-[600] font-sans text-primary">
             {isError ? 'Failed to load seller — check that the backend is running' : 'Seller not found'}
           </p>
-          {isError && <p className="text-[12px] font-public-sans text-muted-text">ID: {params.id}</p>}
+          {isError && <p className="text-[12px] font-sans text-muted-text">ID: {params.id}</p>}
         </div>
       </div>
     )
@@ -94,7 +94,7 @@ export default function AdminSellerDetailPage() {
         <button
           type="button"
           onClick={() => router.push('/admin/sellers')}
-          className="flex items-center gap-1.5 text-[13px] font-public-sans text-muted-text hover:text-primary transition-colors"
+          className="flex items-center gap-1.5 text-[13px] font-sans text-muted-text hover:text-primary transition-colors"
         >
           <ArrowLeft size={14} />
           Back to sellers
@@ -113,7 +113,7 @@ export default function AdminSellerDetailPage() {
       </div>
 
       {/* Data gap note — see final report */}
-      <p className="text-[12px] font-public-sans text-muted-text mb-5 px-4 py-2.5 rounded border border-border-warm bg-muted-bg/40">
+      <p className="text-[12px] font-sans text-muted-text mb-5 px-4 py-2.5 rounded border border-border-warm bg-muted-bg/40">
         Note: this seller directory does not expose the underlying account&apos;s active/suspended status, so both
         actions are always shown. Confirm the seller&apos;s current status in the Users section before acting.
       </p>
@@ -125,8 +125,8 @@ export default function AdminSellerDetailPage() {
             <Building2 size={22} className="text-accent" aria-hidden="true" />
           </div>
           <div>
-            <h1 className="text-[24px] leading-[1.3] font-[500] font-playfair text-primary">{seller.businessName}</h1>
-            <p className="text-[13px] font-public-sans text-muted-text mt-0.5 flex items-center gap-1.5">
+            <h1 className="text-[24px] leading-[1.3] font-[500] font-display text-primary">{seller.businessName}</h1>
+            <p className="text-[13px] font-sans text-muted-text mt-0.5 flex items-center gap-1.5">
               <CalendarDays size={12} aria-hidden="true" />
               Seller since{' '}
               {new Date(seller.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -151,21 +151,21 @@ export default function AdminSellerDetailPage() {
           {notificationPrefs.length > 0 ? (
             <ul className="space-y-1.5">
               {notificationPrefs.map(([key]) => (
-                <li key={key} className="flex items-center gap-2 text-[13px] font-public-sans text-primary">
+                <li key={key} className="flex items-center gap-2 text-[13px] font-sans text-primary">
                   <Bell size={12} className="text-accent" aria-hidden="true" />
                   {key.replace(/_/g, ' ')}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-[13px] font-public-sans text-muted-text">No preferences enabled</p>
+            <p className="text-[13px] font-sans text-muted-text">No preferences enabled</p>
           )}
         </InfoCard>
 
         <InfoCard title="Catalog">
           <Link
             href={`/admin/products?sellerId=${seller.id}`}
-            className="flex items-center gap-2 text-[13px] font-[600] font-public-sans text-accent hover:underline"
+            className="flex items-center gap-2 text-[13px] font-[600] font-sans text-accent hover:underline"
           >
             <Package size={14} aria-hidden="true" />
             View products from this seller

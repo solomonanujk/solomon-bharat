@@ -11,7 +11,7 @@ const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableE
     <div className="w-full overflow-x-auto">
       <table
         ref={ref}
-        className={cn('w-full text-[16px] font-public-sans border-collapse', className)}
+        className={cn('w-full text-[16px] font-sans border-collapse', className)}
         {...props}
       />
     </div>
@@ -70,7 +70,7 @@ const TableHead = React.forwardRef<
     ref={ref}
     className={cn(
       'px-4 py-3 text-left',
-      'text-[12px] leading-[1.3] font-[500] font-public-sans text-muted-text uppercase tracking-[0.05em]',
+      'text-[12px] leading-[1.3] font-[500] font-sans text-muted-text uppercase tracking-[0.05em]',
       className
     )}
     {...props}
@@ -87,7 +87,7 @@ const TableCell = React.forwardRef<
   <td
     ref={ref}
     className={cn(
-      'px-4 py-3 text-[16px] font-public-sans text-primary',
+      'px-4 py-3 text-[16px] font-sans text-primary',
       className
     )}
     {...props}
@@ -104,7 +104,7 @@ const TableCaption = React.forwardRef<
   <caption
     ref={ref}
     className={cn(
-      'mt-3 text-[12px] leading-[1.3] font-[400] font-public-sans text-muted-text',
+      'mt-3 text-[12px] leading-[1.3] font-[400] font-sans text-muted-text',
       className
     )}
     {...props}
@@ -144,7 +144,7 @@ function TablePagination({
       )}
     >
       {/* Count label */}
-      <span className="text-[12px] leading-[1.3] font-[500] font-public-sans text-muted-text">
+      <span className="text-[12px] leading-[1.3] font-[500] font-sans text-muted-text">
         Showing {start}&ndash;{end} of {total}
       </span>
 
@@ -158,7 +158,7 @@ function TablePagination({
           className={cn(
             'inline-flex items-center justify-center h-8 w-8 rounded',
             'border border-border-warm',
-            'text-[12px] font-[500] font-public-sans text-primary',
+            'text-[12px] font-[500] font-sans text-primary',
             'hover:bg-muted-bg transition-colors',
             'disabled:opacity-40 disabled:pointer-events-none'
           )}
@@ -166,7 +166,7 @@ function TablePagination({
           <ChevronLeft size={14} aria-hidden="true" />
         </button>
 
-        <span className="text-[12px] font-[500] font-public-sans text-muted-text px-2 select-none tabular-nums">
+        <span className="text-[12px] font-[500] font-sans text-muted-text px-2 select-none tabular-nums">
           {page} / {totalPages}
         </span>
 
@@ -178,7 +178,7 @@ function TablePagination({
           className={cn(
             'inline-flex items-center justify-center h-8 w-8 rounded',
             'border border-border-warm',
-            'text-[12px] font-[500] font-public-sans text-primary',
+            'text-[12px] font-[500] font-sans text-primary',
             'hover:bg-muted-bg transition-colors',
             'disabled:opacity-40 disabled:pointer-events-none'
           )}

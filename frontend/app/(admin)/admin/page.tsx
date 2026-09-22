@@ -28,14 +28,14 @@ function StatCard({ label, value, icon: Icon, accent, sub, href }: {
   const content = (
     <>
       <div className="flex items-center justify-between">
-        <span className="text-[13px] font-[500] font-public-sans text-muted-text">{label}</span>
+        <span className="text-[13px] font-[500] font-sans text-muted-text">{label}</span>
         <div className={cn('w-8 h-8 rounded flex items-center justify-center', accent ? 'bg-accent/10' : 'bg-muted-bg')}>
           <Icon size={16} className={accent ? 'text-accent' : 'text-muted-text'} aria-hidden="true" />
         </div>
       </div>
       <div>
-        <p className="text-[28px] font-[600] font-playfair text-primary leading-none">{value}</p>
-        {sub && <p className="text-[12px] font-public-sans text-muted-text mt-1">{sub}</p>}
+        <p className="text-[28px] font-[600] font-display text-primary leading-none">{value}</p>
+        {sub && <p className="text-[12px] font-sans text-muted-text mt-1">{sub}</p>}
       </div>
     </>
   )
@@ -82,10 +82,10 @@ function RevenueChart() {
     <div className="bg-surface border border-border-warm rounded p-5">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-[16px] font-[600] font-public-sans text-primary">Revenue Over Time</h2>
-          <p className="text-[12px] font-public-sans text-muted-text mt-0.5">Gross Merchandise Value, INR</p>
+          <h2 className="text-[16px] font-[600] font-sans text-primary">Revenue Over Time</h2>
+          <p className="text-[12px] font-sans text-muted-text mt-0.5">Gross Merchandise Value, INR</p>
         </div>
-        <Link href="/admin/reports" className="text-[12px] font-[600] font-public-sans text-accent hover:text-accent-hover transition-colors flex items-center gap-1">
+        <Link href="/admin/reports" className="text-[12px] font-[600] font-sans text-accent hover:text-accent-hover transition-colors flex items-center gap-1">
           <BarChart3 size={13} aria-hidden="true" />
           Full reports →
         </Link>
@@ -95,7 +95,7 @@ function RevenueChart() {
         <div className="h-[140px] bg-muted-bg/30 rounded animate-pulse" />
       ) : !usable || data.length === 0 ? (
         <div className="py-10 text-center">
-          <p className="text-[13px] font-public-sans text-muted-text">
+          <p className="text-[13px] font-sans text-muted-text">
             {data.length === 0 ? 'No revenue data yet.' : 'Revenue report is available in full detail on the Reports page.'}
           </p>
         </div>
@@ -117,7 +117,7 @@ function RevenueChart() {
       )}
 
       {usable && data.length > 0 && (
-        <p className="text-[12px] font-public-sans text-muted-text mt-3">
+        <p className="text-[12px] font-sans text-muted-text mt-3">
           Total: <span className="font-[600] text-primary">{formatINR(values.reduce((s, v) => s + v, 0))}</span>
         </p>
       )}
@@ -145,8 +145,8 @@ export default function AdminOverviewPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-[28px] leading-[1.3] font-[500] font-playfair text-primary">Admin Overview</h1>
-        <p className="text-[14px] font-public-sans text-muted-text mt-1">Platform health at a glance</p>
+        <h1 className="text-[28px] leading-[1.3] font-[500] font-display text-primary">Admin Overview</h1>
+        <p className="text-[14px] font-sans text-muted-text mt-1">Platform health at a glance</p>
       </div>
 
       {/* Stats grid */}
@@ -159,7 +159,7 @@ export default function AdminOverviewPage() {
 
       {/* Quick actions (prd.md §9.3) */}
       <div>
-        <h2 className="text-[14px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em] mb-3">Quick Actions</h2>
+        <h2 className="text-[14px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-3">Quick Actions</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { href: '/admin/products?approvalStatus=PENDING', label: 'Review Pending Products', icon: FileCheck },
@@ -170,7 +170,7 @@ export default function AdminOverviewPage() {
             <Link key={href} href={href}
               className="flex items-center gap-2.5 p-4 bg-surface border border-border-warm rounded hover:border-primary/30 hover:bg-muted-bg transition-colors">
               <Icon size={16} className="text-muted-text flex-shrink-0" aria-hidden="true" />
-              <span className="text-[13px] font-[600] font-public-sans text-primary">{label}</span>
+              <span className="text-[13px] font-[600] font-sans text-primary">{label}</span>
             </Link>
           ))}
         </div>

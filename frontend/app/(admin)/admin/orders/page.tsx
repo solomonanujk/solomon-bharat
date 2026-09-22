@@ -51,13 +51,13 @@ export default function AdminOrdersPage() {
     <div>
       <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[28px] leading-[1.3] font-[500] font-playfair text-primary">Orders</h1>
-          <p className="text-[14px] font-public-sans text-muted-text mt-1">
+          <h1 className="text-[28px] leading-[1.3] font-[500] font-display text-primary">Orders</h1>
+          <p className="text-[14px] font-sans text-muted-text mt-1">
             All orders placed with Solomon Bharat
           </p>
         </div>
         {total > 0 && (
-          <p className="text-[13px] font-public-sans text-muted-text self-end">
+          <p className="text-[13px] font-sans text-muted-text self-end">
             {total.toLocaleString()} order{total !== 1 ? 's' : ''}
           </p>
         )}
@@ -74,7 +74,7 @@ export default function AdminOrdersPage() {
               setPage(1)
             }}
             className={cn(
-              'px-4 py-2.5 text-[13px] font-[600] font-public-sans border-b-2 -mb-px transition-colors whitespace-nowrap',
+              'px-4 py-2.5 text-[13px] font-[600] font-sans border-b-2 -mb-px transition-colors whitespace-nowrap',
               status === value ? 'border-primary text-primary' : 'border-transparent text-muted-text hover:text-primary'
             )}
           >
@@ -101,8 +101,8 @@ export default function AdminOrdersPage() {
             <div className="w-12 h-12 rounded-full bg-muted-bg flex items-center justify-center">
               <ShoppingCart size={22} className="text-muted-text" aria-hidden="true" />
             </div>
-            <p className="text-[16px] font-[600] font-public-sans text-primary">No orders found</p>
-            {status && <p className="text-[13px] font-public-sans text-muted-text">Try a different status filter.</p>}
+            <p className="text-[16px] font-[600] font-sans text-primary">No orders found</p>
+            {status && <p className="text-[13px] font-sans text-muted-text">Try a different status filter.</p>}
           </div>
         ) : (
           <>
@@ -114,7 +114,7 @@ export default function AdminOrdersPage() {
                       <th
                         key={h}
                         className={cn(
-                          'py-3 px-4 text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em]',
+                          'py-3 px-4 text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em]',
                           h === 'Total' ? 'text-right' : 'text-left'
                         )}
                       >
@@ -131,23 +131,23 @@ export default function AdminOrdersPage() {
                       className="border-b border-border-warm last:border-0 hover:bg-muted-bg/30 transition-colors cursor-pointer"
                     >
                       <td className="py-3.5 px-4">
-                        <p className="text-[13px] font-[600] font-public-sans text-primary">#{shortId(order.id)}</p>
+                        <p className="text-[13px] font-[600] font-sans text-primary">#{shortId(order.id)}</p>
                       </td>
-                      <td className="py-3.5 px-4 text-[13px] font-public-sans text-muted-text">
+                      <td className="py-3.5 px-4 text-[13px] font-sans text-muted-text">
                         {order.items.length} item{order.items.length !== 1 ? 's' : ''}
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        <p className="text-[13px] font-[600] font-public-sans text-primary">
+                        <p className="text-[13px] font-[600] font-sans text-primary">
                           {formatCurrency(order.adminPriceTotal)}
                         </p>
                       </td>
                       <td className="py-3.5 px-4">
                         <StatusBadge status={order.status} />
                       </td>
-                      <td className="py-3.5 px-4 text-[13px] font-public-sans text-muted-text whitespace-nowrap">
+                      <td className="py-3.5 px-4 text-[13px] font-sans text-muted-text whitespace-nowrap">
                         {order.trackingNumber ?? '—'}
                       </td>
-                      <td className="py-3.5 px-4 text-[12px] font-public-sans text-muted-text whitespace-nowrap">
+                      <td className="py-3.5 px-4 text-[12px] font-sans text-muted-text whitespace-nowrap">
                         {new Date(order.createdAt).toLocaleDateString('en-IN', {
                           day: 'numeric',
                           month: 'short',
@@ -162,7 +162,7 @@ export default function AdminOrdersPage() {
 
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-border-warm">
-                <p className="text-[12px] font-public-sans text-muted-text">
+                <p className="text-[12px] font-sans text-muted-text">
                   {(page - 1) * limit + 1}&ndash;{Math.min(page * limit, total)} of {total.toLocaleString()}
                 </p>
                 <div className="flex gap-2">
@@ -170,7 +170,7 @@ export default function AdminOrdersPage() {
                     type="button"
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-public-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
+                    className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
                   >
                     Prev
                   </button>
@@ -178,7 +178,7 @@ export default function AdminOrdersPage() {
                     type="button"
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page >= totalPages}
-                    className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-public-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
+                    className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
                   >
                     Next
                   </button>

@@ -11,6 +11,7 @@ import {
   publicProductListQuerySchema,
   reassignCategorySchema,
   rejectProductSchema,
+  saveDraftSchema,
   sellerProductListQuerySchema,
   slugParamSchema,
   updatePriceSchema,
@@ -18,13 +19,11 @@ import {
 } from './products.validation';
 import { validate } from '../../middleware/validate';
 import { requireAdmin, requireAuth, requireBuyerOrAgent, requireSeller, optionalAuth } from '../../middleware/auth';
-import { uploadImages } from '../../middleware/upload';
+import { uploadProductMedia } from '../../middleware/upload';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { paginationQuerySchema } from '../../utils/pagination';
 
 export const productsRouter = Router();
-
-const imagesUpload = uploadImages.array('images', 10);
 
 // ── Seller: own products ──────────────────────────────────────────────
 
@@ -75,10 +74,28 @@ productsRouter.patch(
   '/me/:id',
   requireAuth,
   requireSeller,
-  imagesUpload,
+  uploadProductMedia,
   validate(idParamSchema, 'params'),
   validate(updateProductSchema),
   asyncHandler(productsController.update),
+);
+
+/**
+ * @openapi
+ * /products/me/draft:
+ *   post:
+ *     summary: Save a minimally-valid draft product to finish later (SELLER only)
+ *     tags: [Products]
+ *     requestBody: { required: true }
+ *     responses:
+ *       201: { description: Draft saved }
+ */
+productsRouter.post(
+  '/me/draft',
+  requireAuth,
+  requireSeller,
+  validate(saveDraftSchema),
+  asyncHandler(productsController.saveDraft),
 );
 
 /**
@@ -221,7 +238,7 @@ productsRouter.patch(
   '/admin/:id',
   requireAuth,
   requireAdmin,
-  imagesUpload,
+  uploadProductMedia,
   validate(idParamSchema, 'params'),
   validate(updateProductSchema),
   asyncHandler(productsController.updateAdmin),
@@ -405,7 +422,7 @@ productsRouter.post(
   '/',
   requireAuth,
   requireSeller,
-  imagesUpload,
+  uploadProductMedia,
   validate(createProductSchema),
   asyncHandler(productsController.create),
 );
@@ -426,7 +443,7 @@ productsRouter.post(
   '/admin',
   requireAuth,
   requireAdmin,
-  imagesUpload,
+  uploadProductMedia,
   validate(createProductAsAdminSchema),
   asyncHandler(productsController.createAsAdmin),
 );

@@ -83,7 +83,7 @@ function TabsTrigger({ value, className, children, ...props }: TabsTriggerProps)
       aria-selected={isActive}
       onClick={() => setActiveTab(value)}
       className={cn(
-        'px-4 py-2.5 text-[14px] font-[600] font-public-sans',
+        'px-4 py-2.5 text-[14px] font-[600] font-sans',
         'border-b-2 transition-colors',
         '-mb-px', // overlap the list border
         isActive

@@ -67,8 +67,8 @@ function CheckoutReturnInner() {
           {status === 'capturing' && (
             <>
               <Loader2 size={32} className="text-accent animate-spin" aria-hidden="true" />
-              <h1 className="font-playfair text-[20px] font-[600] text-primary">Confirming your payment…</h1>
-              <p className="text-[14px] font-public-sans text-muted-text">
+              <h1 className="font-display text-[20px] font-[600] text-primary">Confirming your payment…</h1>
+              <p className="text-[14px] font-sans text-muted-text">
                 Please don&apos;t close this window while we confirm your order with PayPal.
               </p>
             </>
@@ -77,14 +77,14 @@ function CheckoutReturnInner() {
           {status === 'success' && (
             <>
               <CheckCircle2 size={32} className="text-success" aria-hidden="true" />
-              <h1 className="font-playfair text-[20px] font-[600] text-primary">Order confirmed</h1>
-              <p className="text-[14px] font-public-sans text-muted-text">
+              <h1 className="font-display text-[20px] font-[600] text-primary">Order confirmed</h1>
+              <p className="text-[14px] font-sans text-muted-text">
                 Your payment was successful and your order has been placed.
               </p>
               <button
                 type="button"
                 onClick={() => router.push('/orders')}
-                className="mt-2 h-11 px-8 rounded bg-primary text-white font-[700] font-public-sans text-[14px] hover:bg-primary/90 transition-colors"
+                className="mt-2 h-11 px-8 rounded bg-primary text-white font-[700] font-sans text-[14px] hover:bg-primary/90 transition-colors"
               >
                 View my orders
               </button>
@@ -94,17 +94,17 @@ function CheckoutReturnInner() {
           {status === 'error' && (
             <>
               <XCircle size={32} className="text-error" aria-hidden="true" />
-              <h1 className="font-playfair text-[20px] font-[600] text-primary">
+              <h1 className="font-display text-[20px] font-[600] text-primary">
                 {cancelled ? 'Payment cancelled' : 'We couldn’t confirm your payment'}
               </h1>
-              <p className="text-[14px] font-public-sans text-muted-text">
+              <p className="text-[14px] font-sans text-muted-text">
                 {cancelled
                   ? 'You cancelled the PayPal checkout. Your cart is still saved.'
                   : 'Something went wrong confirming your payment. If you were charged, contact support — otherwise your cart is still saved and you can try again.'}
               </p>
               <Link
                 href="/cart"
-                className="mt-2 h-11 px-8 inline-flex items-center rounded bg-primary text-white font-[700] font-public-sans text-[14px] hover:bg-primary/90 transition-colors"
+                className="mt-2 h-11 px-8 inline-flex items-center rounded bg-primary text-white font-[700] font-sans text-[14px] hover:bg-primary/90 transition-colors"
               >
                 Return to cart
               </Link>

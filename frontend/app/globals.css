@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #F9F7F2;
+  --bg: #F0E6D2;
   --surface: #FCFAFA;
   --primary: #1A1A1A;
   --accent: #A68B67;
@@ -30,13 +30,19 @@
   --color-error: var(--error);
   --color-warning: var(--warning);
   --color-product-text: var(--product-text);
-  --font-family-playfair: var(--font-playfair);
-  --font-family-public-sans: var(--font-public-sans);
+  /* Correct Tailwind v4 theme namespace is `--font-*` (generates `font-display`/
+     `font-sans` utilities) — previously this was the non-namespaced
+     `--font-family-*`, which Tailwind never recognized, so those utility classes
+     silently generated no CSS at all. Each points at the distinctly-named raw
+     variable next/font sets on <html> (see layout.tsx) rather than reusing the
+     same name, to avoid a self-referential custom property. */
+  --font-display: var(--font-playfair);
+  --font-sans: var(--font-public-sans);
 }
 
 @layer base {
   body {
-    font-family: var(--font-public-sans), system-ui, sans-serif;
+    font-family: var(--font-sans), system-ui, sans-serif;
     background: var(--bg);
     color: var(--primary);
     letter-spacing: 0.02em;

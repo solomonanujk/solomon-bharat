@@ -99,7 +99,7 @@ function RejectDialog({ product, onClose }: { product: AdminProduct; onClose: ()
           <DialogDescription>The seller will see this reason on their listing.</DialogDescription>
         </DialogHeader>
         <div className="px-6 pb-2">
-          <label className="block text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.05em] mb-1.5">
+          <label className="block text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.05em] mb-1.5">
             Reason <span className="text-error">*</span>
           </label>
           <textarea
@@ -108,7 +108,7 @@ function RejectDialog({ product, onClose }: { product: AdminProduct; onClose: ()
             rows={4}
             placeholder="Explain what needs to change before this can be approved…"
             autoFocus
-            className="w-full px-3 py-2 rounded border border-border-warm bg-muted-bg/30 text-[14px] font-public-sans text-primary placeholder:text-muted-text/40 focus:outline-none focus:border-accent transition-colors resize-none"
+            className="w-full px-3 py-2 rounded border border-border-warm bg-muted-bg/30 text-[14px] font-sans text-primary placeholder:text-muted-text/40 focus:outline-none focus:border-accent transition-colors resize-none"
           />
         </div>
         <DialogFooter>
@@ -130,7 +130,7 @@ function AdminPricingCard({ product }: { product: AdminProduct }) {
 
   return (
     <div className="space-y-3">
-      <p className="text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em]">Admin Pricing</p>
+      <p className="text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em]">Admin Pricing</p>
       <TierPriceTable
         tiers={allTiers}
         values={values}
@@ -177,8 +177,8 @@ function ReassignCategoryCard({ product, categories }: { product: AdminProduct; 
 
   return (
     <div className="space-y-2">
-      <p className="text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em]">Category</p>
-      <p className="text-[13.5px] font-public-sans text-primary">{currentLabel}</p>
+      <p className="text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em]">Category</p>
+      <p className="text-[13.5px] font-sans text-primary">{currentLabel}</p>
       {!open ? (
         <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>Reassign category</Button>
       ) : (
@@ -189,11 +189,11 @@ function ReassignCategoryCard({ product, categories }: { product: AdminProduct; 
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search categories…"
             autoFocus
-            className="w-full h-9 px-3 rounded border border-border-warm bg-muted-bg/30 text-[13px] font-public-sans text-primary placeholder:text-muted-text/40 focus:outline-none focus:border-accent transition-colors"
+            className="w-full h-9 px-3 rounded border border-border-warm bg-muted-bg/30 text-[13px] font-sans text-primary placeholder:text-muted-text/40 focus:outline-none focus:border-accent transition-colors"
           />
           <div className="max-h-[220px] overflow-y-auto border border-border-warm rounded divide-y divide-border-warm">
             {filtered.length === 0 ? (
-              <p className="text-[12px] font-public-sans text-muted-text p-3">No matching categories.</p>
+              <p className="text-[12px] font-sans text-muted-text p-3">No matching categories.</p>
             ) : (
               filtered.map((c) => (
                 <button
@@ -202,7 +202,7 @@ function ReassignCategoryCard({ product, categories }: { product: AdminProduct; 
                   onClick={() => handleSelect(c.id)}
                   disabled={reassignCategory.isPending}
                   className={cn(
-                    'w-full text-left px-3 py-2 text-[12.5px] font-public-sans hover:bg-muted-bg/50 transition-colors disabled:opacity-50',
+                    'w-full text-left px-3 py-2 text-[12.5px] font-sans hover:bg-muted-bg/50 transition-colors disabled:opacity-50',
                     c.id === product.categoryId ? 'text-accent font-[600]' : 'text-primary'
                   )}
                 >
@@ -248,15 +248,15 @@ export default function AdminProductEditPage() {
   if (!product) {
     return (
       <div className="max-w-3xl mx-auto">
-        <Link href="/admin/products" className="flex items-center gap-1.5 text-[13px] font-public-sans text-muted-text hover:text-primary transition-colors mb-6">
+        <Link href="/admin/products" className="flex items-center gap-1.5 text-[13px] font-sans text-muted-text hover:text-primary transition-colors mb-6">
           <ArrowLeft size={14} aria-hidden="true" /> Back to Products
         </Link>
         <div className="bg-surface border border-border-warm rounded py-20 flex flex-col items-center gap-3">
           <Package size={32} className="text-border-warm" aria-hidden="true" />
-          <p className="text-[15px] font-[600] font-public-sans text-primary">
+          <p className="text-[15px] font-[600] font-sans text-primary">
             {isError ? 'Failed to load product — check that the backend is running' : 'Product not found'}
           </p>
-          {isError && <p className="text-[12px] font-public-sans text-muted-text">ID: {params.id}</p>}
+          {isError && <p className="text-[12px] font-sans text-muted-text">ID: {params.id}</p>}
         </div>
       </div>
     )
@@ -268,7 +268,7 @@ export default function AdminProductEditPage() {
   return (
     <div className="max-w-3xl mx-auto">
       {/* Back to the read-only detail page */}
-      <Link href={`/admin/products/${product.id}`} className="flex items-center gap-1.5 text-[13px] font-public-sans text-muted-text hover:text-primary transition-colors mb-6">
+      <Link href={`/admin/products/${product.id}`} className="flex items-center gap-1.5 text-[13px] font-sans text-muted-text hover:text-primary transition-colors mb-6">
         <ArrowLeft size={14} aria-hidden="true" /> Back to {product.name}
       </Link>
 
@@ -277,29 +277,29 @@ export default function AdminProductEditPage() {
         <div className="flex flex-wrap items-center gap-2.5 mb-2">
           <StatusBadge status={product.approvalStatus} />
           {product.isPublished ? (
-            <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-public-sans text-success">
+            <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-success">
               <CheckCircle2 size={12} aria-hidden="true" /> Published
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-public-sans text-muted-text">
+            <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-muted-text">
               <XCircle size={12} aria-hidden="true" /> Unpublished
             </span>
           )}
           {product.isFeatured && (
-            <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-public-sans text-accent">
+            <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-accent">
               <Star size={12} className="fill-accent" aria-hidden="true" /> Featured
             </span>
           )}
         </div>
-        <h1 className="text-[24px] leading-[1.3] font-[500] font-playfair text-primary">{product.name}</h1>
+        <h1 className="text-[24px] leading-[1.3] font-[500] font-display text-primary">{product.name}</h1>
       </div>
 
       {product.approvalStatus === 'REJECTED' && product.rejectionReason && (
         <div className="mb-5 flex items-start gap-3 bg-error/[6%] border border-error/30 rounded p-4">
           <AlertTriangle size={16} className="text-error shrink-0 mt-0.5" aria-hidden="true" />
           <div>
-            <p className="text-[13px] font-[600] font-public-sans text-error">Rejection reason</p>
-            <p className="text-[13px] font-public-sans text-primary mt-1 whitespace-pre-wrap">{product.rejectionReason}</p>
+            <p className="text-[13px] font-[600] font-sans text-error">Rejection reason</p>
+            <p className="text-[13px] font-sans text-primary mt-1 whitespace-pre-wrap">{product.rejectionReason}</p>
           </div>
         </div>
       )}
@@ -311,7 +311,7 @@ export default function AdminProductEditPage() {
 
         {needsReview && (
           <div className="bg-surface border border-border-warm rounded p-5 space-y-3">
-            <p className="text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em]">Review</p>
+            <p className="text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em]">Review</p>
             <div className="flex flex-col gap-2">
               <Button variant="primary" size="sm" onClick={() => setDialog('approve')}>
                 Approve
@@ -326,7 +326,7 @@ export default function AdminProductEditPage() {
         {isApproved && (
           <>
             <div className="bg-surface border border-border-warm rounded p-5 space-y-4">
-              <p className="text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em]">Publishing</p>
+              <p className="text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em]">Publishing</p>
               <div className="flex flex-wrap gap-2">
                 {product.isPublished ? (
                   <Button variant="ghost" size="sm" disabled={unpublishProduct.isPending} onClick={() => unpublishProduct.mutate(product.id)}>
@@ -354,7 +354,7 @@ export default function AdminProductEditPage() {
                 )}
               </div>
               {product.adminPrice == null && !product.isPublished && (
-                <p className="text-[11px] font-public-sans text-warning">Set an admin price below before publishing.</p>
+                <p className="text-[11px] font-sans text-warning">Set an admin price below before publishing.</p>
               )}
             </div>
 

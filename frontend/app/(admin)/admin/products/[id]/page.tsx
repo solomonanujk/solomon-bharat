@@ -51,15 +51,15 @@ export default function AdminProductDetailPage() {
   if (!product) {
     return (
       <div className="max-w-5xl mx-auto">
-        <Link href="/admin/products" className="flex items-center gap-1.5 text-[13px] font-public-sans text-muted-text hover:text-primary transition-colors mb-6">
+        <Link href="/admin/products" className="flex items-center gap-1.5 text-[13px] font-sans text-muted-text hover:text-primary transition-colors mb-6">
           <ArrowLeft size={14} aria-hidden="true" /> Back to Products
         </Link>
         <div className="bg-surface border border-border-warm rounded py-20 flex flex-col items-center gap-3">
           <Package size={32} className="text-border-warm" aria-hidden="true" />
-          <p className="text-[15px] font-[600] font-public-sans text-primary">
+          <p className="text-[15px] font-[600] font-sans text-primary">
             {isError ? 'Failed to load product — check that the backend is running' : 'Product not found'}
           </p>
-          {isError && <p className="text-[12px] font-public-sans text-muted-text">ID: {params.id}</p>}
+          {isError && <p className="text-[12px] font-sans text-muted-text">ID: {params.id}</p>}
         </div>
       </div>
     )
@@ -73,7 +73,7 @@ export default function AdminProductDetailPage() {
   return (
     <div className="max-w-5xl mx-auto">
       {/* Back */}
-      <Link href="/admin/products" className="flex items-center gap-1.5 text-[13px] font-public-sans text-muted-text hover:text-primary transition-colors mb-6">
+      <Link href="/admin/products" className="flex items-center gap-1.5 text-[13px] font-sans text-muted-text hover:text-primary transition-colors mb-6">
         <ArrowLeft size={14} aria-hidden="true" /> Back to Products
       </Link>
 
@@ -83,30 +83,30 @@ export default function AdminProductDetailPage() {
           <div className="flex flex-wrap items-center gap-2.5 mb-2">
             <StatusBadge status={product.approvalStatus} />
             {product.isPublished ? (
-              <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-public-sans text-success">
+              <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-success">
                 <CheckCircle2 size={12} aria-hidden="true" /> Published
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-public-sans text-muted-text">
+              <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-muted-text">
                 <XCircle size={12} aria-hidden="true" /> Unpublished
               </span>
             )}
             {product.isFeatured && (
-              <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-public-sans text-accent">
+              <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-accent">
                 <Star size={12} className="fill-accent" aria-hidden="true" /> Featured
               </span>
             )}
             {product.pendingPricingChange && (
               <Link
                 href="/admin/pricing-changes"
-                className="inline-flex items-center gap-1 text-[12px] font-[600] font-public-sans text-warning hover:underline"
+                className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-warning hover:underline"
               >
                 <Clock size={12} aria-hidden="true" /> Pricing change pending
               </Link>
             )}
           </div>
-          <h1 className="text-[28px] leading-[1.3] font-[500] font-playfair text-primary">{product.name}</h1>
-          <p className="text-[13px] font-public-sans text-muted-text mt-1">/{product.slug}</p>
+          <h1 className="text-[28px] leading-[1.3] font-[500] font-display text-primary">{product.name}</h1>
+          <p className="text-[13px] font-sans text-muted-text mt-1">/{product.slug}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Link href={`/admin/products/${product.id}/edit-product`} className={cn(buttonVariants({ variant: 'primary', size: 'sm' }))}>
@@ -125,8 +125,8 @@ export default function AdminProductDetailPage() {
         <div className="mb-5 flex items-start gap-3 bg-error/[6%] border border-error/30 rounded p-4">
           <AlertTriangle size={16} className="text-error shrink-0 mt-0.5" aria-hidden="true" />
           <div>
-            <p className="text-[13px] font-[600] font-public-sans text-error">Rejection reason</p>
-            <p className="text-[13px] font-public-sans text-primary mt-1 whitespace-pre-wrap">{product.rejectionReason}</p>
+            <p className="text-[13px] font-[600] font-sans text-error">Rejection reason</p>
+            <p className="text-[13px] font-sans text-primary mt-1 whitespace-pre-wrap">{product.rejectionReason}</p>
           </div>
         </div>
       )}
@@ -188,7 +188,7 @@ export default function AdminProductDetailPage() {
           </Section>
 
           <Section title="Description">
-            <p className="text-[13.5px] font-public-sans text-primary leading-[1.7] whitespace-pre-wrap break-words">
+            <p className="text-[13.5px] font-sans text-primary leading-[1.7] whitespace-pre-wrap break-words">
               {product.description}
             </p>
           </Section>
@@ -219,19 +219,19 @@ export default function AdminProductDetailPage() {
 
           <Section title="Variants">
             {product.variants.length === 0 ? (
-              <p className="text-[13px] font-public-sans text-muted-text">No variants.</p>
+              <p className="text-[13px] font-sans text-muted-text">No variants.</p>
             ) : (
               <div className="space-y-3">
                 {product.variants.map((v) => (
                   <div key={v.id} className="flex flex-wrap items-center gap-2">
-                    <span className="text-[12.5px] font-[600] font-public-sans text-primary bg-muted-bg border border-border-warm px-3 py-1.5 rounded">
+                    <span className="text-[12.5px] font-[600] font-sans text-primary bg-muted-bg border border-border-warm px-3 py-1.5 rounded">
                       {v.type}: {v.value}
                     </span>
                     {v.sku && (
-                      <span className="text-[11.5px] font-public-sans text-muted-text">SKU: {v.sku}</span>
+                      <span className="text-[11.5px] font-sans text-muted-text">SKU: {v.sku}</span>
                     )}
                     {(v.attributes ?? []).length > 1 && (
-                      <span className="text-[11.5px] font-public-sans text-muted-text">
+                      <span className="text-[11.5px] font-sans text-muted-text">
                         {v.attributes!.map((a) => `${a.name}: ${a.value}`).join(', ')}
                       </span>
                     )}
@@ -245,11 +245,11 @@ export default function AdminProductDetailPage() {
         {/* Right column */}
         <div className="space-y-5">
           <div className="bg-surface border border-border-warm rounded p-5 space-y-2">
-            <p className="text-[11px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em]">Timeline</p>
-            <p className="text-[13px] font-public-sans text-primary">
+            <p className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em]">Timeline</p>
+            <p className="text-[13px] font-sans text-primary">
               Created {new Date(product.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
             </p>
-            <p className="text-[13px] font-public-sans text-muted-text">
+            <p className="text-[13px] font-sans text-muted-text">
               Updated {new Date(product.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
             </p>
           </div>

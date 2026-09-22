@@ -43,6 +43,7 @@ enum CategoryStatus {
 }
 
 enum ProductApprovalStatus {
+  DRAFT
   PENDING
   APPROVED
   REJECTED
@@ -407,7 +408,15 @@ model Product {
   howItIsMade   String?
   artisanName   String?
 
+  // Faire-parity fields (see PRD §8.5/§8.9, §15.3)
+  ecoMaterials  String[] @default([])
+  ecoPackaging  String[] @default([])
+  ecoProduction String[] @default([])
+  isBestseller  Boolean  @default(false)
+  tariffCode    String?  @db.VarChar(50)
+
   images                ProductImage[]
+  videos                ProductVideo[]
   variants              ProductVariant[]
   priceTiers            ProductPriceTier[]
   collections           ProductCollection[]
@@ -433,6 +442,18 @@ model ProductImage {
 
   @@index([productId])
   @@map("product_images")
+}
+
+model ProductVideo {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@map("product_videos")
 }
 
 // Volume / tiered pricing — one row per MOQ breakpoint. sellerPrice is set by the
@@ -461,6 +482,19 @@ model ProductVariant {
   status    VariantStatus @default(ACTIVE)
   imageUrl  String?
   createdAt DateTime      @default(now())
+
+  // Faire-parity per-variant shipping/inventory detail (see PRD §8.5/§8.9, §15.3).
+  // Product.weight/dimensions/declaredStock stay authoritative for the no-variant
+  // case; when variants exist, these per-variant fields take over and
+  // Product.declaredStock is derived as their sum (see products.service.ts).
+  weight        Decimal? @db.Decimal(10, 2)
+  weightUnit    String?  @default("kg")
+  length        Decimal? @db.Decimal(10, 2)
+  width         Decimal? @db.Decimal(10, 2)
+  height        Decimal? @db.Decimal(10, 2)
+  dimensionUnit String?  @default("cm")
+  tariffCode    String?  @db.VarChar(50)
+  inventory     Int?
 
   // Full attribute set for multi-axis variant combos (Size + Color + Material + …).
   // `type`/`value` above always mirror the first axis for backward-compatible display.

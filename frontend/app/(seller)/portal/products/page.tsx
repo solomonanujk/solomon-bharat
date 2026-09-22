@@ -19,6 +19,7 @@ type FilterValue = 'All' | ApprovalStatus
 
 const STATUS_FILTERS: { label: string; value: FilterValue }[] = [
   { label: 'All', value: 'All' },
+  { label: 'Drafts', value: 'DRAFT' },
   { label: 'Pending', value: 'PENDING' },
   { label: 'Resubmitted', value: 'RESUBMITTED' },
   { label: 'Approved', value: 'APPROVED' },
@@ -80,7 +81,7 @@ export default function ProductsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-[24px] leading-[1.3] font-[500] font-playfair text-primary">
+        <h1 className="text-[24px] leading-[1.3] font-[500] font-display text-primary">
           My Products
         </h1>
         <Link href="/portal/products/new" className={cn(buttonVariants({ variant: 'primary', size: 'sm' }), 'gap-1.5')}>
@@ -97,7 +98,7 @@ export default function ProductsPage() {
             type="button"
             onClick={() => handleFilterChange(value)}
             className={cn(
-              'px-4 py-2.5 text-[14px] font-[600] font-public-sans whitespace-nowrap transition-colors',
+              'px-4 py-2.5 text-[14px] font-[600] font-sans whitespace-nowrap transition-colors',
               filter === value
                 ? 'border-b-2 border-accent text-primary -mb-px'
                 : 'text-muted-text hover:text-primary'
@@ -112,12 +113,12 @@ export default function ProductsPage() {
         <SkeletonRows />
       ) : error ? (
         <div className="py-8 text-center">
-          <p className="text-[14px] font-public-sans text-error">Failed to load products.</p>
+          <p className="text-[14px] font-sans text-error">Failed to load products.</p>
         </div>
       ) : products.length === 0 ? (
         <div className="py-20 text-center">
-          <p className="text-[16px] font-[500] font-public-sans text-primary mb-1">No products yet</p>
-          <p className="text-[14px] font-public-sans text-muted-text mb-6">
+          <p className="text-[16px] font-[500] font-sans text-primary mb-1">No products yet</p>
+          <p className="text-[14px] font-sans text-muted-text mb-6">
             Submit your first product for Solomon Bharat&apos;s review.
           </p>
           <Link href="/portal/products/new" className={cn(buttonVariants({ variant: 'primary', size: 'sm' }), 'gap-1.5')}>
@@ -133,7 +134,7 @@ export default function ProductsPage() {
                 <thead>
                   <tr className="border-b border-border-warm">
                     {['', 'Product', 'Category', 'Declared Stock', 'Status', 'Submitted', 'Actions'].map((col) => (
-                      <th key={col} className="px-4 py-3 text-left text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.04em]">
+                      <th key={col} className="px-4 py-3 text-left text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.04em]">
                         {col}
                       </th>
                     ))}
@@ -164,40 +165,40 @@ export default function ProductsPage() {
                           <button
                             type="button"
                             onClick={() => router.push(`/portal/products/${product.id}`)}
-                            className="text-[14px] font-[500] font-public-sans text-primary hover:text-accent transition-colors text-left"
+                            className="text-[14px] font-[500] font-sans text-primary hover:text-accent transition-colors text-left"
                           >
                             {product.name}
                           </button>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-[13px] font-public-sans text-muted-text">
+                          <span className="text-[13px] font-sans text-muted-text">
                             {categoryPathLabel(tree, product.categoryId)}
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="tabular-nums text-[14px] font-public-sans text-muted-text">{product.declaredStock}</span>
+                          <span className="tabular-nums text-[14px] font-sans text-muted-text">{product.declaredStock}</span>
                         </td>
                         <td className="px-4 py-3">
                           <ApprovalStatusBadge status={product.approvalStatus} />
                           {product.approvalStatus === 'REJECTED' && product.rejectionReason && (
-                            <p className="text-[11px] font-public-sans text-error mt-1 max-w-[220px] leading-snug">
+                            <p className="text-[11px] font-sans text-error mt-1 max-w-[220px] leading-snug">
                               {product.rejectionReason}
                             </p>
                           )}
                           {product.pendingPricingChange && (
-                            <p className="text-[11px] font-[600] font-public-sans text-warning mt-1">
+                            <p className="text-[11px] font-[600] font-sans text-warning mt-1">
                               Pricing update pending review
                             </p>
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-muted-text text-[13px] font-public-sans">
+                          <span className="text-muted-text text-[13px] font-sans">
                             {new Date(product.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                           </span>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <Link href={`/portal/products/${product.id}/edit`} className="text-[12px] font-[600] font-public-sans text-accent hover:text-accent-hover underline underline-offset-2 transition-colors">
+                            <Link href={`/portal/products/${product.id}/edit`} className="text-[12px] font-[600] font-sans text-accent hover:text-accent-hover underline underline-offset-2 transition-colors">
                               Edit
                             </Link>
                             {canResubmit && (
@@ -205,7 +206,7 @@ export default function ProductsPage() {
                                 type="button"
                                 disabled={resubmit.isPending}
                                 onClick={() => resubmit.mutate(product.id)}
-                                className="text-[12px] font-[600] font-public-sans text-muted-text hover:text-primary transition-colors"
+                                className="text-[12px] font-[600] font-sans text-muted-text hover:text-primary transition-colors"
                               >
                                 Resubmit
                               </button>
@@ -214,7 +215,7 @@ export default function ProductsPage() {
                               type="button"
                               disabled={deletingId === product.id}
                               onClick={() => handleDelete(product.id, product.name)}
-                              className="text-[12px] font-[600] font-public-sans text-error hover:opacity-70 transition-opacity"
+                              className="text-[12px] font-[600] font-sans text-error hover:opacity-70 transition-opacity"
                             >
                               Delete
                             </button>
@@ -230,22 +231,22 @@ export default function ProductsPage() {
 
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4">
-              <p className="text-[13px] font-public-sans text-muted-text">{total} product{total !== 1 ? 's' : ''} total</p>
+              <p className="text-[13px] font-sans text-muted-text">{total} product{total !== 1 ? 's' : ''} total</p>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="h-8 px-3 rounded border border-border-warm text-[13px] font-[600] font-public-sans text-primary hover:bg-muted-bg transition-colors disabled:opacity-40"
+                  className="h-8 px-3 rounded border border-border-warm text-[13px] font-[600] font-sans text-primary hover:bg-muted-bg transition-colors disabled:opacity-40"
                 >
                   Prev
                 </button>
-                <span className="text-[13px] font-public-sans text-muted-text px-2">{page} / {totalPages}</span>
+                <span className="text-[13px] font-sans text-muted-text px-2">{page} / {totalPages}</span>
                 <button
                   type="button"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="h-8 px-3 rounded border border-border-warm text-[13px] font-[600] font-public-sans text-primary hover:bg-muted-bg transition-colors disabled:opacity-40"
+                  className="h-8 px-3 rounded border border-border-warm text-[13px] font-[600] font-sans text-primary hover:bg-muted-bg transition-colors disabled:opacity-40"
                 >
                   Next
                 </button>

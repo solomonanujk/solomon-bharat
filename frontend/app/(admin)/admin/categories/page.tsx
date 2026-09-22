@@ -15,7 +15,7 @@ import { HeroImageUpload } from '@/components/shared/HeroImageUpload'
 import { cn } from '@/lib/utils'
 
 const INPUT_CLS =
-  'w-full h-10 px-3 rounded border border-border-warm bg-muted-bg/30 text-[14px] font-public-sans text-primary placeholder:text-muted-text/40 focus:outline-none focus:border-accent transition-colors'
+  'w-full h-10 px-3 rounded border border-border-warm bg-muted-bg/30 text-[14px] font-sans text-primary placeholder:text-muted-text/40 focus:outline-none focus:border-accent transition-colors'
 
 // ─── Create / edit modal ───────────────────────────────────────────────────────
 
@@ -51,14 +51,14 @@ function CategoryFormModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-md bg-surface border border-border-warm rounded-xl shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-warm">
-          <h2 className="text-[16px] font-[600] font-public-sans text-primary">{heading}</h2>
+          <h2 className="text-[16px] font-[600] font-sans text-primary">{heading}</h2>
           <button type="button" onClick={onClose} className="text-muted-text hover:text-primary transition-colors">
             <X size={18} aria-hidden="true" />
           </button>
         </div>
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.05em] mb-1.5">
+            <label className="block text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.05em] mb-1.5">
               Name
             </label>
             <input
@@ -67,12 +67,12 @@ function CategoryFormModal({
             />
           </div>
           <div>
-            <label className="block text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.05em] mb-1.5">
+            <label className="block text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.05em] mb-1.5">
               Description <span className="normal-case font-[400] text-muted-text/70">(optional)</span>
             </label>
             <textarea
               value={description ?? ''} onChange={(e) => setDescription(e.target.value)} rows={3} maxLength={300}
-              className="w-full px-3 py-2 rounded border border-border-warm bg-muted-bg/30 text-[14px] font-public-sans text-primary placeholder:text-muted-text/40 focus:outline-none focus:border-accent transition-colors resize-none"
+              className="w-full px-3 py-2 rounded border border-border-warm bg-muted-bg/30 text-[14px] font-sans text-primary placeholder:text-muted-text/40 focus:outline-none focus:border-accent transition-colors resize-none"
             />
           </div>
           <HeroImageUpload
@@ -83,7 +83,7 @@ function CategoryFormModal({
             onRemoveExisting={() => setHeroImageRemoved(true)}
           />
           <div>
-            <label className="block text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.05em] mb-1.5">
+            <label className="block text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.05em] mb-1.5">
               Sort Order <span className="normal-case font-[400] text-muted-text/70">(optional — lower shows first)</span>
             </label>
             <input
@@ -131,11 +131,11 @@ function RemoveModal({
       <div className="w-full max-w-md bg-surface border border-border-warm rounded-xl shadow-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2.5">
           <AlertTriangle size={18} className="text-error shrink-0" />
-          <h2 className="text-[16px] font-[600] font-public-sans text-primary">
+          <h2 className="text-[16px] font-[600] font-sans text-primary">
             {isActive ? 'Archive' : 'Restore'} &quot;{category.name}&quot;
           </h2>
         </div>
-        <div className="text-[13.5px] font-public-sans text-muted-text leading-relaxed space-y-2">
+        <div className="text-[13.5px] font-sans text-muted-text leading-relaxed space-y-2">
           {isActive ? (
             <p>
               Archiving hides this category (and its subcategories) from buyers and sellers. It is
@@ -153,19 +153,19 @@ function RemoveModal({
           {isActive ? (
             <button
               type="button" onClick={onArchive} disabled={pending}
-              className="h-9 px-4 rounded bg-error text-white text-[13px] font-[600] font-public-sans hover:bg-error/90 transition-colors disabled:opacity-50"
+              className="h-9 px-4 rounded bg-error text-white text-[13px] font-[600] font-sans hover:bg-error/90 transition-colors disabled:opacity-50"
             >
               {pending ? 'Archiving…' : 'Archive Category'}
             </button>
           ) : (
             <button
               type="button" onClick={onRestore} disabled={pending}
-              className="h-9 px-4 rounded bg-success text-white text-[13px] font-[600] font-public-sans hover:opacity-90 transition-colors disabled:opacity-50"
+              className="h-9 px-4 rounded bg-success text-white text-[13px] font-[600] font-sans hover:opacity-90 transition-colors disabled:opacity-50"
             >
               {pending ? 'Restoring…' : 'Restore Category'}
             </button>
           )}
-          <button type="button" onClick={onClose} className="text-[12px] font-public-sans text-muted-text hover:text-primary transition-colors pt-1 self-center">
+          <button type="button" onClick={onClose} className="text-[12px] font-sans text-muted-text hover:text-primary transition-colors pt-1 self-center">
             Cancel
           </button>
         </div>
@@ -209,21 +209,21 @@ function CategoryRow({
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </button>
 
-        <span className="text-[14px] font-[500] font-public-sans text-primary flex-1 min-w-0 truncate">
+        <span className="text-[14px] font-[500] font-sans text-primary flex-1 min-w-0 truncate">
           {node.name}
         </span>
 
-        <span className="text-[10px] font-[700] font-public-sans text-muted-text bg-muted-bg px-1.5 py-0.5 rounded shrink-0">
+        <span className="text-[10px] font-[700] font-sans text-muted-text bg-muted-bg px-1.5 py-0.5 rounded shrink-0">
           L{node.level}
         </span>
 
         {!isActive && (
-          <span className="inline-flex items-center gap-1 text-[11px] font-[600] font-public-sans text-muted-text bg-muted-bg px-2 py-0.5 rounded shrink-0">
+          <span className="inline-flex items-center gap-1 text-[11px] font-[600] font-sans text-muted-text bg-muted-bg px-2 py-0.5 rounded shrink-0">
             <EyeOff size={10} />Archived
           </span>
         )}
 
-        <span className="text-[11px] font-public-sans text-muted-text shrink-0">
+        <span className="text-[11px] font-sans text-muted-text shrink-0">
           {node.productCount} product{node.productCount === 1 ? '' : 's'}
         </span>
 
@@ -303,8 +303,8 @@ export default function AdminCategoriesPage() {
     <div>
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[28px] leading-[1.3] font-[500] font-playfair text-primary">Categories</h1>
-          <p className="text-[14px] font-public-sans text-muted-text mt-1">
+          <h1 className="text-[28px] leading-[1.3] font-[500] font-display text-primary">Categories</h1>
+          <p className="text-[14px] font-sans text-muted-text mt-1">
             {totalCount > 0 ? `${totalCount} categories across the L1 → L2 → L3 taxonomy` : 'Manage the product category taxonomy'}
           </p>
         </div>
@@ -329,8 +329,8 @@ export default function AdminCategoriesPage() {
             <div className="w-12 h-12 rounded-full bg-muted-bg flex items-center justify-center">
               <FolderTree size={22} className="text-muted-text" aria-hidden="true" />
             </div>
-            <p className="text-[15px] font-[600] font-public-sans text-primary">No categories yet</p>
-            <p className="text-[13px] font-public-sans text-muted-text">Add your first top-level category to get started.</p>
+            <p className="text-[15px] font-[600] font-sans text-primary">No categories yet</p>
+            <p className="text-[13px] font-sans text-muted-text">Add your first top-level category to get started.</p>
           </div>
         ) : (
           <div className="py-2">

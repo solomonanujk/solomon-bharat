@@ -17,6 +17,9 @@ vi.mock('../../providers/storage', () => ({
     uploadImage: vi.fn().mockImplementation((_buf: Buffer, name: string) =>
       Promise.resolve({ url: `https://cdn.example.com/${name}`, publicId: name }),
     ),
+    uploadVideo: vi.fn().mockImplementation((_buf: Buffer, name: string) =>
+      Promise.resolve({ url: `https://cdn.example.com/${name}`, publicId: name }),
+    ),
   },
 }));
 
@@ -80,12 +83,17 @@ function buildProduct(overrides: Partial<Product> = {}): Product {
     isGITagged: false,
     howItIsMade: null,
     artisanName: null,
+    ecoMaterials: [],
+    ecoPackaging: [],
+    ecoProduction: [],
+    isBestseller: false,
+    tariffCode: null,
     ...overrides,
   };
 }
 
 function withMedia(product: Product): ProductWithMedia {
-  return { ...product, images: [], variants: [], priceTiers: [] };
+  return { ...product, images: [], videos: [], variants: [], priceTiers: [] };
 }
 
 function buildMockRepo(): ProductsRepository {
@@ -136,6 +144,13 @@ const twoFiles = [
   { buffer: Buffer.from('a'), originalname: 'a.jpg', mimetype: 'image/jpeg' },
   { buffer: Buffer.from('b'), originalname: 'b.jpg', mimetype: 'image/jpeg' },
 ];
+
+const oneVideo = [{ buffer: Buffer.from('v'), originalname: 'v.mp4', mimetype: 'video/mp4' }];
+const fourVideos = [0, 1, 2, 3].map((i) => ({
+  buffer: Buffer.from(`v${i}`),
+  originalname: `v${i}.mp4`,
+  mimetype: 'video/mp4',
+}));
 
 function buildChangeRequest(overrides: Partial<ProductPricingChangeRequest> = {}): ProductPricingChangeRequest {
   return {
@@ -232,6 +247,7 @@ describe('ProductsService', () => {
         'seller-1',
         expect.objectContaining({ name: 'Table Runner' }),
         expect.arrayContaining([expect.stringContaining('https://cdn.example.com/')]),
+        [],
       );
       // seller projection must never leak adminPrice
       expect(result).not.toHaveProperty('adminPrice');
@@ -262,6 +278,97 @@ describe('ProductsService', () => {
 
       const [, data] = vi.mocked(repo.create).mock.calls[0];
       expect(folder).toContain((data as { id: string }).id.slice(0, 8));
+    });
+
+    it('uploads videos alongside images and passes their URLs to repo.create', async () => {
+      vi.mocked(repo.create).mockResolvedValue(withMedia(buildProduct()));
+
+      await service.createProduct(
+        'seller-1',
+        {
+          name: 'Table Runner',
+          description: 'Handwoven',
+          categoryId: 'cat-l3-1',
+          materials: 'Cotton',
+          moq: 10,
+          declaredStock: 100,
+          sellerPrice: 5,
+        },
+        twoFiles,
+        oneVideo,
+      );
+
+      expect(storageProvider.uploadVideo).toHaveBeenCalledTimes(1);
+      const [, , videoUrls] = vi.mocked(repo.create).mock.calls[0];
+      expect(videoUrls).toEqual(expect.arrayContaining([expect.stringContaining('https://cdn.example.com/')]));
+    });
+
+    it('rejects more than 3 videos', async () => {
+      await expect(
+        service.createProduct(
+          'seller-1',
+          {
+            name: 'Table Runner',
+            description: 'Handwoven',
+            categoryId: 'cat-l3-1',
+            materials: 'Cotton',
+            moq: 10,
+            declaredStock: 100,
+            sellerPrice: 5,
+          },
+          twoFiles,
+          fourVideos,
+        ),
+      ).rejects.toMatchObject({ statusCode: 400 });
+
+      expect(repo.create).not.toHaveBeenCalled();
+    });
+
+    it('derives declaredStock from per-variant inventory instead of the submitted value', async () => {
+      vi.mocked(repo.create).mockResolvedValue(withMedia(buildProduct()));
+
+      await service.createProduct(
+        'seller-1',
+        {
+          name: 'Table Runner',
+          description: 'Handwoven',
+          categoryId: 'cat-l3-1',
+          materials: 'Cotton',
+          moq: 10,
+          declaredStock: 999, // should be ignored in favor of the variant sum below
+          sellerPrice: 5,
+          variants: [
+            { type: 'Size', value: '5x8', inventory: 10 },
+            { type: 'Size', value: '8x10', inventory: 15 },
+          ],
+        },
+        twoFiles,
+      );
+
+      const [, data] = vi.mocked(repo.create).mock.calls[0];
+      expect((data as { declaredStock: number }).declaredStock).toBe(25);
+    });
+
+    it('keeps the submitted declaredStock when variants do not use per-variant inventory', async () => {
+      vi.mocked(repo.create).mockResolvedValue(withMedia(buildProduct()));
+
+      await service.createProduct(
+        'seller-1',
+        {
+          name: 'Table Runner',
+          description: 'Handwoven',
+          categoryId: 'cat-l3-1',
+          materials: 'Cotton',
+          moq: 10,
+          declaredStock: 100,
+          sellerPrice: 5,
+          variants: [{ type: 'Color', value: 'Red' }],
+        },
+        twoFiles,
+      );
+
+      const [, data] = vi.mocked(repo.create).mock.calls[0];
+      expect((data as { declaredStock: number }).declaredStock).toBe(100);
     });
   });
 
@@ -333,6 +440,7 @@ describe('ProductsService', () => {
         'seller-99',
         expect.objectContaining({ name: 'Table Runner' }),
         expect.any(Array),
+        [],
         {
           approvalStatus: ProductApprovalStatus.APPROVED,
           isPublished: true,
@@ -366,6 +474,7 @@ describe('ProductsService', () => {
         'house-profile-1',
         expect.objectContaining({ name: 'House Product' }),
         expect.any(Array),
+        [],
         expect.objectContaining({ adminPrice: 6, agentPrice: null }),
       );
     });
@@ -665,7 +774,7 @@ describe('ProductsService', () => {
 
       const result = await service.updateProduct('seller-1', 'prod-1', { name: 'Updated Name' }, []);
 
-      expect(repo.update).toHaveBeenCalledWith('prod-1', { name: 'Updated Name' }, [], 2);
+      expect(repo.update).toHaveBeenCalledWith('prod-1', { name: 'Updated Name' }, [], 2, [], 0);
       expect(result.name).toBe('Updated Name');
     });
 
@@ -684,7 +793,7 @@ describe('ProductsService', () => {
 
       const result = await service.updateProduct('seller-1', 'prod-1', { name: 'Updated Name' }, []);
 
-      expect(repo.update).toHaveBeenCalledWith('prod-1', { name: 'Updated Name' }, [], 2);
+      expect(repo.update).toHaveBeenCalledWith('prod-1', { name: 'Updated Name' }, [], 2, [], 0);
       expect(repo.upsertPendingPricingChange).not.toHaveBeenCalled();
       expect(result.name).toBe('Updated Name');
       expect(result.pendingPricingChange).toBeNull();
@@ -754,6 +863,58 @@ describe('ProductsService', () => {
 
       expect(repo.upsertPendingPricingChange).not.toHaveBeenCalled();
     });
+
+    it('derives declaredStock from per-variant inventory when the product is not yet approved', async () => {
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildProduct());
+      vi.mocked(repo.findByIdWithMedia).mockResolvedValue({
+        ...withMedia(buildProduct()),
+        images: [
+          { id: 'img-1', productId: 'prod-1', url: 'x', sortOrder: 0 },
+          { id: 'img-2', productId: 'prod-1', url: 'y', sortOrder: 1 },
+        ],
+      });
+      vi.mocked(repo.update).mockResolvedValue(withMedia(buildProduct()));
+
+      await service.updateProduct(
+        'seller-1',
+        'prod-1',
+        {
+          declaredStock: 999,
+          variants: [
+            { type: 'Size', value: '5x8', inventory: 10 },
+            { type: 'Size', value: '8x10', inventory: 15 },
+          ],
+        },
+        [],
+      );
+
+      const [, updateArg] = vi.mocked(repo.update).mock.calls[0];
+      expect((updateArg as { declaredStock: number }).declaredStock).toBe(25);
+    });
+
+    it('does not touch declaredStock on an approved product until the staged variant change is approved', async () => {
+      const live = buildProduct({ approvalStatus: ProductApprovalStatus.APPROVED, declaredStock: 50 });
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(live);
+      const liveWithMedia = {
+        ...withMedia(live),
+        images: [
+          { id: 'img-1', productId: 'prod-1', url: 'x', sortOrder: 0 },
+          { id: 'img-2', productId: 'prod-1', url: 'y', sortOrder: 1 },
+        ],
+      };
+      vi.mocked(repo.findByIdWithMedia).mockResolvedValue(liveWithMedia);
+      vi.mocked(repo.update).mockResolvedValue(liveWithMedia);
+
+      await service.updateProduct(
+        'seller-1',
+        'prod-1',
+        { variants: [{ type: 'Size', value: '5x8', inventory: 999 }] },
+        [],
+      );
+
+      const [, updateArg] = vi.mocked(repo.update).mock.calls[0];
+      expect(updateArg).not.toHaveProperty('declaredStock');
+    });
   });
 
   describe('updateProductAsAdmin', () => {
@@ -776,7 +937,7 @@ describe('ProductsService', () => {
         service.updateProductAsAdmin('prod-1', { name: 'Updated Name' }, [], 'admin-1'),
       ).resolves.toMatchObject({ name: 'Updated Name' });
 
-      expect(repo.update).toHaveBeenCalledWith('prod-1', { name: 'Updated Name' }, [], 2);
+      expect(repo.update).toHaveBeenCalledWith('prod-1', { name: 'Updated Name' }, [], 2, [], 0);
     });
 
     it('rejects an image count outside 2-10 after applying add/remove', async () => {

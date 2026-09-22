@@ -50,14 +50,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!isAuthenticated || user?.role !== 'SUPER_ADMIN') return null
 
   return (
-    <div className="flex min-h-screen bg-[#F9F7F2]">
+    <div className="flex min-h-screen bg-bg">
       {/* Sidebar — hidden on mobile */}
       <div className="hidden lg:block">
         <AdminSidebar />
       </div>
 
-      {/* Main area */}
-      <div className="flex-1 lg:ml-[260px] flex flex-col min-h-screen">
+      {/* Main area — min-w-0 is load-bearing: without it, a flex item won't
+         shrink below its content's intrinsic width, so a wide table deep inside
+         (e.g. the variant options table) would push this whole column wider
+         than the viewport instead of scrolling within its own overflow-x-auto
+         wrapper, causing the entire page to scroll horizontally. */}
+      <div className="flex-1 min-w-0 lg:ml-[260px] flex flex-col min-h-screen">
         {/* Top bar */}
         <header className="h-16 border-b border-[#E5E1D8] bg-white flex items-center justify-between px-6 sticky top-0 z-20">
           <div className="relative max-w-[280px] w-full hidden sm:block">
@@ -69,7 +73,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <input
               type="search"
               placeholder="Search orders, sellers, buyers..."
-              className="w-full h-9 pl-9 pr-4 rounded-md border border-[#E5E1D8] bg-[#F9F7F2] text-[13.5px] font-public-sans text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#A68B67] transition-colors"
+              className="w-full h-9 pl-9 pr-4 rounded-md border border-[#E5E1D8] bg-[#F9F7F2] text-[13.5px] font-sans text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#A68B67] transition-colors"
             />
           </div>
 
@@ -94,7 +98,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               className="w-8 h-8 rounded-full bg-[#F5F0E8] border border-[#E5E1D8] flex items-center justify-center shrink-0"
               aria-label={adminName}
             >
-              <span className="text-[11px] font-[700] font-public-sans text-[#A68B67]">
+              <span className="text-[11px] font-[700] font-sans text-[#A68B67]">
                 {adminInitials}
               </span>
             </div>
@@ -102,7 +106,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-8 max-lg:p-4">{children}</main>
+        <main className="flex-1 min-w-0 p-8 max-lg:p-4">{children}</main>
       </div>
 
       {/* Mobile bottom tab bar */}
@@ -111,7 +115,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <a
             key={href}
             href={href}
-            className="flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 text-[10px] font-[600] font-public-sans text-[#9CA3AF] hover:text-[#1A1A1A] transition-colors"
+            className="flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 text-[10px] font-[600] font-sans text-[#9CA3AF] hover:text-[#1A1A1A] transition-colors"
           >
             {label}
           </a>

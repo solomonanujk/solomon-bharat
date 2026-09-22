@@ -198,7 +198,7 @@ function SheetTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingEle
   return (
     <h2
       className={cn(
-        'text-[24px] leading-[1.3] font-[500] font-playfair text-primary',
+        'text-[24px] leading-[1.3] font-[500] font-display text-primary',
         className
       )}
       {...props}

@@ -108,7 +108,7 @@ function SelectTrigger({ className, children, ...props }: SelectTriggerProps) {
       onClick={() => setOpen(!open)}
       className={cn(
         'h-10 w-full px-3 border border-border-warm rounded bg-surface',
-        'text-[14px] font-public-sans text-primary',
+        'text-[14px] font-sans text-primary',
         'flex items-center justify-between cursor-pointer',
         'hover:border-primary/30 transition-colors',
         'focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent',
@@ -173,7 +173,7 @@ function SelectItem({ value, className, children, ...props }: SelectItemProps) {
       aria-selected={isSelected}
       onClick={handleClick}
       className={cn(
-        'px-3 py-2 text-[14px] font-public-sans text-primary cursor-pointer',
+        'px-3 py-2 text-[14px] font-sans text-primary cursor-pointer',
         'flex items-center justify-between',
         'hover:bg-muted-bg transition-colors',
         isSelected && 'bg-muted-bg font-[600]',

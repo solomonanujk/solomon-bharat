@@ -71,14 +71,14 @@ function PayoutRow({
         )}
       </td>
       <td className="py-3.5 px-4">
-        <p className="text-[13px] font-[600] font-public-sans text-primary" title={payout.orderId}>
+        <p className="text-[13px] font-[600] font-sans text-primary" title={payout.orderId}>
           {shortId(payout.orderId)}
         </p>
-        <p className="text-[11px] font-public-sans text-muted-text mt-0.5" title={payout.orderItemId}>
+        <p className="text-[11px] font-sans text-muted-text mt-0.5" title={payout.orderItemId}>
           item {shortId(payout.orderItemId)}
         </p>
       </td>
-      <td className="py-3.5 px-4 text-[13px] font-public-sans text-muted-text">
+      <td className="py-3.5 px-4 text-[13px] font-sans text-muted-text">
         <Link
           href={`/admin/sellers/${payout.sellerId}`}
           className="hover:text-primary hover:underline underline-offset-2 transition-colors"
@@ -87,13 +87,13 @@ function PayoutRow({
           {shortId(payout.sellerId)}
         </Link>
       </td>
-      <td className="py-3.5 px-4 text-right text-[13px] font-[600] font-public-sans text-primary">
+      <td className="py-3.5 px-4 text-right text-[13px] font-[600] font-sans text-primary">
         {formatCurrency(payout.amount)}
       </td>
       <td className="py-3.5 px-4">
         <StatusBadge status={payout.status} />
       </td>
-      <td className="py-3.5 px-4 text-[12px] font-public-sans text-muted-text whitespace-nowrap">
+      <td className="py-3.5 px-4 text-[12px] font-sans text-muted-text whitespace-nowrap">
         {formatDate(payout.paidAt)}
       </td>
       <td className="py-3.5 px-4 max-w-[220px]">
@@ -105,7 +105,7 @@ function PayoutRow({
         >
           <span
             className={cn(
-              'text-[12px] font-public-sans truncate',
+              'text-[12px] font-sans truncate',
               payout.notes ? 'text-muted-text' : 'text-muted-text/50 italic'
             )}
             title={payout.notes ?? undefined}
@@ -115,7 +115,7 @@ function PayoutRow({
           <Pencil size={11} className="shrink-0 text-muted-text opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
         </button>
       </td>
-      <td className="py-3.5 px-4 text-[12px] font-public-sans text-muted-text whitespace-nowrap">
+      <td className="py-3.5 px-4 text-[12px] font-sans text-muted-text whitespace-nowrap">
         {formatDate(payout.createdAt)}
       </td>
       <td className="py-3.5 px-4 text-right">
@@ -126,7 +126,7 @@ function PayoutRow({
             disabled={markPaid.isPending}
             aria-label={`Mark payout ${payout.id} as paid`}
             className={cn(
-              'inline-flex items-center gap-1.5 h-7 px-2.5 rounded border text-[11px] font-[600] font-public-sans transition-colors ml-auto',
+              'inline-flex items-center gap-1.5 h-7 px-2.5 rounded border text-[11px] font-[600] font-sans transition-colors ml-auto',
               'border-success/40 text-success bg-success/5 hover:bg-success/10',
               'disabled:opacity-50'
             )}
@@ -210,8 +210,8 @@ export default function AdminPayoutsPage() {
     <div>
       <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[28px] leading-[1.3] font-[500] font-playfair text-primary">Payouts</h1>
-          <p className="text-[14px] font-public-sans text-muted-text mt-1">
+          <h1 className="text-[28px] leading-[1.3] font-[500] font-display text-primary">Payouts</h1>
+          <p className="text-[14px] font-sans text-muted-text mt-1">
             Manage seller payouts — marked and paid manually
           </p>
         </div>
@@ -238,7 +238,7 @@ export default function AdminPayoutsPage() {
             type="button"
             onClick={() => switchTab(t)}
             className={cn(
-              'px-4 py-2.5 text-[13px] font-[600] font-public-sans border-b-2 -mb-px transition-colors',
+              'px-4 py-2.5 text-[13px] font-[600] font-sans border-b-2 -mb-px transition-colors',
               tab === t ? 'border-primary text-primary' : 'border-transparent text-muted-text hover:text-primary'
             )}
           >
@@ -286,7 +286,7 @@ export default function AdminPayoutsPage() {
                       <th
                         key={h}
                         className={cn(
-                          'py-3 px-4 text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em]',
+                          'py-3 px-4 text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em]',
                           h === 'Amount' ? 'text-right' : 'text-left'
                         )}
                       >
@@ -311,7 +311,7 @@ export default function AdminPayoutsPage() {
             </div>
 
             <div className="flex items-center justify-between px-4 py-3 border-t border-border-warm">
-              <span className="text-[12px] leading-[1.3] font-[400] font-public-sans text-muted-text">
+              <span className="text-[12px] leading-[1.3] font-[400] font-sans text-muted-text">
                 Showing {rangeStart}&ndash;{rangeEnd} of {total.toLocaleString()}
               </span>
               <div className="flex items-center gap-1">
@@ -324,7 +324,7 @@ export default function AdminPayoutsPage() {
                 >
                   Prev
                 </Button>
-                <span className="text-[12px] font-[500] font-public-sans text-muted-text px-2 select-none tabular-nums">
+                <span className="text-[12px] font-[500] font-sans text-muted-text px-2 select-none tabular-nums">
                   {page} / {totalPages}
                 </span>
                 <Button
@@ -356,7 +356,7 @@ export default function AdminPayoutsPage() {
               placeholder="Add a note for this payout…"
               className={cn(
                 'w-full rounded border border-border-warm bg-surface px-3 py-2 resize-none',
-                'text-[14px] font-public-sans text-primary placeholder:text-muted-text/60',
+                'text-[14px] font-sans text-primary placeholder:text-muted-text/60',
                 'outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-colors'
               )}
             />

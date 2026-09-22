@@ -66,8 +66,8 @@ export function ShareFallbackModal({
           >
             <MessageCircleMore size={16} className="text-accent shrink-0" aria-hidden="true" />
             <div className="min-w-0">
-              <p className="text-[14px] font-[700] font-public-sans text-primary">Share via WhatsApp</p>
-              <p className="text-[11.5px] font-public-sans text-muted-text mt-0.5">
+              <p className="text-[14px] font-[700] font-sans text-primary">Share via WhatsApp</p>
+              <p className="text-[11.5px] font-sans text-muted-text mt-0.5">
                 Opens WhatsApp with the product details — attach the image separately.
               </p>
             </div>
@@ -80,10 +80,10 @@ export function ShareFallbackModal({
           >
             <Link2 size={16} className="text-accent shrink-0" aria-hidden="true" />
             <div className="min-w-0">
-              <p className="text-[14px] font-[700] font-public-sans text-primary">
+              <p className="text-[14px] font-[700] font-sans text-primary">
                 {copied ? 'Copied!' : 'Copy link'}
               </p>
-              <p className="text-[11.5px] font-public-sans text-muted-text mt-0.5">
+              <p className="text-[11.5px] font-sans text-muted-text mt-0.5">
                 {shareUrl ? 'Copies the product page link.' : 'Copies the product name and description.'}
               </p>
             </div>
@@ -99,8 +99,8 @@ export function ShareFallbackModal({
             >
               <Download size={16} className="text-accent shrink-0" aria-hidden="true" />
               <div className="min-w-0">
-                <p className="text-[14px] font-[700] font-public-sans text-primary">Download image</p>
-                <p className="text-[11.5px] font-public-sans text-muted-text mt-0.5">
+                <p className="text-[14px] font-[700] font-sans text-primary">Download image</p>
+                <p className="text-[11.5px] font-sans text-muted-text mt-0.5">
                   Save the product photo to attach wherever you&apos;re sharing it.
                 </p>
               </div>

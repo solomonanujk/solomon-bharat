@@ -5,6 +5,7 @@ import {
   ProductPriceTier,
   ProductPricingChangeStatus,
   ProductVariant,
+  ProductVideo,
   VariantAttribute,
   VariantPriceTier,
 } from '@prisma/client';
@@ -16,6 +17,7 @@ export type VariantWithDetail = ProductVariant & {
 
 export type ProductWithMedia = Product & {
   images: ProductImage[];
+  videos: ProductVideo[];
   variants: VariantWithDetail[];
   priceTiers: ProductPriceTier[];
 };
@@ -46,8 +48,22 @@ export interface VariantInput {
   sku?: string;
   status?: 'ACTIVE' | 'INACTIVE' | 'OUT_OF_STOCK';
   imageUrl?: string;
+  // A swatch image picked from a photo being uploaded in this same request (not
+  // one already saved) has no real URL yet — this is its index into the `images`
+  // files array of this request instead; ProductsService.resolveVariantImageUrls
+  // turns it into a real imageUrl once the upload completes.
+  newImageIndex?: number;
   attributes?: VariantAttributeInput[];
   priceTiers?: PriceTierInput[];
+  // Faire-parity per-variant shipping/inventory detail (PRD §8.5/§8.9, §15.3).
+  weight?: number;
+  weightUnit?: 'kg' | 'lb';
+  length?: number;
+  width?: number;
+  height?: number;
+  dimensionUnit?: 'cm' | 'in';
+  tariffCode?: string;
+  inventory?: number;
 }
 
 // ─── Staged pricing/variant changes on an already-approved (live) product ───────
@@ -79,6 +95,9 @@ export interface ApplyPricingChangeInput {
   sellerPrice: number;
   adminPrice: number | null;
   agentPrice: number | null;
+  /** Set only when the approved variants use per-variant inventory — see
+   *  ProductsService.deriveDeclaredStock / approvePricingChange. */
+  declaredStock?: number;
   priceTiers: PriceTierWithAdminPricing[];
   variants: VariantInputWithAdminPricing[];
 }
@@ -117,6 +136,41 @@ export interface CreateProductInput {
   howItIsMade?: string;
   artisanName?: string;
   priceTiers?: PriceTierWithAdminPricing[];
+  // Faire-parity fields (PRD §8.5/§8.9, §15.3).
+  ecoMaterials?: string[];
+  ecoPackaging?: string[];
+  ecoProduction?: string[];
+  isBestseller?: boolean;
+  tariffCode?: string;
+}
+
+/** Only name + categoryId are real requirements — see ProductsService.saveDraft for
+ *  the placeholders used for every other CreateProductInput field a draft omits. */
+export interface SaveDraftInput {
+  name: string;
+  categoryId: string;
+  description?: string;
+  materials?: string;
+  dimensions?: string;
+  weight?: string;
+  moq?: number;
+  declaredStock?: number;
+  sellerPrice?: number;
+  leadTime?: string;
+  variants?: VariantInput[];
+  tags?: string[];
+  stepQty?: number;
+  isHandmade?: boolean;
+  placeOfOrigin?: string;
+  isGITagged?: boolean;
+  howItIsMade?: string;
+  artisanName?: string;
+  priceTiers?: PriceTierInput[];
+  ecoMaterials?: string[];
+  ecoPackaging?: string[];
+  ecoProduction?: string[];
+  isBestseller?: boolean;
+  tariffCode?: string;
 }
 
 export interface UpdateProductInput {
@@ -130,7 +184,14 @@ export interface UpdateProductInput {
   sellerPrice?: number;
   leadTime?: string;
   variants?: VariantInput[];
+  // Only meaningful when the product being updated is currently DRAFT — see
+  // ProductsService.updateProduct. Never forwarded to the repository layer.
+  publish?: boolean;
+  // Set internally by the service (never by the controller/DTO) when a draft update
+  // transitions the product to PENDING.
+  approvalStatus?: ProductApprovalStatus;
   removeImageIds?: string[];
+  removeVideoIds?: string[];
   tags?: string[];
   stepQty?: number;
   isHandmade?: boolean;
@@ -139,6 +200,11 @@ export interface UpdateProductInput {
   howItIsMade?: string;
   artisanName?: string;
   priceTiers?: PriceTierInput[];
+  ecoMaterials?: string[];
+  ecoPackaging?: string[];
+  ecoProduction?: string[];
+  isBestseller?: boolean;
+  tariffCode?: string;
 }
 
 export interface UploadedImageFile {
@@ -205,6 +271,7 @@ export interface BuyerProduct {
   isFeatured: boolean;
   publishedAt: Date | null;
   images: ProductImage[];
+  videos: ProductVideo[];
   variants: VariantWithDetail[];
   avgRating: number | null;
   reviewCount: number;
@@ -215,6 +282,11 @@ export interface BuyerProduct {
   isGITagged: boolean;
   howItIsMade: string | null;
   artisanName: string | null;
+  ecoMaterials: string[];
+  ecoPackaging: string[];
+  ecoProduction: string[];
+  isBestseller: boolean;
+  tariffCode: string | null;
 }
 
 /** Seller-safe projection — never includes adminPrice or margin. */
@@ -237,6 +309,7 @@ export interface SellerProduct {
   createdAt: Date;
   updatedAt: Date;
   images: ProductImage[];
+  videos: ProductVideo[];
   variants: VariantWithDetail[];
   priceTiers: ProductPriceTier[];
   tags: string[];
@@ -246,6 +319,11 @@ export interface SellerProduct {
   isGITagged: boolean;
   howItIsMade: string | null;
   artisanName: string | null;
+  ecoMaterials: string[];
+  ecoPackaging: string[];
+  ecoProduction: string[];
+  isBestseller: boolean;
+  tariffCode: string | null;
   /** Non-null only once this product is APPROVED and the seller has an unreviewed
    *  pricing/variant edit awaiting admin approval — see ProposedPricing above. */
   pendingPricingChange: PendingPricingChange | null;

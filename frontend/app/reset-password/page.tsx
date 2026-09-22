@@ -55,27 +55,27 @@ function ResetPasswordInner() {
   return (
     <div className="bg-bg min-h-screen flex items-center justify-center px-4 py-12">
       <div className="bg-surface border border-border-warm rounded p-8 w-full max-w-[420px]">
-        <Link href="/" className="font-playfair text-[22px] font-[700] text-primary leading-none block mb-8 text-center">
+        <Link href="/" className="font-display text-[22px] font-[700] text-primary leading-none block mb-8 text-center">
           Solomon Bharat
         </Link>
 
         {linkMissing ? (
           <div className="text-center">
-            <h1 className="text-[22px] font-[600] font-playfair text-primary mb-2">Reset link invalid</h1>
-            <p className="text-[14px] font-public-sans text-muted-text leading-[1.5] mb-6">
+            <h1 className="text-[22px] font-[600] font-display text-primary mb-2">Reset link invalid</h1>
+            <p className="text-[14px] font-sans text-muted-text leading-[1.5] mb-6">
               This link is missing its reset details. Please use the link from your email exactly as sent.
             </p>
             <Link
               href="/"
-              className="text-[13px] font-public-sans text-muted-text hover:text-primary transition-colors underline underline-offset-2"
+              className="text-[13px] font-sans text-muted-text hover:text-primary transition-colors underline underline-offset-2"
             >
               Back to homepage
             </Link>
           </div>
         ) : done ? (
           <div className="text-center">
-            <h1 className="text-[22px] font-[600] font-playfair text-primary mb-2">Password reset</h1>
-            <p className="text-[14px] font-public-sans text-muted-text leading-[1.5] mb-6">
+            <h1 className="text-[22px] font-[600] font-display text-primary mb-2">Password reset</h1>
+            <p className="text-[14px] font-sans text-muted-text leading-[1.5] mb-6">
               Your password has been updated. You can now sign in with your new password.
             </p>
             <Button variant="primary" size="lg" className="w-full" onClick={handleSignIn}>
@@ -84,8 +84,8 @@ function ResetPasswordInner() {
           </div>
         ) : (
           <>
-            <h1 className="text-[22px] font-[600] font-playfair text-primary mb-1 text-center">Set a new password</h1>
-            <p className="text-[14px] font-public-sans text-muted-text text-center mb-6">
+            <h1 className="text-[22px] font-[600] font-display text-primary mb-1 text-center">Set a new password</h1>
+            <p className="text-[14px] font-sans text-muted-text text-center mb-6">
               Choose a new password for your account.
             </p>
 
@@ -116,7 +116,7 @@ function ResetPasswordInner() {
               </div>
 
               {formError && (
-                <p className="text-[13px] font-public-sans text-error" role="alert">{formError}</p>
+                <p className="text-[13px] font-sans text-error" role="alert">{formError}</p>
               )}
 
               <Button type="submit" variant="primary" size="lg" className="w-full" disabled={resetPassword.isPending}>

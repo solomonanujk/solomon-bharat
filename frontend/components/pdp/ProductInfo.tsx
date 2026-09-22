@@ -40,7 +40,7 @@ function ExpandableSection({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between py-4 text-left text-[13px] font-[600] font-public-sans text-primary hover:text-muted-text transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent rounded tracking-[0.05em]"
+        className="w-full flex items-center justify-between py-4 text-left text-[13px] font-[600] font-sans text-primary hover:text-muted-text transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent rounded tracking-[0.05em]"
         aria-expanded={open}
       >
         {title}
@@ -51,12 +51,12 @@ function ExpandableSection({
         />
       </button>
       {collapsedPreview && !open && (
-        <div className="pb-5 text-[13px] leading-[1.7] font-[400] font-public-sans text-muted-text">
+        <div className="pb-5 text-[13px] leading-[1.7] font-[400] font-sans text-muted-text">
           {collapsedPreview}
         </div>
       )}
       <div className={cn('overflow-hidden transition-all duration-200', open ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0')}>
-        <div className="pb-5 text-[13px] leading-[1.7] font-[400] font-public-sans text-muted-text">
+        <div className="pb-5 text-[13px] leading-[1.7] font-[400] font-sans text-muted-text">
           {children}
         </div>
       </div>
@@ -89,7 +89,7 @@ function QuantityStepper({
         −
       </button>
       <div
-        className="w-16 text-center text-[13px] font-[600] font-public-sans text-primary select-none border-x border-border-warm h-10 flex items-center justify-center"
+        className="w-16 text-center text-[13px] font-[600] font-sans text-primary select-none border-x border-border-warm h-10 flex items-center justify-center"
         aria-live="polite"
       >
         {value}
@@ -107,20 +107,48 @@ function QuantityStepper({
 }
 
 // ─── Variant axes ─────────────────────────────────────────────────────────────
-// Each value carries its representative variant's imageUrl (when the seller set
-// one) so a "Color"-style axis can render photo swatches like Faire's, while an
-// axis with no images (e.g. "Size") falls back to plain text buttons per value.
+// A variant row's own `.type`/`.value` only ever hold its PRIMARY axis (Size
+// wins over Color when both exist — see ProductForm's combo builder), so two
+// combos that share a Size but differ in Color both carry `type: 'Size'`. Axes
+// must therefore be reconstructed from the full `.attributes[]` list (every
+// axis on that row), not from `.type`/`.value` alone, or the secondary axis
+// (and any combo whose primary value repeats) silently disappears. Hidden
+// (INACTIVE) variants are excluded — a seller who hides a color shouldn't
+// have it still selectable here. Each value carries a representative
+// variant's imageUrl (when the seller set one) so a "Color"-style axis can
+// render photo swatches like Faire's, while an axis with no images (e.g.
+// "Size") falls back to plain text buttons per value.
+
+function variantAttrs(v: Product['variants'][number]): { name: string; value: string }[] {
+  return v.attributes?.length ? v.attributes : [{ name: v.type, value: v.value }]
+}
 
 function buildAxes(variants: Product['variants']) {
-  const map = new Map<string, { value: string; imageUrl: string | null }[]>()
+  const map = new Map<string, Map<string, string | null>>()
   for (const v of variants ?? []) {
-    if (!map.has(v.type)) map.set(v.type, [])
-    const values = map.get(v.type)!
-    if (!values.some((x) => x.value === v.value)) {
-      values.push({ value: v.value, imageUrl: v.imageUrl ?? null })
+    if (v.status === 'INACTIVE') continue
+    for (const attr of variantAttrs(v)) {
+      if (!map.has(attr.name)) map.set(attr.name, new Map())
+      const values = map.get(attr.name)!
+      if (!values.has(attr.value) || (!values.get(attr.value) && v.imageUrl)) {
+        values.set(attr.value, v.imageUrl ?? null)
+      }
     }
   }
-  return Array.from(map.entries()).map(([type, values]) => ({ type, values }))
+  return Array.from(map.entries()).map(([type, values]) => ({
+    type,
+    values: Array.from(values.entries()).map(([value, imageUrl]) => ({ value, imageUrl })),
+  }))
+}
+
+/** Finds the one variant row whose full attribute set matches the current
+ *  selection on every axis it declares — a plain `.type`/`.value` match (the
+ *  old approach) only ever disambiguates the primary axis, so two colors of
+ *  the same size would resolve to whichever came first. */
+function findMatchingVariant(variants: Product['variants'], selectedAttrs: Record<string, string>) {
+  return (variants ?? []).find(
+    (v) => v.status !== 'INACTIVE' && variantAttrs(v).every((a) => selectedAttrs[a.name] === a.value)
+  )
 }
 
 // ─── Price resolution ──────────────────────────────────────────────────────────
@@ -142,7 +170,7 @@ function getApplicableTiers(
   selectedAttrs: Record<string, string>,
   viewerRole?: string
 ): MoqTier[] {
-  const variant = product.variants?.find((v) => selectedAttrs[v.type] === v.value)
+  const variant = findMatchingVariant(product.variants ?? [], selectedAttrs)
   if (variant) {
     return (variant.priceTiers ?? [])
       .filter((t): t is typeof t & { adminPrice: number } => t.adminPrice != null)
@@ -179,7 +207,10 @@ export function ProductInfo({ product }: { product: Product }) {
   const {
     id, name, description, materials, dimensions, weight,
     moq, stepQty, leadTime, placeOfOrigin, images, variants = [],
+    isBestseller, ecoMaterials = [], ecoPackaging = [], ecoProduction = [],
+    isHandmade, isGITagged, howItIsMade, artisanName, tariffCode,
   } = product
+  const ecoTags = [...ecoMaterials, ...ecoPackaging, ...ecoProduction]
 
   const [quantity, setQuantity] = useState(moq)
   const qtyStep = stepQty || 1
@@ -224,8 +255,20 @@ export function ProductInfo({ product }: { product: Product }) {
   const updateCartQuantity = useCartStore((s) => s.updateQuantity)
   const removeFromCart = useCartStore((s) => s.removeItem)
 
-  const activeVariantId = variants.find((v) => selectedAttrs[v.type] === v.value)?.id
+  const activeVariant = findMatchingVariant(variants, selectedAttrs)
+  const activeVariantId = activeVariant?.id
   const cartItem = cartItems.find((i) => i.productId === id && i.variantId === activeVariantId)
+
+  // A selected variant's own weight/dimensions (when the seller set them) take
+  // priority over the product's flat, unstructured weight/dimensions strings —
+  // a Size L tote can weigh more than a Size S one.
+  const displayWeight = activeVariant?.weight != null
+    ? `${activeVariant.weight} ${activeVariant.weightUnit ?? 'kg'}`
+    : weight
+  const displayDimensions = activeVariant && (activeVariant.length != null || activeVariant.width != null || activeVariant.height != null)
+    ? `${activeVariant.length ?? 0} x ${activeVariant.width ?? 0} x ${activeVariant.height ?? 0} ${activeVariant.dimensionUnit ?? 'cm'}`
+    : dimensions
+  const displayTariffCode = activeVariant?.tariffCode || tariffCode
 
   // Once this exact product+variant is in the cart, the CTA becomes a
   // "N in cart · total" pill that opens a quantity-picker dropdown instead —
@@ -321,9 +364,30 @@ export function ProductInfo({ product }: { product: Product }) {
     <div className="flex flex-col">
       {/* Product name — serif — with wishlist + share */}
       <div className="flex items-start justify-between gap-3 mb-3">
-        <h1 className="font-playfair font-[500] text-product-text text-[20px] sm:text-[23px] leading-[1.2]">
-          {name}
-        </h1>
+        <div>
+          {(isBestseller || isHandmade || isGITagged) && (
+            <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+              {isBestseller && (
+                <span className="text-[10px] font-[600] font-sans uppercase tracking-[0.04em] bg-accent text-white px-2 py-1 rounded-sm">
+                  Bestseller
+                </span>
+              )}
+              {isHandmade && (
+                <span className="text-[10px] font-[600] font-sans uppercase tracking-[0.04em] border border-border-warm text-primary px-2 py-1 rounded-sm">
+                  Handmade
+                </span>
+              )}
+              {isGITagged && (
+                <span className="text-[10px] font-[600] font-sans uppercase tracking-[0.04em] border border-border-warm text-primary px-2 py-1 rounded-sm">
+                  GI Tagged
+                </span>
+              )}
+            </div>
+          )}
+          <h1 className="font-display font-[500] text-product-text text-[20px] sm:text-[23px] leading-[1.2]">
+            {name}
+          </h1>
+        </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           {isAgent && (
             <button
@@ -367,17 +431,21 @@ export function ProductInfo({ product }: { product: Product }) {
 
       {/* Price */}
       <div className="mb-4">
-        <p className="font-public-sans text-[10px] font-[600] text-muted-text uppercase tracking-[0.07em] mb-1.5">
+        <p className="font-sans text-[10px] font-[600] text-muted-text uppercase tracking-[0.07em] mb-1.5">
           Price per unit
         </p>
         <Price amountInr={unitPrice} size="lg" className="!text-[34px] !font-[600] text-product-text tracking-[-0.025em] leading-none" />
       </div>
 
+      {ecoTags.length > 0 && (
+        <p className="font-sans text-[12px] text-muted-text mb-3">{ecoTags.join(' · ')}</p>
+      )}
+
       {/* Shipping estimate — real placeOfOrigin/leadTime data only */}
       {(placeOfOrigin || leadTime) && (
         <div className="flex items-start gap-2 mb-5 text-muted-text">
           <Package size={16} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
-          <p className="font-public-sans text-[12px] leading-snug">
+          <p className="font-sans text-[12px] leading-snug">
             {placeOfOrigin && (
               <>Ships from <span className="text-primary font-[500]">{placeOfOrigin}</span></>
             )}
@@ -394,7 +462,7 @@ export function ProductInfo({ product }: { product: Product }) {
         <div className="mb-5 space-y-4">
           {axes.map((axis) => (
             <div key={axis.type}>
-              <p className="font-public-sans text-[11px] font-[600] text-muted-text uppercase tracking-[0.05em] mb-2">
+              <p className="font-sans text-[11px] font-[600] text-muted-text uppercase tracking-[0.05em] mb-2">
                 {axis.type}
                 {selectedAttrs[axis.type] && (
                   <span className="ml-1.5 text-primary normal-case font-[500] tracking-[0.02em]">
@@ -430,7 +498,7 @@ export function ProductInfo({ product }: { product: Product }) {
                       type="button"
                       onClick={() => selectAttr(axis.type, val)}
                       className={cn(
-                        'h-9 px-4 rounded border text-[12px] font-[500] font-public-sans transition-colors',
+                        'h-9 px-4 rounded border text-[12px] font-[500] font-sans transition-colors',
                         selected
                           ? 'border-primary bg-primary text-white'
                           : 'border-border-warm text-primary hover:border-primary'
@@ -450,13 +518,13 @@ export function ProductInfo({ product }: { product: Product }) {
       {/* MOQ & pricing */}
       {moqTiers.length > 0 ? (
         <div className="mb-4">
-          <p className="font-public-sans text-[11px] font-[600] text-muted-text uppercase tracking-[0.05em] mb-2">
+          <p className="font-sans text-[11px] font-[600] text-muted-text uppercase tracking-[0.05em] mb-2">
             MOQ &amp; Pricing
           </p>
           <select
             value={activeTierMoq}
             onChange={(e) => selectMoqTier(Number(e.target.value))}
-            className="w-full h-10 px-3 rounded border border-border-warm bg-surface text-[13px] font-public-sans text-primary focus:outline-none focus:border-accent transition-colors"
+            className="w-full h-10 px-3 rounded border border-border-warm bg-surface text-[13px] font-sans text-primary focus:outline-none focus:border-accent transition-colors"
           >
             {moqTiers.map((tier) => (
               <option key={tier.key} value={tier.moq}>
@@ -466,7 +534,7 @@ export function ProductInfo({ product }: { product: Product }) {
           </select>
         </div>
       ) : (
-        <p className="font-public-sans text-[12px] text-muted-text mb-4">
+        <p className="font-sans text-[12px] text-muted-text mb-4">
           Min. order:&nbsp;
           <span className="font-[600] text-primary">{moq} units</span>
         </p>
@@ -482,7 +550,7 @@ export function ProductInfo({ product }: { product: Product }) {
             type="button"
             onClick={() => setQtyMenuOpen((v) => !v)}
             aria-expanded={qtyMenuOpen}
-            className="w-full h-12 rounded bg-primary text-white text-[13px] font-[600] font-public-sans flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors"
+            className="w-full h-12 rounded bg-primary text-white text-[13px] font-[600] font-sans flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors"
           >
             {cartItem.quantity} in cart · {formatPrice(cartItem.unitAdminPriceInr * cartItem.quantity)}
             <ChevronDown
@@ -497,7 +565,7 @@ export function ProductInfo({ product }: { product: Product }) {
               <button
                 type="button"
                 onClick={handleRemoveFromCart}
-                className="w-full text-left px-4 py-2.5 text-[13px] font-[500] font-public-sans text-error hover:bg-muted-bg transition-colors border-b border-border-warm"
+                className="w-full text-left px-4 py-2.5 text-[13px] font-[500] font-sans text-error hover:bg-muted-bg transition-colors border-b border-border-warm"
               >
                 Remove from cart
               </button>
@@ -507,7 +575,7 @@ export function ProductInfo({ product }: { product: Product }) {
                   type="button"
                   onClick={() => handleSelectCartQty(qty)}
                   className={cn(
-                    'w-full text-left px-4 py-2.5 text-[13px] font-public-sans hover:bg-muted-bg transition-colors',
+                    'w-full text-left px-4 py-2.5 text-[13px] font-sans hover:bg-muted-bg transition-colors',
                     qty === cartItem.quantity ? 'font-[700] text-primary bg-muted-bg/60' : 'text-primary'
                   )}
                 >
@@ -522,11 +590,11 @@ export function ProductInfo({ product }: { product: Product }) {
           {/* Quantity */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <p className="font-public-sans text-[11px] font-[500] text-muted-text">
+              <p className="font-sans text-[11px] font-[500] text-muted-text">
                 Quantity&nbsp;<span className="text-primary">(min. {moq})</span>
               </p>
               {qtyStep > 1 && (
-                <span className="font-public-sans text-[11px] text-muted-text">Case of {qtyStep}</span>
+                <span className="font-sans text-[11px] text-muted-text">Case of {qtyStep}</span>
               )}
             </div>
             <QuantityStepper value={quantity} onChange={setQuantity} min={moq} step={qtyStep} />
@@ -562,18 +630,36 @@ export function ProductInfo({ product }: { product: Product }) {
           <p>{materials}</p>
         </ExpandableSection>
 
-        {(dimensions || weight != null) && (
+        {(howItIsMade || artisanName) && (
+          <ExpandableSection title="How it's made">
+            <div className="flex flex-col gap-3">
+              {artisanName && (
+                <dl>
+                  <div className="flex items-baseline justify-between gap-4">
+                    <dt className="font-sans text-[11px] font-[600] text-primary uppercase tracking-[0.04em] flex-shrink-0">
+                      Artisan
+                    </dt>
+                    <dd className="font-sans text-[13px] text-muted-text text-right">{artisanName}</dd>
+                  </div>
+                </dl>
+              )}
+              {howItIsMade && <p className="whitespace-pre-wrap">{howItIsMade}</p>}
+            </div>
+          </ExpandableSection>
+        )}
+
+        {(displayDimensions || displayWeight != null) && (
           <ExpandableSection title="Dimensions and weight">
             <dl className="flex flex-col gap-3">
               {[
-                ...(weight != null ? [{ label: 'Weight', value: weight }] : []),
-                ...(dimensions ? [{ label: 'Dimensions', value: dimensions }] : []),
+                ...(displayWeight != null ? [{ label: 'Weight', value: displayWeight }] : []),
+                ...(displayDimensions ? [{ label: 'Dimensions', value: displayDimensions }] : []),
               ].map(({ label, value }) => (
                 <div key={label} className="flex items-baseline justify-between gap-4">
-                  <dt className="font-public-sans text-[11px] font-[600] text-primary uppercase tracking-[0.04em] flex-shrink-0">
+                  <dt className="font-sans text-[11px] font-[600] text-primary uppercase tracking-[0.04em] flex-shrink-0">
                     {label}
                   </dt>
-                  <dd className="font-public-sans text-[13px] text-muted-text text-right">{value}</dd>
+                  <dd className="font-sans text-[13px] text-muted-text text-right">{value}</dd>
                 </div>
               ))}
             </dl>
@@ -585,12 +671,13 @@ export function ProductInfo({ product }: { product: Product }) {
             {[
               ...(leadTime ? [{ label: 'Lead time', value: leadTime }] : []),
               { label: 'Min. order', value: `${moq} units` },
+              ...(displayTariffCode ? [{ label: 'HS / Tariff code', value: displayTariffCode }] : []),
             ].map(({ label, value }) => (
               <div key={label} className="flex items-baseline justify-between gap-4">
-                <dt className="font-public-sans text-[11px] font-[600] text-primary uppercase tracking-[0.04em] flex-shrink-0">
+                <dt className="font-sans text-[11px] font-[600] text-primary uppercase tracking-[0.04em] flex-shrink-0">
                   {label}
                 </dt>
-                <dd className="font-public-sans text-[13px] text-muted-text text-right">{value}</dd>
+                <dd className="font-sans text-[13px] text-muted-text text-right">{value}</dd>
               </div>
             ))}
           </dl>
@@ -668,7 +755,7 @@ function ReviewPhotoLightbox({
     >
       <div className="relative bg-[#1a1a1a] rounded-xl shadow-2xl flex flex-col overflow-hidden w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-          <span className="font-public-sans text-[12px] text-white/60">{index + 1} / {photos.length}</span>
+          <span className="font-sans text-[12px] text-white/60">{index + 1} / {photos.length}</span>
           <button
             type="button"
             onClick={onClose}
@@ -747,7 +834,7 @@ function ReviewPhotoStrip({ reviews, onOpenPhoto }: { reviews: Review[]; onOpenP
 
   return (
     <div className="flex flex-col gap-2 mb-6">
-      <p className="font-public-sans text-[10px] font-[600] text-muted-text uppercase tracking-[0.06em]">
+      <p className="font-sans text-[10px] font-[600] text-muted-text uppercase tracking-[0.06em]">
         Customer Photos
       </p>
       <div className="flex gap-2">
@@ -764,7 +851,7 @@ function ReviewPhotoStrip({ reviews, onOpenPhoto }: { reviews: Review[]; onOpenP
               <Image src={url} alt="" fill sizes="80px" className="object-cover" />
               {isLast && extra > 0 && (
                 <div className="absolute inset-0 bg-black/55 flex items-center justify-center">
-                  <span className="text-white text-[12px] font-[700] font-public-sans">+{extra}</span>
+                  <span className="text-white text-[12px] font-[700] font-sans">+{extra}</span>
                 </div>
               )}
             </button>
@@ -787,14 +874,14 @@ function ReviewCard({ review, onOpen }: { review: Review; onOpen: () => void }) 
       className="flex flex-col flex-shrink-0 w-[260px] sm:w-[280px] bg-surface border border-border-warm rounded-lg p-4 text-left hover:border-primary/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       <div className="flex items-center justify-between gap-2 mb-2">
-        <span className="inline-flex items-center gap-1 bg-primary text-white rounded px-1.5 py-0.5 text-[11px] font-[700] font-public-sans">
+        <span className="inline-flex items-center gap-1 bg-primary text-white rounded px-1.5 py-0.5 text-[11px] font-[700] font-sans">
           {review.rating}
           <Star size={10} fill="currentColor" aria-hidden="true" />
         </span>
-        <span className="font-public-sans text-[10px] text-muted-text flex-shrink-0">{timeAgo(review.createdAt)}</span>
+        <span className="font-sans text-[10px] text-muted-text flex-shrink-0">{timeAgo(review.createdAt)}</span>
       </div>
 
-      <p className="font-public-sans text-[12px] text-primary leading-[1.6] mb-3 line-clamp-4">
+      <p className="font-sans text-[12px] text-primary leading-[1.6] mb-3 line-clamp-4">
         {review.comment || <span className="text-muted-text italic">No written feedback</span>}
       </p>
 
@@ -807,14 +894,14 @@ function ReviewCard({ review, onOpen }: { review: Review; onOpen: () => void }) 
           ))}
           {review.images.length > 3 && (
             <div className="w-10 h-10 rounded bg-muted-bg flex-shrink-0 flex items-center justify-center">
-              <span className="font-public-sans text-[10px] font-[600] text-muted-text">+{review.images.length - 3}</span>
+              <span className="font-sans text-[10px] font-[600] text-muted-text">+{review.images.length - 3}</span>
             </div>
           )}
         </div>
       )}
 
       <div className="mt-auto flex items-center gap-1.5">
-        <span className="font-public-sans text-[11px] font-[600] text-primary">{review.buyerName}</span>
+        <span className="font-sans text-[11px] font-[600] text-primary">{review.buyerName}</span>
         <span className="inline-flex items-center gap-1 text-[10px] text-muted-text">
           <CheckCircle2 size={11} aria-hidden="true" />
           Verified Buyer
@@ -909,13 +996,13 @@ function ReviewDetailModal({
       <DialogContent className="max-w-[560px]">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 bg-primary text-white rounded px-1.5 py-0.5 text-[11px] font-[700] font-public-sans">
+            <span className="inline-flex items-center gap-1 bg-primary text-white rounded px-1.5 py-0.5 text-[11px] font-[700] font-sans">
               {review.rating}
               <Star size={10} fill="currentColor" aria-hidden="true" />
             </span>
-            <span className="font-public-sans text-[11px] text-muted-text">{timeAgo(review.createdAt)}</span>
+            <span className="font-sans text-[11px] text-muted-text">{timeAgo(review.createdAt)}</span>
           </div>
-          <DialogTitle className="text-[15px] font-public-sans font-[600]">{review.buyerName}</DialogTitle>
+          <DialogTitle className="text-[15px] font-sans font-[600]">{review.buyerName}</DialogTitle>
           <span className="inline-flex items-center gap-1 text-[11px] text-muted-text">
             <CheckCircle2 size={12} aria-hidden="true" />
             Verified Buyer
@@ -923,7 +1010,7 @@ function ReviewDetailModal({
         </DialogHeader>
 
         <div className="px-6 pb-6 flex flex-col gap-4">
-          <p className="font-public-sans text-[13px] text-primary leading-[1.7] whitespace-pre-wrap">
+          <p className="font-sans text-[13px] text-primary leading-[1.7] whitespace-pre-wrap">
             {review.comment || <span className="text-muted-text italic">No written feedback</span>}
           </p>
 
@@ -949,16 +1036,16 @@ function ReviewDetailModal({
             <button
               type="button"
               onClick={() => onIndexChange(index === 0 ? reviews.length - 1 : index - 1)}
-              className="inline-flex items-center gap-1 text-[12px] font-[600] font-public-sans text-primary hover:text-accent transition-colors"
+              className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-primary hover:text-accent transition-colors"
             >
               <ChevronLeft size={15} aria-hidden="true" />
               Previous review
             </button>
-            <span className="font-public-sans text-[11px] text-muted-text">{index + 1} / {reviews.length}</span>
+            <span className="font-sans text-[11px] text-muted-text">{index + 1} / {reviews.length}</span>
             <button
               type="button"
               onClick={() => onIndexChange(index === reviews.length - 1 ? 0 : index + 1)}
-              className="inline-flex items-center gap-1 text-[12px] font-[600] font-public-sans text-primary hover:text-accent transition-colors"
+              className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-primary hover:text-accent transition-colors"
             >
               Next review
               <ChevronRight size={15} aria-hidden="true" />
@@ -988,7 +1075,7 @@ function CustomerReviews({ productId }: { productId: string }) {
         className="w-full flex items-center justify-between mb-4 text-left"
         aria-expanded={open}
       >
-        <p className="font-playfair font-[600] text-primary text-[17px] leading-tight">
+        <p className="font-display font-[600] text-primary text-[17px] leading-tight">
           Ratings and Reviews
         </p>
         <ChevronDown
@@ -1001,15 +1088,15 @@ function CustomerReviews({ productId }: { productId: string }) {
       {open && (
         <>
           <div className="flex items-center gap-2.5 mb-1.5">
-            <span className="inline-flex items-center gap-1 font-public-sans text-[23px] font-[700] text-primary leading-none">
+            <span className="inline-flex items-center gap-1 font-sans text-[23px] font-[700] text-primary leading-none">
               {data.avgRating?.toFixed(1)}
               <Star size={20} className="text-accent" fill="currentColor" aria-hidden="true" />
             </span>
-            <span className={cn('inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-[600] font-public-sans', quality.className)}>
+            <span className={cn('inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-[600] font-sans', quality.className)}>
               {quality.label}
             </span>
           </div>
-          <p className="font-public-sans text-[12px] text-muted-text mb-5">
+          <p className="font-sans text-[12px] text-muted-text mb-5">
             based on {data.reviewCount} rating{data.reviewCount === 1 ? '' : 's'} by{' '}
             <span className="inline-flex items-center gap-1">
               <CheckCircle2 size={12} aria-hidden="true" />

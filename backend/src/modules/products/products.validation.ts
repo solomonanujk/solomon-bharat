@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ProductApprovalStatus } from '@prisma/client';
 import { paginationQuerySchema } from '../../utils/pagination';
+import { ECO_MATERIALS, ECO_PACKAGING, ECO_PRODUCTION } from './ecoAttributes.constants';
 
 function jsonArrayField<T extends z.ZodTypeAny>(schema: T) {
   return z.preprocess((val) => {
@@ -45,8 +46,21 @@ const variantSchema = z.object({
   sku: z.string().min(1).max(100).optional(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'OUT_OF_STOCK']).default('ACTIVE'),
   imageUrl: z.string().url().optional(),
+  // A swatch image picked from a photo being uploaded in this same request — its
+  // index into the `images` files array, resolved to a real imageUrl server-side
+  // once the upload completes (see ProductsService.resolveVariantImageUrls).
+  newImageIndex: z.coerce.number().int().min(0).optional(),
   attributes: z.array(variantAttributeSchema).min(1).optional(),
   priceTiers: z.array(priceTierSchema).min(1).optional(),
+  // Faire-parity per-variant shipping/inventory detail (PRD §8.5/§8.9, §15.3).
+  weight: z.coerce.number().positive().optional(),
+  weightUnit: z.enum(['kg', 'lb']).optional(),
+  length: z.coerce.number().positive().optional(),
+  width: z.coerce.number().positive().optional(),
+  height: z.coerce.number().positive().optional(),
+  dimensionUnit: z.enum(['cm', 'in']).optional(),
+  tariffCode: z.string().max(50).optional(),
+  inventory: z.coerce.number().int().min(0).optional(),
 });
 
 // Admin creates a product with sellerPrice AND adminPrice (buyer price) AND agentPrice
@@ -65,8 +79,8 @@ export const createProductAsAdminSchema = z
   .object({
     sellerMode: z.enum(['existing', 'house']),
     sellerId: z.string().uuid().optional(),
-    name: z.string().min(1).max(200),
-    description: z.string().min(1).max(5000),
+    name: z.string().min(1).max(60),
+    description: z.string().min(1).max(1000),
     categoryId: z.string().uuid(),
     materials: z.string().min(1).max(500),
     dimensions: z.string().max(200).optional(),
@@ -87,6 +101,11 @@ export const createProductAsAdminSchema = z
     howItIsMade: z.string().max(5000).optional(),
     artisanName: z.string().max(200).optional(),
     priceTiers: jsonArrayField(priceTierWithAdminPricingSchema),
+    ecoMaterials: jsonArrayField(z.enum(ECO_MATERIALS)),
+    ecoPackaging: jsonArrayField(z.enum(ECO_PACKAGING)),
+    ecoProduction: jsonArrayField(z.enum(ECO_PRODUCTION)),
+    isBestseller: formBoolean(false),
+    tariffCode: z.string().max(50).optional(),
   })
   .refine((data) => data.sellerMode !== 'existing' || !!data.sellerId, {
     message: 'sellerId is required when sellerMode is "existing"',
@@ -95,8 +114,8 @@ export const createProductAsAdminSchema = z
 export type CreateProductAsAdminDto = z.infer<typeof createProductAsAdminSchema>;
 
 export const createProductSchema = z.object({
-  name: z.string().min(1).max(200),
-  description: z.string().min(1).max(5000),
+  name: z.string().min(1).max(60),
+  description: z.string().min(1).max(1000),
   categoryId: z.string().uuid(),
   materials: z.string().min(1).max(500),
   dimensions: z.string().max(200).optional(),
@@ -117,12 +136,49 @@ export const createProductSchema = z.object({
   howItIsMade: z.string().max(5000).optional(),
   artisanName: z.string().max(200).optional(),
   priceTiers: jsonArrayField(priceTierSchema),
+  ecoMaterials: jsonArrayField(z.enum(ECO_MATERIALS)),
+  ecoPackaging: jsonArrayField(z.enum(ECO_PACKAGING)),
+  ecoProduction: jsonArrayField(z.enum(ECO_PRODUCTION)),
+  isBestseller: formBoolean(false),
+  tariffCode: z.string().max(50).optional(),
 });
 export type CreateProductDto = z.infer<typeof createProductSchema>;
 
+// A draft is a minimally-valid Product row a seller can come back and finish later —
+// only name + categoryId are real requirements (categoryId is a NOT NULL FK; name lets
+// the seller recognize it in their product list). Everything else the full
+// createProductSchema requires gets a safe placeholder in the service layer instead.
+export const saveDraftSchema = z.object({
+  name: z.string().min(1).max(60),
+  categoryId: z.string().uuid(),
+  description: z.string().max(1000).optional(),
+  materials: z.string().max(500).optional(),
+  dimensions: z.string().max(200).optional(),
+  weight: z.string().max(100).optional(),
+  moq: z.coerce.number().int().min(0).optional(),
+  declaredStock: z.coerce.number().int().min(0).optional(),
+  sellerPrice: z.coerce.number().min(0).optional(),
+  leadTime: z.string().max(200).optional(),
+  variants: jsonArrayField(variantSchema),
+  tags: jsonArrayField(z.string().min(1).max(50)),
+  stepQty: z.coerce.number().int().positive().optional(),
+  isHandmade: formBoolean(false),
+  placeOfOrigin: z.string().max(200).optional(),
+  isGITagged: formBoolean(false),
+  howItIsMade: z.string().max(5000).optional(),
+  artisanName: z.string().max(200).optional(),
+  priceTiers: jsonArrayField(priceTierSchema),
+  ecoMaterials: jsonArrayField(z.enum(ECO_MATERIALS)),
+  ecoPackaging: jsonArrayField(z.enum(ECO_PACKAGING)),
+  ecoProduction: jsonArrayField(z.enum(ECO_PRODUCTION)),
+  isBestseller: formBoolean(false),
+  tariffCode: z.string().max(50).optional(),
+});
+export type SaveDraftDto = z.infer<typeof saveDraftSchema>;
+
 export const updateProductSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  description: z.string().min(1).max(5000).optional(),
+  name: z.string().min(1).max(60).optional(),
+  description: z.string().min(1).max(1000).optional(),
   materials: z.string().min(1).max(500).optional(),
   dimensions: z.string().max(200).optional(),
   weight: z.string().max(100).optional(),
@@ -131,7 +187,14 @@ export const updateProductSchema = z.object({
   sellerPrice: z.coerce.number().positive().optional(),
   leadTime: z.string().max(200).optional(),
   variants: jsonArrayField(variantSchema),
+  // Only meaningful when the product being updated is currently a DRAFT — set true to
+  // validate it fully and transition it to PENDING (submit for review); omitted/false
+  // just saves whatever was filled in and leaves it as a draft. Ignored for every other
+  // current status (a normal edit of a PENDING/APPROVED/etc. product never changes status
+  // through this field).
+  publish: formBoolean(false),
   removeImageIds: jsonArrayField(z.string().uuid()),
+  removeVideoIds: jsonArrayField(z.string().uuid()),
   tags: jsonArrayField(z.string().min(1).max(50)),
   stepQty: z.coerce.number().int().positive().optional(),
   isHandmade: z
@@ -144,6 +207,13 @@ export const updateProductSchema = z.object({
   howItIsMade: z.string().max(5000).optional(),
   artisanName: z.string().max(200).optional(),
   priceTiers: jsonArrayField(priceTierSchema),
+  ecoMaterials: jsonArrayField(z.enum(ECO_MATERIALS)),
+  ecoPackaging: jsonArrayField(z.enum(ECO_PACKAGING)),
+  ecoProduction: jsonArrayField(z.enum(ECO_PRODUCTION)),
+  isBestseller: z
+    .preprocess((val) => (val === 'true' ? true : val === 'false' ? false : val), z.boolean())
+    .optional(),
+  tariffCode: z.string().max(50).optional(),
 });
 export type UpdateProductDto = z.infer<typeof updateProductSchema>;
 

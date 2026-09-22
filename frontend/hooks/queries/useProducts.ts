@@ -7,6 +7,7 @@ import { getApiError } from '@/lib/getApiError'
 import type {
   AdminProduct,
   ApprovalStatus,
+  DimensionUnit,
   MyProduct,
   PaginatedResult,
   PendingPricingChange,
@@ -15,6 +16,7 @@ import type {
   ProductsParams,
   VariantAttribute,
   VariantStatus,
+  WeightUnit,
 } from '@/types'
 
 function toPaginated<T>(res: { data: { data: unknown; meta?: { total?: number; page?: number; limit?: number; totalPages?: number } } }): PaginatedResult<T> {
@@ -127,8 +129,21 @@ export interface SubmitVariantInput {
   sku?: string
   status?: VariantStatus
   imageUrl?: string
+  // A swatch image picked from a photo being uploaded in this same request (not
+  // one already saved) — its index into the `images` files array, resolved to a
+  // real imageUrl server-side once the upload completes.
+  newImageIndex?: number
   attributes?: VariantAttribute[]
   priceTiers?: ProductPriceTier[]
+  // Faire-parity per-variant shipping/inventory detail (PRD §8.5/§8.9, §15.3).
+  weight?: number
+  weightUnit?: WeightUnit
+  length?: number
+  width?: number
+  height?: number
+  dimensionUnit?: DimensionUnit
+  tariffCode?: string
+  inventory?: number
 }
 
 export interface SubmitProductInput {
@@ -144,6 +159,7 @@ export interface SubmitProductInput {
   leadTime?: string
   variants?: SubmitVariantInput[]
   images: File[]
+  videos?: File[]
   tags?: string[]
   stepQty?: number
   isHandmade?: boolean
@@ -152,16 +168,33 @@ export interface SubmitProductInput {
   howItIsMade?: string
   artisanName?: string
   priceTiers?: ProductPriceTier[]
+  ecoMaterials?: string[]
+  ecoPackaging?: string[]
+  ecoProduction?: string[]
+  isBestseller?: boolean
+  tariffCode?: string
 }
 
-const JSON_FIELDS = new Set(['variants', 'tags', 'priceTiers'])
+// removeImageIds/removeVideoIds included here too — the backend's jsonArrayField
+// parses these as JSON, not a bare comma-joined string (String(array)'s fallback
+// below), so any array field bound for an array-typed backend field must be listed.
+const JSON_FIELDS = new Set([
+  'variants',
+  'tags',
+  'priceTiers',
+  'ecoMaterials',
+  'ecoPackaging',
+  'ecoProduction',
+  'removeImageIds',
+  'removeVideoIds',
+])
 
 function toFormData(input: object): FormData {
   const fd = new FormData()
   for (const [key, value] of Object.entries(input)) {
     if (value === undefined || value === null) continue
-    if (key === 'images' && Array.isArray(value)) {
-      value.forEach((file) => fd.append('images', file as File))
+    if ((key === 'images' || key === 'videos') && Array.isArray(value)) {
+      value.forEach((file) => fd.append(key, file as File))
     } else if (JSON_FIELDS.has(key)) {
       fd.append(key, JSON.stringify(value))
     } else {
@@ -195,9 +228,61 @@ export function useSubmitProduct() {
   })
 }
 
+/** Only name + categoryId are real requirements — everything else the full
+ *  SubmitProductInput needs gets a safe placeholder on the backend instead. */
+export interface SaveDraftInput {
+  name: string
+  categoryId: string
+  description?: string
+  materials?: string
+  dimensions?: string
+  weight?: number
+  moq?: number
+  declaredStock?: number
+  sellerPrice?: number
+  leadTime?: string
+  variants?: SubmitVariantInput[]
+  tags?: string[]
+  stepQty?: number
+  isHandmade?: boolean
+  placeOfOrigin?: string
+  isGITagged?: boolean
+  howItIsMade?: string
+  artisanName?: string
+  priceTiers?: ProductPriceTier[]
+  ecoMaterials?: string[]
+  ecoPackaging?: string[]
+  ecoProduction?: string[]
+  isBestseller?: boolean
+  tariffCode?: string
+}
+
+/** Creates a new, minimally-valid draft product — no images/videos (those need the
+ *  full multipart update endpoint, available once the draft has a real id). */
+export function useSaveDraft() {
+  const qc = useQueryClient()
+  return useMutation<MyProduct, Error, SaveDraftInput>({
+    mutationFn: async (input) => (await api.post('/products/me/draft', input)).data.data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-products'] })
+      toast.success('Draft saved.')
+    },
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
 export interface UpdateMyProductInput {
   id: string
-  data: Partial<Omit<SubmitProductInput, 'images' | 'categoryId'>> & { removeImageIds?: string[]; images?: File[] }
+  data: Partial<Omit<SubmitProductInput, 'images' | 'videos' | 'categoryId'>> & {
+    removeImageIds?: string[]
+    images?: File[]
+    removeVideoIds?: string[]
+    videos?: File[]
+    /** Only meaningful when the product being updated is currently a DRAFT — true
+     *  validates it fully and submits it for review; omitted/false just saves
+     *  whatever's filled in and leaves it as a draft. */
+    publish?: boolean
+  }
 }
 
 export function useUpdateMyProduct() {

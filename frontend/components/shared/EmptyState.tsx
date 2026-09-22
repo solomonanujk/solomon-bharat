@@ -91,12 +91,12 @@ export function EmptyState({ title, description, action, className }: EmptyState
         <EmptyIllustration />
       </span>
 
-      <p className="mt-4 text-[16px] font-[700] font-public-sans text-primary">
+      <p className="mt-4 text-[16px] font-[700] font-sans text-primary">
         {title}
       </p>
 
       {description && (
-        <p className="mt-1 text-[14px] font-public-sans text-muted-text max-w-[320px]">
+        <p className="mt-1 text-[14px] font-sans text-muted-text max-w-[320px]">
           {description}
         </p>
       )}

@@ -33,6 +33,9 @@ function toProductCardData(product: RecentProduct): ProductCardData {
     leadTime: product.leadTime,
     avgRating: product.avgRating ?? null,
     reviewCount: product.reviewCount ?? 0,
+    // Not tracked in the "recently viewed" localStorage cache — same treatment as
+    // the other legacy-entry fallbacks above.
+    isBestseller: false,
   }
 }
 
@@ -85,7 +88,7 @@ function RecentlyViewedCarousel() {
     <section className="py-10 bg-bg border-t border-border-warm">
       <div className="max-w-[1400px] mx-auto px-4 lg:px-10">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="font-playfair font-[400] text-primary text-[22px] leading-tight">
+          <h2 className="font-display font-[400] text-primary text-[22px] leading-tight">
             Recently viewed
           </h2>
 
@@ -162,7 +165,7 @@ export function BuyerHomeFeed() {
     <>
       <section className="pt-10 pb-2 bg-bg">
         <div className="max-w-[1400px] mx-auto px-4 lg:px-10">
-          <h1 className="font-playfair font-[400] text-primary text-[20px] lg:text-[24px] leading-tight">
+          <h1 className="font-display font-[400] text-primary text-[20px] lg:text-[24px] leading-tight">
             Welcome back{profile?.contactName ? `, ${profile.contactName}` : ''}
           </h1>
         </div>
@@ -173,7 +176,7 @@ export function BuyerHomeFeed() {
 
       <section className="py-10 bg-bg border-t border-border-warm">
         <div className="max-w-[1400px] mx-auto px-4 lg:px-10">
-          <h2 className="font-playfair font-[400] text-primary text-[22px] leading-tight mb-6">
+          <h2 className="font-display font-[400] text-primary text-[22px] leading-tight mb-6">
             Ideas for you
           </h2>
           {isLoading ? (

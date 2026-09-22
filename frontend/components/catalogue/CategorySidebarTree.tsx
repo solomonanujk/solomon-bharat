@@ -11,7 +11,7 @@ function Row({ label, active, level = 0, bold, onClick }: { label: string; activ
       type="button"
       onClick={onClick}
       className={cn(
-        'block text-left py-1.5 text-[14px] font-public-sans transition-colors',
+        'block text-left py-1.5 text-[14px] font-sans transition-colors',
         INDENT_CLASS[level],
         active ? 'font-[600] text-primary underline underline-offset-2' : bold ? 'font-[600] text-primary hover:opacity-70' : 'text-primary hover:opacity-70'
       )}

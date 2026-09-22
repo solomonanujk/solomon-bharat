@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 
 export const buttonVariants = cva(
   // Base styles applied to every button
-  'inline-flex items-center justify-center rounded font-public-sans font-[600] transition-colors disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1',
+  'inline-flex items-center justify-center rounded font-sans font-[600] transition-colors disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1',
   {
     variants: {
       variant: {

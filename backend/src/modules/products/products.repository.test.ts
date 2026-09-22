@@ -11,6 +11,7 @@ describe('ProductsRepository', () => {
     db = buildMockPrismaClient({
       product: mockModel(),
       productImage: mockModel(),
+      productVideo: mockModel(),
       productVariant: mockModel(),
       productPriceTier: mockModel(),
       productPricingChangeRequest: mockModel(),
@@ -21,6 +22,7 @@ describe('ProductsRepository', () => {
 
   const MEDIA_INCLUDE = {
     images: { orderBy: { sortOrder: 'asc' } },
+    videos: { orderBy: { sortOrder: 'asc' } },
     variants: {
       include: {
         attributes: { orderBy: { name: 'asc' } },
@@ -87,6 +89,86 @@ describe('ProductsRepository', () => {
     ]);
   });
 
+  it('create persists per-variant shipping/inventory detail and Faire-parity product fields', async () => {
+    db.product.create.mockResolvedValue({ id: 'p1' });
+    await repo.create(
+      'seller-1',
+      {
+        categoryId: 'cat-1',
+        name: 'Table Runner',
+        slug: 'table-runner',
+        description: 'desc',
+        materials: 'Cotton',
+        moq: 10,
+        declaredStock: 100,
+        sellerPrice: 5,
+        variants: [
+          {
+            type: 'Size',
+            value: '5x8',
+            weight: 4.5,
+            weightUnit: 'kg',
+            length: 150,
+            width: 80,
+            height: 1,
+            dimensionUnit: 'cm',
+            tariffCode: '5701.10',
+            inventory: 12,
+          },
+        ],
+        ecoMaterials: ['Organic'],
+        ecoPackaging: ['Plastic-free'],
+        ecoProduction: ['Fair trade'],
+        isBestseller: true,
+        tariffCode: '5701.10',
+      },
+      ['https://cdn/1.jpg', 'https://cdn/2.jpg'],
+      ['https://cdn/video-1.mp4'],
+    );
+
+    const arg = db.product.create.mock.calls[0][0];
+    expect(arg.data.videos.create).toEqual([{ url: 'https://cdn/video-1.mp4', sortOrder: 0 }]);
+    expect(arg.data.ecoMaterials).toEqual(['Organic']);
+    expect(arg.data.ecoPackaging).toEqual(['Plastic-free']);
+    expect(arg.data.ecoProduction).toEqual(['Fair trade']);
+    expect(arg.data.isBestseller).toBe(true);
+    expect(arg.data.tariffCode).toBe('5701.10');
+    expect(arg.data.variants.create[0]).toMatchObject({
+      weight: 4.5,
+      weightUnit: 'kg',
+      length: 150,
+      width: 80,
+      height: 1,
+      dimensionUnit: 'cm',
+      tariffCode: '5701.10',
+      inventory: 12,
+    });
+  });
+
+  it('create defaults ecoMaterials/ecoPackaging/ecoProduction to empty arrays when omitted', async () => {
+    db.product.create.mockResolvedValue({ id: 'p1' });
+    await repo.create(
+      'seller-1',
+      {
+        categoryId: 'cat-1',
+        name: 'Table Runner',
+        slug: 'table-runner',
+        description: 'desc',
+        materials: 'Cotton',
+        moq: 10,
+        declaredStock: 100,
+        sellerPrice: 5,
+      },
+      ['https://cdn/1.jpg', 'https://cdn/2.jpg'],
+    );
+
+    const arg = db.product.create.mock.calls[0][0];
+    expect(arg.data.ecoMaterials).toEqual([]);
+    expect(arg.data.ecoPackaging).toEqual([]);
+    expect(arg.data.ecoProduction).toEqual([]);
+    expect(arg.data.videos.create).toEqual([]);
+  });
+
   it('create passes adminPrice/agentPrice per flat tier and applies admin overrides when given', async () => {
     db.product.create.mockResolvedValue({ id: 'p1' });
 
@@ -103,6 +185,7 @@ describe('ProductsRepository', () => {
         sellerPrice: 5,
         priceTiers: [{ moq: 20, sellerPrice: 5, adminPrice: 9, agentPrice: 7 }],
       },
+      [],
       [],
       {
         approvalStatus: ProductApprovalStatus.APPROVED,
@@ -152,6 +235,26 @@ describe('ProductsRepository', () => {
     });
     expect(db.product.update).toHaveBeenCalledWith({ where: { id: 'p1' }, data: { name: 'Updated' } });
     expect(db.$transaction).toHaveBeenCalled();
+  });
+
+  it('update batches video removal and video addition alongside images', async () => {
+    db.product.findUnique.mockResolvedValue({ id: 'p1' });
+
+    await repo.update(
+      'p1',
+      { name: 'Updated', removeVideoIds: ['vid-old'] },
+      [],
+      2,
+      ['https://cdn/new.mp4'],
+      1,
+    );
+
+    expect(db.productVideo.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ['vid-old'] }, productId: 'p1' },
+    });
+    expect(db.productVideo.createMany).toHaveBeenCalledWith({
+      data: [{ productId: 'p1', url: 'https://cdn/new.mp4', sortOrder: 1 }],
+    });
   });
 
   it('setApproval updates only the approval-related fields', async () => {
@@ -432,6 +535,30 @@ describe('ProductsRepository', () => {
         data: { status: 'APPROVED', reviewedById: 'admin-1', reviewedAt: expect.any(Date) },
       });
       expect(db.$transaction).toHaveBeenCalled();
+    });
+
+    it('applyPricingChange also applies declaredStock when the approved variants derived one', async () => {
+      db.product.findUnique.mockResolvedValue({ id: 'p1' });
+
+      await repo.applyPricingChange(
+        'p1',
+        'change-1',
+        {
+          moq: 20,
+          sellerPrice: 6,
+          adminPrice: 10,
+          agentPrice: null,
+          declaredStock: 24,
+          priceTiers: [],
+          variants: [{ type: 'Size', value: 'M', inventory: 24 }],
+        },
+        'admin-1',
+      );
+
+      expect(db.product.update).toHaveBeenCalledWith({
+        where: { id: 'p1' },
+        data: { moq: 20, sellerPrice: 6, adminPrice: 10, agentPrice: null, declaredStock: 24 },
+      });
     });
 
     it('setPricingChangeRejected records the reason and reviewer without touching the live product', async () => {

@@ -104,7 +104,7 @@ function CreateCollectionDialog({
               onChange={(e) => setEditorialIntro(e.target.value)}
               rows={3}
               placeholder="A short editorial blurb shown on the homepage…"
-              className="w-full px-3 py-2 rounded border border-border-warm bg-surface text-[14px] font-public-sans text-primary placeholder:text-muted-text/60 focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-colors resize-none"
+              className="w-full px-3 py-2 rounded border border-border-warm bg-surface text-[14px] font-sans text-primary placeholder:text-muted-text/60 focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-colors resize-none"
             />
           </div>
           <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -114,7 +114,7 @@ function CreateCollectionDialog({
               onChange={(e) => setIsFeatured(e.target.checked)}
               className="w-4 h-4 rounded border-border-warm accent-accent cursor-pointer"
             />
-            <span className="text-[13px] font-public-sans text-primary">Feature on homepage</span>
+            <span className="text-[13px] font-sans text-primary">Feature on homepage</span>
           </label>
         </div>
         <DialogFooter>
@@ -165,8 +165,8 @@ export default function AdminCollectionsPage() {
     <div>
       <div className="mb-2 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[28px] leading-[1.3] font-[500] font-playfair text-primary">Collections</h1>
-          <p className="text-[14px] font-public-sans text-muted-text mt-1">
+          <h1 className="text-[28px] leading-[1.3] font-[500] font-display text-primary">Collections</h1>
+          <p className="text-[14px] font-sans text-muted-text mt-1">
             Curate homepage-featured product groupings — {total.toLocaleString()} total
           </p>
         </div>
@@ -176,7 +176,7 @@ export default function AdminCollectionsPage() {
         </Button>
       </div>
 
-      <p className="text-[13px] font-public-sans text-muted-text mb-6 px-4 py-2.5 rounded border border-border-warm bg-muted-bg/40">
+      <p className="text-[13px] font-sans text-muted-text mb-6 px-4 py-2.5 rounded border border-border-warm bg-muted-bg/40">
         Featured collections with images and an intro appear on the homepage — this is the homepage content control
         since there&apos;s no separate CMS module.
       </p>
@@ -189,7 +189,7 @@ export default function AdminCollectionsPage() {
             type="button"
             onClick={() => handleTabChange(value)}
             className={cn(
-              'px-4 py-2.5 text-[13px] font-[600] font-public-sans border-b-2 -mb-px transition-colors whitespace-nowrap',
+              'px-4 py-2.5 text-[13px] font-[600] font-sans border-b-2 -mb-px transition-colors whitespace-nowrap',
               status === value ? 'border-primary text-primary' : 'border-transparent text-muted-text hover:text-primary'
             )}
           >
@@ -235,7 +235,7 @@ export default function AdminCollectionsPage() {
                       <th
                         key={label || `col-${i}`}
                         className={cn(
-                          'py-3 px-4 text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em]',
+                          'py-3 px-4 text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em]',
                           align === 'center' ? 'text-center' : 'text-left'
                         )}
                       >
@@ -262,8 +262,8 @@ export default function AdminCollectionsPage() {
                         )}
                       </td>
                       <td className="py-3 px-4">
-                        <p className="text-[13px] font-[600] font-public-sans text-primary">{c.name}</p>
-                        <p className="text-[11px] font-public-sans text-muted-text">/{c.slug}</p>
+                        <p className="text-[13px] font-[600] font-sans text-primary">{c.name}</p>
+                        <p className="text-[11px] font-sans text-muted-text">/{c.slug}</p>
                       </td>
                       <td className="py-3 px-4 text-center">
                         {c.isFeatured ? (
@@ -274,11 +274,11 @@ export default function AdminCollectionsPage() {
                       </td>
                       <td className="py-3 px-4"><StatusBadge status={c.status} /></td>
                       {hasProductCounts && (
-                        <td className="py-3 px-4 text-center text-[13px] font-public-sans text-muted-text">
+                        <td className="py-3 px-4 text-center text-[13px] font-sans text-muted-text">
                           {c.products?.length ?? 0}
                         </td>
                       )}
-                      <td className="py-3 px-4 text-[12px] font-public-sans text-muted-text whitespace-nowrap">
+                      <td className="py-3 px-4 text-[12px] font-sans text-muted-text whitespace-nowrap">
                         {new Date(c.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
                       </td>
                     </tr>
@@ -289,7 +289,7 @@ export default function AdminCollectionsPage() {
 
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-border-warm">
-                <p className="text-[12px] font-public-sans text-muted-text">
+                <p className="text-[12px] font-sans text-muted-text">
                   {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total.toLocaleString()}
                 </p>
                 <div className="flex gap-2">
@@ -297,7 +297,7 @@ export default function AdminCollectionsPage() {
                     type="button"
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-public-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
+                    className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
                   >
                     Prev
                   </button>
@@ -305,7 +305,7 @@ export default function AdminCollectionsPage() {
                     type="button"
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page >= totalPages}
-                    className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-public-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
+                    className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
                   >
                     Next
                   </button>

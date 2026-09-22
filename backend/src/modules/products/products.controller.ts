@@ -14,14 +14,24 @@ import {
   PublicProductListQueryDto,
   ReassignCategoryDto,
   RejectProductDto,
+  SaveDraftDto,
   SellerProductListQueryDto,
   UpdatePriceDto,
   UpdateProductDto,
 } from './products.validation';
 
-function extractFiles(req: Request) {
-  const files = (req.files as Express.Multer.File[] | undefined) ?? [];
-  return files.map((f) => ({ buffer: f.buffer, originalname: f.originalname, mimetype: f.mimetype }));
+function toFileInput(f: Express.Multer.File) {
+  return { buffer: f.buffer, originalname: f.originalname, mimetype: f.mimetype };
+}
+
+// uploadProductMedia (middleware/upload.ts) uses multer's .fields(), so req.files is
+// the object form { images?, videos? } rather than a flat array.
+function extractFiles(req: Request): { images: ReturnType<typeof toFileInput>[]; videos: ReturnType<typeof toFileInput>[] } {
+  const files = (req.files as { images?: Express.Multer.File[]; videos?: Express.Multer.File[] } | undefined) ?? {};
+  return {
+    images: (files.images ?? []).map(toFileInput),
+    videos: (files.videos ?? []).map(toFileInput),
+  };
 }
 
 async function resolveSellerProfileId(userId: string): Promise<string> {
@@ -38,18 +48,28 @@ export const productsController = {
   async create(req: Request, res: Response): Promise<void> {
     const sellerProfileId = await resolveSellerProfileId(req.user!.id);
     const dto = req.body as CreateProductDto;
-    const product = await productsService.createProduct(sellerProfileId, dto, extractFiles(req));
+    const { images, videos } = extractFiles(req);
+    const product = await productsService.createProduct(sellerProfileId, dto, images, videos);
     sendCreated(res, product, 'Product submitted for review');
+  },
+
+  async saveDraft(req: Request, res: Response): Promise<void> {
+    const sellerProfileId = await resolveSellerProfileId(req.user!.id);
+    const dto = req.body as SaveDraftDto;
+    const product = await productsService.saveDraft(sellerProfileId, dto);
+    sendCreated(res, product, 'Draft saved');
   },
 
   async createAsAdmin(req: Request, res: Response): Promise<void> {
     const { sellerMode, sellerId, ...dto } = req.body as CreateProductAsAdminDto;
+    const { images, videos } = extractFiles(req);
     const product = await productsService.createProductAsAdmin(
       sellerMode,
       sellerId,
       dto,
-      extractFiles(req),
+      images,
       req.user!.id,
+      videos,
     );
     sendCreated(res, product, 'Product created and published');
   },
@@ -57,7 +77,8 @@ export const productsController = {
   async update(req: Request, res: Response): Promise<void> {
     const sellerProfileId = await resolveSellerProfileId(req.user!.id);
     const dto = req.body as UpdateProductDto;
-    const product = await productsService.updateProduct(sellerProfileId, req.params.id, dto, extractFiles(req));
+    const { images, videos } = extractFiles(req);
+    const product = await productsService.updateProduct(sellerProfileId, req.params.id, dto, images, videos);
     sendSuccess(res, product, 'Product updated');
   },
 
@@ -112,7 +133,8 @@ export const productsController = {
 
   async updateAdmin(req: Request, res: Response): Promise<void> {
     const dto = req.body as UpdateProductDto;
-    const product = await productsService.updateProductAsAdmin(req.params.id, dto, extractFiles(req), req.user!.id);
+    const { images, videos } = extractFiles(req);
+    const product = await productsService.updateProductAsAdmin(req.params.id, dto, images, req.user!.id, videos);
     sendSuccess(res, product, 'Product updated');
   },
 

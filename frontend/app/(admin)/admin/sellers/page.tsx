@@ -36,11 +36,11 @@ export default function AdminSellersPage() {
       {/* Header */}
       <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[28px] leading-[1.3] font-[500] font-playfair text-primary">Sellers</h1>
-          <p className="text-[14px] font-public-sans text-muted-text mt-1">Approved sellers on the platform</p>
+          <h1 className="text-[28px] leading-[1.3] font-[500] font-display text-primary">Sellers</h1>
+          <p className="text-[14px] font-sans text-muted-text mt-1">Approved sellers on the platform</p>
         </div>
         {total > 0 && (
-          <p className="text-[13px] font-public-sans text-muted-text self-end">
+          <p className="text-[13px] font-sans text-muted-text self-end">
             {total.toLocaleString()} seller{total !== 1 ? 's' : ''}
           </p>
         )}
@@ -56,7 +56,7 @@ export default function AdminSellersPage() {
           placeholder="Search by name, contact, or phone…"
           className={cn(
             'w-full h-9 pl-9 pr-3 rounded border border-border-warm bg-surface',
-            'text-[14px] font-public-sans text-primary placeholder:text-muted-text',
+            'text-[14px] font-sans text-primary placeholder:text-muted-text',
             'focus:outline-none focus:border-primary/40 transition-colors'
           )}
         />
@@ -81,11 +81,11 @@ export default function AdminSellersPage() {
             <div className="w-12 h-12 rounded-full bg-muted-bg flex items-center justify-center">
               <Building2 size={22} className="text-muted-text" aria-hidden="true" />
             </div>
-            <p className="text-[16px] font-[600] font-public-sans text-primary">
+            <p className="text-[16px] font-[600] font-sans text-primary">
               {search ? 'No sellers match your search' : 'No approved sellers yet'}
             </p>
             {search && (
-              <p className="text-[13px] font-public-sans text-muted-text">Try a different keyword.</p>
+              <p className="text-[13px] font-sans text-muted-text">Try a different keyword.</p>
             )}
           </div>
         ) : (
@@ -97,7 +97,7 @@ export default function AdminSellersPage() {
                     {['Business', 'Contact', 'Phone', 'Address', 'Created'].map((h) => (
                       <th
                         key={h}
-                        className="py-3 px-4 text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em] text-left"
+                        className="py-3 px-4 text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] text-left"
                       >
                         {h}
                       </th>
@@ -112,14 +112,14 @@ export default function AdminSellersPage() {
                       className="border-b border-border-warm last:border-0 hover:bg-muted-bg/30 transition-colors cursor-pointer"
                     >
                       <td className="py-3.5 px-4">
-                        <p className="text-[13px] font-[600] font-public-sans text-primary">{seller.businessName}</p>
+                        <p className="text-[13px] font-[600] font-sans text-primary">{seller.businessName}</p>
                       </td>
-                      <td className="py-3.5 px-4 text-[13px] font-public-sans text-muted-text">{seller.contactName}</td>
-                      <td className="py-3.5 px-4 text-[13px] font-public-sans text-muted-text whitespace-nowrap">{seller.phone}</td>
-                      <td className="py-3.5 px-4 text-[13px] font-public-sans text-muted-text max-w-[260px] truncate" title={seller.businessAddress}>
+                      <td className="py-3.5 px-4 text-[13px] font-sans text-muted-text">{seller.contactName}</td>
+                      <td className="py-3.5 px-4 text-[13px] font-sans text-muted-text whitespace-nowrap">{seller.phone}</td>
+                      <td className="py-3.5 px-4 text-[13px] font-sans text-muted-text max-w-[260px] truncate" title={seller.businessAddress}>
                         {seller.businessAddress}
                       </td>
-                      <td className="py-3.5 px-4 text-[12px] font-public-sans text-muted-text whitespace-nowrap">
+                      <td className="py-3.5 px-4 text-[12px] font-sans text-muted-text whitespace-nowrap">
                         {new Date(seller.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </td>
                     </tr>
@@ -130,7 +130,7 @@ export default function AdminSellersPage() {
 
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-border-warm">
-                <p className="text-[12px] font-public-sans text-muted-text">
+                <p className="text-[12px] font-sans text-muted-text">
                   Page {page} of {totalPages} &middot; {total.toLocaleString()} total
                 </p>
                 <div className="flex gap-2">
@@ -138,7 +138,7 @@ export default function AdminSellersPage() {
                     type="button"
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-public-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
+                    className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
                   >
                     Prev
                   </button>
@@ -146,7 +146,7 @@ export default function AdminSellersPage() {
                     type="button"
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page >= totalPages}
-                    className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-public-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
+                    className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
                   >
                     Next
                   </button>

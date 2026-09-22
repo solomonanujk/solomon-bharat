@@ -38,7 +38,7 @@ function RelatedCollections({ currentSlug }: { currentSlug: string }) {
   return (
     <section className="border-t border-border-warm">
       <div className="max-w-[1280px] mx-auto w-full px-4 py-10">
-        <h2 className="font-playfair font-[500] text-primary text-[22px] leading-tight mb-6">
+        <h2 className="font-display font-[500] text-primary text-[22px] leading-tight mb-6">
           Related Collections
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -53,12 +53,12 @@ function RelatedCollections({ currentSlug }: { currentSlug: string }) {
                   <Image src={cloudinaryFill(c.heroImage, 700, 525)} alt={c.name} fill sizes="25vw" className="object-contain group-hover:scale-[1.04] transition-transform duration-500" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-[#F0EBE3]">
-                    <span className="font-playfair text-[28px] font-[500] text-[#C8BEAE]">{c.name.charAt(0)}</span>
+                    <span className="font-display text-[28px] font-[500] text-[#C8BEAE]">{c.name.charAt(0)}</span>
                   </div>
                 )}
               </div>
               <div className="p-3">
-                <p className="font-playfair font-[500] text-primary text-[14px] leading-snug">{c.name}</p>
+                <p className="font-display font-[500] text-primary text-[14px] leading-snug">{c.name}</p>
               </div>
             </Link>
           ))}
@@ -133,14 +133,14 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
           )}
           <div className="absolute inset-0 bg-black/35" />
           <div className="relative max-w-[900px] mx-auto w-full h-full px-4 flex flex-col items-center justify-center text-center">
-            <p className="font-public-sans text-[11px] font-[600] text-white/80 uppercase tracking-[0.12em] mb-3">
+            <p className="font-sans text-[11px] font-[600] text-white/80 uppercase tracking-[0.12em] mb-3">
               Solomon Bharat Collection
             </p>
-            <h1 className="font-playfair text-[32px] sm:text-[46px] font-[500] text-white leading-tight">
+            <h1 className="font-display text-[32px] sm:text-[46px] font-[500] text-white leading-tight">
               {collection.name}
             </h1>
             {collection.editorialIntro && (
-              <p className="font-public-sans text-[14px] sm:text-[15px] text-white/90 mt-4 max-w-[620px] leading-[1.7]">
+              <p className="font-sans text-[14px] sm:text-[15px] text-white/90 mt-4 max-w-[620px] leading-[1.7]">
                 {collection.editorialIntro}
               </p>
             )}
@@ -156,7 +156,7 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={`Search in ${collection.name}...`}
-              className="w-full h-10 pl-10 pr-4 border border-border-warm rounded-full text-[13px] font-public-sans placeholder:text-muted-text/50 bg-surface focus:outline-none focus:border-accent transition-colors"
+              className="w-full h-10 pl-10 pr-4 border border-border-warm rounded-full text-[13px] font-sans placeholder:text-muted-text/50 bg-surface focus:outline-none focus:border-accent transition-colors"
             />
           </div>
 

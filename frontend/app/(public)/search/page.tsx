@@ -105,7 +105,7 @@ function SearchResultsInner() {
             <button
               type="button"
               onClick={() => setFiltersOpen(true)}
-              className="inline-flex items-center gap-2 h-9 px-4 rounded-full border border-[#D0C8BE] text-[13px] font-[400] font-public-sans text-muted-text hover:text-primary hover:border-primary transition-colors"
+              className="inline-flex items-center gap-2 h-9 px-4 rounded-full border border-[#D0C8BE] text-[13px] font-[400] font-sans text-muted-text hover:text-primary hover:border-primary transition-colors"
             >
               <SlidersHorizontal size={14} />
               All filters

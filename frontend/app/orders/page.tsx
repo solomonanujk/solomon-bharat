@@ -246,11 +246,11 @@ function RateProductDialog({
             placeholder="Share your experience with this product (optional)"
             rows={4}
             maxLength={2000}
-            className="w-full rounded border border-border-warm bg-surface px-3 py-2 text-[14px] font-public-sans text-primary placeholder:text-muted-text/60 outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-colors resize-none"
+            className="w-full rounded border border-border-warm bg-surface px-3 py-2 text-[14px] font-sans text-primary placeholder:text-muted-text/60 outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-colors resize-none"
           />
 
           <div>
-            <p className="text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.05em] mb-2">
+            <p className="text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.05em] mb-2">
               Photos (optional)
             </p>
             <div className="flex flex-wrap gap-2">
@@ -271,7 +271,7 @@ function RateProductDialog({
               {photos.length < MAX_REVIEW_PHOTOS && (
                 <label className="w-16 h-16 rounded-md border border-dashed border-border-warm flex flex-col items-center justify-center gap-1 text-muted-text hover:text-primary hover:border-primary transition-colors cursor-pointer">
                   <ImagePlus size={16} aria-hidden="true" />
-                  <span className="text-[10px] font-public-sans">Add</span>
+                  <span className="text-[10px] font-sans">Add</span>
                   <input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={handlePhotoSelect} />
                 </label>
               )}
@@ -352,28 +352,28 @@ function OrderDetailSheet({
             <>
               <div className="flex items-center justify-between">
                 <StatusBadge status={order.status} />
-                <span className="text-[12px] font-public-sans text-muted-text">
+                <span className="text-[12px] font-sans text-muted-text">
                   Placed {formatDate(order.createdAt)}
                 </span>
               </div>
 
               <section>
-                <h3 className="text-[14px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em] mb-4">
+                <h3 className="text-[14px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-4">
                   Items
                 </h3>
                 <div className="space-y-3">
                   {order.items.map((item) => (
                     <div key={item.id} className="flex items-center justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="text-[14px] font-[600] font-public-sans text-product-text leading-tight truncate">
+                        <p className="text-[14px] font-[600] font-sans text-product-text leading-tight truncate">
                           {item.productName ?? 'Product'}
                         </p>
-                        <p className="text-[12px] font-public-sans text-muted-text mt-0.5">
+                        <p className="text-[12px] font-sans text-muted-text mt-0.5">
                           Qty {item.quantity} &middot; {fmt(item.unitAdminPrice)} each
                         </p>
                         <RateProductButton item={item} orderStatus={order.status} />
                       </div>
-                      <p className="text-[14px] font-[600] font-public-sans text-product-text flex-shrink-0">
+                      <p className="text-[14px] font-[600] font-sans text-product-text flex-shrink-0">
                         {fmt(item.lineAdminTotal)}
                       </p>
                     </div>
@@ -381,8 +381,8 @@ function OrderDetailSheet({
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-border-warm flex justify-between">
-                  <span className="text-[14px] font-[600] font-public-sans text-muted-text">Total</span>
-                  <span className="text-[16px] font-[600] font-public-sans text-primary">
+                  <span className="text-[14px] font-[600] font-sans text-muted-text">Total</span>
+                  <span className="text-[16px] font-[600] font-sans text-primary">
                     {fmt(order.adminPriceTotal)}
                   </span>
                 </div>
@@ -390,17 +390,17 @@ function OrderDetailSheet({
 
               {order.status === 'CANCELLED' && order.cancelledReason && (
                 <div className="bg-error/[6%] border border-error/20 rounded p-4">
-                  <p className="text-[14px] font-[600] font-public-sans text-error">Order Cancelled</p>
-                  <p className="text-[12px] font-public-sans text-muted-text mt-0.5">{order.cancelledReason}</p>
+                  <p className="text-[14px] font-[600] font-sans text-error">Order Cancelled</p>
+                  <p className="text-[12px] font-sans text-muted-text mt-0.5">{order.cancelledReason}</p>
                 </div>
               )}
 
               {order.expectedCollectionDate && order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
                 <section>
-                  <h3 className="text-[14px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em] mb-2">
+                  <h3 className="text-[14px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-2">
                     Expected Collection
                   </h3>
-                  <p className="text-[13px] font-public-sans text-primary">
+                  <p className="text-[13px] font-sans text-primary">
                     {formatDate(order.expectedCollectionDate)}
                   </p>
                 </section>
@@ -408,10 +408,10 @@ function OrderDetailSheet({
 
               {order.trackingNumber && (
                 <section>
-                  <h3 className="text-[14px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.06em] mb-2">
+                  <h3 className="text-[14px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-2">
                     Tracking
                   </h3>
-                  <p className="text-[13px] font-[500] font-public-sans text-primary bg-muted-bg border border-border-warm rounded px-3 py-2 inline-flex items-center gap-2">
+                  <p className="text-[13px] font-[500] font-sans text-primary bg-muted-bg border border-border-warm rounded px-3 py-2 inline-flex items-center gap-2">
                     {order.trackingNumber}
                     <button
                       type="button"
@@ -487,7 +487,7 @@ export default function OrdersPage() {
             type="button"
             onClick={() => setActiveTab(tab)}
             className={cn(
-              'px-4 py-2.5 text-[14px] font-[600] font-public-sans whitespace-nowrap',
+              'px-4 py-2.5 text-[14px] font-[600] font-sans whitespace-nowrap',
               'border-b-[2px] transition-colors duration-150 -mb-px',
               activeTab === tab
                 ? 'border-primary text-primary'
@@ -508,7 +508,7 @@ export default function OrdersPage() {
                 {['Order', 'Status', 'Items', 'Total', 'Date', 'Actions'].map((col) => (
                   <th
                     key={col}
-                    className="px-4 py-3 text-[12px] font-[600] font-public-sans text-muted-text uppercase tracking-[0.05em] whitespace-nowrap"
+                    className="px-4 py-3 text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.05em] whitespace-nowrap"
                   >
                     {col}
                   </th>
@@ -539,7 +539,7 @@ export default function OrdersPage() {
                     className="border-b border-border-warm last:border-0 cursor-pointer hover:bg-muted-bg/30 transition-colors duration-100"
                   >
                     <td className="px-4 py-3">
-                      <span className="text-[13px] font-[600] font-public-sans text-primary">
+                      <span className="text-[13px] font-[600] font-sans text-primary">
                         {orderRef(order.id)}
                       </span>
                     </td>
@@ -547,17 +547,17 @@ export default function OrdersPage() {
                       <StatusBadge status={order.status} />
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-[13px] font-public-sans text-muted-text">
+                      <span className="text-[13px] font-sans text-muted-text">
                         {orderTotalItems(order)} item{orderTotalItems(order) === 1 ? '' : 's'}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-[13px] font-[600] font-public-sans text-primary">
+                      <span className="text-[13px] font-[600] font-sans text-primary">
                         {fmt(order.adminPriceTotal)}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-[13px] font-public-sans text-muted-text whitespace-nowrap">
+                      <span className="text-[13px] font-sans text-muted-text whitespace-nowrap">
                         {formatDate(order.createdAt)}
                       </span>
                     </td>

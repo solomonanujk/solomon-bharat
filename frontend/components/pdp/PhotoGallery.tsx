@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { X, ChevronLeft, ChevronRight, Images, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { cloudinaryFill } from '@/lib/cloudinaryImage'
+import { cloudinaryFit } from '@/lib/cloudinaryImage'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -109,7 +109,7 @@ function Lightbox({
       >
         {/* Header: title · zoom controls · close */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
-          <p className="font-public-sans text-[12px] text-white/60 truncate flex-1 min-w-0">
+          <p className="font-sans text-[12px] text-white/60 truncate flex-1 min-w-0">
             {productName}
             {images.length > 1 && (
               <span className="ml-2 text-white/40">{index + 1} / {images.length}</span>
@@ -127,7 +127,7 @@ function Lightbox({
             >
               <ZoomOut size={15} aria-hidden="true" />
             </button>
-            <span className="font-public-sans text-[11px] text-white/50 w-10 text-center select-none">
+            <span className="font-sans text-[11px] text-white/50 w-10 text-center select-none">
               {Math.round(zoom * 100)}%
             </span>
             <button
@@ -211,7 +211,7 @@ function Lightbox({
           )}
 
           {isZoomed && (
-            <p className="absolute bottom-2 left-1/2 -translate-x-1/2 text-white/40 font-public-sans text-[10px] pointer-events-none select-none">
+            <p className="absolute bottom-2 left-1/2 -translate-x-1/2 text-white/40 font-sans text-[10px] pointer-events-none select-none">
               Drag to pan · double-click or scroll to zoom
             </p>
           )}
@@ -272,7 +272,7 @@ export function PhotoGallery({ images, productName }: PhotoGalleryProps) {
           className="w-full aspect-[4/3] rounded overflow-hidden relative cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           aria-label={`Enlarge ${productName} image`}
         >
-          <Image src={cloudinaryFill(images[0], 1000, 750)} alt={productName} fill className="object-contain" priority sizes="(max-width: 1024px) 100vw, 55vw" />
+          <Image src={cloudinaryFit(images[0], 1200)} alt={productName} fill className="object-contain" priority sizes="(max-width: 1024px) 100vw, 55vw" />
         </button>
         {lightboxIndex !== null && (
           <Lightbox images={images} initialIndex={lightboxIndex} productName={productName} onClose={() => setLightboxIndex(null)} />
@@ -299,7 +299,7 @@ export function PhotoGallery({ images, productName }: PhotoGalleryProps) {
               )}
               aria-label={`View ${productName} image 1`}
             >
-              <Image src={cloudinaryFill(images[0], 700, 800)} alt={`${productName} — 1`} fill className="object-contain" priority sizes="(max-width: 1024px) 40vw, 22vw" />
+              <Image src={cloudinaryFit(images[0], 900)} alt={`${productName} — 1`} fill className="object-contain" priority sizes="(max-width: 1024px) 40vw, 22vw" />
             </button>
             <button
               type="button"
@@ -310,7 +310,7 @@ export function PhotoGallery({ images, productName }: PhotoGalleryProps) {
               )}
               aria-label={`View ${productName} image 2`}
             >
-              <Image src={cloudinaryFill(images[1], 900, 700)} alt={`${productName} — 2`} fill className="object-contain" priority sizes="(max-width: 1024px) 60vw, 33vw" />
+              <Image src={cloudinaryFit(images[1], 900)} alt={`${productName} — 2`} fill className="object-contain" priority sizes="(max-width: 1024px) 60vw, 33vw" />
             </button>
           </div>
 
@@ -321,7 +321,7 @@ export function PhotoGallery({ images, productName }: PhotoGalleryProps) {
               className="w-full h-[180px] relative rounded-b-md overflow-hidden cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               aria-label={`View ${productName} image 3`}
             >
-              <Image src={cloudinaryFill(images[2], 1400, 360)} alt={`${productName} — 3`} fill className="object-contain" sizes="(max-width: 1024px) 100vw, 55vw" />
+              <Image src={cloudinaryFit(images[2], 1400)} alt={`${productName} — 3`} fill className="object-contain" sizes="(max-width: 1024px) 100vw, 55vw" />
             </button>
           )}
         </div>
@@ -356,7 +356,7 @@ export function PhotoGallery({ images, productName }: PhotoGalleryProps) {
               aria-label={`View ${productName} image ${i + 1}`}
             >
               <Image
-                src={cloudinaryFill(src, 700, 700)}
+                src={cloudinaryFit(src, 700)}
                 alt={`${productName} — ${i + 1}`}
                 fill
                 className="object-contain transition-transform duration-500 hover:scale-[1.03]"
@@ -370,7 +370,7 @@ export function PhotoGallery({ images, productName }: PhotoGalleryProps) {
         <button
           type="button"
           onClick={() => setLightboxIndex(0)}
-          className="absolute bottom-3 right-3 inline-flex items-center gap-2 bg-white text-primary font-public-sans text-[12px] font-[600] px-4 py-2 rounded-sm shadow hover:bg-muted-bg transition-colors"
+          className="absolute bottom-3 right-3 inline-flex items-center gap-2 bg-white text-primary font-sans text-[12px] font-[600] px-4 py-2 rounded-sm shadow hover:bg-muted-bg transition-colors"
         >
           <Images size={14} aria-hidden="true" />
           Show all {images.length} photos

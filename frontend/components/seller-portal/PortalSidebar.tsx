@@ -41,7 +41,7 @@ export function PortalSidebar() {
   }
 
   return (
-    <aside className="h-screen w-[260px] bg-white border-r border-border-warm flex flex-col fixed left-0 top-0 z-30">
+    <aside className="h-screen w-[190px] bg-white border-r border-border-warm flex flex-col fixed left-0 top-0 z-30">
 
       {/* Logo */}
       <div className="px-6 h-16 flex items-center border-b border-border-warm shrink-0">
@@ -65,7 +65,7 @@ export function PortalSidebar() {
                   href={href}
                   className={cn(
                     'flex items-center gap-2.5 px-3 py-2 rounded-md w-full text-left',
-                    'text-[13.5px] font-public-sans transition-colors',
+                    'text-[13.5px] font-sans transition-colors',
                     active
                       ? 'bg-muted-bg text-primary font-[600]'
                       : 'text-muted-text font-[400] hover:bg-bg hover:text-primary'
@@ -85,15 +85,15 @@ export function PortalSidebar() {
       <div className="px-4 py-4 border-t border-border-warm shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-muted-bg border border-border-warm flex items-center justify-center shrink-0">
-            <span className="text-[11px] font-[700] font-public-sans text-accent">
+            <span className="text-[11px] font-[700] font-sans text-accent">
               {sellerInitials}
             </span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-[600] font-public-sans text-primary truncate leading-tight">
+            <p className="text-[13px] font-[600] font-sans text-primary truncate leading-tight">
               {sellerName}
             </p>
-            <p className="text-[11px] font-public-sans text-[#9CA3AF] leading-tight">Seller Portal</p>
+            <p className="text-[11px] font-sans text-[#9CA3AF] leading-tight">Seller Portal</p>
           </div>
           <button
             type="button"

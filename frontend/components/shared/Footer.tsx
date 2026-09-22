@@ -9,7 +9,7 @@ function FooterLink({ href, children }: { href: string; children: React.ReactNod
   return (
     <Link
       href={href}
-      className="font-public-sans text-[14px] text-muted-text hover:text-primary transition-colors leading-[1.4]"
+      className="font-sans text-[14px] text-muted-text hover:text-primary transition-colors leading-[1.4]"
     >
       {children}
     </Link>
@@ -19,7 +19,7 @@ function FooterLink({ href, children }: { href: string; children: React.ReactNod
 function FooterColumn({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-3">
-      <p className="font-public-sans text-[11px] font-[700] text-primary/40 uppercase tracking-[0.08em]">{title}</p>
+      <p className="font-sans text-[11px] font-[700] text-primary/40 uppercase tracking-[0.08em]">{title}</p>
       <nav className="flex flex-col gap-2.5" aria-label={title}>{children}</nav>
     </div>
   )
@@ -35,7 +35,7 @@ function NewsletterForm() {
   }
 
   if (submitted) {
-    return <p className="font-public-sans text-[13px] text-accent mt-4">Thanks! We&apos;ll be in touch.</p>
+    return <p className="font-sans text-[13px] text-accent mt-4">Thanks! We&apos;ll be in touch.</p>
   }
 
   return (
@@ -49,7 +49,7 @@ function NewsletterForm() {
           required
           className={cn(
             'flex-1 h-9 rounded border border-border-warm bg-muted-bg px-3',
-            'font-public-sans text-[13px] text-primary placeholder:text-muted-text/50',
+            'font-sans text-[13px] text-primary placeholder:text-muted-text/50',
             'outline-none focus:border-accent transition-colors'
           )}
         />
@@ -94,17 +94,17 @@ export function Footer() {
                 className="h-16 w-auto object-contain block"
               />
             </Link>
-            <p className="font-public-sans text-[14px] leading-[1.6] text-muted-text mt-3 max-w-[260px]">
+            <p className="font-sans text-[14px] leading-[1.6] text-muted-text mt-3 max-w-[260px]">
               Solomon Bharat connects India&apos;s finest artisan goods with global wholesale buyers.
             </p>
             <a
               href="mailto:solomonbharat@gmail.com"
-              className="font-public-sans text-[14px] text-muted-text hover:text-primary transition-colors mt-3"
+              className="font-sans text-[14px] text-muted-text hover:text-primary transition-colors mt-3"
             >
               solomonbharat@gmail.com
             </a>
             <div className="mt-6">
-              <p className="font-public-sans text-[11px] font-[700] text-primary/40 uppercase tracking-[0.08em]">
+              <p className="font-sans text-[11px] font-[700] text-primary/40 uppercase tracking-[0.08em]">
                 Stay updated
               </p>
               <NewsletterForm />
@@ -157,7 +157,7 @@ export function Footer() {
               </svg>
             </SocialLink>
           </div>
-          <p className="font-public-sans text-[12px] text-muted-text/60">
+          <p className="font-sans text-[12px] text-muted-text/60">
             &copy; 2026 Solomon Bharat. All rights reserved.
           </p>
         </div>

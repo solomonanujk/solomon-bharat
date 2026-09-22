@@ -18,6 +18,7 @@ const TRENDING_WINDOW_DAYS = 30;
 
 const MEDIA_INCLUDE = {
   images: { orderBy: { sortOrder: 'asc' as const } },
+  videos: { orderBy: { sortOrder: 'asc' as const } },
   variants: {
     include: {
       attributes: { orderBy: { name: 'asc' as const } },
@@ -35,6 +36,14 @@ type VariantCreateData = {
   imageUrl?: string;
   attributes: { create: { name: string; value: string }[] };
   priceTiers?: { create: { moq: number; sellerPrice: number; adminPrice?: number; agentPrice?: number }[] };
+  weight?: number;
+  weightUnit?: string;
+  length?: number;
+  width?: number;
+  height?: number;
+  dimensionUnit?: string;
+  tariffCode?: string;
+  inventory?: number;
 };
 
 // Accepts a plain VariantInput (no admin/agent pricing — the create/direct-edit path)
@@ -52,6 +61,14 @@ function toVariantCreateInput(v: VariantInputWithAdminPricing): VariantCreateDat
       create: v.attributes?.length ? v.attributes : [{ name: v.type, value: v.value }],
     },
     priceTiers: v.priceTiers?.length ? { create: v.priceTiers } : undefined,
+    weight: v.weight,
+    weightUnit: v.weightUnit,
+    length: v.length,
+    width: v.width,
+    height: v.height,
+    dimensionUnit: v.dimensionUnit,
+    tariffCode: v.tariffCode,
+    inventory: v.inventory,
   };
 }
 
@@ -79,16 +96,18 @@ export class ProductsRepository {
     sellerId: string,
     input: CreateProductInput & { slug: string; id?: string },
     imageUrls: string[],
-    // Present only for the admin-create path (createProductAsAdmin) — the plain
-    // seller-submit path leaves this undefined and gets the schema defaults
-    // (PENDING/unpublished, no adminPrice/agentPrice).
-    overrides?: {
+    videoUrls: string[] = [],
+    // Present for the admin-create path (createProductAsAdmin, all 5 keys) and the
+    // draft path (saveDraft, approvalStatus only — the rest fall back to the schema
+    // defaults: unpublished, no adminPrice/agentPrice). The plain seller-submit path
+    // leaves this undefined entirely and gets the schema defaults (PENDING/unpublished).
+    overrides?: Partial<{
       approvalStatus: ProductApprovalStatus;
       isPublished: boolean;
       publishedAt: Date;
       adminPrice: number | null;
       agentPrice: number | null;
-    },
+    }>,
   ): Promise<ProductWithMedia> {
     return this.db.product.create({
       data: {
@@ -112,8 +131,14 @@ export class ProductsRepository {
         isGITagged: input.isGITagged,
         howItIsMade: input.howItIsMade,
         artisanName: input.artisanName,
+        ecoMaterials: input.ecoMaterials ?? [],
+        ecoPackaging: input.ecoPackaging ?? [],
+        ecoProduction: input.ecoProduction ?? [],
+        isBestseller: input.isBestseller,
+        tariffCode: input.tariffCode,
         ...overrides,
         images: { create: imageUrls.map((url, index) => ({ url, sortOrder: index })) },
+        videos: { create: videoUrls.map((url, index) => ({ url, sortOrder: index })) },
         variants: input.variants ? { create: input.variants.map(toVariantCreateInput) } : undefined,
         priceTiers: input.priceTiers?.length
           ? {
@@ -175,8 +200,10 @@ export class ProductsRepository {
     input: UpdateProductInput,
     newImageUrls: string[],
     currentImageCount: number,
+    newVideoUrls: string[] = [],
+    currentVideoCount = 0,
   ): Promise<ProductWithMedia> {
-    const { variants, removeImageIds, priceTiers, ...scalarFields } = input;
+    const { variants, removeImageIds, removeVideoIds, priceTiers, ...scalarFields } = input;
 
     const operations: Prisma.PrismaPromise<unknown>[] = [];
 
@@ -193,6 +220,24 @@ export class ProductsRepository {
             productId: id,
             url,
             sortOrder: currentImageCount + index,
+          })),
+        }),
+      );
+    }
+
+    if (removeVideoIds && removeVideoIds.length > 0) {
+      operations.push(
+        this.db.productVideo.deleteMany({ where: { id: { in: removeVideoIds }, productId: id } }),
+      );
+    }
+
+    if (newVideoUrls.length > 0) {
+      operations.push(
+        this.db.productVideo.createMany({
+          data: newVideoUrls.map((url, index) => ({
+            productId: id,
+            url,
+            sortOrder: currentVideoCount + index,
           })),
         }),
       );
@@ -269,7 +314,13 @@ export class ProductsRepository {
     operations.push(
       this.db.product.update({
         where: { id: productId },
-        data: { moq: data.moq, sellerPrice: data.sellerPrice, adminPrice: data.adminPrice, agentPrice: data.agentPrice },
+        data: {
+          moq: data.moq,
+          sellerPrice: data.sellerPrice,
+          adminPrice: data.adminPrice,
+          agentPrice: data.agentPrice,
+          declaredStock: data.declaredStock,
+        },
       }),
     );
     operations.push(
@@ -570,7 +621,10 @@ export class ProductsRepository {
   ): Promise<{ data: (ProductWithMedia & { seller: { businessName: string }; category: { name: string } })[]; total: number }> {
     const where: Prisma.ProductWhereInput = {
       deletedAt: null,
-      ...(filter.approvalStatus ? { approvalStatus: filter.approvalStatus } : {}),
+      // A seller's in-progress draft is never admin's concern — exclude it from the
+      // unfiltered view same as a deleted product; admin has no reason to filter BY
+      // draft either, so there's no path that lets this condition be overridden.
+      ...(filter.approvalStatus ? { approvalStatus: filter.approvalStatus } : { approvalStatus: { not: ProductApprovalStatus.DRAFT } }),
       ...(filter.sellerId ? { sellerId: filter.sellerId } : {}),
       ...(filter.categoryId ? { categoryId: filter.categoryId } : {}),
     };
