@@ -15,7 +15,7 @@ import { HeroImageUpload } from '@/components/shared/HeroImageUpload'
 import { cn } from '@/lib/utils'
 
 const INPUT_CLS =
-  'w-full h-10 px-3 rounded border border-border-warm bg-muted-bg/30 text-[14px] font-sans text-primary placeholder:text-muted-text/40 focus:outline-none focus:border-accent transition-colors'
+  'w-full h-10 px-3 rounded border border-[#E5E1D8] bg-[#F5F0E8]/30 text-[14px] font-sans text-[#1A1A1A] placeholder:text-[#6B6460]/40 focus:outline-none focus:border-[#A68B67] transition-colors'
 
 // ─── Create / edit modal ───────────────────────────────────────────────────────
 
@@ -49,16 +49,16 @@ function CategoryFormModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md bg-surface border border-border-warm rounded-xl shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border-warm">
-          <h2 className="text-[16px] font-[600] font-sans text-primary">{heading}</h2>
-          <button type="button" onClick={onClose} className="text-muted-text hover:text-primary transition-colors">
+      <div className="w-full max-w-md bg-white border border-[#E5E1D8] rounded-xl shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E1D8]">
+          <h2 className="text-[16px] font-[600] font-sans text-[#1A1A1A]">{heading}</h2>
+          <button type="button" onClick={onClose} className="text-[#6B6460] hover:text-[#1A1A1A] transition-colors">
             <X size={18} aria-hidden="true" />
           </button>
         </div>
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.05em] mb-1.5">
+            <label className="block text-[12px] font-[600] font-sans text-[#6B6460] uppercase tracking-[0.05em] mb-1.5">
               Name
             </label>
             <input
@@ -67,12 +67,12 @@ function CategoryFormModal({
             />
           </div>
           <div>
-            <label className="block text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.05em] mb-1.5">
-              Description <span className="normal-case font-[400] text-muted-text/70">(optional)</span>
+            <label className="block text-[12px] font-[600] font-sans text-[#6B6460] uppercase tracking-[0.05em] mb-1.5">
+              Description <span className="normal-case font-[400] text-[#6B6460]/70">(optional)</span>
             </label>
             <textarea
               value={description ?? ''} onChange={(e) => setDescription(e.target.value)} rows={3} maxLength={300}
-              className="w-full px-3 py-2 rounded border border-border-warm bg-muted-bg/30 text-[14px] font-sans text-primary placeholder:text-muted-text/40 focus:outline-none focus:border-accent transition-colors resize-none"
+              className="w-full px-3 py-2 rounded border border-[#E5E1D8] bg-[#F5F0E8]/30 text-[14px] font-sans text-[#1A1A1A] placeholder:text-[#6B6460]/40 focus:outline-none focus:border-[#A68B67] transition-colors resize-none"
             />
           </div>
           <HeroImageUpload
@@ -83,8 +83,8 @@ function CategoryFormModal({
             onRemoveExisting={() => setHeroImageRemoved(true)}
           />
           <div>
-            <label className="block text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.05em] mb-1.5">
-              Sort Order <span className="normal-case font-[400] text-muted-text/70">(optional — lower shows first)</span>
+            <label className="block text-[12px] font-[600] font-sans text-[#6B6460] uppercase tracking-[0.05em] mb-1.5">
+              Sort Order <span className="normal-case font-[400] text-[#6B6460]/70">(optional — lower shows first)</span>
             </label>
             <input
               type="number" min={0} value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}
@@ -128,18 +128,18 @@ function RemoveModal({
   const childCount = category.children?.length ?? 0
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md bg-surface border border-border-warm rounded-xl shadow-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md bg-white border border-[#E5E1D8] rounded-xl shadow-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2.5">
-          <AlertTriangle size={18} className="text-error shrink-0" />
-          <h2 className="text-[16px] font-[600] font-sans text-primary">
+          <AlertTriangle size={18} className="text-red-500 shrink-0" />
+          <h2 className="text-[16px] font-[600] font-sans text-[#1A1A1A]">
             {isActive ? 'Archive' : 'Restore'} &quot;{category.name}&quot;
           </h2>
         </div>
-        <div className="text-[13.5px] font-sans text-muted-text leading-relaxed space-y-2">
+        <div className="text-[13.5px] font-sans text-[#6B6460] leading-relaxed space-y-2">
           {isActive ? (
             <p>
               Archiving hides this category (and its subcategories) from buyers and sellers. It is
-              <strong className="text-error"> blocked if any active products are still assigned</strong> to it or its
+              <strong className="text-red-500"> blocked if any active products are still assigned</strong> to it or its
               descendants — reassign those products first if archiving fails.
               {childCount > 0 && (
                 <> This category has {childCount} subcategor{childCount === 1 ? 'y' : 'ies'} which will be archived along with it.</>
@@ -153,19 +153,19 @@ function RemoveModal({
           {isActive ? (
             <button
               type="button" onClick={onArchive} disabled={pending}
-              className="h-9 px-4 rounded bg-error text-white text-[13px] font-[600] font-sans hover:bg-error/90 transition-colors disabled:opacity-50"
+              className="h-9 px-4 rounded bg-red-500 text-white text-[13px] font-[600] font-sans hover:bg-red-600 transition-colors disabled:opacity-50"
             >
               {pending ? 'Archiving…' : 'Archive Category'}
             </button>
           ) : (
             <button
               type="button" onClick={onRestore} disabled={pending}
-              className="h-9 px-4 rounded bg-success text-white text-[13px] font-[600] font-sans hover:opacity-90 transition-colors disabled:opacity-50"
+              className="h-9 px-4 rounded bg-emerald-600 text-white text-[13px] font-[600] font-sans hover:opacity-90 transition-colors disabled:opacity-50"
             >
               {pending ? 'Restoring…' : 'Restore Category'}
             </button>
           )}
-          <button type="button" onClick={onClose} className="text-[12px] font-sans text-muted-text hover:text-primary transition-colors pt-1 self-center">
+          <button type="button" onClick={onClose} className="text-[12px] font-sans text-[#6B6460] hover:text-[#1A1A1A] transition-colors pt-1 self-center">
             Cancel
           </button>
         </div>
@@ -195,7 +195,7 @@ function CategoryRow({
     <div>
       <div
         className={cn(
-          'flex items-center gap-2 py-2.5 px-3 rounded hover:bg-muted-bg/40 transition-colors group',
+          'flex items-center gap-2 py-2.5 px-3 rounded hover:bg-[#F5F0E8]/40 transition-colors group',
           !isActive && 'opacity-50',
         )}
         style={{ paddingLeft: `${12 + depth * 24}px` }}
@@ -203,27 +203,27 @@ function CategoryRow({
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className={cn('shrink-0 text-muted-text hover:text-primary transition-colors', !hasChildren && 'invisible')}
+          className={cn('shrink-0 text-[#6B6460] hover:text-[#1A1A1A] transition-colors', !hasChildren && 'invisible')}
           aria-label={expanded ? 'Collapse' : 'Expand'}
         >
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </button>
 
-        <span className="text-[14px] font-[500] font-sans text-primary flex-1 min-w-0 truncate">
+        <span className="text-[14px] font-[500] font-sans text-[#1A1A1A] flex-1 min-w-0 truncate">
           {node.name}
         </span>
 
-        <span className="text-[10px] font-[700] font-sans text-muted-text bg-muted-bg px-1.5 py-0.5 rounded shrink-0">
+        <span className="text-[10px] font-[700] font-sans text-[#6B6460] bg-[#F5F0E8] px-1.5 py-0.5 rounded shrink-0">
           L{node.level}
         </span>
 
         {!isActive && (
-          <span className="inline-flex items-center gap-1 text-[11px] font-[600] font-sans text-muted-text bg-muted-bg px-2 py-0.5 rounded shrink-0">
+          <span className="inline-flex items-center gap-1 text-[11px] font-[600] font-sans text-[#6B6460] bg-[#F5F0E8] px-2 py-0.5 rounded shrink-0">
             <EyeOff size={10} />Archived
           </span>
         )}
 
-        <span className="text-[11px] font-sans text-muted-text shrink-0">
+        <span className="text-[11px] font-sans text-[#6B6460] shrink-0">
           {node.productCount} product{node.productCount === 1 ? '' : 's'}
         </span>
 
@@ -232,7 +232,7 @@ function CategoryRow({
             <button
               type="button" onClick={() => onAddChild(node)}
               title="Add subcategory"
-              className="w-7 h-7 flex items-center justify-center rounded text-muted-text hover:text-accent hover:bg-accent/10 transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded text-[#6B6460] hover:text-[#A68B67] hover:bg-[#A68B67]/10 transition-colors"
             >
               <Plus size={13} />
             </button>
@@ -240,14 +240,14 @@ function CategoryRow({
           <button
             type="button" onClick={() => onEdit(node)}
             title="Edit"
-            className="w-7 h-7 flex items-center justify-center rounded text-muted-text hover:text-primary hover:bg-muted-bg transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded text-[#6B6460] hover:text-[#1A1A1A] hover:bg-[#F5F0E8] transition-colors"
           >
             <Pencil size={13} />
           </button>
           <button
             type="button" onClick={() => onRemove(node)}
             title={isActive ? 'Archive' : 'Restore'}
-            className="w-7 h-7 flex items-center justify-center rounded text-muted-text hover:text-error hover:bg-error/10 transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded text-[#6B6460] hover:text-red-500 hover:bg-red-100 transition-colors"
           >
             {isActive ? <Trash2 size={13} /> : <RotateCcw size={13} />}
           </button>
@@ -303,8 +303,8 @@ export default function AdminCategoriesPage() {
     <div>
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[28px] leading-[1.3] font-[500] font-display text-primary">Categories</h1>
-          <p className="text-[14px] font-sans text-muted-text mt-1">
+          <h1 className="text-[28px] leading-[1.3] font-[500] font-sans text-[#1A1A1A]">Categories</h1>
+          <p className="text-[14px] font-sans text-[#6B6460] mt-1">
             {totalCount > 0 ? `${totalCount} categories across the L1 → L2 → L3 taxonomy` : 'Manage the product category taxonomy'}
           </p>
         </div>
@@ -317,20 +317,20 @@ export default function AdminCategoriesPage() {
         </Button>
       </div>
 
-      <div className="bg-surface border border-border-warm rounded overflow-hidden">
+      <div className="bg-white border border-[#E5E1D8] rounded-xl overflow-hidden">
         {isLoading ? (
           <div className="p-4 space-y-2">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-9 bg-muted-bg rounded animate-pulse" />
+              <div key={i} className="h-9 bg-[#F5F0E8] rounded animate-pulse" />
             ))}
           </div>
         ) : tree.length === 0 ? (
           <div className="py-16 flex flex-col items-center gap-3 text-center">
-            <div className="w-12 h-12 rounded-full bg-muted-bg flex items-center justify-center">
-              <FolderTree size={22} className="text-muted-text" aria-hidden="true" />
+            <div className="w-12 h-12 rounded-full bg-[#F5F0E8] flex items-center justify-center">
+              <FolderTree size={22} className="text-[#6B6460]" aria-hidden="true" />
             </div>
-            <p className="text-[15px] font-[600] font-sans text-primary">No categories yet</p>
-            <p className="text-[13px] font-sans text-muted-text">Add your first top-level category to get started.</p>
+            <p className="text-[15px] font-[600] font-sans text-[#1A1A1A]">No categories yet</p>
+            <p className="text-[13px] font-sans text-[#6B6460]">Add your first top-level category to get started.</p>
           </div>
         ) : (
           <div className="py-2">

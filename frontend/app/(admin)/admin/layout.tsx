@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { Bell, Search } from 'lucide-react'
+import { useRouter, usePathname } from 'next/navigation'
+import { Bell, Search, LayoutDashboard, ClipboardList, Bot, Package, ShoppingCart, Wallet } from 'lucide-react'
+import Link from 'next/link'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { cn } from '@/lib/utils'
@@ -10,18 +11,19 @@ import { cn } from '@/lib/utils'
 // ─── Mobile bottom tabs ───────────────────────────────────────────────────────
 
 const MOBILE_TABS = [
-  { href: '/admin', label: 'Overview' },
-  { href: '/admin/seller-applications', label: 'Applications' },
-  { href: '/admin/agent-applications', label: 'Agents' },
-  { href: '/admin/products', label: 'Products' },
-  { href: '/admin/orders', label: 'Orders' },
-  { href: '/admin/payouts', label: 'Payouts' },
+  { href: '/admin', label: 'Overview', icon: LayoutDashboard },
+  { href: '/admin/seller-applications', label: 'Applications', icon: ClipboardList },
+  { href: '/admin/agent-applications', label: 'Agents', icon: Bot },
+  { href: '/admin/products', label: 'Products', icon: Package },
+  { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
+  { href: '/admin/payouts', label: 'Payouts', icon: Wallet },
 ]
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
+  const pathname = usePathname()
   const user = useAuthStore((s) => s.user)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const hasHydrated = useAuthStore((s) => s._hasHydrated)
@@ -38,6 +40,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     .join('')
     .toUpperCase() || 'AD'
 
+  function isActive(href: string) {
+    return href === '/admin' ? pathname === '/admin' : pathname.startsWith(href)
+  }
+
   useEffect(() => {
     if (!hasHydrated) return
     if (!isAuthenticated || user?.role !== 'SUPER_ADMIN') {
@@ -50,7 +56,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!isAuthenticated || user?.role !== 'SUPER_ADMIN') return null
 
   return (
-    <div className="flex min-h-screen bg-bg">
+    <div className="flex min-h-screen bg-[#F9F7F2]">
       {/* Sidebar — hidden on mobile */}
       <div className="hidden lg:block">
         <AdminSidebar />
@@ -111,15 +117,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Mobile bottom tab bar */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-[#E5E1D8] flex">
-        {MOBILE_TABS.map(({ href, label }) => (
-          <a
-            key={href}
-            href={href}
-            className="flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 text-[10px] font-[600] font-sans text-[#9CA3AF] hover:text-[#1A1A1A] transition-colors"
-          >
-            {label}
-          </a>
-        ))}
+        {MOBILE_TABS.map(({ href, label, icon: Icon }) => {
+          const active = isActive(href)
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                'flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 text-[10px] font-[600] font-sans transition-colors',
+                active ? 'text-[#A68B67]' : 'text-[#9CA3AF] hover:text-[#1A1A1A]'
+              )}
+            >
+              <Icon size={18} aria-hidden="true" />
+              {label}
+            </Link>
+          )
+        })}
       </nav>
     </div>
   )

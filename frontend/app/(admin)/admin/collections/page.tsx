@@ -104,7 +104,7 @@ function CreateCollectionDialog({
               onChange={(e) => setEditorialIntro(e.target.value)}
               rows={3}
               placeholder="A short editorial blurb shown on the homepage…"
-              className="w-full px-3 py-2 rounded border border-border-warm bg-surface text-[14px] font-sans text-primary placeholder:text-muted-text/60 focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-colors resize-none"
+              className="w-full px-3 py-2 rounded border border-[#E5E1D8] bg-white text-[14px] font-sans text-[#1A1A1A] placeholder:text-[#6B6460]/60 focus:outline-none focus:ring-1 focus:ring-[#A68B67] focus:border-[#A68B67] transition-colors resize-none"
             />
           </div>
           <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -112,9 +112,9 @@ function CreateCollectionDialog({
               type="checkbox"
               checked={isFeatured}
               onChange={(e) => setIsFeatured(e.target.checked)}
-              className="w-4 h-4 rounded border-border-warm accent-accent cursor-pointer"
+              className="w-4 h-4 rounded border-[#E5E1D8] accent-[#A68B67] cursor-pointer"
             />
-            <span className="text-[13px] font-sans text-primary">Feature on homepage</span>
+            <span className="text-[13px] font-sans text-[#1A1A1A]">Feature on homepage</span>
           </label>
         </div>
         <DialogFooter>
@@ -165,8 +165,8 @@ export default function AdminCollectionsPage() {
     <div>
       <div className="mb-2 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[28px] leading-[1.3] font-[500] font-display text-primary">Collections</h1>
-          <p className="text-[14px] font-sans text-muted-text mt-1">
+          <h1 className="text-[28px] leading-[1.3] font-[500] font-sans text-[#1A1A1A]">Collections</h1>
+          <p className="text-[14px] font-sans text-[#6B6460] mt-1">
             Curate homepage-featured product groupings — {total.toLocaleString()} total
           </p>
         </div>
@@ -176,13 +176,13 @@ export default function AdminCollectionsPage() {
         </Button>
       </div>
 
-      <p className="text-[13px] font-sans text-muted-text mb-6 px-4 py-2.5 rounded border border-border-warm bg-muted-bg/40">
+      <p className="text-[13px] font-sans text-[#6B6460] mb-6 px-4 py-2.5 rounded border border-[#E5E1D8] bg-[#F5F0E8]/40">
         Featured collections with images and an intro appear on the homepage — this is the homepage content control
         since there&apos;s no separate CMS module.
       </p>
 
       {/* Status tabs */}
-      <div className="flex gap-1 mb-4 border-b border-border-warm overflow-x-auto">
+      <div className="flex gap-1 mb-4 border-b border-[#E5E1D8] overflow-x-auto">
         {STATUS_TABS.map(({ value, label }) => (
           <button
             key={label}
@@ -190,7 +190,7 @@ export default function AdminCollectionsPage() {
             onClick={() => handleTabChange(value)}
             className={cn(
               'px-4 py-2.5 text-[13px] font-[600] font-sans border-b-2 -mb-px transition-colors whitespace-nowrap',
-              status === value ? 'border-primary text-primary' : 'border-transparent text-muted-text hover:text-primary'
+              status === value ? 'border-[#A68B67] text-[#1A1A1A]' : 'border-transparent text-[#6B6460] hover:text-[#1A1A1A]'
             )}
           >
             {label}
@@ -198,17 +198,17 @@ export default function AdminCollectionsPage() {
         ))}
       </div>
 
-      <div className="bg-surface border border-border-warm rounded overflow-hidden">
+      <div className="bg-white border border-[#E5E1D8] rounded-xl overflow-hidden">
         {isLoading ? (
-          <div className="divide-y divide-border-warm">
+          <div className="divide-y divide-[#E5E1D8]">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="p-4 flex gap-4 animate-pulse">
-                <div className="w-9 h-9 bg-muted-bg rounded flex-shrink-0" />
+                <div className="w-9 h-9 bg-[#F5F0E8] rounded flex-shrink-0" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-3.5 bg-muted-bg rounded w-40" />
-                  <div className="h-3 bg-muted-bg rounded w-24" />
+                  <div className="h-3.5 bg-[#F5F0E8] rounded w-40" />
+                  <div className="h-3 bg-[#F5F0E8] rounded w-24" />
                 </div>
-                <div className="h-5 bg-muted-bg rounded w-16" />
+                <div className="h-5 bg-[#F5F0E8] rounded w-16" />
               </div>
             ))}
           </div>
@@ -223,7 +223,7 @@ export default function AdminCollectionsPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-border-warm bg-muted-bg/40">
+                  <tr className="border-b border-[#E5E1D8] bg-[#F5F0E8]/40">
                     {[
                       { label: '', align: 'left' },
                       { label: 'Name', align: 'left' },
@@ -235,7 +235,7 @@ export default function AdminCollectionsPage() {
                       <th
                         key={label || `col-${i}`}
                         className={cn(
-                          'py-3 px-4 text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em]',
+                          'py-3 px-4 text-[12px] font-[600] font-sans text-[#6B6460] uppercase tracking-[0.06em]',
                           align === 'center' ? 'text-center' : 'text-left'
                         )}
                       >
@@ -249,36 +249,36 @@ export default function AdminCollectionsPage() {
                     <tr
                       key={c.id}
                       onClick={() => router.push(`/admin/collections/${c.id}`)}
-                      className="border-b border-border-warm last:border-0 hover:bg-muted-bg/30 transition-colors cursor-pointer"
+                      className="border-b border-[#E5E1D8] last:border-0 hover:bg-[#F5F0E8]/30 transition-colors cursor-pointer"
                     >
                       <td className="py-3 pl-4 pr-0 w-[52px]">
                         {c.heroImage ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={cloudinaryFill(c.heroImage, 160, 160)} alt="" className="w-9 h-9 rounded object-contain bg-muted-bg border border-border-warm" />
+                          <img src={cloudinaryFill(c.heroImage, 160, 160)} alt="" className="w-9 h-9 rounded object-contain bg-[#F5F0E8] border border-[#E5E1D8]" />
                         ) : (
-                          <div className="w-9 h-9 rounded bg-muted-bg border border-border-warm flex items-center justify-center">
-                            <ImageOff size={14} className="text-muted-text" aria-hidden="true" />
+                          <div className="w-9 h-9 rounded bg-[#F5F0E8] border border-[#E5E1D8] flex items-center justify-center">
+                            <ImageOff size={14} className="text-[#6B6460]" aria-hidden="true" />
                           </div>
                         )}
                       </td>
                       <td className="py-3 px-4">
-                        <p className="text-[13px] font-[600] font-sans text-primary">{c.name}</p>
-                        <p className="text-[11px] font-sans text-muted-text">/{c.slug}</p>
+                        <p className="text-[13px] font-[600] font-sans text-[#1A1A1A]">{c.name}</p>
+                        <p className="text-[11px] font-sans text-[#6B6460]">/{c.slug}</p>
                       </td>
                       <td className="py-3 px-4 text-center">
                         {c.isFeatured ? (
-                          <Star size={14} className="text-accent fill-accent inline-block" aria-label="Featured" />
+                          <Star size={14} className="text-[#A68B67] fill-[#A68B67] inline-block" aria-label="Featured" />
                         ) : (
-                          <span className="text-muted-text">—</span>
+                          <span className="text-[#6B6460]">—</span>
                         )}
                       </td>
                       <td className="py-3 px-4"><StatusBadge status={c.status} /></td>
                       {hasProductCounts && (
-                        <td className="py-3 px-4 text-center text-[13px] font-sans text-muted-text">
+                        <td className="py-3 px-4 text-center text-[13px] font-sans text-[#6B6460]">
                           {c.products?.length ?? 0}
                         </td>
                       )}
-                      <td className="py-3 px-4 text-[12px] font-sans text-muted-text whitespace-nowrap">
+                      <td className="py-3 px-4 text-[12px] font-sans text-[#6B6460] whitespace-nowrap">
                         {new Date(c.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
                       </td>
                     </tr>
@@ -288,8 +288,8 @@ export default function AdminCollectionsPage() {
             </div>
 
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-border-warm">
-                <p className="text-[12px] font-sans text-muted-text">
+              <div className="flex items-center justify-between px-4 py-3 border-t border-[#E5E1D8]">
+                <p className="text-[12px] font-sans text-[#6B6460]">
                   {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total.toLocaleString()}
                 </p>
                 <div className="flex gap-2">
@@ -297,7 +297,7 @@ export default function AdminCollectionsPage() {
                     type="button"
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
+                    className="h-8 px-3 rounded-lg border border-[#E5E1D8] text-[12px] font-[500] font-sans text-[#6B6460] hover:text-[#1A1A1A] hover:bg-[#F5F0E8] disabled:opacity-40 transition-colors"
                   >
                     Prev
                   </button>
@@ -305,7 +305,7 @@ export default function AdminCollectionsPage() {
                     type="button"
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page >= totalPages}
-                    className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
+                    className="h-8 px-3 rounded-lg border border-[#E5E1D8] text-[12px] font-[500] font-sans text-[#6B6460] hover:text-[#1A1A1A] hover:bg-[#F5F0E8] disabled:opacity-40 transition-colors"
                   >
                     Next
                   </button>
