@@ -218,7 +218,7 @@ function WhySection() {
           </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {WHY_ITEMS.map(({ Icon, title, body }) => (
             <div
               key={title}
@@ -493,7 +493,7 @@ function Testimonials() {
 // ─── The man behind it ────────────────────────────────────────────────────────
 
 const FOUNDER_STATS = [
-  { value: '7K+',   label: 'Instagram community' },
+  { value: '16K+',  label: 'Instagram community' },
   { value: '300+',  label: 'Brands launched across 20+ countries' },
   { value: '₹7.5L', label: 'Grants raised for Solomon Bharat' },
   { value: '5',     label: 'Countries personally exported to' },

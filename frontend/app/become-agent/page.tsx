@@ -494,7 +494,7 @@ function Testimonials() {
 // ─── The man behind it ────────────────────────────────────────────────────────
 
 const FOUNDER_STATS = [
-  { value: '7K+',   label: 'Instagram community' },
+  { value: '16K+',  label: 'Instagram community' },
   { value: '300+',  label: 'Brands launched across 20+ countries' },
   { value: '₹7.5L', label: 'Grants raised for Solomon Bharat' },
   { value: '5',     label: 'Countries personally exported to' },
