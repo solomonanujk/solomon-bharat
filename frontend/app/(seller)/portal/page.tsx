@@ -2,37 +2,64 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
-import { Package, CheckCircle2, Clock, XCircle, ShoppingBag, Wallet, Hourglass } from 'lucide-react'
+import {
+  Package, CheckCircle2, Clock, XCircle,
+  ShoppingBag, Wallet, Hourglass, Plus,
+  ArrowRight,
+} from 'lucide-react'
 import { useMyProducts } from '@/hooks/queries/useProducts'
 import { useSellerOrderItems } from '@/hooks/queries/useOrders'
 import { useMyPayoutSummary, useMyPayouts } from '@/hooks/queries/usePayouts'
+import { useMySellerProfile } from '@/hooks/queries/useSellers'
 import { formatINR } from '@/lib/utils'
 import { ApprovalStatusBadge, OrderItemStatusBadge, PayoutStatusBadge } from '@/components/seller-portal/StatusBadges'
+import { cn } from '@/lib/utils'
 
 // ─── KPI card ─────────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, icon: Icon, hint }: {
-  label: string; value: string; icon: React.ElementType; hint?: string
+function KpiCard({ label, value, icon: Icon, iconBg, iconColor, hint, featured }: {
+  label: string
+  value: string
+  icon: React.ElementType
+  iconBg: string
+  iconColor: string
+  hint?: string
+  featured?: boolean
 }) {
   return (
-    <div className="bg-surface border border-border-warm rounded p-5">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-[12px] leading-[1.3] font-sans text-muted-text">{label}</p>
-        <Icon size={14} className="text-accent" aria-hidden="true" />
+    <div className={cn(
+      'rounded-xl border p-5 flex flex-col gap-3',
+      featured
+        ? 'bg-[#1C1A18] border-[#2E2A24]'
+        : 'bg-white border-[#E5E1D8]',
+    )}>
+      <div className="flex items-center justify-between">
+        <span className={cn('text-[12px] font-[500] font-sans', featured ? 'text-[#9A9189]' : 'text-[#6B6460]')}>
+          {label}
+        </span>
+        <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', iconBg)}>
+          <Icon size={15} className={iconColor} aria-hidden="true" />
+        </div>
       </div>
-      <p className="text-[26px] font-[600] font-sans text-primary leading-none tabular-nums">
-        {value}
-      </p>
-      {hint && <p className="text-[11px] font-sans text-muted-text mt-2">{hint}</p>}
+      <div>
+        <p className={cn('text-[28px] font-[700] font-sans leading-none tabular-nums', featured ? 'text-white' : 'text-[#1A1A1A]')}>
+          {value}
+        </p>
+        {hint && (
+          <p className={cn('text-[11px] font-sans mt-1.5 leading-snug', featured ? 'text-[#6B6460]' : 'text-[#9CA3AF]')}>
+            {hint}
+          </p>
+        )}
+      </div>
     </div>
   )
 }
 
-function StatCardSkeleton() {
+function KpiSkeleton() {
   return (
-    <div className="bg-surface border border-border-warm rounded p-5 animate-pulse">
-      <div className="h-3 bg-muted-bg rounded w-1/2 mb-3" />
-      <div className="h-7 bg-muted-bg rounded w-1/3" />
+    <div className="bg-white border border-[#E5E1D8] rounded-xl p-5 animate-pulse">
+      <div className="h-3 bg-[#F5F0E8] rounded w-1/2 mb-4" />
+      <div className="h-8 bg-[#F5F0E8] rounded w-1/3" />
     </div>
   )
 }
@@ -47,10 +74,10 @@ interface Activity {
 
 function ActivityRow({ activity }: { activity: Activity }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3 border-b border-border-warm last:border-0">
-      <div className="min-w-0">{activity.content}</div>
-      <span className="text-[12px] font-sans text-muted-text shrink-0">
-        {new Date(activity.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+    <div className="flex items-center justify-between gap-4 py-3.5 border-b border-[#F5F0E8] last:border-0">
+      <div className="min-w-0 flex-1">{activity.content}</div>
+      <span className="text-[11.5px] font-sans text-[#9CA3AF] shrink-0">
+        {new Date(activity.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
       </span>
     </div>
   )
@@ -72,17 +99,25 @@ export default function SellerDashboardPage() {
   const payoutSummaryQ = useMyPayoutSummary()
   const recentPayoutsQ = useMyPayouts({ limit: 20 })
 
+  const { data: profile } = useMySellerProfile()
+
   const kpiLoading = totalQ.isLoading || approvedQ.isLoading || pendingQ.isLoading || rejectedQ.isLoading || resubmittedQ.isLoading
+
   const totalSubmitted = totalQ.data?.total ?? 0
   const totalApproved = approvedQ.data?.total ?? 0
-  // RESUBMITTED products are back in the admin review queue, same as PENDING —
-  // rolled into one "Pending" KPI per prd.md §8.3 (which lists only Approved/Pending/Rejected).
+  // RESUBMITTED rolls into PENDING per prd.md §8.3
   const totalPending = (pendingQ.data?.total ?? 0) + (resubmittedQ.data?.total ?? 0)
   const totalRejected = rejectedQ.data?.total ?? 0
-
-  // useSellerOrderItems returns order ITEMS, not distinct orders — this counts
-  // line items linked to the seller's products, not unique orders.
   const totalOrderItems = orderItemsQ.data?.total ?? 0
+
+  const greeting = (() => {
+    const hour = new Date().getHours()
+    if (hour < 12) return 'Good morning'
+    if (hour < 18) return 'Good afternoon'
+    return 'Good evening'
+  })()
+
+  const sellerFirstName = profile?.businessName?.split(' ')[0] ?? 'there'
 
   const activity = useMemo<Activity[]>(() => {
     const items: Activity[] = []
@@ -92,9 +127,8 @@ export default function SellerDashboardPage() {
         id: `product-${p.id}`,
         date: p.updatedAt,
         content: (
-          <p className="text-[13px] font-sans text-primary truncate">
-            <span className="font-[600]">{p.name}</span>{' '}
-            <span className="text-muted-text">—</span>{' '}
+          <p className="text-[13px] font-sans text-[#1A1A1A] truncate flex items-center gap-2">
+            <span className="font-[600] truncate">{p.name}</span>
             <ApprovalStatusBadge status={p.approvalStatus} />
           </p>
         ),
@@ -106,8 +140,10 @@ export default function SellerDashboardPage() {
         id: `order-${item.orderItemId}`,
         date: item.createdAt,
         content: (
-          <p className="text-[13px] font-sans text-primary truncate flex items-center gap-2">
-            Order for <span className="font-[600]">{item.productName}</span> × {item.quantity}
+          <p className="text-[13px] font-sans text-[#1A1A1A] truncate flex items-center gap-2">
+            <ShoppingBag size={13} className="text-blue-500 shrink-0" aria-hidden="true" />
+            Order: <span className="font-[600] truncate">{item.productName}</span>
+            <span className="text-[#9CA3AF]">×{item.quantity}</span>
             <OrderItemStatusBadge status={item.status} />
           </p>
         ),
@@ -119,85 +155,168 @@ export default function SellerDashboardPage() {
         id: `payout-${payout.id}`,
         date: payout.createdAt,
         content: (
-          <p className="text-[13px] font-sans text-primary truncate flex items-center gap-2">
-            Payout of <span className="font-[600]">{formatINR(payout.amount)}</span>
+          <p className="text-[13px] font-sans text-[#1A1A1A] truncate flex items-center gap-2">
+            <Wallet size={13} className="text-emerald-600 shrink-0" aria-hidden="true" />
+            Payout: <span className="font-[600]">{formatINR(payout.amount)}</span>
             <PayoutStatusBadge status={payout.status} />
           </p>
         ),
       })
     }
 
-    return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 8)
+    return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10)
   }, [recentProductsQ.data, recentOrderItemsQ.data, recentPayoutsQ.data])
 
   const activityLoading = recentProductsQ.isLoading || recentOrderItemsQ.isLoading || recentPayoutsQ.isLoading
 
   return (
-    <div>
-      <h1 className="text-[24px] leading-[1.3] font-[500] font-display text-primary mb-6">
-        Dashboard
-      </h1>
+    <div className="space-y-6">
 
-      {/* KPI cards */}
-      {kpiLoading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
-          {Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)}
+      {/* Page header with greeting */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-[12px] font-[600] font-sans text-[#A68B67] tracking-[0.06em] uppercase mb-1">
+            {greeting}
+          </p>
+          <h1 className="text-[26px] font-[700] font-sans text-[#1A1A1A] leading-tight">
+            {sellerFirstName}
+          </h1>
+          <p className="text-[13.5px] font-sans text-[#9CA3AF] mt-0.5">Here's what's happening with your store</p>
         </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
-          <StatCard label="Products Submitted" value={String(totalSubmitted)} icon={Package} />
-          <StatCard label="Approved" value={String(totalApproved)} icon={CheckCircle2} />
-          <StatCard label="Pending Review" value={String(totalPending)} icon={Clock} />
-          <StatCard label="Rejected" value={String(totalRejected)} icon={XCircle} />
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <StatCard
-          label="Order Items Linked"
-          value={orderItemsQ.isLoading ? '—' : String(totalOrderItems)}
-          icon={ShoppingBag}
-          hint="Line items across orders containing your products"
-        />
-        <StatCard
-          label="Total Earnings Paid Out"
-          value={payoutSummaryQ.isLoading ? '—' : formatINR(payoutSummaryQ.data?.totalEarned ?? 0)}
-          icon={Wallet}
-        />
-        <StatCard
-          label="Pending Payout"
-          value={payoutSummaryQ.isLoading ? '—' : formatINR(payoutSummaryQ.data?.pendingPayout ?? 0)}
-          icon={Hourglass}
-        />
+        <Link
+          href="/portal/products/new"
+          className="flex items-center gap-2 px-4 py-2.5 bg-[#A68B67] text-white text-[13px] font-[600] font-sans rounded-lg hover:bg-[#8A7357] transition-colors shadow-sm"
+        >
+          <Plus size={14} aria-hidden="true" />
+          Submit Product
+        </Link>
       </div>
 
-      {/* Recent activity */}
-      <section>
-        <h2 className="text-[14px] leading-[1.4] font-[600] font-sans text-primary mb-3">
-          Recent Activity
-        </h2>
-        <div className="bg-surface border border-border-warm rounded px-5">
-          {activityLoading ? (
-            <div className="py-4 space-y-3 animate-pulse">
-              {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-4 bg-muted-bg rounded w-2/3" />)}
-            </div>
-          ) : activity.length === 0 ? (
-            <div className="py-10 text-center">
-              <p className="text-[14px] font-sans text-muted-text">Nothing to show yet.</p>
-              <p className="text-[12px] font-sans text-muted-text mt-1">
-                Product approvals, orders, and payouts will appear here.
-              </p>
-            </div>
-          ) : (
-            activity.map((a) => <ActivityRow key={a.id} activity={a} />)
-          )}
-        </div>
-      </section>
+      {/* Product status KPIs */}
+      <div>
+        <p className="text-[11px] font-[700] font-sans text-[#A68B67] tracking-[0.1em] uppercase mb-3">Products</p>
+        {kpiLoading ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => <KpiSkeleton key={i} />)}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <KpiCard
+              label="Approved"
+              value={String(totalApproved)}
+              icon={CheckCircle2}
+              iconBg="bg-emerald-50"
+              iconColor="text-emerald-600"
+            />
+            <KpiCard
+              label="Pending Review"
+              value={String(totalPending)}
+              icon={Clock}
+              iconBg="bg-amber-50"
+              iconColor="text-amber-600"
+            />
+            <KpiCard
+              label="Rejected"
+              value={String(totalRejected)}
+              icon={XCircle}
+              iconBg="bg-red-50"
+              iconColor="text-red-500"
+            />
+            <KpiCard
+              label="Total Submitted"
+              value={String(totalSubmitted)}
+              icon={Package}
+              iconBg="bg-[#F5F0E8]"
+              iconColor="text-[#A68B67]"
+            />
+          </div>
+        )}
+      </div>
 
-      <div className="flex items-center gap-4 mt-6">
-        <Link href="/portal/products/new" className="text-[13px] font-[600] font-sans text-accent hover:opacity-70 transition-opacity">
-          Submit a new product →
-        </Link>
+      {/* Earnings KPIs */}
+      <div>
+        <p className="text-[11px] font-[700] font-sans text-[#A68B67] tracking-[0.1em] uppercase mb-3">Earnings</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <KpiCard
+            label="Total Earnings Paid Out"
+            value={payoutSummaryQ.isLoading ? '—' : formatINR(payoutSummaryQ.data?.totalEarned ?? 0)}
+            icon={Wallet}
+            iconBg="bg-[#A68B67]/10"
+            iconColor="text-[#A68B67]"
+            featured
+          />
+          <KpiCard
+            label="Pending Payout"
+            value={payoutSummaryQ.isLoading ? '—' : formatINR(payoutSummaryQ.data?.pendingPayout ?? 0)}
+            icon={Hourglass}
+            iconBg="bg-amber-50"
+            iconColor="text-amber-600"
+            hint="Will be disbursed in the next payout cycle"
+          />
+          <KpiCard
+            label="Order Items"
+            value={orderItemsQ.isLoading ? '—' : String(totalOrderItems)}
+            icon={ShoppingBag}
+            iconBg="bg-blue-50"
+            iconColor="text-blue-600"
+            hint="Total line items across all orders"
+          />
+        </div>
+      </div>
+
+      {/* Activity feed */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-2">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[11px] font-[700] font-sans text-[#A68B67] tracking-[0.1em] uppercase">Recent Activity</p>
+            <Link href="/portal/products" className="flex items-center gap-1 text-[12px] font-[600] font-sans text-[#A68B67] hover:text-[#8A7357] transition-colors">
+              All products <ArrowRight size={11} />
+            </Link>
+          </div>
+          <div className="bg-white border border-[#E5E1D8] rounded-xl px-5 py-1">
+            {activityLoading ? (
+              <div className="py-5 space-y-4 animate-pulse">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-4 bg-[#F5F0E8] rounded w-3/4" />
+                ))}
+              </div>
+            ) : activity.length === 0 ? (
+              <div className="py-12 text-center">
+                <p className="text-[14px] font-sans text-[#9CA3AF]">Nothing to show yet.</p>
+                <p className="text-[12px] font-sans text-[#9CA3AF] mt-1">
+                  Product approvals, orders, and payouts will appear here.
+                </p>
+              </div>
+            ) : (
+              activity.map((a) => <ActivityRow key={a.id} activity={a} />)
+            )}
+          </div>
+        </div>
+
+        {/* Quick links */}
+        <div>
+          <p className="text-[11px] font-[700] font-sans text-[#A68B67] tracking-[0.1em] uppercase mb-3">Quick links</p>
+          <div className="space-y-2">
+            {[
+              { href: '/portal/products/new', label: 'Submit a New Product', icon: Plus, color: 'text-[#A68B67]', bg: 'bg-[#F5F0E8]' },
+              { href: '/portal/orders', label: 'View My Orders', icon: ShoppingBag, color: 'text-blue-600', bg: 'bg-blue-50' },
+              { href: '/portal/payouts', label: 'Check Payouts', icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+              { href: '/portal/settings', label: 'Update Settings', icon: ArrowRight, color: 'text-[#9CA3AF]', bg: 'bg-[#F9F7F2]' },
+            ].map(({ href, label, icon: Icon, color, bg }) => (
+              <Link
+                key={href}
+                href={href}
+                className="flex items-center gap-3 p-3.5 bg-white border border-[#E5E1D8] rounded-xl hover:border-[#C4BDB4] hover:shadow-sm transition-all"
+              >
+                <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', bg)}>
+                  <Icon size={14} className={color} aria-hidden="true" />
+                </div>
+                <span className="text-[13px] font-[500] font-sans text-[#1A1A1A]">{label}</span>
+                <ArrowRight size={13} className="text-[#C4BDB4] ml-auto" aria-hidden="true" />
+              </Link>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )

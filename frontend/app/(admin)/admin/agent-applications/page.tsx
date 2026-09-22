@@ -17,8 +17,6 @@ import { cn } from '@/lib/utils'
 
 const LIMIT = 20
 
-// ─── Status filter tabs ───────────────────────────────────────────────────────
-
 const STATUS_TABS: { value: AgentApplicationStatus | ''; label: string }[] = [
   { value: '', label: 'All' },
   { value: 'PENDING', label: 'Pending' },
@@ -27,7 +25,7 @@ const STATUS_TABS: { value: AgentApplicationStatus | ''; label: string }[] = [
   { value: 'REJECTED', label: 'Rejected' },
 ]
 
-// ─── Reject dialog (reason required) ─────────────────────────────────────────
+// ─── Reject dialog ─────────────────────────────────────────────────────────────
 
 function RejectDialog({ application, onClose }: { application: AgentApplication; onClose: () => void }) {
   const [reason, setReason] = useState('')
@@ -40,7 +38,7 @@ function RejectDialog({ application, onClose }: { application: AgentApplication;
         <DialogHeader>
           <DialogTitle>Reject application</DialogTitle>
           <DialogDescription>
-            Rejecting <strong className="text-primary">{application.businessName}</strong>. A reason is required and
+            Rejecting <strong className="text-[#1A1A1A]">{application.businessName}</strong>. A reason is required and
             will be shared with the applicant.
           </DialogDescription>
         </DialogHeader>
@@ -50,7 +48,7 @@ function RejectDialog({ application, onClose }: { application: AgentApplication;
             onChange={(e) => setReason(e.target.value)}
             placeholder="Reason for rejection (required)…"
             rows={4}
-            className="w-full px-3 py-2.5 rounded border border-border-warm bg-bg text-[13.5px] font-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors resize-none"
+            className="w-full px-3 py-2.5 rounded-lg border border-[#E5E1D8] bg-[#F9F7F2] text-[13.5px] font-sans text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#A68B67] transition-colors resize-none"
           />
         </div>
         <DialogFooter>
@@ -70,7 +68,7 @@ function RejectDialog({ application, onClose }: { application: AgentApplication;
   )
 }
 
-// ─── Request more info dialog ─────────────────────────────────────────────────
+// ─── Request info dialog ───────────────────────────────────────────────────────
 
 function RequestInfoDialog({ application, onClose }: { application: AgentApplication; onClose: () => void }) {
   const [message, setMessage] = useState('')
@@ -83,7 +81,7 @@ function RequestInfoDialog({ application, onClose }: { application: AgentApplica
         <DialogHeader>
           <DialogTitle>Request more information</DialogTitle>
           <DialogDescription>
-            Send <strong className="text-primary">{application.businessName}</strong> a message describing what
+            Send <strong className="text-[#1A1A1A]">{application.businessName}</strong> a message describing what
             additional information is needed.
           </DialogDescription>
         </DialogHeader>
@@ -93,7 +91,7 @@ function RequestInfoDialog({ application, onClose }: { application: AgentApplica
             onChange={(e) => setMessage(e.target.value)}
             placeholder="What information do you need from the applicant?"
             rows={4}
-            className="w-full px-3 py-2.5 rounded border border-border-warm bg-bg text-[13.5px] font-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors resize-none"
+            className="w-full px-3 py-2.5 rounded-lg border border-[#E5E1D8] bg-[#F9F7F2] text-[13.5px] font-sans text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#A68B67] transition-colors resize-none"
           />
         </div>
         <DialogFooter>
@@ -113,7 +111,7 @@ function RequestInfoDialog({ application, onClose }: { application: AgentApplica
   )
 }
 
-// ─── Internal notes (inline expand) ──────────────────────────────────────────
+// ─── Internal notes ────────────────────────────────────────────────────────────
 
 function NotesPanel({ application }: { application: AgentApplication }) {
   const [note, setNote] = useState('')
@@ -121,16 +119,16 @@ function NotesPanel({ application }: { application: AgentApplication }) {
   const trimmed = note.trim()
 
   return (
-    <div className="mt-3 pt-3 border-t border-border-warm space-y-2.5">
-      <p className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em]">
+    <div className="mt-4 pt-4 border-t border-[#F5F0E8] space-y-3">
+      <p className="text-[11px] font-[700] font-sans text-[#A68B67] uppercase tracking-[0.08em]">
         Internal notes
       </p>
       {application.internalNotes ? (
-        <p className="text-[13px] font-sans text-primary whitespace-pre-wrap bg-muted-bg/40 rounded px-3 py-2.5">
+        <p className="text-[13px] font-sans text-[#1A1A1A] whitespace-pre-wrap bg-[#F9F7F2] rounded-lg px-3 py-2.5">
           {application.internalNotes}
         </p>
       ) : (
-        <p className="text-[12.5px] font-sans text-muted-text">No internal notes yet.</p>
+        <p className="text-[12.5px] font-sans text-[#9CA3AF]">No internal notes yet.</p>
       )}
       <div className="flex gap-2">
         <input
@@ -138,7 +136,7 @@ function NotesPanel({ application }: { application: AgentApplication }) {
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Add a note (not visible to applicant)…"
-          className="flex-1 h-9 px-3 rounded border border-border-warm bg-surface text-[13px] font-sans text-primary placeholder:text-muted-text focus:outline-none focus:border-accent transition-colors"
+          className="flex-1 h-9 px-3 rounded-lg border border-[#E5E1D8] bg-white text-[13px] font-sans text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#A68B67] transition-colors"
         />
         <Button
           variant="ghost"
@@ -153,7 +151,7 @@ function NotesPanel({ application }: { application: AgentApplication }) {
   )
 }
 
-// ─── Application card ─────────────────────────────────────────────────────────
+// ─── Application card ──────────────────────────────────────────────────────────
 
 function ApplicationCard({
   application,
@@ -170,36 +168,49 @@ function ApplicationCard({
   const canAct = application.status === 'PENDING' || application.status === 'MORE_INFO_REQUESTED'
 
   return (
-    <div className="bg-surface border border-border-warm rounded p-5">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
+    <div className="bg-white border border-[#E5E1D8] rounded-xl p-5 hover:border-[#C4BDB4] transition-colors">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+
         {/* Left: application info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <p className="text-[15px] font-[600] font-sans text-primary">{application.businessName}</p>
+          <div className="flex items-center gap-2.5 mb-1 flex-wrap">
+            <p className="text-[15px] font-[700] font-sans text-[#1A1A1A]">{application.businessName}</p>
             <StatusBadge status={application.status} />
           </div>
-          <p className="text-[13px] font-sans text-muted-text mb-2.5">{application.contactName}</p>
+          <p className="text-[13px] font-sans text-[#6B6460] mb-3">{application.contactName}</p>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12.5px] font-sans text-muted-text">
-            <span className="flex items-center gap-1"><Mail size={11} aria-hidden="true" />{application.email}</span>
-            <span className="flex items-center gap-1"><Phone size={11} aria-hidden="true" />{application.phone}</span>
-            <span className="flex items-center gap-1"><MapPin size={11} aria-hidden="true" />{application.businessAddress}</span>
-            <span className="flex items-center gap-1"><Globe2 size={11} aria-hidden="true" />{application.country}</span>
-            <span className="flex items-center gap-1">
-              <CalendarDays size={11} aria-hidden="true" />
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px] font-sans text-[#9CA3AF]">
+            <span className="flex items-center gap-1.5">
+              <Mail size={11} aria-hidden="true" className="text-[#C4BDB4]" />
+              {application.email}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Phone size={11} aria-hidden="true" className="text-[#C4BDB4]" />
+              {application.phone}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <MapPin size={11} aria-hidden="true" className="text-[#C4BDB4]" />
+              {application.businessAddress}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Globe2 size={11} aria-hidden="true" className="text-[#C4BDB4]" />
+              {application.country}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CalendarDays size={11} aria-hidden="true" className="text-[#C4BDB4]" />
               Applied {new Date(application.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
             </span>
           </div>
 
           {application.message && (
-            <p className="mt-2.5 text-[13px] font-sans text-primary bg-muted-bg/40 rounded px-3 py-2 flex gap-2">
-              <MessageSquare size={13} className="text-muted-text mt-0.5 shrink-0" aria-hidden="true" />
-              <span className="whitespace-pre-wrap">{application.message}</span>
-            </p>
+            <div className="mt-3 flex gap-2.5 bg-[#F9F7F2] rounded-lg px-3 py-2.5">
+              <MessageSquare size={13} className="text-[#C4BDB4] mt-0.5 shrink-0" aria-hidden="true" />
+              <p className="text-[13px] font-sans text-[#1A1A1A] whitespace-pre-wrap">{application.message}</p>
+            </div>
           )}
 
           {application.status === 'REJECTED' && application.rejectionReason && (
-            <p className="mt-2.5 text-[13px] font-sans text-error bg-error/10 rounded px-3 py-2">
+            <p className="mt-3 text-[13px] font-sans text-red-700 bg-red-50 rounded-lg px-3 py-2.5 border border-red-100">
               Rejection reason: {application.rejectionReason}
             </p>
           )}
@@ -225,7 +236,7 @@ function ApplicationCard({
               </Button>
             </>
           )}
-          <Button variant="ghost" size="sm" onClick={() => setExpanded((e) => !e)} className="gap-1">
+          <Button variant="ghost" size="sm" onClick={() => setExpanded((e) => !e)} className="gap-1.5">
             <StickyNote size={12} aria-hidden="true" />
             Notes
             {expanded ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
@@ -265,37 +276,34 @@ export default function AgentApplicationsPage() {
 
   return (
     <div>
+
       {/* Header */}
-      <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
+      <div className="mb-7 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[28px] leading-[1.3] font-[500] font-display text-primary">Agent Applications</h1>
-          <p className="text-[14px] font-sans text-muted-text mt-1">Review and action agent applications</p>
+          <h1 className="text-[26px] font-[700] font-sans text-[#1A1A1A] leading-tight">Agent Applications</h1>
+          <p className="text-[13.5px] font-sans text-[#9CA3AF] mt-1">Review and action agent applications</p>
         </div>
         {total > 0 && (
-          <p className="text-[13px] font-sans text-muted-text self-end">
+          <p className="text-[13px] font-sans text-[#9CA3AF] self-end">
             {total.toLocaleString()} application{total !== 1 ? 's' : ''}
           </p>
         )}
       </div>
 
       {/* Search */}
-      <div className="mb-4 relative max-w-[320px]">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-text" aria-hidden="true" />
+      <div className="mb-4 relative max-w-[340px]">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#C4BDB4]" aria-hidden="true" />
         <input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by business name or email…"
-          className={cn(
-            'w-full h-9 pl-9 pr-3 rounded border border-border-warm bg-surface',
-            'text-[14px] font-sans text-primary placeholder:text-muted-text',
-            'focus:outline-none focus:border-primary/40 transition-colors'
-          )}
+          className="w-full h-9 pl-9 pr-3 rounded-lg border border-[#E5E1D8] bg-white text-[13.5px] font-sans text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#A68B67] transition-colors"
         />
       </div>
 
       {/* Status tabs */}
-      <div className="flex gap-1 mb-4 border-b border-border-warm overflow-x-auto">
+      <div className="flex gap-0 mb-5 border-b border-[#E5E1D8] overflow-x-auto">
         {STATUS_TABS.map(({ value, label }) => (
           <button
             key={label}
@@ -303,7 +311,9 @@ export default function AgentApplicationsPage() {
             onClick={() => { setStatus(value); setPage(1) }}
             className={cn(
               'px-4 py-2.5 text-[13px] font-[600] font-sans border-b-2 -mb-px transition-colors whitespace-nowrap',
-              status === value ? 'border-primary text-primary' : 'border-transparent text-muted-text hover:text-primary'
+              status === value
+                ? 'border-[#A68B67] text-[#A68B67]'
+                : 'border-transparent text-[#9CA3AF] hover:text-[#1A1A1A]'
             )}
           >
             {label}
@@ -315,30 +325,30 @@ export default function AgentApplicationsPage() {
       {isLoading ? (
         <div className="grid gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="bg-surface border border-border-warm rounded p-5 animate-pulse">
+            <div key={i} className="bg-white border border-[#E5E1D8] rounded-xl p-5 animate-pulse">
               <div className="flex justify-between gap-4">
                 <div className="flex-1 space-y-3">
-                  <div className="h-4 bg-muted-bg rounded w-40" />
-                  <div className="h-3 bg-muted-bg rounded w-56" />
+                  <div className="h-4 bg-[#F5F0E8] rounded w-40" />
+                  <div className="h-3 bg-[#F5F0E8] rounded w-56" />
                 </div>
                 <div className="space-y-2">
-                  <div className="h-8 bg-muted-bg rounded w-24" />
-                  <div className="h-8 bg-muted-bg rounded w-24" />
+                  <div className="h-8 bg-[#F5F0E8] rounded w-24" />
+                  <div className="h-8 bg-[#F5F0E8] rounded w-24" />
                 </div>
               </div>
             </div>
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-surface border border-border-warm rounded py-16 flex flex-col items-center gap-3 text-center">
-          <div className="w-12 h-12 rounded-full bg-muted-bg flex items-center justify-center">
-            <ClipboardList size={22} className="text-muted-text" aria-hidden="true" />
+        <div className="bg-white border border-[#E5E1D8] rounded-xl py-16 flex flex-col items-center gap-3 text-center">
+          <div className="w-12 h-12 rounded-full bg-[#F5F0E8] flex items-center justify-center">
+            <ClipboardList size={22} className="text-[#A68B67]" aria-hidden="true" />
           </div>
-          <p className="text-[16px] font-[600] font-sans text-primary">
+          <p className="text-[16px] font-[600] font-sans text-[#1A1A1A]">
             {search ? 'No matching applications' : 'No applications found'}
           </p>
           {(search || status) && (
-            <p className="text-[13px] font-sans text-muted-text">Try adjusting your filters.</p>
+            <p className="text-[13px] font-sans text-[#9CA3AF]">Try adjusting your filters.</p>
           )}
         </div>
       ) : (
@@ -354,9 +364,10 @@ export default function AgentApplicationsPage() {
         </div>
       )}
 
+      {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-1 py-4">
-          <p className="text-[12px] font-sans text-muted-text">
+        <div className="flex items-center justify-between px-1 py-5">
+          <p className="text-[12px] font-sans text-[#9CA3AF]">
             Page {page} of {totalPages} &middot; {total.toLocaleString()} total
           </p>
           <div className="flex gap-2">
@@ -364,7 +375,7 @@ export default function AgentApplicationsPage() {
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
+              className="h-8 px-4 rounded-lg border border-[#E5E1D8] text-[12px] font-[600] font-sans text-[#6B6460] hover:text-[#1A1A1A] hover:border-[#C4BDB4] disabled:opacity-40 transition-colors"
             >
               Prev
             </button>
@@ -372,7 +383,7 @@ export default function AgentApplicationsPage() {
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="h-8 px-3 rounded border border-border-warm text-[12px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg disabled:opacity-40 transition-colors"
+              className="h-8 px-4 rounded-lg border border-[#E5E1D8] text-[12px] font-[600] font-sans text-[#6B6460] hover:text-[#1A1A1A] hover:border-[#C4BDB4] disabled:opacity-40 transition-colors"
             >
               Next
             </button>
