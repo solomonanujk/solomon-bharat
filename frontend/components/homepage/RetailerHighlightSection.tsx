@@ -8,8 +8,8 @@ export function RetailerHighlightSection() {
         {/* Header row */}
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6 md:gap-10 mb-8 sm:mb-10">
           <div>
-            <p className="font-display italic font-[400] text-[#E8DE9A] text-[26px] sm:text-[32px] lg:text-[38px] leading-[1.15]">
-              We&apos;re Solomon Bharat.
+            <p className="font-display font-[500] text-white text-[18px] sm:text-[22px] lg:text-[26px] leading-[1.3] tracking-[0.05em]">
+              We&apos;re <span className="text-[#E8DE9A]">Solomon Bharat</span>.
             </p>
             <p className="font-sans font-[600] text-white text-[18px] sm:text-[22px] lg:text-[26px] leading-[1.3] tracking-[0.05em] mt-1">
               The platform for retailers.

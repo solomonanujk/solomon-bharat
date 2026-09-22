@@ -72,7 +72,7 @@ export function HeroSection() {
 
             {/* Headline */}
             <h1 className="font-display font-[500] text-white leading-[1.05] text-[26px] sm:text-[34px] lg:text-[44px]">
-              Find your <span className="text-[#F0C468]">winning product</span>
+              Discover and source bestseller product for your <CyclingAudience />
             </h1>
 
             {/* Body */}
@@ -91,11 +91,6 @@ export function HeroSection() {
                 <ArrowRight size={14} aria-hidden="true" />
               </button>
             </div>
-
-            {/* Audience line */}
-            <p className="font-sans text-[14px] sm:text-[15px] font-[400] text-white mt-8 sm:mt-10">
-              Discover and source bestseller product for your <CyclingAudience />
-            </p>
 
           </div>
         </div>
