@@ -16,6 +16,7 @@ interface AuthState {
   _hasHydrated: boolean
   cartCount: number
   notificationCount: number
+  isApplyModalOpen: boolean
 }
 
 interface AuthActions {
@@ -27,6 +28,8 @@ interface AuthActions {
   _setHasHydrated: (v: boolean) => void
   setCartCount: (count: number) => void
   setNotificationCount: (count: number) => void
+  openApplyModal: () => void
+  closeApplyModal: () => void
 }
 
 type AuthStore = AuthState & AuthActions
@@ -43,6 +46,7 @@ export const useAuthStore = create<AuthStore>()(
       _hasHydrated: false,
       cartCount: 0,
       notificationCount: 0,
+      isApplyModalOpen: false,
 
       // ─── Actions ──────────────────────────────────────────────────────────
       _setHasHydrated: (v) => set({ _hasHydrated: v }),
@@ -89,6 +93,9 @@ export const useAuthStore = create<AuthStore>()(
           isAuthModalOpen: false,
           pendingAction: null,
         }),
+
+      openApplyModal: () => set({ isApplyModalOpen: true }),
+      closeApplyModal: () => set({ isApplyModalOpen: false }),
     }),
     {
       name: 'sb_auth',
