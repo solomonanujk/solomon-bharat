@@ -56,7 +56,7 @@ function SettingRow({ setting }: { setting: PlatformSetting }) {
   const dirty = value !== valueToText(setting.value)
 
   return (
-    <div className="flex items-end gap-3 py-3.5 px-4 border-b border-border-warm last:border-0">
+    <div className="flex items-end gap-3 py-3.5 px-4 border-b border-[#E5E1D8] last:border-0">
       <div className="flex-1 min-w-0">
         <Label className="mb-1">{setting.key}</Label>
         <Input value={value} onChange={(e) => setValue(e.target.value)} />
@@ -89,8 +89,8 @@ function AddSettingForm() {
   }
 
   return (
-    <div className="bg-surface border border-border-warm rounded p-6 space-y-4">
-      <h2 className="text-[16px] font-[600] font-sans text-primary pb-3 border-b border-border-warm flex items-center gap-2">
+    <div className="bg-white border border-[#E5E1D8] rounded-xl p-6 space-y-4">
+      <h2 className="text-[16px] font-[600] font-sans text-[#1A1A1A] pb-3 border-b border-[#E5E1D8] flex items-center gap-2">
         <Plus size={15} aria-hidden="true" />
         Add setting
       </h2>
@@ -134,17 +134,17 @@ export default function AdminSettingsPage() {
   return (
     <div className="max-w-2xl">
       <div className="mb-6">
-        <h1 className="text-[28px] leading-[1.3] font-[500] font-display text-primary">Settings</h1>
-        <p className="text-[14px] font-sans text-muted-text mt-1">
+        <h1 className="text-[28px] leading-[1.3] font-[500] font-sans text-[#1A1A1A]">Settings</h1>
+        <p className="text-[14px] font-sans text-[#6B6460] mt-1">
           Platform-wide key/value configuration
         </p>
       </div>
 
-      <div className="bg-surface border border-border-warm rounded overflow-hidden mb-6">
+      <div className="bg-white border border-[#E5E1D8] rounded-xl overflow-hidden mb-6">
         {isLoading ? (
           <div className="p-4 space-y-2">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-10 bg-muted-bg rounded animate-pulse" />
+              <div key={i} className="h-10 bg-[#F5F0E8] rounded animate-pulse" />
             ))}
           </div>
         ) : settings.length === 0 ? (
@@ -159,7 +159,7 @@ export default function AdminSettingsPage() {
 
       <AddSettingForm />
 
-      <p className="text-[12px] font-sans text-muted-text mt-4 flex items-center gap-1.5">
+      <p className="text-[12px] font-sans text-[#6B6460] mt-4 flex items-center gap-1.5">
         <SettingsIcon size={12} aria-hidden="true" />
         Values are stored as JSON when they look like a number, boolean, object, or array — otherwise as plain text.
       </p>

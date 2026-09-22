@@ -73,14 +73,14 @@ export default function AdminReportsPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-[28px] leading-[1.3] font-[500] font-display text-primary">Reports</h1>
-        <p className="text-[14px] font-sans text-muted-text mt-1">
+        <h1 className="text-[28px] leading-[1.3] font-[500] font-sans text-[#1A1A1A]">Reports</h1>
+        <p className="text-[14px] font-sans text-[#6B6460] mt-1">
           Analytics and exports across revenue, orders, sellers, products, categories, and collections
         </p>
       </div>
 
       {/* Controls */}
-      <div className="bg-surface border border-border-warm rounded p-5 mb-6 flex flex-wrap items-end gap-4">
+      <div className="bg-white border border-[#E5E1D8] rounded-xl p-5 mb-6 flex flex-wrap items-end gap-4">
         <div className="w-full sm:w-[260px]">
           <Label>Report type</Label>
           <Select value={type} onValueChange={(v) => setType(v as ReportType)}>
@@ -102,7 +102,7 @@ export default function AdminReportsPage() {
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="h-10 px-3 rounded border border-border-warm bg-surface text-[14px] font-sans text-primary focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-colors"
+            className="h-10 px-3 rounded border border-[#E5E1D8] bg-white text-[14px] font-sans text-[#1A1A1A] focus:outline-none focus:ring-1 focus:ring-[#A68B67] focus:border-[#A68B67] transition-colors"
           />
         </div>
 
@@ -113,7 +113,7 @@ export default function AdminReportsPage() {
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            className="h-10 px-3 rounded border border-border-warm bg-surface text-[14px] font-sans text-primary focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-colors"
+            className="h-10 px-3 rounded border border-[#E5E1D8] bg-white text-[14px] font-sans text-[#1A1A1A] focus:outline-none focus:ring-1 focus:ring-[#A68B67] focus:border-[#A68B67] transition-colors"
           />
         </div>
 
@@ -121,7 +121,7 @@ export default function AdminReportsPage() {
           <button
             type="button"
             onClick={() => { setFrom(''); setTo('') }}
-            className="h-10 text-[12px] font-sans text-muted-text hover:text-primary transition-colors underline underline-offset-2"
+            className="h-10 text-[12px] font-sans text-[#6B6460] hover:text-[#1A1A1A] transition-colors underline underline-offset-2"
           >
             Clear dates
           </button>
@@ -141,15 +141,15 @@ export default function AdminReportsPage() {
 
       {/* Results */}
       {isLoading || isFetching ? (
-        <div className="bg-surface border border-border-warm rounded overflow-hidden">
+        <div className="bg-white border border-[#E5E1D8] rounded-xl overflow-hidden">
           <div className="p-4 space-y-2">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-9 bg-muted-bg rounded animate-pulse" />
+              <div key={i} className="h-9 bg-[#F5F0E8] rounded animate-pulse" />
             ))}
           </div>
         </div>
       ) : rows.length === 0 ? (
-        <div className="bg-surface border border-border-warm rounded overflow-hidden">
+        <div className="bg-white border border-[#E5E1D8] rounded-xl overflow-hidden">
           <EmptyState
             title={`No data for ${typeLabel}`}
             description="Try a different date range or report type."
@@ -160,7 +160,7 @@ export default function AdminReportsPage() {
       )}
 
       {rows.length === 0 && !isLoading && !isFetching && (
-        <p className="text-[12px] font-sans text-muted-text mt-3 flex items-center gap-1.5">
+        <p className="text-[12px] font-sans text-[#6B6460] mt-3 flex items-center gap-1.5">
           <FileBarChart size={12} aria-hidden="true" />
           Reports refresh automatically as you change the type or date range.
         </p>
