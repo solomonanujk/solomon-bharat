@@ -71,7 +71,7 @@ export function ApplyModal() {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose() }}>
-      <DialogContent className="max-w-[520px] w-full p-0 gap-0 overflow-hidden rounded-2xl border border-[#E5E1D8] shadow-2xl shadow-black/10">
+      <DialogContent showClose={false} className="max-w-[520px] w-full p-0 gap-0 overflow-hidden rounded-2xl border border-[#E5E1D8] shadow-2xl shadow-black/10">
 
         {/* Header */}
         <div className="flex items-start justify-between px-6 pt-6 pb-5 border-b border-[#E5E1D8]">
