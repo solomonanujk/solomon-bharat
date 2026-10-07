@@ -13,10 +13,6 @@ import { NavBar } from '@/components/shared/NavBar'
 import { Footer } from '@/components/shared/Footer'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 
-function useApplyModal() {
-  return useAuthStore((s) => s.openApplyModal)
-}
-
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
 const HERO_STATS = [
@@ -27,7 +23,6 @@ const HERO_STATS = [
 ]
 
 function Hero() {
-  const openApplyModal = useApplyModal()
   return (
     <section className="relative overflow-hidden min-h-[580px] h-[90vh]">
 
@@ -72,21 +67,20 @@ function Hero() {
 
             {/* Body */}
             <p className="font-sans text-[14px] sm:text-[15px] font-[500] leading-[1.65] text-muted-text mt-4 sm:mt-6 max-w-[400px]">
-              We sell Indian-made products to wholesale buyers in 40+ countries.
-              You make the product and set your price — we handle the buyers,
-              the payments, and the international paperwork.
+              We help you sell your handmade products to wholesale buyers in
+              40+ countries. You make the product and set your price — we
+              handle the buyers, the payments, and the international paperwork.
             </p>
 
             {/* CTAs */}
             <div className="mt-8 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={openApplyModal}
+              <Link
+                href="/apply"
                 className="inline-flex items-center gap-2 rounded bg-primary text-white font-[700] font-sans text-[14px] px-6 py-3 hover:bg-[#2a2a2a] transition-colors"
               >
                 Apply now — it&apos;s free
                 <ArrowRight size={14} aria-hidden />
-              </button>
+              </Link>
               <a
                 href="#how-it-works"
                 className="inline-flex items-center gap-2 rounded border border-border-warm bg-white/50 backdrop-blur-sm text-primary font-[700] font-sans text-[14px] px-5 py-3 hover:bg-white/80 transition-colors"
@@ -273,7 +267,6 @@ const STEPS = [
 ]
 
 function HowItWorks() {
-  const openApplyModal = useApplyModal()
   return (
     <section id="how-it-works" className="py-14 lg:py-20 bg-surface border-y border-border-warm relative overflow-hidden">
       <div className="absolute bottom-0 left-0 w-[500px] h-[400px] rounded-full bg-accent/[0.03] blur-[100px] -translate-x-1/3 translate-y-1/3 pointer-events-none" />
@@ -311,14 +304,13 @@ function HowItWorks() {
         </div>
 
         <div className="mt-10 text-center">
-          <button
-            type="button"
-            onClick={openApplyModal}
+          <Link
+            href="/apply"
             className="inline-flex items-center gap-2 rounded-lg bg-primary text-white font-[700] font-sans text-[15px] px-9 py-4 hover:bg-[#2a2a2a] transition-all hover:shadow-xl hover:shadow-black/12 hover:-translate-y-0.5"
           >
             Start your application
             <ArrowRight size={15} aria-hidden />
-          </button>
+          </Link>
         </div>
       </div>
     </section>
@@ -750,7 +742,6 @@ function FAQ() {
 
 function FinalCTA() {
   const openAuthModal = useAuthStore((s) => s.openAuthModal)
-  const openApplyModal = useApplyModal()
   return (
     <section className="py-14 lg:py-20 bg-bg border-t border-border-warm">
       <div className="max-w-3xl mx-auto px-6 text-center">
@@ -771,14 +762,13 @@ function FinalCTA() {
           you&apos;ll hear back within two business days.
         </p>
 
-        <button
-          type="button"
-          onClick={openApplyModal}
+        <Link
+          href="/apply"
           className="inline-flex items-center gap-2 rounded bg-primary text-white font-[700] font-sans text-[14px] px-8 py-3.5 hover:bg-[#2a2a2a] transition-colors"
         >
           Apply now — it&apos;s free
           <ArrowRight size={14} aria-hidden />
-        </button>
+        </Link>
 
         <p className="mt-6 font-sans text-[13px] text-muted-text">
           Already have an account?{' '}

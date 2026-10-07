@@ -7,7 +7,6 @@ import { AddedToCartPopup } from "@/components/shared/AddedToCartPopup";
 import { CatalogueTray } from "@/components/shared/CatalogueTray";
 import { AppInitialiser } from "@/components/shared/AppInitialiser";
 import { AuthModal } from "@/components/shared/AuthModal";
-import { ApplyModal } from "@/components/shared/ApplyModal";
 import { Toaster } from "sonner";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -30,7 +29,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <AppInitialiser />
       {children}
       <AuthModal />
-      <ApplyModal />
       <AddedToCartPopup />
       <CatalogueTray />
       <Toaster position="top-right" richColors closeButton />

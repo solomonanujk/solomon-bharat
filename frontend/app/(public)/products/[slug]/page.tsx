@@ -138,12 +138,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 
           {/* Two-column layout */}
           <div className="flex flex-col lg:flex-row gap-10 lg:gap-12 lg:items-start">
-            <div className="w-full lg:w-[67%] lg:sticky lg:top-[88px] lg:self-start">
+            <div className="w-full lg:w-[54%] lg:sticky lg:top-[88px] lg:self-start">
               <PhotoGallery images={images} productName={product.name} />
               <ProductVideoStrip videos={product.videos ?? []} productName={product.name} />
             </div>
 
-            <div className="w-full lg:w-[33%]">
+            <div className="w-full lg:w-[46%]">
               <ProductInfo product={product} />
             </div>
           </div>

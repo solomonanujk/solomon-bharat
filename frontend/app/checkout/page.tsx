@@ -2,24 +2,61 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Lock, MapPin, Plus, ShieldCheck, Timer } from 'lucide-react'
+import { ArrowLeft, Lock, MapPin, Phone, Plus, ShieldCheck, Timer } from 'lucide-react'
 import { useCartStore } from '@/lib/store/useCartStore'
 import { useCurrencyStore } from '@/lib/store/useCurrencyStore'
 import { useAuth } from '@/hooks/useAuth'
 import { useCheckout, useCheckoutFxRate } from '@/hooks/queries/usePayments'
 import { useAddresses, useCreateAddress } from '@/hooks/queries/useAddresses'
+import { useBuyerProfile, useUpdateBuyerProfile } from '@/hooks/queries/useBuyerProfile'
 import { NavBar } from '@/components/shared/NavBar'
 import { Footer } from '@/components/shared/Footer'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { useImageLightbox } from '@/components/shared/ImageLightbox'
 import { AddressFormDialog, EMPTY_ADDRESS_FORM } from '@/components/shared/AddressFormDialog'
+import { isValidPhoneNumber, PhoneInput } from '@/components/shared/PhoneInput'
 import { useFormatPrice } from '@/components/ui/Price'
 import { cloudinaryFill } from '@/lib/cloudinaryImage'
+import { PHONE_COUNTRY_CODES } from '@/lib/phoneCountryCodes'
 import type { Address } from '@/types'
 import type { AddressInput } from '@/hooks/queries/useAddresses'
 
 const PAYMENT_ID_KEY = 'sb_checkout_payment_id'
 const ORDER_ID_KEY = 'sb_checkout_order_id'
+
+// ─── Contact number ─────────────────────────────────────────────────────────────
+// Required before placing an order (buyers and agents both — an agent account
+// has its own BuyerProfile row too, prefilled from their application's phone
+// at approval time, so this same field/profile works unchanged for either).
+
+function ContactNumberSection({
+  phone,
+  onChange,
+  isLoading,
+  showError,
+}: {
+  phone: string
+  onChange: (value: string) => void
+  isLoading: boolean
+  showError: boolean
+}) {
+  return (
+    <div className="bg-surface border border-border-warm rounded p-6">
+      <h2 className="text-[14px] leading-[1.4] font-[600] font-sans text-primary flex items-center gap-2 mb-4">
+        <Phone size={15} className="text-accent" aria-hidden="true" />
+        Contact Number
+      </h2>
+      {isLoading ? (
+        <div className="h-11 rounded bg-muted-bg animate-pulse" />
+      ) : (
+        <PhoneInput value={phone} onChange={onChange} showError={showError} />
+      )}
+      <p className="text-[12px] font-sans text-muted-text mt-2">
+        We&apos;ll use this number to reach you about your order.
+      </p>
+    </div>
+  )
+}
 
 // ─── Delivery address ───────────────────────────────────────────────────────────
 
@@ -130,14 +167,15 @@ function DeliveryAddressSection({
 function PriceDetails({
   itemCount,
   total,
-  disabled,
+  disabledReason,
   isPending,
   errorMessage,
   onPlaceOrder,
 }: {
   itemCount: number
   total: number
-  disabled: boolean
+  /** Why the CTA is disabled, shown as a hint below it — null once nothing is missing. */
+  disabledReason: string | null
   isPending: boolean
   errorMessage: string | null
   onPlaceOrder: () => void
@@ -184,14 +222,14 @@ function PriceDetails({
         <button
           type="button"
           onClick={onPlaceOrder}
-          disabled={disabled || isPending}
+          disabled={!!disabledReason || isPending}
           className="w-full h-12 mt-5 rounded bg-primary text-white font-[600] font-sans text-[14px] hover:bg-[#2a2a2a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isPending ? 'Redirecting to PayPal…' : 'Pay with PayPal'}
         </button>
-        {disabled && !isPending && (
+        {disabledReason && !isPending && (
           <p className="text-[11px] font-sans text-muted-text mt-2 text-center">
-            Select a delivery address to continue.
+            {disabledReason}
           </p>
         )}
       </div>
@@ -221,8 +259,12 @@ export default function CheckoutPage() {
   const getTotalItems = useCartStore((s) => s.getTotalItems)
   const checkout = useCheckout()
   const { data: addresses = [] } = useAddresses()
+  const { data: buyerProfile, isLoading: profileLoading } = useBuyerProfile()
+  const updateBuyerProfile = useUpdateBuyerProfile()
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
+  const [phone, setPhone] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [submitAttempted, setSubmitAttempted] = useState(false)
   const { openLightbox, lightboxNode } = useImageLightbox()
 
   useEffect(() => {
@@ -230,17 +272,48 @@ export default function CheckoutPage() {
     setSelectedAddressId(addresses.find((a) => a.isDefault)?.id ?? addresses[0].id)
   }, [addresses, selectedAddressId])
 
+  // Prefills once from the account's saved number — a buyer's own edit below
+  // always wins over a later background refetch of the same query. When
+  // there's no saved number yet, seeds just the country's dial code (from the
+  // buyer's own country) so they aren't stuck guessing which one to pick.
+  useEffect(() => {
+    if (!buyerProfile) return
+    setPhone((p) => {
+      if (p) return p
+      if (buyerProfile.phone) return buyerProfile.phone
+      const match = PHONE_COUNTRY_CODES.find((c) => c.name === buyerProfile.country)
+      return match ? `${match.dialCode} ` : ''
+    })
+  }, [buyerProfile])
+
   const isEmpty = items.length === 0
   const total = getTotalValueInr()
   const itemCount = getTotalItems()
+  const trimmedPhone = phone.trim()
+  const phoneValid = isValidPhoneNumber(trimmedPhone)
 
-  function handlePlaceOrder() {
+  async function handlePlaceOrder() {
+    setSubmitAttempted(true)
+    if (!phoneValid) {
+      setErrorMessage('Enter a valid mobile number to continue.')
+      return
+    }
     if (!selectedAddressId) {
       setErrorMessage('Select a delivery address to continue.')
       return
     }
-    requireAuth(() => {
+    requireAuth(async () => {
       setErrorMessage(null)
+
+      if (trimmedPhone !== (buyerProfile?.phone ?? '')) {
+        try {
+          await updateBuyerProfile.mutateAsync({ phone: trimmedPhone })
+        } catch {
+          setErrorMessage('Could not save your mobile number. Please try again.')
+          return
+        }
+      }
+
       checkout.mutate(
         {
           items: items.map((i) => ({ productId: i.productId, quantity: i.quantity, variantId: i.variantId })),
@@ -294,6 +367,8 @@ export default function CheckoutPage() {
         ) : (
           <div className="lg:grid lg:grid-cols-[1fr_360px] gap-8 items-start">
             <div className="flex flex-col gap-6">
+              <ContactNumberSection phone={phone} onChange={setPhone} isLoading={profileLoading} showError={submitAttempted} />
+
               <DeliveryAddressSection selectedId={selectedAddressId} onSelect={setSelectedAddressId} />
 
               {/* Order review */}
@@ -347,7 +422,13 @@ export default function CheckoutPage() {
               <PriceDetails
                 itemCount={itemCount}
                 total={total}
-                disabled={!selectedAddressId}
+                disabledReason={
+                  !phoneValid
+                    ? 'Enter a valid mobile number to continue.'
+                    : !selectedAddressId
+                      ? 'Select a delivery address to continue.'
+                      : null
+                }
                 isPending={checkout.isPending}
                 errorMessage={errorMessage}
                 onPlaceOrder={handlePlaceOrder}

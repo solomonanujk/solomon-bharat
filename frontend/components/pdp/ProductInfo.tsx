@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
-import { CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Heart, Package, Share2, Star, X, BookmarkPlus, BookmarkCheck } from 'lucide-react'
+import {
+  CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Heart, Package, Share2, Star, X, BookmarkPlus, BookmarkCheck,
+  MapPin, ClipboardCheck, Truck, Home as HomeIcon, Scale, Ruler, Globe, Clock, Palette, Receipt, AlignLeft, Layers,
+  Info, Hammer, ShoppingCart,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import { displayUnitPrice } from '@/lib/pricing'
@@ -23,11 +27,13 @@ import type { Product, Review } from '@/types'
 
 function ExpandableSection({
   title,
+  icon: Icon,
   children,
   defaultOpen = false,
   collapsedPreview,
 }: {
   title: string
+  icon?: React.ComponentType<{ size?: number; className?: string; 'aria-hidden'?: boolean }>
   children: React.ReactNode
   defaultOpen?: boolean
   /** Shown in place of nothing while collapsed — e.g. a 3-line description peek. */
@@ -43,7 +49,10 @@ function ExpandableSection({
         className="w-full flex items-center justify-between py-4 text-left text-[13px] font-[600] font-sans text-primary hover:text-muted-text transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent rounded tracking-[0.05em]"
         aria-expanded={open}
       >
-        {title}
+        <span className="inline-flex items-center gap-2">
+          {Icon && <Icon size={14} className="text-muted-text" aria-hidden={true} />}
+          {title}
+        </span>
         <ChevronDown
           size={16}
           className={cn('text-muted-text transition-transform duration-200 flex-shrink-0', open && 'rotate-180')}
@@ -201,6 +210,82 @@ function resolveUnitPrice(
   return applicable.adminPrice
 }
 
+// ─── Delivery timeline ──────────────────────────────────────────────────────────
+// Parses the seller's free-text lead time ("10-15 days", "1-2 weeks", "20 days")
+// into a real date range for "ready to ship" — "Delivered" deliberately carries
+// no fixed date, since cross-border transit time genuinely varies by destination
+// and we have no real transit-time data to base one on (unlike a domestic
+// courier network that controls its own last-mile delivery end to end).
+
+function parseLeadTimeDays(leadTime: string): { min: number; max: number } | null {
+  const weekRange = leadTime.match(/(\d+)\s*[-–to]+\s*(\d+)\s*week/i)
+  if (weekRange) return { min: Number(weekRange[1]) * 7, max: Number(weekRange[2]) * 7 }
+  const singleWeek = leadTime.match(/(\d+)\s*week/i)
+  if (singleWeek) return { min: Number(singleWeek[1]) * 7, max: Number(singleWeek[1]) * 7 }
+  const dayRange = leadTime.match(/(\d+)\s*[-–to]+\s*(\d+)\s*day/i)
+  if (dayRange) return { min: Number(dayRange[1]), max: Number(dayRange[2]) }
+  const singleDay = leadTime.match(/(\d+)\s*day/i)
+  if (singleDay) return { min: Number(singleDay[1]), max: Number(singleDay[1]) }
+  return null
+}
+
+function formatShortDate(d: Date): string {
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+function TimelineStep({ icon: Icon, label, date, muted }: {
+  icon: React.ComponentType<{ size?: number; className?: string; 'aria-hidden'?: boolean }>
+  label: string
+  date: string
+  muted?: boolean
+}) {
+  return (
+    <div className="flex flex-col items-center text-center gap-1.5 flex-shrink-0 w-[90px]">
+      <div className={cn(
+        'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0',
+        muted ? 'bg-muted-bg text-muted-text' : 'bg-primary text-white'
+      )}>
+        <Icon size={15} aria-hidden={true} />
+      </div>
+      <p className="font-sans text-[11px] font-[600] text-primary leading-tight">{label}</p>
+      <p className="font-sans text-[10px] text-muted-text leading-tight">{date}</p>
+    </div>
+  )
+}
+
+function DeliveryTimeline({ leadTime }: { leadTime: string }) {
+  const range = parseLeadTimeDays(leadTime)
+  if (!range) {
+    return (
+      <div className="flex items-start gap-2 mt-6 mb-5 text-muted-text">
+        <Truck size={16} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
+        <p className="font-sans text-[12px] leading-snug">
+          Estimated production time: <span className="text-primary font-[500]">{leadTime}</span>
+        </p>
+      </div>
+    )
+  }
+
+  const today = new Date()
+  const readyStart = new Date(today)
+  readyStart.setDate(today.getDate() + range.min)
+  const readyEnd = new Date(today)
+  readyEnd.setDate(today.getDate() + range.max)
+  const readyLabel = range.min === range.max
+    ? formatShortDate(readyStart)
+    : `${formatShortDate(readyStart)} – ${formatShortDate(readyEnd)}`
+
+  return (
+    <div className="flex items-center mt-10 mb-5">
+      <TimelineStep icon={ClipboardCheck} label="Ordered" date={formatShortDate(today)} />
+      <div className="flex-1 h-px bg-border-warm mx-1 mb-6" aria-hidden="true" />
+      <TimelineStep icon={Truck} label="Ready to ship" date={readyLabel} />
+      <div className="flex-1 h-px bg-border-warm mx-1 mb-6" aria-hidden="true" />
+      <TimelineStep icon={HomeIcon} label="Delivered" date="Varies by destination" muted />
+    </div>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function ProductInfo({ product }: { product: Product }) {
@@ -208,7 +293,7 @@ export function ProductInfo({ product }: { product: Product }) {
     id, name, description, materials, dimensions, weight,
     moq, stepQty, leadTime, placeOfOrigin, images, variants = [],
     isBestseller, ecoMaterials = [], ecoPackaging = [], ecoProduction = [],
-    isHandmade, isGITagged, howItIsMade, artisanName, tariffCode,
+    howItIsMade, artisanName, craftImageUrl, tariffCode,
   } = product
   const ecoTags = [...ecoMaterials, ...ecoPackaging, ...ecoProduction]
 
@@ -322,6 +407,7 @@ export function ProductInfo({ product }: { product: Product }) {
       image: images?.[0]?.url ?? '',
       price: unitPrice,
       moq,
+      agentPrice: unitPrice,
     })
   }
 
@@ -365,23 +451,17 @@ export function ProductInfo({ product }: { product: Product }) {
       {/* Product name — serif — with wishlist + share */}
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
-          {(isBestseller || isHandmade || isGITagged) && (
+          {placeOfOrigin && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-[600] font-sans text-white uppercase tracking-[0.04em] bg-primary px-2 py-1 rounded-sm mb-2">
+              <MapPin size={10} aria-hidden="true" />
+              {placeOfOrigin}
+            </span>
+          )}
+          {isBestseller && (
             <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-              {isBestseller && (
-                <span className="text-[10px] font-[600] font-sans uppercase tracking-[0.04em] bg-accent text-white px-2 py-1 rounded-sm">
-                  Bestseller
-                </span>
-              )}
-              {isHandmade && (
-                <span className="text-[10px] font-[600] font-sans uppercase tracking-[0.04em] border border-border-warm text-primary px-2 py-1 rounded-sm">
-                  Handmade
-                </span>
-              )}
-              {isGITagged && (
-                <span className="text-[10px] font-[600] font-sans uppercase tracking-[0.04em] border border-border-warm text-primary px-2 py-1 rounded-sm">
-                  GI Tagged
-                </span>
-              )}
+              <span className="text-[10px] font-[600] font-sans uppercase tracking-[0.04em] bg-accent text-white px-2 py-1 rounded-sm">
+                Bestseller
+              </span>
             </div>
           )}
           <h1 className="font-display font-[500] text-product-text text-[20px] sm:text-[23px] leading-[1.2]">
@@ -429,32 +509,28 @@ export function ProductInfo({ product }: { product: Product }) {
 
       <RatingSummary avgRating={product.avgRating} reviewCount={product.reviewCount} className="mb-4" />
 
-      {/* Price */}
+      {/* Price — blurred and gated behind sign-in for guests, same as the
+          marketplace's product cards (ProductCard.tsx). */}
       <div className="mb-4">
         <p className="font-sans text-[10px] font-[600] text-muted-text uppercase tracking-[0.07em] mb-1.5">
           Price per unit
         </p>
-        <Price amountInr={unitPrice} size="lg" className="!text-[34px] !font-[600] text-product-text tracking-[-0.025em] leading-none" />
+        {isAuthenticated ? (
+          <Price amountInr={unitPrice} size="lg" className="!text-[34px] !font-[600] text-product-text tracking-[-0.025em] leading-none" />
+        ) : (
+          <button
+            type="button"
+            onClick={() => requireAuth(() => {}, 'view_price', images?.[0]?.url)}
+            aria-label="Sign in to see wholesale price"
+            className="blur-[6px] select-none cursor-pointer"
+          >
+            <Price amountInr={unitPrice} size="lg" className="!text-[34px] !font-[600] text-product-text tracking-[-0.025em] leading-none" />
+          </button>
+        )}
       </div>
 
       {ecoTags.length > 0 && (
         <p className="font-sans text-[12px] text-muted-text mb-3">{ecoTags.join(' · ')}</p>
-      )}
-
-      {/* Shipping estimate — real placeOfOrigin/leadTime data only */}
-      {(placeOfOrigin || leadTime) && (
-        <div className="flex items-start gap-2 mb-5 text-muted-text">
-          <Package size={16} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
-          <p className="font-sans text-[12px] leading-snug">
-            {placeOfOrigin && (
-              <>Ships from <span className="text-primary font-[500]">{placeOfOrigin}</span></>
-            )}
-            {placeOfOrigin && leadTime && ' · '}
-            {leadTime && (
-              <>Estimated delivery in <span className="text-primary font-[500]">{leadTime}</span></>
-            )}
-          </p>
-        </div>
       )}
 
       {/* Variant selector */}
@@ -515,23 +591,38 @@ export function ProductInfo({ product }: { product: Product }) {
         </div>
       )}
 
-      {/* MOQ & pricing */}
+      {/* MOQ & pricing — guests get a blurred static stand-in rather than the real
+          <select>, so there's no native dropdown popup that could leak an unblurred
+          price while picking a tier. */}
       {moqTiers.length > 0 ? (
         <div className="mb-4">
           <p className="font-sans text-[11px] font-[600] text-muted-text uppercase tracking-[0.05em] mb-2">
             MOQ &amp; Pricing
           </p>
-          <select
-            value={activeTierMoq}
-            onChange={(e) => selectMoqTier(Number(e.target.value))}
-            className="w-full h-10 px-3 rounded border border-border-warm bg-surface text-[13px] font-sans text-primary focus:outline-none focus:border-accent transition-colors"
-          >
-            {moqTiers.map((tier) => (
-              <option key={tier.key} value={tier.moq}>
-                {tier.moq} units — {formatPrice(tier.adminPrice)} / unit
-              </option>
-            ))}
-          </select>
+          {isAuthenticated ? (
+            <select
+              value={activeTierMoq}
+              onChange={(e) => selectMoqTier(Number(e.target.value))}
+              className="w-full h-10 px-3 rounded border border-border-warm bg-surface text-[13px] font-sans text-primary focus:outline-none focus:border-accent transition-colors"
+            >
+              {moqTiers.map((tier) => (
+                <option key={tier.key} value={tier.moq}>
+                  {tier.moq} units — {formatPrice(tier.adminPrice)} / unit
+                </option>
+              ))}
+            </select>
+          ) : (
+            <button
+              type="button"
+              onClick={() => requireAuth(() => {}, 'view_price', images?.[0]?.url)}
+              aria-label="Sign in to see wholesale pricing"
+              className="w-full h-10 px-3 rounded border border-border-warm bg-surface text-[13px] font-sans text-primary flex items-center justify-start text-left"
+            >
+              <span className="blur-[5px] select-none">
+                {moqTiers[0].moq} units — {formatPrice(moqTiers[0].adminPrice)} / unit
+              </span>
+            </button>
+          )}
         </div>
       ) : (
         <p className="font-sans text-[12px] text-muted-text mb-4">
@@ -607,13 +698,23 @@ export function ProductInfo({ product }: { product: Product }) {
               size="lg"
               onClick={handleAddToCart}
               className="w-full h-12 text-[13px] font-[600]"
-              aria-label={`Add ${quantity} units to cart — ${formatPrice(unitPrice * quantity)}`}
+              aria-label={isAuthenticated ? `Add ${quantity} units to cart — ${formatPrice(unitPrice * quantity)}` : 'Sign in to add to cart'}
             >
-              Add to cart · {formatPrice(unitPrice * quantity)}
+              <ShoppingCart size={15} className="mr-1" aria-hidden="true" />
+              Add to cart ·{' '}
+              {isAuthenticated ? (
+                formatPrice(unitPrice * quantity)
+              ) : (
+                <span className="blur-[4px] select-none">{formatPrice(unitPrice * quantity)}</span>
+              )}
             </Button>
           </div>
         </>
       )}
+
+      {/* Delivery timeline — real leadTime data only, "Delivered" deliberately
+          carries no fixed date (see DeliveryTimeline above) */}
+      {leadTime && <DeliveryTimeline leadTime={leadTime} />}
 
       {/* Description + details — collapsed accordions, matching Faire's PDP:
           description peeks 3 lines even while closed, everything else shows
@@ -621,67 +722,117 @@ export function ProductInfo({ product }: { product: Product }) {
       <div className="flex flex-col mt-6">
         <ExpandableSection
           title="Product description"
+          icon={AlignLeft}
           collapsedPreview={<p className="whitespace-pre-wrap line-clamp-3">{description}</p>}
         >
           <p className="whitespace-pre-wrap">{description}</p>
         </ExpandableSection>
 
-        <ExpandableSection title="Materials">
+        <ExpandableSection title="Materials" icon={Layers}>
           <p>{materials}</p>
+          <p className="flex items-start gap-1.5 text-[11.5px] text-muted-text/80 italic mt-3">
+            <Palette size={13} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
+            Actual color may vary slightly from the images shown, due to display settings and natural variation in handcrafted dyeing and finishing.
+          </p>
         </ExpandableSection>
 
-        {(howItIsMade || artisanName) && (
-          <ExpandableSection title="How it's made">
-            <div className="flex flex-col gap-3">
-              {artisanName && (
-                <dl>
-                  <div className="flex items-baseline justify-between gap-4">
-                    <dt className="font-sans text-[11px] font-[600] text-primary uppercase tracking-[0.04em] flex-shrink-0">
-                      Artisan
-                    </dt>
-                    <dd className="font-sans text-[13px] text-muted-text text-right">{artisanName}</dd>
-                  </div>
-                </dl>
-              )}
-              {howItIsMade && <p className="whitespace-pre-wrap">{howItIsMade}</p>}
-            </div>
-          </ExpandableSection>
-        )}
-
         {(displayDimensions || displayWeight != null) && (
-          <ExpandableSection title="Dimensions and weight">
+          <ExpandableSection title="Dimensions and weight" icon={Ruler}>
             <dl className="flex flex-col gap-3">
-              {[
-                ...(displayWeight != null ? [{ label: 'Weight', value: displayWeight }] : []),
-                ...(displayDimensions ? [{ label: 'Dimensions', value: displayDimensions }] : []),
-              ].map(({ label, value }) => (
-                <div key={label} className="flex items-baseline justify-between gap-4">
-                  <dt className="font-sans text-[11px] font-[600] text-primary uppercase tracking-[0.04em] flex-shrink-0">
-                    {label}
+              {displayWeight != null && (
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="inline-flex items-center gap-1.5 font-sans text-[11px] font-[600] text-primary uppercase tracking-[0.04em] flex-shrink-0">
+                    <Scale size={12} className="text-muted-text" aria-hidden="true" />
+                    Weight
                   </dt>
-                  <dd className="font-sans text-[13px] text-muted-text text-right">{value}</dd>
+                  <dd className="font-sans text-[13px] text-muted-text text-right">{displayWeight}</dd>
                 </div>
-              ))}
+              )}
+              {displayDimensions && (
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="inline-flex items-center gap-1.5 font-sans text-[11px] font-[600] text-primary uppercase tracking-[0.04em] flex-shrink-0">
+                    <Ruler size={12} className="text-muted-text" aria-hidden="true" />
+                    Dimensions
+                  </dt>
+                  <dd className="font-sans text-[13px] text-muted-text text-right">{displayDimensions}</dd>
+                </div>
+              )}
             </dl>
           </ExpandableSection>
         )}
 
-        <ExpandableSection title="Details">
+        <ExpandableSection title="Details" icon={Info}>
           <dl className="flex flex-col gap-3">
-            {[
-              ...(leadTime ? [{ label: 'Lead time', value: leadTime }] : []),
-              { label: 'Min. order', value: `${moq} units` },
-              ...(displayTariffCode ? [{ label: 'HS / Tariff code', value: displayTariffCode }] : []),
-            ].map(({ label, value }) => (
-              <div key={label} className="flex items-baseline justify-between gap-4">
-                <dt className="font-sans text-[11px] font-[600] text-primary uppercase tracking-[0.04em] flex-shrink-0">
-                  {label}
+            {leadTime && (
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="inline-flex items-center gap-1.5 font-sans text-[11px] font-[600] text-primary uppercase tracking-[0.04em] flex-shrink-0">
+                  <Clock size={12} className="text-muted-text" aria-hidden="true" />
+                  Lead time
                 </dt>
-                <dd className="font-sans text-[13px] text-muted-text text-right">{value}</dd>
+                <dd className="font-sans text-[13px] text-muted-text text-right">{leadTime}</dd>
               </div>
-            ))}
+            )}
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="inline-flex items-center gap-1.5 font-sans text-[11px] font-[600] text-primary uppercase tracking-[0.04em] flex-shrink-0">
+                <Package size={12} className="text-muted-text" aria-hidden="true" />
+                Min. order
+              </dt>
+              <dd className="font-sans text-[13px] text-muted-text text-right">{moq} units</dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="inline-flex items-center gap-1.5 font-sans text-[11px] font-[600] text-primary uppercase tracking-[0.04em] flex-shrink-0">
+                <Globe size={12} className="text-muted-text" aria-hidden="true" />
+                Country of origin
+              </dt>
+              <dd className="font-sans text-[13px] text-muted-text text-right">India</dd>
+            </div>
+            {displayTariffCode && (
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="inline-flex items-center gap-1.5 font-sans text-[11px] font-[600] text-primary uppercase tracking-[0.04em] flex-shrink-0">
+                  <Receipt size={12} className="text-muted-text" aria-hidden="true" />
+                  HS / Tariff code
+                </dt>
+                <dd className="font-sans text-[13px] text-muted-text text-right">{displayTariffCode}</dd>
+              </div>
+            )}
           </dl>
         </ExpandableSection>
+
+        {/* Craft — header row matches Materials/Dimensions/Details above (same
+            accordion treatment); the expanded content is a dark showcase card
+            (image + title + story), matching the reference craft-section layout.
+            Deliberately names only the individual artisan, never a seller/workshop
+            business, and links nowhere seller-specific — the marketplace brand is
+            Solomon Bharat only (see AGENTS.md's no-seller-identity rule). */}
+        {(howItIsMade || artisanName || craftImageUrl) && (
+          <ExpandableSection title="Craft" icon={Hammer}>
+            {/* Deliberate exact-match to the reference screenshot's dark navy card,
+                not a themed design-system color — intentional, isolated exception. */}
+            <div className="rounded-xl overflow-hidden bg-[#1E293B] p-3">
+              {craftImageUrl && (
+                <div className="relative w-full aspect-[16/10] rounded-lg overflow-hidden">
+                  <Image
+                    src={cloudinaryFill(craftImageUrl, 640, 400)}
+                    alt={artisanName ? `Craft photo — ${artisanName}` : 'Craft photo'}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 480px"
+                    className="object-cover"
+                  />
+                </div>
+              )}
+              <div className="px-1 pt-3 pb-1">
+                {artisanName && (
+                  <p className="font-sans text-[13px] font-[700] uppercase tracking-[0.04em] text-accent mb-2">
+                    {artisanName}
+                  </p>
+                )}
+                {howItIsMade && (
+                  <p className="font-sans text-[13px] leading-[1.7] text-white/90 whitespace-pre-wrap">{howItIsMade}</p>
+                )}
+              </div>
+            </div>
+          </ExpandableSection>
+        )}
       </div>
 
       <CustomerReviews productId={id} />

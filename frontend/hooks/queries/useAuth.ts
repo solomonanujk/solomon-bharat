@@ -31,6 +31,18 @@ export function useMe() {
   })
 }
 
+/** Checks whether an account already exists for an email — used by the signup
+ *  email gate before starting the onboarding wizard, so an existing user gets
+ *  routed to sign in instead of filling out six more screens for nothing. */
+export function useCheckEmail() {
+  return useMutation<{ exists: boolean }, Error, string>({
+    mutationFn: async (email) => {
+      const res = await api.get('/auth/check-email', { params: { email } })
+      return res.data.data
+    },
+  })
+}
+
 export interface SignupInput {
   email: string
   password: string
@@ -38,6 +50,12 @@ export interface SignupInput {
   country: string
   companyName?: string
   phone?: string
+  businessType?: string
+  businessOpenedYear?: string
+  website?: string
+  hearAboutUs?: string[]
+  marketingOptOut?: boolean
+  preferredLanguage?: string
 }
 
 /** Buyer self-signup only — SELLER accounts are created via /sellers/apply → admin approval. */

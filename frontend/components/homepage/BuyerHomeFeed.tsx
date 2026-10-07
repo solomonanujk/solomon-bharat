@@ -136,7 +136,7 @@ function RecentlyViewedCarousel() {
 
 function IdeasForYouSkeleton() {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-6">
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-x-3 sm:gap-x-4 md:gap-x-6 gap-y-6 sm:gap-y-8 md:gap-y-10">
       {Array.from({ length: 8 }).map((_, i) => (
         <div key={i} className="animate-pulse">
           <div className="aspect-square rounded-sm bg-muted-bg" />

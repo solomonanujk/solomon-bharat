@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
-import { X, ChevronLeft, ChevronRight, Images, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { cloudinaryFit } from '@/lib/cloudinaryImage'
 
@@ -256,135 +256,130 @@ function EmptyPlaceholder() {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
+// Always a single-image carousel, regardless of image count: one large photo
+// at a time, dot pagination below it, and a scrollable thumbnail strip with
+// prev/next arrows beneath that — not the old mosaic/grid layouts.
 
 export function PhotoGallery({ images, productName }: PhotoGalleryProps) {
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+  const [index, setIndex] = useState(0)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const thumbStripRef = useRef<HTMLDivElement>(null)
 
   if (!images || images.length === 0) return <EmptyPlaceholder />
 
-  // Single image
-  if (images.length === 1) {
-    return (
-      <>
-        <button
-          type="button"
-          onClick={() => setLightboxIndex(0)}
-          className="w-full aspect-[4/3] rounded overflow-hidden relative cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          aria-label={`Enlarge ${productName} image`}
-        >
-          <Image src={cloudinaryFit(images[0], 1200)} alt={productName} fill className="object-contain" priority sizes="(max-width: 1024px) 100vw, 55vw" />
-        </button>
-        {lightboxIndex !== null && (
-          <Lightbox images={images} initialIndex={lightboxIndex} productName={productName} onClose={() => setLightboxIndex(null)} />
-        )}
-      </>
-    )
+  function goTo(i: number) {
+    setIndex(i)
+    thumbStripRef.current?.children[i]?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
   }
-
-  // 2–3 images: row 1 only (portrait left + landscape right). Only the block's
-  // own outer corners curve — the inner edges where tiles meet stay square.
-  if (images.length < 4) {
-    const hasRow2 = images.length === 3
-
-    return (
-      <>
-        <div className="flex flex-col gap-1">
-          <div className="flex gap-1 h-[220px] sm:h-[300px] md:h-[340px]">
-            <button
-              type="button"
-              onClick={() => setLightboxIndex(0)}
-              className={cn(
-                'flex-[2] relative overflow-hidden cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
-                hasRow2 ? 'rounded-tl-md' : 'rounded-l-md'
-              )}
-              aria-label={`View ${productName} image 1`}
-            >
-              <Image src={cloudinaryFit(images[0], 900)} alt={`${productName} — 1`} fill className="object-contain" priority sizes="(max-width: 1024px) 40vw, 22vw" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setLightboxIndex(1)}
-              className={cn(
-                'flex-[3] relative overflow-hidden cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
-                hasRow2 ? 'rounded-tr-md' : 'rounded-r-md'
-              )}
-              aria-label={`View ${productName} image 2`}
-            >
-              <Image src={cloudinaryFit(images[1], 900)} alt={`${productName} — 2`} fill className="object-contain" priority sizes="(max-width: 1024px) 60vw, 33vw" />
-            </button>
-          </div>
-
-          {hasRow2 && (
-            <button
-              type="button"
-              onClick={() => setLightboxIndex(2)}
-              className="w-full h-[180px] relative rounded-b-md overflow-hidden cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              aria-label={`View ${productName} image 3`}
-            >
-              <Image src={cloudinaryFit(images[2], 1400)} alt={`${productName} — 3`} fill className="object-contain" sizes="(max-width: 1024px) 100vw, 55vw" />
-            </button>
-          )}
-        </div>
-
-        {lightboxIndex !== null && (
-          <Lightbox images={images} initialIndex={lightboxIndex} productName={productName} onClose={() => setLightboxIndex(null)} />
-        )}
-      </>
-    )
-  }
-
-  // 4+ images: always exactly 4 equal-size tiles, with a standalone "Show all"
-  // button anchored to the section's bottom-right corner (not tied to a tile).
-  // Only the grid's own outer corners curve (one per tile) — the inner edges
-  // where tiles meet stay square.
-  const visible = images.slice(0, 4)
-  const TILE_CORNER = ['rounded-tl-md', 'rounded-tr-md', 'rounded-bl-md', 'rounded-br-md']
+  function prev() { goTo(index === 0 ? images.length - 1 : index - 1) }
+  function next() { goTo(index === images.length - 1 ? 0 : index + 1) }
 
   return (
-    <>
-      <div className="relative">
-        <div className="grid grid-cols-2 gap-1">
-          {visible.map((src, i) => (
+    <div className="flex flex-col gap-3">
+      {/* Main image — a sliding filmstrip rather than an instant swap, so
+          jumping straight to e.g. the 5th thumbnail visibly glides there
+          instead of cutting. All images sit side by side in one row; moving
+          between them is just translating that row, so there's nothing to
+          "load" mid-transition. */}
+      <div className="relative w-full aspect-[4/5] sm:aspect-[4/3] rounded overflow-hidden bg-muted-bg">
+        {images.map((src, i) => (
+          <div
+            key={i}
+            className="absolute inset-0 transition-transform duration-500 ease-in-out"
+            style={{ transform: `translateX(${(i - index) * 100}%)` }}
+            aria-hidden={i !== index}
+          >
+            <Image
+              src={cloudinaryFit(src, 1200)}
+              alt={`${productName} — view ${i + 1}`}
+              fill
+              className="object-contain"
+              // Every slide loads eagerly, not just the active one — the
+              // slide-transform approach only *visually* hides the other
+              // images (they're still laid out, just offscreen), but Next's
+              // default lazy loading uses an intersection check that treats
+              // an off-screen-via-transform slide as not yet visible, so its
+              // fetch wouldn't start until the moment you jump to it — too
+              // late for the 500ms slide transition to show anything.
+              priority
+              sizes="(max-width: 1024px) 100vw, 55vw"
+            />
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={() => setLightboxOpen(true)}
+          className="absolute inset-0 z-10 cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          aria-label={`Enlarge ${productName} image ${index + 1}`}
+        />
+
+        <span className="absolute bottom-3 right-3 z-20 w-8 h-8 rounded-full bg-white/90 shadow flex items-center justify-center text-primary pointer-events-none">
+          <ZoomIn size={15} aria-hidden="true" />
+        </span>
+      </div>
+
+      {/* Dot pagination */}
+      {images.length > 1 && (
+        <div className="flex items-center justify-center gap-1.5" role="tablist" aria-label="Select image">
+          {images.map((_, i) => (
             <button
               key={i}
               type="button"
-              onClick={() => setLightboxIndex(i)}
+              onClick={() => goTo(i)}
+              role="tab"
+              aria-selected={i === index}
+              aria-label={`Go to image ${i + 1}`}
               className={cn(
-                'relative aspect-square overflow-hidden cursor-zoom-in bg-muted-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
-                TILE_CORNER[i]
+                'h-1.5 rounded-full transition-all',
+                i === index ? 'w-5 bg-primary' : 'w-1.5 bg-border-warm hover:bg-muted-text/40'
               )}
-              aria-label={`View ${productName} image ${i + 1}`}
-            >
-              <Image
-                src={cloudinaryFit(src, 700)}
-                alt={`${productName} — ${i + 1}`}
-                fill
-                className="object-contain transition-transform duration-500 hover:scale-[1.03]"
-                priority={i < 2}
-                sizes="(max-width: 1024px) 50vw, 27vw"
-              />
-            </button>
+            />
           ))}
         </div>
-
-        <button
-          type="button"
-          onClick={() => setLightboxIndex(0)}
-          className="absolute bottom-3 right-3 inline-flex items-center gap-2 bg-white text-primary font-sans text-[12px] font-[600] px-4 py-2 rounded-sm shadow hover:bg-muted-bg transition-colors"
-        >
-          <Images size={14} aria-hidden="true" />
-          Show all {images.length} photos
-        </button>
-      </div>
-
-      {lightboxIndex !== null && (
-        <Lightbox
-          images={images}
-          initialIndex={lightboxIndex}
-          productName={productName}
-          onClose={() => setLightboxIndex(null)}
-        />
       )}
-    </>
+
+      {/* Thumbnail strip */}
+      {images.length > 1 && (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={prev}
+            className="flex-shrink-0 w-7 h-7 rounded-full border border-border-warm flex items-center justify-center text-muted-text hover:text-primary hover:border-primary transition-colors"
+            aria-label="Scroll thumbnails back"
+          >
+            <ChevronLeft size={14} aria-hidden="true" />
+          </button>
+          <div ref={thumbStripRef} className="flex-1 flex gap-2 overflow-x-auto scrollbar-none scroll-smooth">
+            {images.map((src, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => goTo(i)}
+                className={cn(
+                  'flex-shrink-0 w-16 h-16 rounded overflow-hidden border-2 relative bg-muted-bg transition-colors',
+                  i === index ? 'border-primary' : 'border-transparent opacity-60 hover:opacity-100'
+                )}
+                aria-label={`Go to image ${i + 1}`}
+              >
+                <Image src={cloudinaryFit(src, 160)} alt="" fill sizes="64px" className="object-contain" />
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={next}
+            className="flex-shrink-0 w-7 h-7 rounded-full border border-border-warm flex items-center justify-center text-muted-text hover:text-primary hover:border-primary transition-colors"
+            aria-label="Scroll thumbnails forward"
+          >
+            <ChevronRight size={14} aria-hidden="true" />
+          </button>
+        </div>
+      )}
+
+      {lightboxOpen && (
+        <Lightbox images={images} initialIndex={index} productName={productName} onClose={() => setLightboxOpen(false)} />
+      )}
+    </div>
   )
 }

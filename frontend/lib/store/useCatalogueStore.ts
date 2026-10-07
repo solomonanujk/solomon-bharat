@@ -1,16 +1,51 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Guards against stale/malformed entries left in localStorage from an
+ *  earlier build (e.g. a pre-rebuild id scheme, or a half-written item from a
+ *  bug) — these never raise an error to the agent, they just quietly fail
+ *  backend validation (`productId` isn't a real UUID) when generating a PDF.
+ *  Runs once on load via the `migrate` option below, so the store self-heals
+ *  instead of requiring the agent to know to clear localStorage by hand. */
+function sanitizeItems(raw: unknown): CatalogueItem[] {
+  if (!Array.isArray(raw)) return []
+  const result: CatalogueItem[] = []
+  for (const entry of raw) {
+    if (typeof entry !== 'object' || entry === null) continue
+    const v = entry as Record<string, unknown>
+    if (typeof v.productId !== 'string' || !UUID_RE.test(v.productId)) continue
+    if (typeof v.name !== 'string' || typeof v.slug !== 'string' || typeof v.image !== 'string') continue
+    if (typeof v.price !== 'number' || typeof v.moq !== 'number') continue
+    result.push({
+      productId: v.productId,
+      name: v.name,
+      slug: v.slug,
+      image: v.image,
+      price: v.price,
+      moq: v.moq,
+      agentPrice: typeof v.agentPrice === 'number' ? v.agentPrice : v.price,
+    })
+  }
+  return result
+}
+
 export interface CatalogueItem {
   productId: string
   name: string
   slug: string
   image: string
-  /** The agent's own resale price/MOQ for this product — defaults to the
-   *  product's own displayed price/MOQ when added, editable on the
-   *  catalogue-building page before generating the PDF. */
+  /** The agent's own resale price/MOQ for this product — defaults to
+   *  agentPrice below when added, editable on the catalogue-building page
+   *  before generating the PDF. */
   price: number
   moq: number
+  /** Read-only reference: the price Solomon Bharat (admin) gives this agent
+   *  for this product, captured at the moment it was added — never changed
+   *  by updateItem, so the agent can always see their margin while editing
+   *  their own resale `price` above. */
+  agentPrice: number
 }
 
 interface CatalogueState {
@@ -81,6 +116,16 @@ export const useCatalogueStore = create<CatalogueStore>()(
         typeof window !== 'undefined' ? localStorage : (null as never)
       ),
       partialize: (state) => ({ building: state.building, items: state.items }),
+      // Bumped so every existing localStorage entry runs through migrate()
+      // once, dropping any item that predates the current id/shape contract.
+      version: 1,
+      migrate: (persistedState) => {
+        const state = persistedState as { building?: unknown; items?: unknown } | null
+        return {
+          building: typeof state?.building === 'boolean' ? state.building : false,
+          items: sanitizeItems(state?.items),
+        }
+      },
     }
   )
 )

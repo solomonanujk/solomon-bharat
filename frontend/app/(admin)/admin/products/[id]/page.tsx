@@ -210,8 +210,14 @@ export default function AdminProductDetailPage() {
             </div>
           </Section>
 
-          {(product.howItIsMade || product.artisanName) && (
+          {(product.howItIsMade || product.artisanName || product.craftImageUrl) && (
             <Section title="Craft Story">
+              {product.craftImageUrl && (
+                <div className="mb-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={cloudinaryFill(product.craftImageUrl, 320, 240)} alt="" className="w-full max-w-[280px] rounded-lg border border-[#E5E1D8] object-cover" />
+                </div>
+              )}
               <Field label="How It's Made" value={product.howItIsMade ?? '—'} />
               <Field label="Artisan Name" value={product.artisanName ?? '—'} />
             </Section>

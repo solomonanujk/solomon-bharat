@@ -20,6 +20,7 @@ import { CategoryTypeahead, categoryPathLabel } from '@/components/seller-portal
 import { ColorSwatchModal, correctedSwatchFocus, DEFAULT_SWATCH_ZOOM, newImageRef, parseNewImageRef } from '@/components/seller-portal/ColorSwatchModal'
 import { ProductOptionsModal } from '@/components/seller-portal/ProductOptionsModal'
 import { ColorSwatchPromptModal } from '@/components/seller-portal/ColorSwatchPromptModal'
+import { PhotographyGuidelinesModal } from '@/components/seller-portal/PhotographyGuidelinesModal'
 import { ApprovalStatusBadge } from '@/components/seller-portal/StatusBadges'
 import { useImageLightbox } from '@/components/shared/ImageLightbox'
 import { getApiError } from '@/lib/getApiError'
@@ -372,6 +373,37 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
     setNewVideos((prev) => prev.filter((_, i) => i !== index))
   }
 
+  // ── Craft story ──────────────────────────────────────────────────────────
+  const [howItIsMade, setHowItIsMade] = useState(product?.howItIsMade ?? '')
+  const [artisanName, setArtisanName] = useState(product?.artisanName ?? '')
+  const [existingCraftImageUrl, setExistingCraftImageUrl] = useState(product?.craftImageUrl ?? null)
+  const [craftImage, setCraftImage] = useState<File | null>(null)
+  const [craftImagePreview, setCraftImagePreview] = useState<string | null>(null)
+  const [removeCraftImage, setRemoveCraftImage] = useState(false)
+  const craftImageInputRef = useRef<HTMLInputElement>(null)
+  // Same justified exception as the image/video-preview effects above.
+  useEffect(() => {
+    if (!craftImage) { setCraftImagePreview(null); return }
+    const url = URL.createObjectURL(craftImage)
+    setCraftImagePreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [craftImage])
+  function handleCraftImageFile(files: FileList | null) {
+    const file = files?.[0]
+    if (!file) return
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      toast.error('Only JPEG, PNG, or WEBP images are supported (not HEIC/PDF/etc).')
+      return
+    }
+    setCraftImage(file)
+    setRemoveCraftImage(false)
+  }
+  function removeCraftImagePhoto() {
+    setCraftImage(null)
+    if (existingCraftImageUrl) setRemoveCraftImage(true)
+    setExistingCraftImageUrl(null)
+  }
+
   // ── Product options ────────────────────────────────────────────────────────
   const hydrated = useMemo(() => hydrateVariants(product), [product])
   const [hasOptions, setHasOptions] = useState<'' | 'yes' | 'no'>(hydrated.hasOptions)
@@ -455,6 +487,8 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
     const prefix = name.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').toUpperCase().slice(0, 12) || 'PROD'
     return `${prefix}-${combo.key.replace(/[^a-zA-Z0-9]/g, '-').toUpperCase()}`
   }
+
+  const [guidelinesModalOpen, setGuidelinesModalOpen] = useState(false)
 
   // ── Publish confirmation ─────────────────────────────────────────────────────
   const [publishModalOpen, setPublishModalOpen] = useState(false)
@@ -563,6 +597,9 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       isHandmade: false,
       placeOfOrigin: placeOfOrigin.trim() || undefined,
       isGITagged: false,
+      howItIsMade: howItIsMade.trim() || undefined,
+      artisanName: artisanName.trim() || undefined,
+      craftImage: craftImage ?? undefined,
       ecoMaterials, ecoPackaging, ecoProduction,
       isBestseller,
       tariffCode: single ? (single.tariffCode.trim() || undefined) : undefined,
@@ -579,6 +616,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
             publish: product.approvalStatus === 'DRAFT',
             removeImageIds, images: newImages,
             removeVideoIds, videos: newVideos,
+            removeCraftImage,
           },
         })
         router.push(backHref)
@@ -642,6 +680,8 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       sellerPrice: base?.sellerPrice,
       variants: base ? buildVariantPayload() : undefined,
       placeOfOrigin: placeOfOrigin.trim() || undefined,
+      howItIsMade: howItIsMade.trim() || undefined,
+      artisanName: artisanName.trim() || undefined,
       ecoMaterials, ecoPackaging, ecoProduction,
       isBestseller,
       tariffCode: single ? (single.tariffCode.trim() || undefined) : undefined,
@@ -656,6 +696,8 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
             publish: false,
             removeImageIds, images: newImages,
             removeVideoIds, videos: newVideos,
+            craftImage: craftImage ?? undefined,
+            removeCraftImage,
           },
         })
       } else {
@@ -822,10 +864,10 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                   <li>Use a white or neutral background.</li>
                   <li>Include images of each product option.</li>
                 </ul>
-                <a href="#" onClick={(e) => e.preventDefault()}
+                <button type="button" onClick={() => setGuidelinesModalOpen(true)}
                   className="inline-block text-[12px] font-[500] font-sans text-primary underline hover:text-accent transition-colors">
                   Review photography guidelines
-                </a>
+                </button>
               </div>
 
               <div className="flex-1 grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3.5 content-start">
@@ -1127,6 +1169,51 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
               </div>
             </div>
           )}
+
+          {/* ── Craft story ───────────────────────────────────────────────── */}
+          <div className="border border-border-warm rounded-xl p-8 mb-6">
+            <h2 className="text-[20px] font-[700] font-sans text-primary mb-1">Craft story</h2>
+            <p className="text-[13px] font-sans text-muted-text mb-5">Optional — share how this product is made. Shown to buyers on the product page.</p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <div className="space-y-5">
+                <Field label="How it's made">
+                  <textarea value={howItIsMade} onChange={(e) => setHowItIsMade(e.target.value.slice(0, 5000))}
+                    rows={4} maxLength={5000}
+                    placeholder="Describe the craft process, techniques, and materials behind this product."
+                    className={TEXTAREA_CLS} />
+                </Field>
+                <Field label="Artisan name">
+                  <input type="text" value={artisanName} onChange={(e) => setArtisanName(e.target.value.slice(0, 200))}
+                    placeholder="e.g. Ramesh Kumar" className={INPUT_CLS} />
+                </Field>
+              </div>
+
+              <div>
+                <label className="text-[14px] font-[600] font-sans text-primary block mb-1.5">Craft photo</label>
+                <input ref={craftImageInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                  onChange={(e) => { handleCraftImageFile(e.target.files); if (craftImageInputRef.current) craftImageInputRef.current.value = '' }} />
+                {(craftImagePreview || existingCraftImageUrl) ? (
+                  <div className="relative w-full max-w-[280px] aspect-[4/3] rounded-lg overflow-hidden border border-border-warm group">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={cloudinaryFill((craftImagePreview ?? existingCraftImageUrl)!, 400, 300)} alt=""
+                      className="w-full h-full object-cover cursor-pointer"
+                      onClick={() => openLightbox((craftImagePreview ?? existingCraftImageUrl)!)} />
+                    <button type="button" onClick={removeCraftImagePhoto} aria-label="Remove craft photo"
+                      className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => craftImageInputRef.current?.click()}
+                    className="w-full max-w-[280px] aspect-[4/3] rounded-lg border border-dashed border-border-warm bg-muted-bg/30 flex flex-col items-center justify-center gap-2 text-muted-text hover:border-accent hover:text-primary transition-colors text-[13px] font-sans">
+                    <Upload size={18} />Upload photo
+                  </button>
+                )}
+                <p className="text-[12px] font-sans text-muted-text mt-2">A photo of the artisan or craft process — shown alongside the craft story on the product page.</p>
+              </div>
+            </div>
+          </div>
         </>
       )}
 
@@ -1215,6 +1302,10 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
             </Button>
           </div>
         </div>
+      )}
+
+      {guidelinesModalOpen && (
+        <PhotographyGuidelinesModal minImages={MIN_IMAGES} onClose={() => setGuidelinesModalOpen(false)} />
       )}
     </form>
   )

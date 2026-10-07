@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { useCatalogueStore } from '@/lib/store/useCatalogueStore'
 import { cloudinaryFill } from '@/lib/cloudinaryImage'
+import { formatINR } from '@/lib/utils'
 import { useGenerateCatalogue, useMyCatalogues } from '@/hooks/queries/useCatalogues'
 
 // Agents build a catalogue by tapping "Add to catalogue" on any product card or
@@ -27,11 +28,13 @@ function BuildingSection() {
   const [title, setTitle] = useState('')
   const generateCatalogue = useGenerateCatalogue()
 
-  const hasInvalidPricing = items.some((i) => !(i.price > 0) || !(i.moq > 0))
+  // MOQ must also be a whole number — the backend rejects a fractional MOQ
+  // (e.g. a stray "25.5" typed into the number input) with a 422.
+  const hasInvalidPricing = items.some((i) => !(i.price > 0) || !(i.moq > 0) || !Number.isInteger(i.moq))
 
   function handleGenerate() {
     if (hasInvalidPricing) {
-      toast.error('Set a price and MOQ greater than 0 for every product before generating.')
+      toast.error('Set a price and a whole-number MOQ greater than 0 for every product before generating.')
       return
     }
     generateCatalogue.mutate(
@@ -48,7 +51,8 @@ function BuildingSection() {
       <div className="pb-4 border-b border-border-warm">
         <h2 className="text-[18px] font-[600] font-sans text-primary">Building a catalogue</h2>
         <p className="text-[14px] font-sans text-muted-text mt-0.5">
-          Add products from anywhere in the marketplace, set your own price and MOQ for each, then generate a PDF to share.
+          Add products from anywhere in the marketplace — see what Solomon Bharat charges you, set your own resale
+          price and MOQ for each, then generate a PDF to share.
         </p>
       </div>
 
@@ -69,8 +73,13 @@ function BuildingSection() {
                   {item.name}
                 </Link>
 
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.04em]">Your cost</span>
+                  <span className="h-9 flex items-center text-[13px] font-sans text-muted-text">{formatINR(item.agentPrice ?? item.price)}</span>
+                </div>
+
                 <label className="flex flex-col gap-0.5">
-                  <span className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.04em]">Price (₹)</span>
+                  <span className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.04em]">Your price (₹)</span>
                   <input
                     type="number"
                     min={1}
@@ -85,8 +94,9 @@ function BuildingSection() {
                   <input
                     type="number"
                     min={1}
+                    step={1}
                     value={item.moq}
-                    onChange={(e) => updateItem(item.productId, { moq: Number(e.target.value) })}
+                    onChange={(e) => updateItem(item.productId, { moq: Math.round(Number(e.target.value)) })}
                     className="w-20 h-9 px-2 rounded border border-border-warm bg-muted-bg/30 text-[13px] font-sans text-primary focus:outline-none focus:border-primary/40 focus:bg-surface transition-colors"
                   />
                 </label>

@@ -313,9 +313,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 )}
               </SectionCard>
 
-              {(product.howItIsMade || product.artisanName) && (
+              {(product.howItIsMade || product.artisanName || product.craftImageUrl) && (
                 <SectionCard title="Craft Story" icon={Hammer}>
                   <div className="space-y-4">
+                    {product.craftImageUrl && (
+                      <div>
+                        <p className="text-[11px] font-[700] font-sans text-[#9CA3AF] uppercase tracking-[0.06em] mb-1.5">Craft Photo</p>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={cloudinaryFit(product.craftImageUrl, 320)} alt="" className="w-full max-w-[280px] rounded-lg border border-[#E5E1D8] object-cover" />
+                      </div>
+                    )}
                     <Field label="Artisan Name" value={product.artisanName ?? '—'} />
                     <Field label="How It's Made" value={product.howItIsMade ?? '—'} />
                   </div>

@@ -393,35 +393,45 @@ const CURATED_LINKS = [
 ]
 
 function CategoryQuickLinksRow({ ghost }: { ghost?: boolean }) {
-  const { data: tree = [] } = useCategoryTree()
+  const { data: tree = [], isLoading } = useCategoryTree()
 
   return (
     <div className="hidden md:block">
       <div className="max-w-7xl mx-auto px-4 h-11 flex items-center justify-center gap-6 overflow-x-auto scrollbar-none">
-        {CURATED_LINKS.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className={cn(
-              'flex-shrink-0 whitespace-nowrap text-[14px] font-[500] font-sans transition-colors',
-              ghost ? 'text-white/85 hover:text-white' : 'text-muted-text hover:text-primary'
-            )}
-          >
-            {link.label}
-          </Link>
-        ))}
-        {tree.map((category) => (
-          <Link
-            key={category.id}
-            href={`/categories/${category.slug}`}
-            className={cn(
-              'flex-shrink-0 whitespace-nowrap text-[14px] font-[500] font-sans transition-colors',
-              ghost ? 'text-white/85 hover:text-white' : 'text-muted-text hover:text-primary'
-            )}
-          >
-            {category.name}
-          </Link>
-        ))}
+        {/* Curated links and real categories come from two different sources (static
+            vs. an API call) — showing the curated links alone first, then having the
+            categories pop in a couple seconds later, reads as a layout bug. Hold the
+            whole row back until the category tree has loaded so everything appears
+            together in one frame; the fixed height above keeps the row's space
+            reserved so nothing else on the page shifts while it waits. */}
+        {!isLoading && (
+          <>
+            {CURATED_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={cn(
+                  'flex-shrink-0 whitespace-nowrap text-[14px] font-[500] font-sans transition-colors',
+                  ghost ? 'text-white/85 hover:text-white' : 'text-muted-text hover:text-primary'
+                )}
+              >
+                {link.label}
+              </Link>
+            ))}
+            {tree.map((category) => (
+              <Link
+                key={category.id}
+                href={`/categories/${category.slug}`}
+                className={cn(
+                  'flex-shrink-0 whitespace-nowrap text-[14px] font-[500] font-sans transition-colors',
+                  ghost ? 'text-white/85 hover:text-white' : 'text-muted-text hover:text-primary'
+                )}
+              >
+                {category.name}
+              </Link>
+            ))}
+          </>
+        )}
       </div>
     </div>
   )
@@ -804,7 +814,7 @@ export function NavBar({ transparent = false, initialSearchQuery }: NavBarProps)
           {/* Logo */}
           <Link href="/" aria-label="Solomon Bharat — home" className="flex-shrink-0 flex items-center self-stretch">
             <img
-              src="https://res.cloudinary.com/dxnqyvcdl/image/upload/v1788850557/branding/1788850490541-solomon-bharat-logo.png"
+              src="/branding/solomon-bharat-logo.png"
               alt="Solomon Bharat"
               className={cn('h-14 w-auto object-contain block', ghost && 'brightness-0 invert')}
             />

@@ -6,25 +6,16 @@ import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { Dialog, DialogContent, DialogClose } from '@/components/ui/dialog'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { useLogin, useSignup, useForgotPassword } from '@/hooks/queries/useAuth'
+import { useLogin, useForgotPassword } from '@/hooks/queries/useAuth'
+import { SignupEmailGate } from '@/components/shared/SignupEmailGate'
 
 function roleDestination(role: string): string | null {
   if (role === 'SUPER_ADMIN') return '/admin'
   if (role === 'SELLER') return '/portal'
   return null // buyers and agents stay on the current page
-}
-
-interface SignupForm {
-  email: string
-  password: string
-  contactName: string
-  country: string
-  companyName: string
-  phone: string
 }
 
 interface LoginForm {
@@ -41,20 +32,17 @@ export function AuthModal() {
   const router = useRouter()
   const isAuthModalOpen = useAuthStore((s) => s.isAuthModalOpen)
   const authModalTab = useAuthStore((s) => s.authModalTab)
+  const authModalProductImage = useAuthStore((s) => s.authModalProductImage)
   const closeAuthModal = useAuthStore((s) => s.closeAuthModal)
   const openAuthModal = useAuthStore((s) => s.openAuthModal)
 
   const login = useLogin()
-  const signup = useSignup()
   const forgotPassword = useForgotPassword()
 
   const [forgotView, setForgotView] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotSent, setForgotSent] = useState(false)
 
-  const [signupForm, setSignupForm] = useState<SignupForm>({
-    email: '', password: '', contactName: '', country: '', companyName: '', phone: '',
-  })
   const [loginForm, setLoginForm] = useState<LoginForm>({ email: '', password: '' })
   const [formError, setFormError] = useState<string | null>(null)
 
@@ -66,10 +54,13 @@ export function AuthModal() {
     }
   }, [isAuthModalOpen])
 
-  // Route on a successful sign-in/sign-up from THIS modal instance's own mutation
-  // calls only — the store already closes the modal via setUser(), and gating on
+  // Route on a successful sign-in from THIS modal instance's own mutation calls
+  // only — the store already closes the modal via setUser(), and gating on
   // mutation.isSuccess (rather than the persisted `user`/`isAuthenticated` state)
   // avoids re-firing a redirect for an already-logged-in user on every mount.
+  // Signup's own redirect runs via SignupWizard's onSuccess callback below —
+  // buyer self-signup always creates a BUYER account, so it's a no-op in
+  // practice (roleDestination returns null), but kept symmetric with login.
   useEffect(() => {
     if (!login.isSuccess || !login.data) return
     const dest = roleDestination(login.data.user.role)
@@ -77,35 +68,11 @@ export function AuthModal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [login.isSuccess])
 
-  useEffect(() => {
-    if (!signup.isSuccess || !signup.data) return
-    const dest = roleDestination(signup.data.user.role)
-    if (dest) router.push(dest)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signup.isSuccess])
-
-  function handleTabChange(tab: string) {
+  function handleTabChange(tab: string, prefillEmail?: string) {
     setFormError(null)
     setForgotView(false)
+    if (prefillEmail) setLoginForm((f) => ({ ...f, email: prefillEmail }))
     openAuthModal(tab as 'login' | 'signup')
-  }
-
-  function handleSignup(e: React.FormEvent) {
-    e.preventDefault()
-    setFormError(null)
-    if (!signupForm.email.trim()) return setFormError('Email is required.')
-    if (signupForm.password.length < 8) return setFormError('Password must be at least 8 characters.')
-    if (!signupForm.contactName.trim()) return setFormError('Contact name is required.')
-    if (!signupForm.country.trim()) return setFormError('Country is required.')
-
-    signup.mutate({
-      email: signupForm.email.trim(),
-      password: signupForm.password,
-      contactName: signupForm.contactName.trim(),
-      country: signupForm.country.trim(),
-      companyName: signupForm.companyName.trim() || undefined,
-      phone: signupForm.phone.trim() || undefined,
-    })
   }
 
   function handleLogin(e: React.FormEvent) {
@@ -122,49 +89,24 @@ export function AuthModal() {
     forgotPassword.mutate({ email: forgotEmail.trim() }, { onSuccess: () => setForgotSent(true) })
   }
 
-  const loading = login.isPending || signup.isPending
-  const apiError = login.error || signup.error
-    ? 'Something went wrong. Please check your details and try again.'
-    : null
+  const loading = login.isPending
+  const apiError = login.error ? 'Something went wrong. Please check your details and try again.' : null
 
   return (
     <Dialog open={isAuthModalOpen} onOpenChange={(open) => !open && closeAuthModal()}>
-      <DialogContent className="w-full max-w-[800px] max-h-[640px] p-0 overflow-hidden flex flex-row" showClose={false}>
-        {/* Left editorial panel (desktop only) */}
-        <div
-          className="hidden md:flex flex-col items-center justify-center w-1/2 flex-shrink-0 bg-gradient-to-br from-muted-bg to-border-warm relative overflow-hidden"
-          aria-hidden="true"
-        >
-          <svg className="absolute inset-0 w-full h-full opacity-[0.07]" viewBox="0 0 400 560" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="200" cy="280" r="160" stroke="#1A1A1A" strokeWidth="1" />
-            <circle cx="200" cy="280" r="110" stroke="#1A1A1A" strokeWidth="1" />
-            <circle cx="200" cy="280" r="60" stroke="#1A1A1A" strokeWidth="1" />
-            <line x1="40" y1="280" x2="360" y2="280" stroke="#1A1A1A" strokeWidth="1" />
-            <line x1="200" y1="120" x2="200" y2="440" stroke="#1A1A1A" strokeWidth="1" />
-          </svg>
-          <div className="relative z-10 text-center px-8">
-            <p className="font-display text-[28px] font-[600] text-primary leading-[1.2]">
-              Indian Craft &amp;
-              <br />
-              Export Marketplace
-            </p>
-            <p className="mt-3 text-[14px] font-sans text-muted-text leading-[1.5]">
-              Curated wholesale goods from India&apos;s finest artisan communities.
-            </p>
-          </div>
-        </div>
-
-        {/* Right form panel */}
-        <div className="flex flex-col w-full md:w-1/2 p-8 overflow-y-auto relative">
+      {/* Faire's own auth modal: a single narrow centered card, no decorative
+          side panel — the whole card scrolls as one unit. */}
+      <DialogContent className="w-full max-w-[460px] p-0" showClose={false}>
+        <div className="flex flex-col w-full p-8 relative">
           <DialogClose className="absolute top-4 right-4 text-muted-text hover:text-primary transition-colors">
             <X size={18} aria-hidden="true" />
             <span className="sr-only">Close</span>
           </DialogClose>
 
           <img
-            src="https://res.cloudinary.com/dxnqyvcdl/image/upload/v1788850557/branding/1788850490541-solomon-bharat-logo.png"
+            src="/branding/solomon-bharat-logo.png"
             alt="Solomon Bharat"
-            className="h-11 w-auto object-contain mb-6"
+            className="h-11 w-auto object-contain mb-6 mx-auto"
           />
 
           {forgotView ? (
@@ -206,168 +148,70 @@ export function AuthModal() {
                 </form>
               )}
             </div>
+          ) : authModalTab === 'signup' ? (
+            /* Signup — only the email gate is a modal; "Sign up for free" sends
+               the browser to /signup for the rest of the flow (steps 2–7). */
+            <SignupEmailGate
+              productImage={authModalProductImage}
+              onSwitchToLogin={(email) => handleTabChange('login', email)}
+            />
           ) : (
-            <Tabs value={authModalTab} onValueChange={handleTabChange} className="flex-1">
-              <TabsList className="mb-6">
-                <TabsTrigger value="signup">Create account</TabsTrigger>
-                <TabsTrigger value="login">Log in</TabsTrigger>
-              </TabsList>
+            <form onSubmit={handleLogin} className="flex flex-col gap-4" noValidate>
+              <h2 className="text-[22px] font-[600] font-display text-primary text-center mb-1">Log in</h2>
 
-              {/* Signup */}
-              <TabsContent value="signup">
-                <form onSubmit={handleSignup} className="flex flex-col gap-4" noValidate>
-                  <div>
-                    <Label htmlFor="signup-email">Email</Label>
-                    <Input
-                      id="signup-email"
-                      type="email"
-                      placeholder="you@company.com"
-                      autoComplete="email"
-                      value={signupForm.email}
-                      onChange={(e) => setSignupForm((f) => ({ ...f, email: e.target.value }))}
-                      disabled={loading}
-                    />
-                  </div>
+              <div>
+                <Label htmlFor="login-email">Email</Label>
+                <Input
+                  id="login-email"
+                  type="email"
+                  placeholder="you@company.com"
+                  autoComplete="email"
+                  value={loginForm.email}
+                  onChange={(e) => setLoginForm((f) => ({ ...f, email: e.target.value }))}
+                  disabled={loading}
+                />
+              </div>
 
-                  <div>
-                    <Label htmlFor="signup-password">Password</Label>
-                    <Input
-                      id="signup-password"
-                      type="password"
-                      placeholder="Min 8 characters"
-                      autoComplete="new-password"
-                      value={signupForm.password}
-                      onChange={(e) => setSignupForm((f) => ({ ...f, password: e.target.value }))}
-                      disabled={loading}
-                    />
-                  </div>
+              <div>
+                <Label htmlFor="login-password">Password</Label>
+                <Input
+                  id="login-password"
+                  type="password"
+                  placeholder="Your password"
+                  autoComplete="current-password"
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm((f) => ({ ...f, password: e.target.value }))}
+                  disabled={loading}
+                />
+              </div>
 
-                  <div>
-                    <Label htmlFor="signup-contact-name">Contact name</Label>
-                    <Input
-                      id="signup-contact-name"
-                      type="text"
-                      placeholder="Your full name"
-                      autoComplete="name"
-                      value={signupForm.contactName}
-                      onChange={(e) => setSignupForm((f) => ({ ...f, contactName: e.target.value }))}
-                      disabled={loading}
-                    />
-                  </div>
+              {(formError || apiError) && (
+                <p className="text-[12px] font-sans text-error" role="alert">
+                  {formError ?? apiError}
+                </p>
+              )}
 
-                  <div>
-                    <Label htmlFor="signup-country">Country</Label>
-                    <Input
-                      id="signup-country"
-                      type="text"
-                      placeholder="e.g. United States"
-                      autoComplete="country-name"
-                      value={signupForm.country}
-                      onChange={(e) => setSignupForm((f) => ({ ...f, country: e.target.value }))}
-                      disabled={loading}
-                    />
-                  </div>
+              <Button type="submit" variant="primary" className="w-full mt-1" disabled={loading}>
+                {login.isPending ? 'Logging in…' : 'Log in'}
+              </Button>
 
-                  <div>
-                    <Label htmlFor="signup-company">
-                      Company name <span className="text-muted-text font-[500]">(optional)</span>
-                    </Label>
-                    <Input
-                      id="signup-company"
-                      type="text"
-                      placeholder="Your business name"
-                      autoComplete="organization"
-                      value={signupForm.companyName}
-                      onChange={(e) => setSignupForm((f) => ({ ...f, companyName: e.target.value }))}
-                      disabled={loading}
-                    />
-                  </div>
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  className={cn('text-[13px] font-sans text-muted-text hover:text-primary transition-colors underline')}
+                  onClick={() => setForgotView(true)}
+                >
+                  Forgot password?
+                </button>
+              </div>
 
-                  <div>
-                    <Label htmlFor="signup-phone">
-                      Phone <span className="text-muted-text font-[500]">(optional)</span>
-                    </Label>
-                    <Input
-                      id="signup-phone"
-                      type="tel"
-                      placeholder="+1 555 123 4567"
-                      autoComplete="tel"
-                      value={signupForm.phone}
-                      onChange={(e) => setSignupForm((f) => ({ ...f, phone: e.target.value }))}
-                      disabled={loading}
-                    />
-                  </div>
-
-                  {(formError || apiError) && (
-                    <p className="text-[12px] font-sans text-error" role="alert">
-                      {formError ?? apiError}
-                    </p>
-                  )}
-
-                  <Button type="submit" variant="primary" className="w-full mt-1" disabled={loading}>
-                    {signup.isPending ? 'Creating account…' : 'Create account'}
-                  </Button>
-
-                  <p className="text-[12px] leading-[1.3] font-[500] font-sans text-muted-text text-center">
-                    By signing up you agree to our{' '}
-                    <a href="/terms" className="underline hover:text-primary transition-colors">Terms of Service</a>{' '}
-                    and{' '}
-                    <a href="/privacy" className="underline hover:text-primary transition-colors">Privacy Policy</a>.
-                  </p>
-                </form>
-              </TabsContent>
-
-              {/* Login */}
-              <TabsContent value="login">
-                <form onSubmit={handleLogin} className="flex flex-col gap-4" noValidate>
-                  <div>
-                    <Label htmlFor="login-email">Email</Label>
-                    <Input
-                      id="login-email"
-                      type="email"
-                      placeholder="you@company.com"
-                      autoComplete="email"
-                      value={loginForm.email}
-                      onChange={(e) => setLoginForm((f) => ({ ...f, email: e.target.value }))}
-                      disabled={loading}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="login-password">Password</Label>
-                    <Input
-                      id="login-password"
-                      type="password"
-                      placeholder="Your password"
-                      autoComplete="current-password"
-                      value={loginForm.password}
-                      onChange={(e) => setLoginForm((f) => ({ ...f, password: e.target.value }))}
-                      disabled={loading}
-                    />
-                  </div>
-
-                  {(formError || apiError) && (
-                    <p className="text-[12px] font-sans text-error" role="alert">
-                      {formError ?? apiError}
-                    </p>
-                  )}
-
-                  <Button type="submit" variant="primary" className="w-full mt-1" disabled={loading}>
-                    {login.isPending ? 'Logging in…' : 'Log in'}
-                  </Button>
-
-                  <div className="flex justify-center">
-                    <button
-                      type="button"
-                      className={cn('text-[13px] font-sans text-muted-text hover:text-primary transition-colors underline')}
-                      onClick={() => setForgotView(true)}
-                    >
-                      Forgot password?
-                    </button>
-                  </div>
-                </form>
-              </TabsContent>
-            </Tabs>
+              <p className="text-[13px] font-sans text-muted-text text-center mt-2">
+                Don&apos;t have an account?{' '}
+                <button type="button" onClick={() => handleTabChange('signup')} className="font-[600] text-primary underline">
+                  Sign up
+                </button>
+              </p>
+            </form>
           )}
         </div>
       </DialogContent>

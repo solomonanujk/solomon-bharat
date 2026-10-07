@@ -94,7 +94,7 @@ export function ProductGrid({
     <div className="flex flex-col gap-6">
       {/* Grid */}
       <div
-        className={cn('grid gap-3 sm:gap-4 md:gap-6', COLUMN_CLASSES[columns])}
+        className={cn('grid gap-x-3 sm:gap-x-4 md:gap-x-6 gap-y-6 sm:gap-y-8 md:gap-y-10', COLUMN_CLASSES[columns])}
         aria-label="Product results"
       >
         {products.length === 0 && !isLoadingMore ? (

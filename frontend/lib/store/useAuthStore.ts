@@ -13,23 +13,24 @@ interface AuthState {
   isAuthModalOpen: boolean
   authModalTab: 'login' | 'signup'
   pendingAction: string | null
+  /** The product image to show atop the signup wizard's first step, when it was
+   *  triggered from a specific product (a card click, blurred price, etc.) —
+   *  null when opened from a generic context (navbar, etc.). */
+  authModalProductImage: string | null
   _hasHydrated: boolean
   cartCount: number
   notificationCount: number
-  isApplyModalOpen: boolean
 }
 
 interface AuthActions {
   setUser: (user: User) => void
   patchUser: (patch: Partial<User>) => void
   logout: () => void
-  openAuthModal: (tab?: 'login' | 'signup', pendingAction?: string) => void
+  openAuthModal: (tab?: 'login' | 'signup', pendingAction?: string, productImage?: string | null) => void
   closeAuthModal: () => void
   _setHasHydrated: (v: boolean) => void
   setCartCount: (count: number) => void
   setNotificationCount: (count: number) => void
-  openApplyModal: () => void
-  closeApplyModal: () => void
 }
 
 type AuthStore = AuthState & AuthActions
@@ -43,10 +44,10 @@ export const useAuthStore = create<AuthStore>()(
       isAuthModalOpen: false,
       authModalTab: 'login',
       pendingAction: null,
+      authModalProductImage: null,
       _hasHydrated: false,
       cartCount: 0,
       notificationCount: 0,
-      isApplyModalOpen: false,
 
       // ─── Actions ──────────────────────────────────────────────────────────
       _setHasHydrated: (v) => set({ _hasHydrated: v }),
@@ -81,21 +82,20 @@ export const useAuthStore = create<AuthStore>()(
         })
       },
 
-      openAuthModal: (tab: 'login' | 'signup' = 'login', pendingAction?: string) =>
+      openAuthModal: (tab: 'login' | 'signup' = 'login', pendingAction?: string, productImage?: string | null) =>
         set({
           isAuthModalOpen: true,
           authModalTab: tab,
           pendingAction: pendingAction ?? null,
+          authModalProductImage: productImage ?? null,
         }),
 
       closeAuthModal: () =>
         set({
           isAuthModalOpen: false,
           pendingAction: null,
+          authModalProductImage: null,
         }),
-
-      openApplyModal: () => set({ isApplyModalOpen: true }),
-      closeApplyModal: () => set({ isApplyModalOpen: false }),
     }),
     {
       name: 'sb_auth',

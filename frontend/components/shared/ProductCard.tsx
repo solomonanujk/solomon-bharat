@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { Heart, Plus, Trash2, BookmarkPlus, BookmarkCheck } from 'lucide-react'
+import { Heart, Plus, Trash2, BookmarkPlus, BookmarkCheck, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import { displayUnitPrice } from '@/lib/pricing'
@@ -57,7 +57,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
   function handleToggleCatalogue(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
-    toggleCatalogueProduct({ productId: id, name, slug, image: imageSrc ?? '', price, moq })
+    toggleCatalogueProduct({ productId: id, name, slug, image: imageSrc ?? '', price, moq, agentPrice: price })
   }
 
   function handleToggleWishlist(e: React.MouseEvent) {
@@ -99,10 +99,19 @@ export function ProductCard({ product, className }: ProductCardProps) {
     removeItem(id)
   }
 
+  /** Guests never reach the product detail page from a card — clicking it opens
+   *  the "unlock wholesale pricing" signup wizard instead, with this product's
+   *  photo shown atop its first step. Authenticated users navigate normally. */
+  function handleCardClick(e: React.MouseEvent) {
+    if (isAuthenticated) return
+    e.preventDefault()
+    requireAuth(() => {}, 'view_price', imageSrc ?? undefined)
+  }
+
   return (
     <div className={cn('group flex flex-col', className)}>
       {/* Image */}
-      <Link href={`/products/${slug}`} className="relative block aspect-square overflow-hidden rounded-sm bg-[#F0EBE3]">
+      <Link href={`/products/${slug}`} onClick={handleCardClick} className="relative block aspect-square overflow-hidden rounded-sm bg-[#F0EBE3]">
         {imageSrc ? (
           <Image
             src={cloudinaryFill(imageSrc, 700, 700)}
@@ -215,7 +224,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
-                requireAuth(() => {}, 'view_price')
+                requireAuth(() => {}, 'view_price', imageSrc ?? undefined)
               }}
               aria-label="Sign in to see wholesale price"
               className="blur-[5px] select-none cursor-pointer"
@@ -227,6 +236,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
 
         <Link
           href={`/products/${slug}`}
+          onClick={handleCardClick}
           className="text-[14px] font-[600] font-sans text-product-text leading-snug line-clamp-2 tracking-[0.02em] hover:underline"
         >
           {name}
@@ -234,9 +244,24 @@ export function ProductCard({ product, className }: ProductCardProps) {
 
         <RatingSummary avgRating={product.avgRating} reviewCount={product.reviewCount} size={14} />
 
-        <span className="text-[12px] font-sans text-muted-text">
-          MOQ: {moq} units
-        </span>
+        {isAuthenticated ? (
+          <span className="text-[12px] font-sans text-muted-text">
+            MOQ: {moq} units
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              requireAuth(() => {}, 'view_price', imageSrc ?? undefined)
+            }}
+            className="mt-1 inline-flex items-center justify-between gap-0 w-[82%] px-2 py-2 rounded-sm border border-border-warm text-[12.5px] font-[400] font-sans text-muted-text hover:bg-muted-bg transition-colors"
+          >
+            Unlock wholesale price
+            <ArrowRight size={13} aria-hidden="true" />
+          </button>
+        )}
       </div>
     </div>
   )

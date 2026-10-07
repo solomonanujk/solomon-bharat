@@ -4,10 +4,10 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Plus, Package } from 'lucide-react'
+import { Plus, Package, ShoppingBag } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { useMyProducts, useResubmitProduct, useDeleteMyProduct } from '@/hooks/queries/useProducts'
+import { useMyProducts, useResubmitProduct, useDeleteMyProduct, useUpdateMyProduct } from '@/hooks/queries/useProducts'
 import { useCategoryTree } from '@/hooks/queries/useCategories'
 import { categoryPathLabel } from '@/components/seller-portal/CategoryCascade'
 import { ApprovalStatusBadge } from '@/components/seller-portal/StatusBadges'
@@ -62,6 +62,7 @@ export default function ProductsPage() {
   })
   const resubmit = useResubmitProduct()
   const del = useDeleteMyProduct()
+  const updateProduct = useUpdateMyProduct()
 
   const products = data?.items ?? []
   const total = data?.total ?? 0
@@ -220,6 +221,26 @@ export default function ProductsPage() {
                               <p className="text-[11px] font-[600] font-sans text-amber-600">
                                 Pricing update pending review
                               </p>
+                            )}
+                            {product.shopifyProductId && (
+                              <label className="flex items-center gap-1.5 cursor-pointer mt-0.5">
+                                <input
+                                  type="checkbox"
+                                  checked={product.shopifySyncEnabled}
+                                  disabled={updateProduct.isPending}
+                                  onChange={(e) =>
+                                    updateProduct.mutate({
+                                      id: product.id,
+                                      data: { shopifySyncEnabled: e.target.checked },
+                                    })
+                                  }
+                                  className="w-3.5 h-3.5 rounded border-[#E5E1D8] accent-[#1A1A1A]"
+                                />
+                                <span className="inline-flex items-center gap-1 text-[11px] font-[600] font-sans text-[#6B6460]">
+                                  <ShoppingBag size={10} aria-hidden="true" />
+                                  Synced from Shopify
+                                </span>
+                              </label>
                             )}
                           </div>
                         </td>

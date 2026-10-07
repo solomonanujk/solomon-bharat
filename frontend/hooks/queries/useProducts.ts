@@ -167,6 +167,7 @@ export interface SubmitProductInput {
   isGITagged?: boolean
   howItIsMade?: string
   artisanName?: string
+  craftImage?: File
   priceTiers?: ProductPriceTier[]
   ecoMaterials?: string[]
   ecoPackaging?: string[]
@@ -195,6 +196,8 @@ function toFormData(input: object): FormData {
     if (value === undefined || value === null) continue
     if ((key === 'images' || key === 'videos') && Array.isArray(value)) {
       value.forEach((file) => fd.append(key, file as File))
+    } else if (key === 'craftImage' && value instanceof File) {
+      fd.append(key, value)
     } else if (JSON_FIELDS.has(key)) {
       fd.append(key, JSON.stringify(value))
     } else {
@@ -278,10 +281,15 @@ export interface UpdateMyProductInput {
     images?: File[]
     removeVideoIds?: string[]
     videos?: File[]
+    /** Clears the craft image when no replacement `craftImage` file is also sent. */
+    removeCraftImage?: boolean
     /** Only meaningful when the product being updated is currently a DRAFT — true
      *  validates it fully and submits it for review; omitted/false just saves
      *  whatever's filled in and leaves it as a draft. */
     publish?: boolean
+    /** Per-product opt-out of the Shopify sync job — only meaningful on a
+     *  product that has a shopifyProductId at all. */
+    shopifySyncEnabled?: boolean
   }
 }
 

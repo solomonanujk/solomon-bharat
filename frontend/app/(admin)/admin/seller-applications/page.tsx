@@ -151,6 +151,75 @@ function NotesPanel({ application }: { application: SellerApplication }) {
   )
 }
 
+// ─── Application details (the wizard's Brand/Products/Export readiness/Final
+// details data) — kept out of the always-visible summary row so the card list
+// doesn't balloon; shown behind its own "Details" toggle. ─────────────────────
+
+function DetailRow({ label, value }: { label: string; value?: React.ReactNode }) {
+  if (value === undefined || value === null || value === '') return null
+  return (
+    <div>
+      <p className="text-[10.5px] font-[700] font-sans text-[#9CA3AF] uppercase tracking-[0.06em] mb-0.5">{label}</p>
+      <p className="text-[13px] font-sans text-[#1A1A1A] leading-[1.4]">{value}</p>
+    </div>
+  )
+}
+
+function DetailGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-[11px] font-[700] font-sans text-[#A68B67] uppercase tracking-[0.08em] mb-2.5">{title}</p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">{children}</div>
+    </div>
+  )
+}
+
+function ApplicationDetailsPanel({ application: a }: { application: SellerApplication }) {
+  return (
+    <div className="mt-4 pt-4 border-t border-[#F5F0E8] space-y-5">
+      <DetailGroup title="Brand">
+        <DetailRow label="City" value={a.city} />
+        <DetailRow label="Country" value={a.country} />
+        <DetailRow label="Instagram" value={a.instagramHandle ? `@${a.instagramHandle}` : undefined} />
+        <DetailRow label="Followers" value={a.instagramFollowers?.toLocaleString()} />
+        <DetailRow label="Website / social" value={a.websiteOrSocialLink} />
+      </DetailGroup>
+
+      <DetailGroup title="Products">
+        <DetailRow label="Categories" value={a.craftCategories?.length ? a.craftCategories.join(', ') : undefined} />
+        <DetailRow label="GI-tagged products" value={a.giTaggedProducts} />
+        <DetailRow label="Monthly sales volume" value={a.monthlySalesVolume} />
+      </DetailGroup>
+      {a.productDescription && (
+        <div>
+          <p className="text-[10.5px] font-[700] font-sans text-[#9CA3AF] uppercase tracking-[0.06em] mb-1">Product description</p>
+          <p className="text-[13px] font-sans text-[#1A1A1A] whitespace-pre-wrap">{a.productDescription}</p>
+        </div>
+      )}
+
+      <DetailGroup title="Export readiness">
+        <DetailRow
+          label="Shipped internationally"
+          value={a.shippedInternationally == null ? undefined : a.shippedInternationally ? 'Yes' : 'No'}
+        />
+        <DetailRow label="Approx. orders" value={a.approxExportOrders} />
+        <DetailRow label="Export countries" value={a.exportCountries} />
+        <DetailRow label="Selling on Amazon" value={a.sellingOnAmazon} />
+        <DetailRow label="Other platforms" value={a.otherPlatforms?.length ? a.otherPlatforms.join(', ') : undefined} />
+        <DetailRow label="GST registration" value={a.gstRegistration} />
+        <DetailRow label="Company incorporation" value={a.companyIncorporation} />
+        <DetailRow label="IEC status" value={a.iecStatus} />
+      </DetailGroup>
+
+      <DetailGroup title="Final details">
+        <DetailRow label="Business type" value={a.businessType} />
+        <DetailRow label="Heard about us via" value={a.hearAboutUs} />
+        <DetailRow label="Agreed to commission terms" value={a.agreedToCommissionTerms ? 'Yes' : 'No'} />
+      </DetailGroup>
+    </div>
+  )
+}
+
 // ─── Application card ──────────────────────────────────────────────────────────
 
 function ApplicationCard({
@@ -163,6 +232,7 @@ function ApplicationCard({
   onRequestInfo: (a: SellerApplication) => void
 }) {
   const [expanded, setExpanded] = useState(false)
+  const [detailsExpanded, setDetailsExpanded] = useState(false)
   const approveApplication = useApproveSellerApplication()
 
   const canAct = application.status === 'PENDING' || application.status === 'MORE_INFO_REQUESTED'
@@ -232,6 +302,11 @@ function ApplicationCard({
               </Button>
             </>
           )}
+          <Button variant="ghost" size="sm" onClick={() => setDetailsExpanded((e) => !e)} className="gap-1.5">
+            <ClipboardList size={12} aria-hidden="true" />
+            Details
+            {detailsExpanded ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
+          </Button>
           <Button variant="ghost" size="sm" onClick={() => setExpanded((e) => !e)} className="gap-1.5">
             <StickyNote size={12} aria-hidden="true" />
             Notes
@@ -240,6 +315,7 @@ function ApplicationCard({
         </div>
       </div>
 
+      {detailsExpanded && <ApplicationDetailsPanel application={application} />}
       {expanded && <NotesPanel application={application} />}
     </div>
   )

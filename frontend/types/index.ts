@@ -145,6 +145,7 @@ export interface ProductListingDetails {
   isGITagged: boolean
   howItIsMade: string | null
   artisanName: string | null
+  craftImageUrl: string | null
   ecoMaterials: string[]
   ecoPackaging: string[]
   ecoProduction: string[]
@@ -234,6 +235,9 @@ export interface MyProduct extends ProductListingDetails {
   /** Non-null only once this product is APPROVED and has an unreviewed pricing/
    *  variant edit awaiting admin approval. */
   pendingPricingChange: PendingPricingChange | null
+  /** Set only when this product was imported from Shopify. */
+  shopifyProductId: string | null
+  shopifySyncEnabled: boolean
 }
 
 /** Full admin projection — includes both prices + seller attribution. */
@@ -301,15 +305,56 @@ export interface SellerApplication {
   reviewedAt: string | null
   createdAt: string
   updatedAt: string
+  city: string | null
+  country: string | null
+  instagramHandle: string | null
+  instagramFollowers: number | null
+  websiteOrSocialLink: string | null
+  craftCategories: string[]
+  productDescription: string | null
+  giTaggedProducts: string | null
+  monthlySalesVolume: string | null
+  shippedInternationally: boolean | null
+  approxExportOrders: string | null
+  exportCountries: string | null
+  sellingOnAmazon: string | null
+  otherPlatforms: string[]
+  gstRegistration: string | null
+  companyIncorporation: string | null
+  iecStatus: string | null
+  businessType: string | null
+  hearAboutUs: string | null
+  agreedToCommissionTerms: boolean
 }
 
+/** businessAddress is deliberately absent — the wizard only collects city +
+ *  country; the backend synthesizes businessAddress from those. */
 export interface SellerApplyInput {
   businessName: string
   contactName: string
   email: string
   phone: string
-  businessAddress: string
   message?: string
+  city: string
+  country: string
+  instagramHandle: string
+  instagramFollowers: number
+  websiteOrSocialLink?: string
+  craftCategories?: string[]
+  productDescription?: string
+  giTaggedProducts?: string
+  monthlySalesVolume?: string
+  shippedInternationally?: boolean
+  approxExportOrders?: string
+  exportCountries?: string
+  sellingOnAmazon?: string
+  otherPlatforms?: string[]
+  gstRegistration?: string
+  companyIncorporation?: string
+  iecStatus?: string
+  businessType: string
+  hearAboutUs?: string
+  agreedToCommissionTerms: boolean
 }
 
 export interface SellerProfile {

@@ -18,12 +18,14 @@ export function useAuth() {
    * If the user is authenticated, run `action` immediately.
    * Otherwise, open the auth modal on the signup tab so they can create an
    * account, and record `pendingAction` so the UI can resume after sign-in.
+   * `productImage`, when given, shows that product's photo atop the signup
+   * wizard's first step — a visual reminder of what they're unlocking.
    */
-  function requireAuth(action: () => void, pendingAction?: string): void {
+  function requireAuth(action: () => void, pendingAction?: string, productImage?: string | null): void {
     if (isAuthenticated) {
       action()
     } else {
-      openAuthModal('signup', pendingAction)
+      openAuthModal('signup', pendingAction, productImage)
     }
   }
 

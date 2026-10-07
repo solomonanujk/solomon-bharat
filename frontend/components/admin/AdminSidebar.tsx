@@ -97,7 +97,7 @@ export function AdminSidebar() {
       <div className="px-6 h-16 flex items-center border-b border-white/[0.07] shrink-0">
         <Link href="/" className="block">
           <img
-            src="https://res.cloudinary.com/dxnqyvcdl/image/upload/v1788850557/branding/1788850490541-solomon-bharat-logo.png"
+            src="/branding/solomon-bharat-logo.png"
             alt="Solomon Bharat"
             className="h-11 w-auto object-contain block brightness-0 invert"
           />
