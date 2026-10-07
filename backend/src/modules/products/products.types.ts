@@ -64,9 +64,6 @@ export interface VariantInput {
   dimensionUnit?: 'cm' | 'in';
   tariffCode?: string;
   inventory?: number;
-  // Set only when this variant was imported from Shopify — never client-sent
-  // on a normal seller submission. See the shopify-import module.
-  shopifyVariantId?: string;
 }
 
 // ─── Staged pricing/variant changes on an already-approved (live) product ───────
@@ -148,10 +145,6 @@ export interface CreateProductInput {
   ecoProduction?: string[];
   isBestseller?: boolean;
   tariffCode?: string;
-  // Set only by the shopify-import module — never client-sent on a normal
-  // seller submission. See shopify-import.service.ts.
-  shopifyConnectionId?: string;
-  shopifyProductId?: string;
 }
 
 /** Only name + categoryId are real requirements — see ProductsService.saveDraft for
@@ -223,9 +216,6 @@ export interface UpdateProductInput {
   ecoProduction?: string[];
   isBestseller?: boolean;
   tariffCode?: string;
-  // Per-product opt-out of the Shopify sync job — only meaningful on a
-  // product that has a shopifyConnectionId at all. See shopify-import module.
-  shopifySyncEnabled?: boolean;
 }
 
 export interface UploadedImageFile {
@@ -350,9 +340,6 @@ export interface SellerProduct {
   /** Non-null only once this product is APPROVED and the seller has an unreviewed
    *  pricing/variant edit awaiting admin approval — see ProposedPricing above. */
   pendingPricingChange: PendingPricingChange | null;
-  /** Set only when this product was imported from Shopify. */
-  shopifyProductId: string | null;
-  shopifySyncEnabled: boolean;
 }
 
 

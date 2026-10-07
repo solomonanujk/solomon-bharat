@@ -44,7 +44,6 @@ type VariantCreateData = {
   dimensionUnit?: string;
   tariffCode?: string;
   inventory?: number;
-  shopifyVariantId?: string;
 };
 
 // Accepts a plain VariantInput (no admin/agent pricing — the create/direct-edit path)
@@ -70,7 +69,6 @@ function toVariantCreateInput(v: VariantInputWithAdminPricing): VariantCreateDat
     dimensionUnit: v.dimensionUnit,
     tariffCode: v.tariffCode,
     inventory: v.inventory,
-    shopifyVariantId: v.shopifyVariantId,
   };
 }
 
@@ -139,8 +137,6 @@ export class ProductsRepository {
         ecoProduction: input.ecoProduction ?? [],
         isBestseller: input.isBestseller,
         tariffCode: input.tariffCode,
-        shopifyConnectionId: input.shopifyConnectionId,
-        shopifyProductId: input.shopifyProductId,
         ...overrides,
         images: { create: imageUrls.map((url, index) => ({ url, sortOrder: index })) },
         videos: { create: videoUrls.map((url, index) => ({ url, sortOrder: index })) },

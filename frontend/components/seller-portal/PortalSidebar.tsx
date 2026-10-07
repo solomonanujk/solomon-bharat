@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Package, PackagePlus, Download, ShoppingBag, CreditCard, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Package, PackagePlus, ShoppingBag, CreditCard, Settings, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { useMySellerProfile } from '@/hooks/queries/useSellers'
@@ -13,7 +13,6 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/portal', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { href: '/portal/products', label: 'My Products', icon: Package, exact: true },
   { href: '/portal/products/new', label: 'Submit Product', icon: PackagePlus },
-  { href: '/portal/products/import', label: 'Import from Shopify', icon: Download },
   { href: '/portal/orders', label: 'Orders', icon: ShoppingBag },
   { href: '/portal/payouts', label: 'Payouts', icon: CreditCard },
   { href: '/portal/settings', label: 'Settings', icon: Settings },

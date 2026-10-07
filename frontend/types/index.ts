@@ -235,9 +235,6 @@ export interface MyProduct extends ProductListingDetails {
   /** Non-null only once this product is APPROVED and has an unreviewed pricing/
    *  variant edit awaiting admin approval. */
   pendingPricingChange: PendingPricingChange | null
-  /** Set only when this product was imported from Shopify. */
-  shopifyProductId: string | null
-  shopifySyncEnabled: boolean
 }
 
 /** Full admin projection — includes both prices + seller attribution. */

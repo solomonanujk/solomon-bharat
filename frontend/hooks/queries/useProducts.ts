@@ -287,9 +287,6 @@ export interface UpdateMyProductInput {
      *  validates it fully and submits it for review; omitted/false just saves
      *  whatever's filled in and leaves it as a draft. */
     publish?: boolean
-    /** Per-product opt-out of the Shopify sync job — only meaningful on a
-     *  product that has a shopifyProductId at all. */
-    shopifySyncEnabled?: boolean
   }
 }
 

@@ -21,10 +21,6 @@ const envSchema = z.object({
 
   GEMINI_API_KEY: z.string().default(''),
 
-  // Used to encrypt a seller's Shopify Admin API access token at rest (see
-  // backend/src/utils/crypto.ts) — must be a real secret in production.
-  SHOPIFY_TOKEN_ENCRYPTION_KEY: z.string().default(''),
-
   PORT: z.coerce.number().default(4000),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   APP_URL: z.string().default('http://localhost:3000'),

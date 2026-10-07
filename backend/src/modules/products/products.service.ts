@@ -137,8 +137,6 @@ function toSellerProduct(product: ProductWithMedia, pendingPricingChange: Pendin
     isBestseller: product.isBestseller,
     tariffCode: product.tariffCode,
     pendingPricingChange,
-    shopifyProductId: product.shopifyProductId,
-    shopifySyncEnabled: product.shopifySyncEnabled,
   };
 }
 

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Building2, User, Phone, MapPin, Landmark, Bell, CalendarDays, AlertTriangle, RotateCcw, Package, Download } from 'lucide-react'
+import { ArrowLeft, Building2, User, Phone, MapPin, Landmark, Bell, CalendarDays, AlertTriangle, RotateCcw, Package } from 'lucide-react'
 import { useAdminSeller } from '@/hooks/queries/useSellers'
 import { useSuspendUser, useReactivateUser } from '@/hooks/queries/useAdmin'
 import { Button } from '@/components/ui/button'
@@ -169,13 +169,6 @@ export default function AdminSellerDetailPage() {
           >
             <Package size={14} aria-hidden="true" />
             View products from this seller
-          </Link>
-          <Link
-            href={`/admin/sellers/${seller.id}/shopify-import`}
-            className="flex items-center gap-2 text-[13px] font-[600] font-sans text-[#A68B67] hover:underline mt-2.5"
-          >
-            <Download size={14} aria-hidden="true" />
-            Import products from Shopify
           </Link>
         </InfoCard>
       </div>

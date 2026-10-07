@@ -215,11 +215,6 @@ export const updateProductSchema = z.object({
     .preprocess((val) => (val === 'true' ? true : val === 'false' ? false : val), z.boolean())
     .optional(),
   tariffCode: z.string().max(50).optional(),
-  // No default (unlike formBoolean()) — this is a PATCH endpoint, and a
-  // default would silently re-enable sync on every unrelated field update.
-  shopifySyncEnabled: z
-    .preprocess((val) => (val === 'true' ? true : val === 'false' ? false : val), z.boolean())
-    .optional(),
 });
 export type UpdateProductDto = z.infer<typeof updateProductSchema>;
 

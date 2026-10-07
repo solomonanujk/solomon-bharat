@@ -89,9 +89,6 @@ function buildProduct(overrides: Partial<Product> = {}): Product {
     ecoProduction: [],
     isBestseller: false,
     tariffCode: null,
-    shopifyConnectionId: null,
-    shopifyProductId: null,
-    shopifySyncEnabled: true,
     ...overrides,
   };
 }
