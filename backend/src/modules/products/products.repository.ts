@@ -44,6 +44,7 @@ type VariantCreateData = {
   dimensionUnit?: string;
   tariffCode?: string;
   inventory?: number;
+  shopifyVariantId?: string;
 };
 
 // Accepts a plain VariantInput (no admin/agent pricing — the create/direct-edit path)
@@ -69,6 +70,7 @@ function toVariantCreateInput(v: VariantInputWithAdminPricing): VariantCreateDat
     dimensionUnit: v.dimensionUnit,
     tariffCode: v.tariffCode,
     inventory: v.inventory,
+    shopifyVariantId: v.shopifyVariantId,
   };
 }
 
@@ -131,11 +133,14 @@ export class ProductsRepository {
         isGITagged: input.isGITagged,
         howItIsMade: input.howItIsMade,
         artisanName: input.artisanName,
+        craftImageUrl: input.craftImageUrl,
         ecoMaterials: input.ecoMaterials ?? [],
         ecoPackaging: input.ecoPackaging ?? [],
         ecoProduction: input.ecoProduction ?? [],
         isBestseller: input.isBestseller,
         tariffCode: input.tariffCode,
+        shopifyConnectionId: input.shopifyConnectionId,
+        shopifyProductId: input.shopifyProductId,
         ...overrides,
         images: { create: imageUrls.map((url, index) => ({ url, sortOrder: index })) },
         videos: { create: videoUrls.map((url, index) => ({ url, sortOrder: index })) },
@@ -203,7 +208,10 @@ export class ProductsRepository {
     newVideoUrls: string[] = [],
     currentVideoCount = 0,
   ): Promise<ProductWithMedia> {
-    const { variants, removeImageIds, removeVideoIds, priceTiers, ...scalarFields } = input;
+    // removeCraftImage is a client-sent control flag, never a Prisma column — the
+    // service already resolves it into a real craftImageUrl value before calling
+    // this method, so it's stripped here purely so it never leaks into `data`.
+    const { variants, removeImageIds, removeVideoIds, removeCraftImage: _removeCraftImage, priceTiers, ...scalarFields } = input;
 
     const operations: Prisma.PrismaPromise<unknown>[] = [];
 

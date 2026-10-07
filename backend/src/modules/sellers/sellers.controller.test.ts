@@ -47,7 +47,12 @@ describe('sellers controller', () => {
         contactName: 'Meera',
         email: 'meera@kalakendra.in',
         phone: '9876543210',
-        businessAddress: '221B Baker St, Mumbai',
+        city: 'Mumbai',
+        country: 'India',
+        instagramHandle: 'kalakendra',
+        instagramFollowers: 500,
+        businessType: 'Manufacturer',
+        agreedToCommissionTerms: true,
       });
       expect(res.status).toBe(201);
     });

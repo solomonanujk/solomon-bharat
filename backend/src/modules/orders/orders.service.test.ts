@@ -56,12 +56,16 @@ function buildProduct(overrides: Partial<Product> = {}): ProductWithMedia {
     isGITagged: false,
     howItIsMade: null,
     artisanName: null,
+    craftImageUrl: null,
     agentPrice: null,
     ecoMaterials: [],
     ecoPackaging: [],
     ecoProduction: [],
     isBestseller: false,
     tariffCode: null,
+    shopifyConnectionId: null,
+    shopifyProductId: null,
+    shopifySyncEnabled: true,
     ...overrides,
   };
   return { ...product, images: [], videos: [], variants: [], priceTiers: [] };

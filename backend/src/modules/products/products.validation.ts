@@ -195,6 +195,7 @@ export const updateProductSchema = z.object({
   publish: formBoolean(false),
   removeImageIds: jsonArrayField(z.string().uuid()),
   removeVideoIds: jsonArrayField(z.string().uuid()),
+  removeCraftImage: formBoolean(false),
   tags: jsonArrayField(z.string().min(1).max(50)),
   stepQty: z.coerce.number().int().positive().optional(),
   isHandmade: z
@@ -214,6 +215,11 @@ export const updateProductSchema = z.object({
     .preprocess((val) => (val === 'true' ? true : val === 'false' ? false : val), z.boolean())
     .optional(),
   tariffCode: z.string().max(50).optional(),
+  // No default (unlike formBoolean()) — this is a PATCH endpoint, and a
+  // default would silently re-enable sync on every unrelated field update.
+  shopifySyncEnabled: z
+    .preprocess((val) => (val === 'true' ? true : val === 'false' ? false : val), z.boolean())
+    .optional(),
 });
 export type UpdateProductDto = z.infer<typeof updateProductSchema>;
 

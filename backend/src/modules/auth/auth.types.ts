@@ -15,6 +15,12 @@ export interface SignupBuyerInput {
   country: string;
   companyName?: string;
   phone?: string;
+  businessType?: string;
+  businessOpenedYear?: string;
+  website?: string;
+  hearAboutUs?: string[];
+  marketingOptOut?: boolean;
+  preferredLanguage?: string;
 }
 
 export interface LoginInput {

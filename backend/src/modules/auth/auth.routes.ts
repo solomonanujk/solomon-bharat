@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authController } from './auth.controller';
 import {
+  checkEmailQuerySchema,
   forgotPasswordSchema,
   loginSchema,
   resetPasswordSchema,
@@ -13,6 +14,29 @@ import { authRateLimiter } from '../../middleware/rateLimiter';
 import { asyncHandler } from '../../utils/asyncHandler';
 
 export const authRouter = Router();
+
+/**
+ * @openapi
+ * /auth/check-email:
+ *   get:
+ *     summary: Check whether an account already exists for an email — used by the signup email gate before starting the onboarding wizard
+ *     tags: [Auth]
+ *     security: []
+ *     parameters:
+ *       - in: query
+ *         name: email
+ *         required: true
+ *         schema: { type: string, format: email }
+ *     responses:
+ *       200:
+ *         description: "{ exists: boolean }"
+ */
+authRouter.get(
+  '/check-email',
+  authRateLimiter,
+  validate(checkEmailQuerySchema, 'query'),
+  asyncHandler(authController.checkEmail),
+);
 
 /**
  * @openapi

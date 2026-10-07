@@ -192,6 +192,31 @@ model SellerApplication {
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
 
+  // "Apply to list your brand" wizard fields (Brand/Products/Export readiness/
+  // Final details) — all nullable/defaulted at the DB level even where the form
+  // treats them as required, so this migration never fails against existing rows;
+  // required-ness is enforced by Zod at the API boundary for new submissions only.
+  city                    String?
+  country                 String?  @default("India")
+  instagramHandle         String?
+  instagramFollowers      Int?
+  websiteOrSocialLink     String?
+  craftCategories         String[] @default([])
+  productDescription      String?
+  giTaggedProducts        String?
+  monthlySalesVolume      String?
+  shippedInternationally  Boolean?
+  approxExportOrders      String?
+  exportCountries         String?
+  sellingOnAmazon         String?
+  otherPlatforms          String[] @default([])
+  gstRegistration         String?
+  companyIncorporation    String?
+  iecStatus               String?
+  businessType            String?
+  hearAboutUs             String?
+  agreedToCommissionTerms Boolean  @default(false)
+
   sellerProfile SellerProfile?
 
   @@index([status])
@@ -216,9 +241,31 @@ model SellerProfile {
 
   products Product[]
   payouts  Payout[]
+  shopifyConnection ShopifyConnection?
 
   @@index([deletedAt])
   @@map("seller_profiles")
+}
+
+model ShopifyConnection {
+  id                    String        @id @default(uuid())
+  sellerId              String        @unique
+  seller                SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  shopDomain            String
+  // AES-256-GCM, iv+authTag packed in, base64 — see backend/src/utils/crypto.ts.
+  accessTokenCiphertext String
+  // Seller-level pause switch, independent of disconnecting entirely.
+  syncEnabled           Boolean       @default(true)
+  lastSyncedAt          DateTime?
+  // Last sync failure reason (e.g. revoked token) — cleared on next success,
+  // surfaced in the UI, never retried aggressively.
+  lastSyncError         String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  products Product[]
+
+  @@map("shopify_connections")
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -283,6 +330,15 @@ model BuyerProfile {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
+
+  // Faire-style onboarding wizard fields (signup only — all optional, collected
+  // progressively across the multi-step "Unlock wholesale pricing" modal).
+  businessType       String?
+  businessOpenedYear String?
+  website            String?
+  hearAboutUs        String[] @default([])
+  marketingOptOut    Boolean  @default(false)
+  preferredLanguage  String?
 
   addresses     Address[]
   wishlistItems WishlistItem[]
@@ -407,6 +463,7 @@ model Product {
   isGITagged    Boolean  @default(false)
   howItIsMade   String?
   artisanName   String?
+  craftImageUrl String?
 
   // Faire-parity fields (see PRD §8.5/§8.9, §15.3)
   ecoMaterials  String[] @default([])
@@ -414,6 +471,14 @@ model Product {
   ecoProduction String[] @default([])
   isBestseller  Boolean  @default(false)
   tariffCode    String?  @db.VarChar(50)
+
+  // Set only for a product that was imported from Shopify — null for every
+  // other product. shopifySyncEnabled is a per-product opt-out, independent
+  // of ShopifyConnection.syncEnabled (the whole-store switch).
+  shopifyConnectionId String?
+  shopifyConnection   ShopifyConnection? @relation(fields: [shopifyConnectionId], references: [id], onDelete: SetNull)
+  shopifyProductId    String?
+  shopifySyncEnabled  Boolean            @default(true)
 
   images                ProductImage[]
   videos                ProductVideo[]
@@ -430,6 +495,7 @@ model Product {
   @@index([approvalStatus])
   @@index([createdAt])
   @@index([deletedAt])
+  @@index([shopifyConnectionId])
   @@map("products")
 }
 
@@ -495,6 +561,10 @@ model ProductVariant {
   dimensionUnit String?  @default("cm")
   tariffCode    String?  @db.VarChar(50)
   inventory     Int?
+
+  // Set only when this variant came from a Shopify import — used by the sync
+  // job to match a Shopify variant back to this row.
+  shopifyVariantId String?
 
   // Full attribute set for multi-axis variant combos (Size + Color + Material + …).
   // `type`/`value` above always mirror the first axis for backward-compatible display.

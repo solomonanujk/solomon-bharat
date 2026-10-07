@@ -74,9 +74,10 @@ describe('CataloguesService.generate', () => {
       title: 'My Catalogue',
     });
 
-    expect(buildCataloguePdf).toHaveBeenCalledWith([
-      expect.objectContaining({ name: 'Table Runner', price: 499, moq: 25 }),
-    ]);
+    expect(buildCataloguePdf).toHaveBeenCalledWith(
+      [expect.objectContaining({ name: 'Table Runner', price: 499, moq: 25 })],
+      { title: 'My Catalogue', preparedBy: undefined },
+    );
     expect(storageProvider.uploadFile).toHaveBeenCalledWith(
       expect.any(Buffer),
       expect.any(String),

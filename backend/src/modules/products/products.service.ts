@@ -91,6 +91,7 @@ function toBuyerProduct(
     isGITagged: product.isGITagged,
     howItIsMade: product.howItIsMade,
     artisanName: product.artisanName,
+    craftImageUrl: product.craftImageUrl,
     ecoMaterials: product.ecoMaterials,
     ecoPackaging: product.ecoPackaging,
     ecoProduction: product.ecoProduction,
@@ -129,12 +130,15 @@ function toSellerProduct(product: ProductWithMedia, pendingPricingChange: Pendin
     isGITagged: product.isGITagged,
     howItIsMade: product.howItIsMade,
     artisanName: product.artisanName,
+    craftImageUrl: product.craftImageUrl,
     ecoMaterials: product.ecoMaterials,
     ecoPackaging: product.ecoPackaging,
     ecoProduction: product.ecoProduction,
     isBestseller: product.isBestseller,
     tariffCode: product.tariffCode,
     pendingPricingChange,
+    shopifyProductId: product.shopifyProductId,
+    shopifySyncEnabled: product.shopifySyncEnabled,
   };
 }
 
@@ -336,6 +340,27 @@ export class ProductsService {
     return uploads.map((u) => u.url);
   }
 
+  private async uploadSingleImage(file: UploadedImageFile, folder: string): Promise<string> {
+    if (file.buffer.length > MAX_IMAGE_FILE_SIZE_BYTES) {
+      throw AppError.badRequest('Each image must be 5MB or smaller');
+    }
+    const upload = await storageProvider.uploadImage(file.buffer, `${Date.now()}-craft-${file.originalname}`, folder);
+    return upload.url;
+  }
+
+  /** Resolves the three ways a craft image can change on an update: a new file
+   *  replaces it (url), `removeCraftImage` with no new file clears it (null), or
+   *  neither applies and it's left untouched (undefined — Prisma ignores it). */
+  private async resolveCraftImageUrl(
+    craftImageFile: UploadedImageFile | undefined,
+    removeCraftImage: boolean | undefined,
+    folder: string,
+  ): Promise<string | null | undefined> {
+    if (craftImageFile) return this.uploadSingleImage(craftImageFile, folder);
+    if (removeCraftImage) return null;
+    return undefined;
+  }
+
   private async uploadVideos(files: UploadedImageFile[], folder: string): Promise<string[]> {
     if (files.length === 0) return [];
     if (files.length > MAX_VIDEOS) {
@@ -394,6 +419,7 @@ export class ProductsService {
     input: CreateProductInput,
     files: UploadedImageFile[],
     videoFiles: UploadedImageFile[] = [],
+    craftImageFile?: UploadedImageFile,
   ): Promise<SellerProduct> {
     if (files.length < MIN_IMAGES || files.length > MAX_IMAGES) {
       throw AppError.badRequest(`Products require between ${MIN_IMAGES} and ${MAX_IMAGES} images`);
@@ -406,12 +432,13 @@ export class ProductsService {
     const folder = entityFolder('products', slug, id);
     const imageUrls = await this.uploadImages(files, folder);
     const videoUrls = await this.uploadVideos(videoFiles, folder);
+    const craftImageUrl = craftImageFile ? await this.uploadSingleImage(craftImageFile, folder) : undefined;
     const variants = this.resolveVariantImageUrls(input.variants, imageUrls);
     const declaredStock = this.deriveDeclaredStock({ ...input, variants }) ?? input.declaredStock;
 
     const product = await this.repo.create(
       sellerProfileId,
-      { ...input, variants, slug, id, declaredStock },
+      { ...input, variants, slug, id, declaredStock, ...(craftImageUrl !== undefined ? { craftImageUrl } : {}) },
       imageUrls,
       videoUrls,
     );
@@ -467,6 +494,7 @@ export class ProductsService {
     files: UploadedImageFile[],
     adminId: string,
     videoFiles: UploadedImageFile[] = [],
+    craftImageFile?: UploadedImageFile,
   ) {
     const sellerProfileId =
       sellerMode === 'existing'
@@ -484,6 +512,7 @@ export class ProductsService {
     const folder = entityFolder('products', slug, id);
     const imageUrls = await this.uploadImages(files, folder);
     const videoUrls = await this.uploadVideos(videoFiles, folder);
+    const craftImageUrl = craftImageFile ? await this.uploadSingleImage(craftImageFile, folder) : undefined;
     const variants = this.resolveVariantImageUrls(input.variants, imageUrls);
     const declaredStock = this.deriveDeclaredStock({ ...input, variants }) ?? input.declaredStock;
 
@@ -507,7 +536,7 @@ export class ProductsService {
 
     const product = await this.repo.create(
       sellerProfileId,
-      { ...input, variants, slug, id, declaredStock },
+      { ...input, variants, slug, id, declaredStock, ...(craftImageUrl !== undefined ? { craftImageUrl } : {}) },
       imageUrls,
       videoUrls,
       {
@@ -544,6 +573,7 @@ export class ProductsService {
     rawInput: UpdateProductInput,
     files: UploadedImageFile[],
     videoFiles: UploadedImageFile[] = [],
+    craftImageFile?: UploadedImageFile,
   ): Promise<SellerProduct> {
     const product = await this.getOwnedProductOrThrow(sellerProfileId, productId);
 
@@ -590,6 +620,7 @@ export class ProductsService {
     const folder = entityFolder('products', product.slug, productId);
     const imageUrls = await this.uploadImages(files, folder);
     const videoUrls = await this.uploadVideos(videoFiles, folder);
+    const craftImageUrl = await this.resolveCraftImageUrl(craftImageFile, input.removeCraftImage, folder);
     // Resolves any variant swatch picked from a photo being uploaded in this same
     // request (sent as newImageIndex, no real URL yet) to its just-uploaded URL.
     const variants = this.resolveVariantImageUrls(input.variants, imageUrls);
@@ -606,6 +637,7 @@ export class ProductsService {
         variants,
         ...(declaredStock !== undefined ? { declaredStock } : {}),
         ...(publishingDraft ? { approvalStatus: ProductApprovalStatus.PENDING } : {}),
+        ...(craftImageUrl !== undefined ? { craftImageUrl } : {}),
       };
       const updated = await this.repo.update(
         productId,
@@ -627,9 +659,11 @@ export class ProductsService {
     const { moq, sellerPrice, priceTiers, variants: _rawVariants, declaredStock, ...restFields } = input;
     const nonPricingFields =
       usesVariantInventory || declaredStock === undefined ? restFields : { ...restFields, declaredStock };
+    const finalNonPricingFields =
+      craftImageUrl !== undefined ? { ...nonPricingFields, craftImageUrl } : nonPricingFields;
     const updated = await this.repo.update(
       productId,
-      nonPricingFields,
+      finalNonPricingFields,
       imageUrls,
       currentImageCount - removedCount,
       videoUrls,
@@ -666,6 +700,7 @@ export class ProductsService {
     files: UploadedImageFile[],
     adminId: string,
     videoFiles: UploadedImageFile[] = [],
+    craftImageFile?: UploadedImageFile,
   ) {
     const product = await this.getProductOrThrow(productId);
 
@@ -688,10 +723,15 @@ export class ProductsService {
     const folder = entityFolder('products', product.slug, productId);
     const imageUrls = await this.uploadImages(files, folder);
     const videoUrls = await this.uploadVideos(videoFiles, folder);
+    const craftImageUrl = await this.resolveCraftImageUrl(craftImageFile, input.removeCraftImage, folder);
     // Admin edits always apply directly (no staging), so deriving from variant
     // inventory here is safe exactly like the not-yet-approved seller path.
     const declaredStock = this.deriveDeclaredStock(input);
-    const finalInput = declaredStock !== undefined ? { ...input, declaredStock } : input;
+    const finalInput = {
+      ...input,
+      ...(declaredStock !== undefined ? { declaredStock } : {}),
+      ...(craftImageUrl !== undefined ? { craftImageUrl } : {}),
+    };
     await this.repo.update(
       productId,
       finalInput,

@@ -83,11 +83,15 @@ function buildProduct(overrides: Partial<Product> = {}): Product {
     isGITagged: false,
     howItIsMade: null,
     artisanName: null,
+    craftImageUrl: null,
     ecoMaterials: [],
     ecoPackaging: [],
     ecoProduction: [],
     isBestseller: false,
     tariffCode: null,
+    shopifyConnectionId: null,
+    shopifyProductId: null,
+    shopifySyncEnabled: true,
     ...overrides,
   };
 }

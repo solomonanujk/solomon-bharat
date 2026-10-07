@@ -25,12 +25,20 @@ function toFileInput(f: Express.Multer.File) {
 }
 
 // uploadProductMedia (middleware/upload.ts) uses multer's .fields(), so req.files is
-// the object form { images?, videos? } rather than a flat array.
-function extractFiles(req: Request): { images: ReturnType<typeof toFileInput>[]; videos: ReturnType<typeof toFileInput>[] } {
-  const files = (req.files as { images?: Express.Multer.File[]; videos?: Express.Multer.File[] } | undefined) ?? {};
+// the object form { images?, videos?, craftImage? } rather than a flat array.
+function extractFiles(req: Request): {
+  images: ReturnType<typeof toFileInput>[];
+  videos: ReturnType<typeof toFileInput>[];
+  craftImage?: ReturnType<typeof toFileInput>;
+} {
+  const files =
+    (req.files as
+      | { images?: Express.Multer.File[]; videos?: Express.Multer.File[]; craftImage?: Express.Multer.File[] }
+      | undefined) ?? {};
   return {
     images: (files.images ?? []).map(toFileInput),
     videos: (files.videos ?? []).map(toFileInput),
+    craftImage: files.craftImage?.[0] ? toFileInput(files.craftImage[0]) : undefined,
   };
 }
 
@@ -48,8 +56,8 @@ export const productsController = {
   async create(req: Request, res: Response): Promise<void> {
     const sellerProfileId = await resolveSellerProfileId(req.user!.id);
     const dto = req.body as CreateProductDto;
-    const { images, videos } = extractFiles(req);
-    const product = await productsService.createProduct(sellerProfileId, dto, images, videos);
+    const { images, videos, craftImage } = extractFiles(req);
+    const product = await productsService.createProduct(sellerProfileId, dto, images, videos, craftImage);
     sendCreated(res, product, 'Product submitted for review');
   },
 
@@ -62,7 +70,7 @@ export const productsController = {
 
   async createAsAdmin(req: Request, res: Response): Promise<void> {
     const { sellerMode, sellerId, ...dto } = req.body as CreateProductAsAdminDto;
-    const { images, videos } = extractFiles(req);
+    const { images, videos, craftImage } = extractFiles(req);
     const product = await productsService.createProductAsAdmin(
       sellerMode,
       sellerId,
@@ -70,6 +78,7 @@ export const productsController = {
       images,
       req.user!.id,
       videos,
+      craftImage,
     );
     sendCreated(res, product, 'Product created and published');
   },
@@ -77,8 +86,8 @@ export const productsController = {
   async update(req: Request, res: Response): Promise<void> {
     const sellerProfileId = await resolveSellerProfileId(req.user!.id);
     const dto = req.body as UpdateProductDto;
-    const { images, videos } = extractFiles(req);
-    const product = await productsService.updateProduct(sellerProfileId, req.params.id, dto, images, videos);
+    const { images, videos, craftImage } = extractFiles(req);
+    const product = await productsService.updateProduct(sellerProfileId, req.params.id, dto, images, videos, craftImage);
     sendSuccess(res, product, 'Product updated');
   },
 
@@ -133,8 +142,8 @@ export const productsController = {
 
   async updateAdmin(req: Request, res: Response): Promise<void> {
     const dto = req.body as UpdateProductDto;
-    const { images, videos } = extractFiles(req);
-    const product = await productsService.updateProductAsAdmin(req.params.id, dto, images, req.user!.id, videos);
+    const { images, videos, craftImage } = extractFiles(req);
+    const product = await productsService.updateProductAsAdmin(req.params.id, dto, images, req.user!.id, videos, craftImage);
     sendSuccess(res, product, 'Product updated');
   },
 

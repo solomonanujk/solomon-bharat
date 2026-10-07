@@ -54,8 +54,9 @@ function productMediaFileFilter(
 export const uploadProductMedia = multer({
   storage,
   fileFilter: productMediaFileFilter,
-  limits: { fileSize: MAX_VIDEO_FILE_SIZE_BYTES, files: 13 },
+  limits: { fileSize: MAX_VIDEO_FILE_SIZE_BYTES, files: 14 },
 }).fields([
   { name: 'images', maxCount: 10 },
   { name: 'videos', maxCount: 3 },
+  { name: 'craftImage', maxCount: 1 },
 ]);

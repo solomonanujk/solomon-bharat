@@ -36,6 +36,13 @@ export class AuthService {
     };
   }
 
+  /** Lets the signup email-gate check before walking someone through the whole
+   *  onboarding wizard just to hit a conflict at the end. */
+  async emailExists(email: string): Promise<boolean> {
+    const existing = await this.repo.findUserByEmail(email);
+    return !!existing;
+  }
+
   async signupBuyer(input: SignupBuyerInput): Promise<SafeUser> {
     const existing = await this.repo.findUserByEmail(input.email);
     if (existing) {

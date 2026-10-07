@@ -197,6 +197,7 @@ describe('products controller', () => {
         [],
         expect.any(String),
         [],
+        undefined,
       );
     });
   });
@@ -440,6 +441,7 @@ describe('products controller', () => {
         expect.any(Array),
         expect.any(String),
         expect.any(Array),
+        undefined,
       );
     });
 

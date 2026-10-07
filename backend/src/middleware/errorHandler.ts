@@ -30,10 +30,19 @@ export const errorHandler: ErrorRequestHandler = (
   }
 
   if (err instanceof ZodError) {
+    // `errors` mirrors the {field, message}[] shape the frontend's getApiError
+    // already reads to surface a precise "Field: reason" toast instead of the
+    // generic `message` below — array indices are dropped from the field path
+    // (e.g. "items.0.moq" -> "items.moq") since they're noise to a human reader.
+    const errors = err.issues.map((issue) => ({
+      field: issue.path.filter((p) => typeof p !== 'number').join('.'),
+      message: issue.message,
+    }));
     res.status(422).json({
       success: false,
       data: null,
       message: 'Validation error',
+      errors,
       meta: { details: err.flatten() },
     });
     return;

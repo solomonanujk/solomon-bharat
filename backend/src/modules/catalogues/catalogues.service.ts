@@ -1,4 +1,4 @@
-import { Catalogue, ProductApprovalStatus } from '@prisma/client';
+import { AgentProfile, Catalogue, ProductApprovalStatus } from '@prisma/client';
 import { AppError } from '../../utils/errors';
 import { storageProvider } from '../../providers/storage';
 import { PaginationQuery } from '../../utils/pagination';
@@ -38,16 +38,17 @@ export class CataloguesService {
     private readonly products: ProductsRepository = productsRepository,
   ) {}
 
-  private async resolveAgentProfileId(userId: string): Promise<string> {
+  private async getAgentProfileOrThrow(userId: string): Promise<AgentProfile> {
     const profile = await this.repo.findAgentProfileByUserId(userId);
     if (!profile) {
       throw AppError.notFound('Agent profile not found');
     }
-    return profile.id;
+    return profile;
   }
 
   async generate(userId: string, input: CreateCatalogueInput): Promise<CatalogueSummary> {
-    const agentId = await this.resolveAgentProfileId(userId);
+    const agentProfile = await this.getAgentProfileOrThrow(userId);
+    const agentId = agentProfile.id;
 
     const fetched = await Promise.all(
       input.items.map((item) => this.products.findByIdWithMedia(item.productId)),
@@ -67,12 +68,12 @@ export class CataloguesService {
     const pdfProducts: CatalogueProductInput[] = qualifying.map(({ item, product }) => ({
       name: product.name,
       description: product.description,
-      imageUrl: product.images[0]?.url,
+      imageUrls: [...product.images].sort((a, b) => a.sortOrder - b.sortOrder).map((img) => img.url),
       price: item.price,
       moq: item.moq,
     }));
 
-    const pdfBuffer = await buildCataloguePdf(pdfProducts);
+    const pdfBuffer = await buildCataloguePdf(pdfProducts, { title, preparedBy: agentProfile.businessName });
 
     const filename = `catalogue-${Date.now()}-${agentId}.pdf`;
     const uploaded = await storageProvider.uploadFile(pdfBuffer, filename, `${CATALOGUE_STORAGE_FOLDER}/${agentId}`);
@@ -91,13 +92,13 @@ export class CataloguesService {
     userId: string,
     pagination: PaginationQuery,
   ): Promise<{ data: CatalogueSummary[]; total: number }> {
-    const agentId = await this.resolveAgentProfileId(userId);
+    const agentId = (await this.getAgentProfileOrThrow(userId)).id;
     const { data, total } = await this.repo.listForAgent(agentId, pagination);
     return { data: data.map(toSummary), total };
   }
 
   async getMine(userId: string, catalogueId: string): Promise<CatalogueSummary> {
-    const agentId = await this.resolveAgentProfileId(userId);
+    const agentId = (await this.getAgentProfileOrThrow(userId)).id;
     const catalogue = await this.repo.findByIdForAgent(agentId, catalogueId);
     if (!catalogue) {
       throw AppError.notFound('Catalogue not found');

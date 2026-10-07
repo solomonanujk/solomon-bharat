@@ -64,6 +64,9 @@ export interface VariantInput {
   dimensionUnit?: 'cm' | 'in';
   tariffCode?: string;
   inventory?: number;
+  // Set only when this variant was imported from Shopify — never client-sent
+  // on a normal seller submission. See the shopify-import module.
+  shopifyVariantId?: string;
 }
 
 // ─── Staged pricing/variant changes on an already-approved (live) product ───────
@@ -135,6 +138,9 @@ export interface CreateProductInput {
   isGITagged?: boolean;
   howItIsMade?: string;
   artisanName?: string;
+  // Resolved by the service from the uploaded craftImage file, never sent directly by
+  // the client — see ProductsService.createProduct/createProductAsAdmin.
+  craftImageUrl?: string | null;
   priceTiers?: PriceTierWithAdminPricing[];
   // Faire-parity fields (PRD §8.5/§8.9, §15.3).
   ecoMaterials?: string[];
@@ -142,6 +148,10 @@ export interface CreateProductInput {
   ecoProduction?: string[];
   isBestseller?: boolean;
   tariffCode?: string;
+  // Set only by the shopify-import module — never client-sent on a normal
+  // seller submission. See shopify-import.service.ts.
+  shopifyConnectionId?: string;
+  shopifyProductId?: string;
 }
 
 /** Only name + categoryId are real requirements — see ProductsService.saveDraft for
@@ -192,6 +202,14 @@ export interface UpdateProductInput {
   approvalStatus?: ProductApprovalStatus;
   removeImageIds?: string[];
   removeVideoIds?: string[];
+  // Client-sent flag meaning "clear the craft image" — never forwarded to the
+  // repository layer. The service converts it (and/or an uploaded replacement file)
+  // into a real craftImageUrl value before calling repo.update — see
+  // ProductsService.updateProduct/updateProductAsAdmin.
+  removeCraftImage?: boolean;
+  // Resolved by the service from the uploaded craftImage file (or null when
+  // removeCraftImage is set with no replacement) — never sent directly by the client.
+  craftImageUrl?: string | null;
   tags?: string[];
   stepQty?: number;
   isHandmade?: boolean;
@@ -205,6 +223,9 @@ export interface UpdateProductInput {
   ecoProduction?: string[];
   isBestseller?: boolean;
   tariffCode?: string;
+  // Per-product opt-out of the Shopify sync job — only meaningful on a
+  // product that has a shopifyConnectionId at all. See shopify-import module.
+  shopifySyncEnabled?: boolean;
 }
 
 export interface UploadedImageFile {
@@ -282,6 +303,7 @@ export interface BuyerProduct {
   isGITagged: boolean;
   howItIsMade: string | null;
   artisanName: string | null;
+  craftImageUrl: string | null;
   ecoMaterials: string[];
   ecoPackaging: string[];
   ecoProduction: string[];
@@ -319,6 +341,7 @@ export interface SellerProduct {
   isGITagged: boolean;
   howItIsMade: string | null;
   artisanName: string | null;
+  craftImageUrl: string | null;
   ecoMaterials: string[];
   ecoPackaging: string[];
   ecoProduction: string[];
@@ -327,6 +350,9 @@ export interface SellerProduct {
   /** Non-null only once this product is APPROVED and the seller has an unreviewed
    *  pricing/variant edit awaiting admin approval — see ProposedPricing above. */
   pendingPricingChange: PendingPricingChange | null;
+  /** Set only when this product was imported from Shopify. */
+  shopifyProductId: string | null;
+  shopifySyncEnabled: boolean;
 }
 
 

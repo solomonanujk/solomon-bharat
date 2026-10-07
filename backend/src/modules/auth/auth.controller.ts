@@ -4,6 +4,7 @@ import { clearAuthCookies, REFRESH_COOKIE_NAME, setAuthCookies } from '../../uti
 import { AppError } from '../../utils/errors';
 import { authService } from './auth.service';
 import {
+  CheckEmailQueryDto,
   ForgotPasswordDto,
   LoginDto,
   ResetPasswordDto,
@@ -12,6 +13,12 @@ import {
 } from './auth.validation';
 
 export const authController = {
+  async checkEmail(req: Request, res: Response): Promise<void> {
+    const { email } = req.query as unknown as CheckEmailQueryDto;
+    const exists = await authService.emailExists(email);
+    sendSuccess(res, { exists });
+  },
+
   async signup(req: Request, res: Response): Promise<void> {
     const dto = req.body as SignupBuyerDto;
     const user = await authService.signupBuyer(dto);

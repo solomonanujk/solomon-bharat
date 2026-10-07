@@ -46,6 +46,12 @@ function buildProfile(overrides: Partial<BuyerProfile> = {}): BuyerProfile {
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
+    businessType: null,
+    businessOpenedYear: null,
+    website: null,
+    hearAboutUs: [],
+    marketingOptOut: false,
+    preferredLanguage: null,
     ...overrides,
   };
 }

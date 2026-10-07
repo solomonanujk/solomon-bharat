@@ -33,6 +33,26 @@ function buildApplication(overrides: Partial<SellerApplication> = {}): SellerApp
     reviewedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
+    city: 'Jaipur',
+    country: 'India',
+    instagramHandle: 'jaipurhandicrafts',
+    instagramFollowers: 1000,
+    websiteOrSocialLink: null,
+    craftCategories: [],
+    productDescription: null,
+    giTaggedProducts: null,
+    monthlySalesVolume: null,
+    shippedInternationally: null,
+    approxExportOrders: null,
+    exportCountries: null,
+    sellingOnAmazon: null,
+    otherPlatforms: [],
+    gstRegistration: null,
+    companyIncorporation: null,
+    iecStatus: null,
+    businessType: 'Manufacturer',
+    hearAboutUs: null,
+    agreedToCommissionTerms: true,
     ...overrides,
   };
 }
@@ -90,7 +110,12 @@ describe('SellersService', () => {
           contactName: 'Y',
           email: 'asha@jaipurhandicrafts.example',
           phone: '123',
-          businessAddress: 'Jaipur',
+          city: 'Jaipur',
+          country: 'India',
+          instagramHandle: 'x',
+          instagramFollowers: 100,
+          businessType: 'Manufacturer',
+          agreedToCommissionTerms: true,
         }),
       ).rejects.toMatchObject({ statusCode: 409 });
 
@@ -109,7 +134,12 @@ describe('SellersService', () => {
           contactName: 'Y',
           email: 'asha@jaipurhandicrafts.example',
           phone: '123',
-          businessAddress: 'Jaipur',
+          city: 'Jaipur',
+          country: 'India',
+          instagramHandle: 'x',
+          instagramFollowers: 100,
+          businessType: 'Manufacturer',
+          agreedToCommissionTerms: true,
         }),
       ).rejects.toMatchObject({ statusCode: 409 });
     });
@@ -126,10 +156,18 @@ describe('SellersService', () => {
         contactName: 'Y',
         email: 'asha@jaipurhandicrafts.example',
         phone: '123',
-        businessAddress: 'Jaipur',
+        city: 'Jaipur',
+        country: 'India',
+        instagramHandle: 'x',
+        instagramFollowers: 100,
+        businessType: 'Manufacturer',
+        agreedToCommissionTerms: true,
       });
 
       expect(repo.createApplication).toHaveBeenCalledTimes(1);
+      expect(repo.createApplication).toHaveBeenCalledWith(
+        expect.objectContaining({ businessAddress: 'Jaipur, India' }),
+      );
     });
   });
 

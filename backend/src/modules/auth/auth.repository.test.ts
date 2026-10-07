@@ -41,7 +41,18 @@ describe('AuthRepository', () => {
         passwordHash: 'hashed',
         role: 'BUYER',
         buyerProfile: {
-          create: { contactName: 'Ada', country: 'US', companyName: 'Acme', phone: '123' },
+          create: {
+            contactName: 'Ada',
+            country: 'US',
+            companyName: 'Acme',
+            phone: '123',
+            businessType: undefined,
+            businessOpenedYear: undefined,
+            website: undefined,
+            hearAboutUs: [],
+            marketingOptOut: false,
+            preferredLanguage: undefined,
+          },
         },
       },
     });

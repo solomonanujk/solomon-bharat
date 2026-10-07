@@ -44,7 +44,7 @@ export class SellersService {
     }
   }
 
-  async submitApplication(input: SubmitApplicationInput): Promise<SellerApplication> {
+  async submitApplication(input: Omit<SubmitApplicationInput, 'businessAddress'>): Promise<SellerApplication> {
     const existingUser = await this.repo.findUserByEmail(input.email);
     if (existingUser) {
       throw AppError.conflict('An account already exists for this email address');
@@ -55,7 +55,10 @@ export class SellersService {
       throw AppError.conflict('An application for this email is already under review');
     }
 
-    return this.repo.createApplication(input);
+    // The wizard only collects city + country, not a full street address —
+    // SellerProfile.businessAddress still requires a value at approval time
+    // (createSellerUserAndProfile copies it 1:1), so it's synthesized here.
+    return this.repo.createApplication({ ...input, businessAddress: `${input.city}, ${input.country}` });
   }
 
   async listApplications(
