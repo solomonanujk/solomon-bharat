@@ -94,7 +94,7 @@ export const collectionsController = {
 
   async getPublicDetail(req: Request, res: Response): Promise<void> {
     const pagination = paginationQuerySchema.parse(req.query);
-    const result = await collectionsService.getPublicDetail(req.params.slug, pagination);
+    const result = await collectionsService.getPublicDetail(req.params.slug, pagination, req.user?.role);
     sendSuccess(res, result);
   },
 };

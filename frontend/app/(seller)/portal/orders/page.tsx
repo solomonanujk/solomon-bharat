@@ -8,16 +8,16 @@ import { OrderItemStatusBadge } from '@/components/seller-portal/StatusBadges'
 
 function SkeletonRows() {
   return (
-    <div className="bg-white border border-[#E5E1D8] rounded-xl overflow-hidden animate-pulse">
+    <div className="bg-white border border-[#E5DCCB] rounded-xl overflow-hidden animate-pulse">
       {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="flex gap-4 px-5 py-4 border-b border-[#F5F0E8] last:border-0">
-          <div className="h-4 bg-[#F5F0E8] rounded w-24" />
-          <div className="h-4 bg-[#F5F0E8] rounded flex-1" />
-          <div className="h-4 bg-[#F5F0E8] rounded w-8" />
-          <div className="h-4 bg-[#F5F0E8] rounded w-20" />
-          <div className="h-4 bg-[#F5F0E8] rounded w-20" />
-          <div className="h-5 bg-[#F5F0E8] rounded-full w-24" />
-          <div className="h-4 bg-[#F5F0E8] rounded w-20" />
+        <div key={i} className="flex gap-4 px-5 py-4 border-b border-[#F5F0E5] last:border-0">
+          <div className="h-4 bg-[#F5F0E5] rounded w-24" />
+          <div className="h-4 bg-[#F5F0E5] rounded flex-1" />
+          <div className="h-4 bg-[#F5F0E5] rounded w-8" />
+          <div className="h-4 bg-[#F5F0E5] rounded w-20" />
+          <div className="h-4 bg-[#F5F0E5] rounded w-20" />
+          <div className="h-5 bg-[#F5F0E5] rounded-full w-24" />
+          <div className="h-4 bg-[#F5F0E5] rounded w-20" />
         </div>
       ))}
     </div>
@@ -38,8 +38,8 @@ export default function OrdersPage() {
     <div>
       {/* Page header */}
       <div className="mb-6">
-        <h1 className="text-[24px] font-[700] font-sans text-[#1A1A1A] leading-tight">Orders</h1>
-        <p className="text-[13px] font-sans text-[#6B6460] mt-0.5">
+        <h1 className="text-[24px] font-[700] font-sans text-[#20201E] leading-tight">Orders</h1>
+        <p className="text-[13px] font-sans text-[#665F55] mt-0.5">
           Order items linked to your products. Buyer identity and admin pricing are never shown here.
         </p>
       </div>
@@ -51,22 +51,22 @@ export default function OrdersPage() {
           <p className="text-[14px] font-sans text-red-500">Failed to load orders.</p>
         </div>
       ) : items.length === 0 ? (
-        <div className="py-20 flex flex-col items-center justify-center text-center bg-white border border-[#E5E1D8] rounded-xl">
-          <div className="w-14 h-14 rounded-full bg-[#F5F0E8] flex items-center justify-center mb-4">
+        <div className="py-20 flex flex-col items-center justify-center text-center bg-white border border-[#E5DCCB] rounded-xl">
+          <div className="w-14 h-14 rounded-full bg-[#F5F0E5] flex items-center justify-center mb-4">
             <ShoppingBag size={24} className="text-[#C4BDB4]" aria-hidden="true" />
           </div>
-          <p className="text-[16px] font-[600] font-sans text-[#1A1A1A] mb-1">No orders yet</p>
-          <p className="text-[13.5px] font-sans text-[#6B6460]">
+          <p className="text-[16px] font-[600] font-sans text-[#20201E] mb-1">No orders yet</p>
+          <p className="text-[13.5px] font-sans text-[#665F55]">
             Orders containing your products will appear here.
           </p>
         </div>
       ) : (
         <>
-          <div className="bg-white border border-[#E5E1D8] rounded-xl overflow-hidden mb-4">
+          <div className="bg-white border border-[#E5DCCB] rounded-xl overflow-hidden mb-4">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[680px]">
                 <thead>
-                  <tr className="border-b border-[#E5E1D8] bg-[#F9F7F2]">
+                  <tr className="border-b border-[#E5DCCB] bg-[#F5F0E5]">
                     {['Order Ref', 'Product', 'Qty', 'Seller Price', 'Line Total', 'Status', 'Expected Collection'].map((col) => (
                       <th key={col} className="px-5 py-3 text-left text-[11px] font-[700] font-sans text-[#9CA3AF] uppercase tracking-[0.07em] whitespace-nowrap">
                         {col}
@@ -74,7 +74,7 @@ export default function OrdersPage() {
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#F5F0E8]">
+                <tbody className="divide-y divide-[#F5F0E5]">
                   {items.map((item) => (
                     <tr key={item.orderItemId} className="hover:bg-[#FDFCF9] transition-colors">
                       <td className="px-5 py-4">
@@ -83,22 +83,22 @@ export default function OrdersPage() {
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="text-[14px] font-[500] font-sans text-[#1A1A1A]">
+                        <span className="text-[14px] font-[500] font-sans text-[#20201E]">
                           {item.productName}
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="tabular-nums text-[14px] font-[600] font-sans text-[#1A1A1A]">
+                        <span className="tabular-nums text-[14px] font-[600] font-sans text-[#20201E]">
                           {item.quantity}
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="tabular-nums text-[13.5px] font-sans text-[#6B6460]">
+                        <span className="tabular-nums text-[13.5px] font-sans text-[#665F55]">
                           {formatINR(item.sellerPrice)}
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="tabular-nums text-[14px] font-[700] font-sans text-[#1A1A1A]">
+                        <span className="tabular-nums text-[14px] font-[700] font-sans text-[#20201E]">
                           {formatINR(item.lineSellerTotal)}
                         </span>
                       </td>
@@ -125,7 +125,7 @@ export default function OrdersPage() {
 
           {totalPages > 1 && (
             <div className="flex items-center justify-between">
-              <p className="text-[13px] font-sans text-[#6B6460]">
+              <p className="text-[13px] font-sans text-[#665F55]">
                 {total} item{total !== 1 ? 's' : ''} total
               </p>
               <div className="flex items-center gap-2">
@@ -133,18 +133,18 @@ export default function OrdersPage() {
                   type="button"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="h-8 px-3.5 rounded-lg border border-[#E5E1D8] text-[13px] font-[600] font-sans text-[#1A1A1A] hover:bg-[#F5F0E8] transition-colors disabled:opacity-40"
+                  className="h-8 px-3.5 rounded-lg border border-[#E5DCCB] text-[13px] font-[600] font-sans text-[#20201E] hover:bg-[#F5F0E5] transition-colors disabled:opacity-40"
                 >
                   Prev
                 </button>
-                <span className="text-[13px] font-sans text-[#6B6460] px-2">
+                <span className="text-[13px] font-sans text-[#665F55] px-2">
                   {page} / {totalPages}
                 </span>
                 <button
                   type="button"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="h-8 px-3.5 rounded-lg border border-[#E5E1D8] text-[13px] font-[600] font-sans text-[#1A1A1A] hover:bg-[#F5F0E8] transition-colors disabled:opacity-40"
+                  className="h-8 px-3.5 rounded-lg border border-[#E5DCCB] text-[13px] font-[600] font-sans text-[#20201E] hover:bg-[#F5F0E5] transition-colors disabled:opacity-40"
                 >
                   Next
                 </button>

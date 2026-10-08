@@ -3,173 +3,166 @@
 import { useState } from 'react'
 import { Search } from 'lucide-react'
 import { CategoryFilterDrilldown } from '@/components/catalogue/CategoryFilterDrilldown'
+import { CategorySidebarTree } from '@/components/catalogue/CategorySidebarTree'
+import { FilterCheckbox, FilterGroup } from '@/components/catalogue/filterControls'
 import { usePlaceOfOriginFacets } from '@/hooks/queries/useProducts'
-import type { ProductFilterValues } from '@/components/catalogue/FiltersDrawer'
+import type { ProductFilterValues } from '@/components/catalogue/catalogueParams'
+import type { CategoryNode } from '@/types'
 
-// ─── Price range presets ────────────────────────────────────────────────────
-// The API only supports a single contiguous minPrice/maxPrice range, so these
-// render as checkboxes but behave as a mutually-exclusive group.
+// ─── Facet options ────────────────────────────────────────────────────────────
+// Every facet maps 1:1 to a real GET /products query param:
+//   Category → categoryId, Minimum order → moqMax, Made in → placeOfOrigin,
+//   Lead time → leadTime, Wholesale price → minPrice/maxPrice (signed-in buyers/agents only).
+// No "Craft" facet: the API has no craft/technique filter (isHandmade, isGITagged
+// and howItIsMade are not queryable), so it is omitted rather than faked.
 
-interface PriceRange {
-  label: string
-  min?: number
-  max?: number
-}
+/** Upper bounds for the `moqMax` param — filter thresholds, not product claims. */
+const MOQ_OPTIONS = [10, 25, 50, 100]
 
-const PRICE_RANGES: PriceRange[] = [
-  { label: '₹0 – ₹500', min: 0, max: 500 },
+// Same quick-picks a seller chooses from at listing time (seller ProductForm's
+// LEAD_TIME_PRESETS). Sellers can also type a custom value, so the API
+// contains-matches rather than exact-matches.
+const LEAD_TIME_PRESETS = ['1–3 days', '1–2 weeks', '2–4 weeks']
+
+// The API only supports one contiguous minPrice/maxPrice range on the buyer
+// price (INR), so these behave as a mutually-exclusive group.
+const PRICE_RANGES: { label: string; min?: number; max?: number }[] = [
+  { label: 'Under ₹500', min: 0, max: 500 },
   { label: '₹500 – ₹2,000', min: 500, max: 2000 },
   { label: '₹2,000 – ₹5,000', min: 2000, max: 5000 },
   { label: '₹5,000 – ₹10,000', min: 5000, max: 10000 },
-  { label: '₹10,000+', min: 10000 },
+  { label: '₹10,000 and above', min: 10000 },
 ]
 
-// Same free-text quick-picks a seller can choose from at listing time
-// (components/seller-portal/ProductForm.tsx's LEAD_TIME_PRESETS) — sellers can
-// also type a custom value, so this contains-matches rather than exact-matches.
-const LEAD_TIME_PRESETS = ['1–3 days', '1–2 weeks', '2–4 weeks']
-
-// ─── Section ──────────────────────────────────────────────────────────────────
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="py-5 border-b border-border-warm">
-      <p className="text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-3">
-        {title}
-      </p>
-      {children}
-    </div>
-  )
-}
-
-// ─── Component ────────────────────────────────────────────────────────────────
-// The actual filter controls (Category/Price/Made in/Lead time), with no
-// Sheet/header/footer chrome — shared by the overlay `FiltersDrawer` (on
-// /search) and the inline `InlineFilterSidebar` (on /categories/[slug]).
+const ORIGIN_SEARCH_THRESHOLD = 8
 
 interface FilterSectionsProps {
   filters: ProductFilterValues
   onChange: (overrides: Partial<ProductFilterValues>) => void
-  /** The inline sidebar (/categories/[slug]) already shows the category name as
-   *  its own page heading right above this, so the "Category" section's own
-   *  label would just repeat it (and doesn't match Faire's reference, which
-   *  shows the drill-down as a plain list directly under that heading, no
-   *  second label) — the overlay drawer (/search) has no such heading, so it
-   *  keeps the label. */
-  hideCategoryLabel?: boolean
-  /** Overrides the default site-wide `CategoryFilterDrilldown` — used by the
-   *  category detail page to show a tree scoped to just that one category
-   *  (`CategorySidebarTree`) instead of the full site-wide L1 list. */
-  categoryContent?: React.ReactNode
+  /** A category page's own category — scopes the Category facet to its subtree
+   *  (and keeps it preselected). Without it the facet lists every category. */
+  rootCategory?: Pick<CategoryNode, 'id' | 'name' | 'children'>
+  /** Only signed-in buyers may filter by price — guests never see price data. */
+  showPrice?: boolean
 }
 
-export function FilterSections({ filters, onChange: commit, hideCategoryLabel, categoryContent }: FilterSectionsProps) {
-  const { data: placeOfOriginOptions = [] } = usePlaceOfOriginFacets()
-  const [placeOfOriginSearch, setPlaceOfOriginSearch] = useState('')
-  const filteredOrigins = placeOfOriginOptions.filter((v) =>
-    v.toLowerCase().includes(placeOfOriginSearch.trim().toLowerCase())
-  )
-
-  const categoryDrilldown = categoryContent ?? (
-    <CategoryFilterDrilldown
-      value={filters.categoryId}
-      onChange={(categoryId) => commit({ categoryId })}
-    />
-  )
+export function FilterSections({ filters, onChange: commit, rootCategory, showPrice }: FilterSectionsProps) {
+  const { data: originOptions = [] } = usePlaceOfOriginFacets()
+  const [originSearch, setOriginSearch] = useState('')
+  const filteredOrigins = originOptions.filter((v) => v.toLowerCase().includes(originSearch.trim().toLowerCase()))
 
   return (
-    <>
-      {hideCategoryLabel ? (
-        <div className="pb-5 border-b border-border-warm">{categoryDrilldown}</div>
-      ) : (
-        <Section title="Category">{categoryDrilldown}</Section>
-      )}
-
-      <Section title="Wholesale price">
-        <div className="flex flex-col gap-3">
-          {PRICE_RANGES.map((range) => {
-            const checked =
-              filters.priceMin === (range.min?.toString() ?? '') && filters.priceMax === (range.max?.toString() ?? '')
-            return (
-              <label
-                key={range.label}
-                className="flex items-center gap-2.5 text-[14px] font-sans text-primary cursor-pointer select-none"
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() =>
-                    checked
-                      ? commit({ priceMin: '', priceMax: '' })
-                      : commit({ priceMin: range.min?.toString() ?? '', priceMax: range.max?.toString() ?? '' })
-                  }
-                  className="w-4 h-4 rounded border-border-warm text-accent focus:ring-accent focus:ring-1 accent-accent"
-                />
-                {range.label}
-              </label>
-            )
-          })}
-        </div>
-      </Section>
-
-      <Section title="Made in">
-        <div className="relative mb-3">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-text pointer-events-none" aria-hidden="true" />
-          <input
-            type="search"
-            value={placeOfOriginSearch}
-            onChange={(e) => setPlaceOfOriginSearch(e.target.value)}
-            placeholder="Search"
-            aria-label="Search place of origin"
-            className="w-full h-10 pl-10 pr-3 rounded-full border border-border-warm bg-bg text-[14px] font-sans text-primary placeholder:text-muted-text/70 focus:outline-none focus:border-accent transition-colors"
+    <div className="flex flex-col">
+      <FilterGroup title="Category">
+        {rootCategory ? (
+          <CategorySidebarTree
+            root={rootCategory}
+            value={filters.categoryId}
+            // The page's own category is the default — keep it out of the URL.
+            onChange={(categoryId) => commit({ categoryId: categoryId === rootCategory.id ? null : categoryId })}
           />
-        </div>
-        <div className="flex flex-col gap-3 max-h-52 overflow-y-auto">
-          {filteredOrigins.length === 0 ? (
-            <p className="text-[13px] font-sans text-muted-text">No matches.</p>
-          ) : (
-            filteredOrigins.map((origin) => {
-              const checked = filters.placeOfOrigin === origin
-              return (
-                <label
-                  key={origin}
-                  className="flex items-center gap-2.5 text-[14px] font-sans text-primary cursor-pointer select-none"
-                >
-                  <input
-                    type="checkbox"
+        ) : (
+          <CategoryFilterDrilldown value={filters.categoryId} onChange={(categoryId) => commit({ categoryId })} />
+        )}
+      </FilterGroup>
+
+      <FilterGroup title="Minimum order">
+        {MOQ_OPTIONS.map((max) => {
+          const checked = filters.moqMax === max
+          return (
+            <FilterCheckbox
+              key={max}
+              label={`Up to ${max} units`}
+              checked={checked}
+              onChange={() => commit({ moqMax: checked ? undefined : max })}
+            />
+          )
+        })}
+      </FilterGroup>
+
+      {originOptions.length > 0 && (
+        <FilterGroup title="Made in">
+          {originOptions.length > ORIGIN_SEARCH_THRESHOLD && (
+            <div className="relative mb-2">
+              <Search
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
+                aria-hidden="true"
+              />
+              <input
+                type="search"
+                value={originSearch}
+                onChange={(e) => setOriginSearch(e.target.value)}
+                placeholder="Find a place"
+                aria-label="Find a place of origin"
+                className="w-full h-11 pl-9 pr-3 rounded-[4px] border border-line bg-white text-[16px] leading-[24px] text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-forest"
+              />
+            </div>
+          )}
+          <div className="max-h-[264px] overflow-y-auto">
+            {filteredOrigins.length === 0 ? (
+              <p className="py-3 type-caption text-muted">No places match “{originSearch}”.</p>
+            ) : (
+              filteredOrigins.map((origin) => {
+                const checked = filters.placeOfOrigin === origin
+                return (
+                  <FilterCheckbox
+                    key={origin}
+                    label={origin}
                     checked={checked}
                     onChange={() => commit({ placeOfOrigin: checked ? '' : origin })}
-                    className="w-4 h-4 rounded border-border-warm text-accent focus:ring-accent focus:ring-1 accent-accent"
                   />
-                  {origin}
-                </label>
-              )
-            })
-          )}
-        </div>
-      </Section>
+                )
+              })
+            )}
+          </div>
+        </FilterGroup>
+      )}
 
-      <Section title="Lead time">
-        <div className="flex flex-col gap-3">
-          {LEAD_TIME_PRESETS.map((preset) => {
-            const checked = filters.leadTime === preset
+      <FilterGroup title="Lead time">
+        {LEAD_TIME_PRESETS.map((preset) => {
+          const checked = filters.leadTime === preset
+          return (
+            <FilterCheckbox
+              key={preset}
+              label={preset}
+              checked={checked}
+              onChange={() => commit({ leadTime: checked ? '' : preset })}
+            />
+          )
+        })}
+      </FilterGroup>
+
+      {showPrice && (
+        <FilterGroup title="Wholesale price">
+          {PRICE_RANGES.map((range) => {
+            const min = range.min?.toString() ?? ''
+            const max = range.max?.toString() ?? ''
+            const checked = filters.priceMin === min && filters.priceMax === max
             return (
-              <label
-                key={preset}
-                className="flex items-center gap-2.5 text-[14px] font-sans text-primary cursor-pointer select-none"
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => commit({ leadTime: checked ? '' : preset })}
-                  className="w-4 h-4 rounded border-border-warm text-accent focus:ring-accent focus:ring-1 accent-accent"
-                />
-                {preset}
-              </label>
+              <FilterCheckbox
+                key={range.label}
+                label={range.label}
+                checked={checked}
+                onChange={() => commit(checked ? { priceMin: '', priceMax: '' } : { priceMin: min, priceMax: max })}
+              />
             )
           })}
-        </div>
-      </Section>
-    </>
+        </FilterGroup>
+      )}
+    </div>
   )
+}
+
+/** Human labels for applied-filter chips. */
+export function moqChipLabel(max: number) {
+  return `MOQ up to ${max} units`
+}
+
+export function priceChipLabel(min: string, max: string) {
+  const match = PRICE_RANGES.find((r) => (r.min?.toString() ?? '') === min && (r.max?.toString() ?? '') === max)
+  if (match) return match.label
+  if (min && max) return `₹${min} – ₹${max}`
+  if (min) return `From ₹${min}`
+  return `Up to ₹${max}`
 }

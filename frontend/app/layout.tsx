@@ -10,7 +10,8 @@ import { Providers } from '@/providers/Providers'
 // Tailwind theme token below can point at it without a self-referential cycle.
 const fraunces = Fraunces({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500', '600'],
+  style: ['normal'],
   variable: '--font-playfair',
   display: 'swap',
 })
@@ -20,7 +21,8 @@ const fraunces = Fraunces({
 // proportions, without the commercial licensing.
 const hankenGrotesk = Hanken_Grotesk({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
+  weight: ['400', '500', '600', '700'],
+  style: ['normal'],
   variable: '--font-public-sans',
   display: 'swap',
 })

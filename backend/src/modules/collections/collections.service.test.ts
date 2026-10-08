@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Collection, CollectionStatus } from '@prisma/client';
+import { Collection, CollectionStatus, Role } from '@prisma/client';
 import { buildMockCache } from '../../test-utils/mockCache';
 import { storageProvider } from '../../providers/storage';
 import { CollectionsRepository } from './collections.repository';
@@ -311,7 +311,19 @@ describe('CollectionsService', () => {
       expect(products.listPublished).toHaveBeenCalledWith(
         { collectionId: 'col-1' },
         { page: 1, limit: 20 },
+        undefined,
       );
+    });
+
+    it.each([Role.BUYER, Role.AGENT])('passes the %s viewer role through so products are priced for them', async (role) => {
+      vi.mocked(repo.findBySlug).mockResolvedValue(buildCollection({ status: CollectionStatus.PUBLISHED }));
+      vi.mocked(repo.isVisible).mockReturnValue(true);
+      vi.mocked(products.listPublished).mockResolvedValue({ data: [], total: 0 });
+      vi.mocked(repo.findRelated).mockResolvedValue([]);
+
+      await service.getPublicDetail('sustainable-living', { page: 1, limit: 20 }, role);
+
+      expect(products.listPublished).toHaveBeenCalledWith({ collectionId: 'col-1' }, { page: 1, limit: 20 }, role);
     });
   });
 });

@@ -1,161 +1,102 @@
 'use client'
 
-import { Suspense, useMemo, useState } from 'react'
+import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { SlidersHorizontal } from 'lucide-react'
 import { NavBar } from '@/components/shared/NavBar'
 import { Footer } from '@/components/shared/Footer'
-import { EmptyState } from '@/components/shared/EmptyState'
-import { ProductGrid } from '@/components/catalogue/ProductGrid'
-import { FiltersDrawer, EMPTY_FILTERS, activeFilterCount, type ProductFilterValues } from '@/components/catalogue/FiltersDrawer'
-import { useInfiniteProducts } from '@/hooks/queries/useProducts'
+import { Breadcrumbs, type Crumb } from '@/components/catalogue/Breadcrumbs'
+import { CatalogueView, CataloguePageSkeleton } from '@/components/catalogue/CatalogueView'
 
-const PAGE_SIZE = 24
-
-const SORT_MODES: Record<string, { heading: string; empty: string }> = {
-  newest: { heading: 'New Products', empty: 'No products yet — check back soon.' },
-  featured: { heading: 'Bestsellers', empty: 'No featured products yet — check back soon.' },
-  trending: {
-    heading: 'Trending',
-    empty: 'Nothing trending yet — trending is based on real orders in the last 30 days.',
+// Unscoped browse modes behind the navbar's curated quick links. These are the
+// API's own `sort` modes (see components/catalogue/catalogueParams.ts):
+// "featured" narrows to admin-featured products; "trending" is order-volume
+// based and the API ignores every filter for it, so facets/sort are hidden there.
+const SORT_MODES = {
+  newest: {
+    title: 'New products',
+    intro: 'The most recently added products across every category.',
+    empty: 'No products have been published yet. Check back soon.',
   },
-}
+  featured: {
+    title: 'Bestsellers',
+    intro: 'Products our team has picked out from across the catalogue.',
+    empty: 'No products are featured yet. Check back soon.',
+  },
+  trending: {
+    title: 'Trending',
+    intro: 'Products ordered most often in the last 30 days.',
+    empty: 'Nothing is trending yet — trending is based on real orders in the last 30 days.',
+  },
+} as const
 
-// ─── Loading skeleton — matches the category/collection detail pages ─────────
+const BASE_CRUMBS: Crumb[] = [{ label: 'Home', href: '/' }]
 
-function LoadingSkeleton() {
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
-      {Array.from({ length: 15 }).map((_, i) => (
-        <div key={i} className="animate-pulse">
-          <div className="aspect-square bg-[#F0EBE3] rounded-lg mb-3" />
-          <div className="h-3 bg-[#F0EBE3] rounded w-1/2 mb-2" />
-          <div className="h-4 bg-[#F0EBE3] rounded w-3/4 mb-2" />
-          <div className="h-4 bg-[#F0EBE3] rounded w-1/3" />
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ─── Inner page (needs useSearchParams) ──────────────────────────────────────
-
-function SearchResultsInner() {
+function SearchResults() {
   const searchParams = useSearchParams()
   const q = searchParams.get('q')?.trim() ?? ''
   const sortParam = searchParams.get('sort')
-  const sort: 'newest' | 'featured' | 'trending' | undefined =
-    sortParam === 'newest' || sortParam === 'featured' || sortParam === 'trending' ? sortParam : undefined
-  const sortMode = sort ? SORT_MODES[sort] : undefined
+  const sortMode = sortParam === 'newest' || sortParam === 'featured' || sortParam === 'trending' ? sortParam : null
 
-  const [filters, setFilters] = useState<ProductFilterValues>(EMPTY_FILTERS)
-  const [filtersOpen, setFiltersOpen] = useState(false)
-
-  const productsParams = useMemo(
-    () => ({
-      search: !sort && q ? q : undefined,
-      sort,
-      categoryId: filters.categoryId ?? undefined,
-      minPrice: filters.priceMin ? Number(filters.priceMin) : undefined,
-      maxPrice: filters.priceMax ? Number(filters.priceMax) : undefined,
-      placeOfOrigin: filters.placeOfOrigin || undefined,
-      leadTime: filters.leadTime || undefined,
-      limit: PAGE_SIZE,
-    }),
-    [q, sort, filters]
-  )
-
-  const {
-    data,
-    isLoading,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useInfiniteProducts(productsParams)
-  const products = data?.pages.flatMap((p) => p.items) ?? []
-  const total = data?.pages[0]?.total ?? 0
-
-  const filterCount = activeFilterCount(filters)
-
-  if (!q && !sort) {
+  if (!q && !sortMode) {
     return (
-      <div className="min-h-screen bg-bg flex flex-col">
-        <NavBar initialSearchQuery={q} />
-        <main className="flex-1 flex items-center justify-center">
-          <EmptyState
-            title="Search Solomon Bharat"
-            description="Use the search bar above to find products by name, description, or material."
-          />
-        </main>
-        <Footer />
+      <div className="sb-container sb-section">
+        <Breadcrumbs items={[...BASE_CRUMBS, { label: 'Search' }]} />
+        <div className="mt-4 max-w-[660px]">
+          <p className="type-eyebrow text-brass-dark">Search</p>
+          <h1 className="mt-2 type-h1 text-ink">Search Solomon Bharat</h1>
+          <p className="mt-4 type-body text-muted">
+            Use the search bar at the top of the page to find products by name, description or material across every
+            category.
+          </p>
+        </div>
       </div>
     )
   }
 
-  const emptyDescription = sortMode?.empty ?? `Nothing matched "${q}". Try a different search term or adjust your filters.`
+  // A text query always wins: with `q`, sort is just an ordering/narrowing choice.
+  const trending = !q && sortMode === 'trending'
+  const mode = SORT_MODES[sortMode ?? 'newest']
 
   return (
-    <div className="min-h-screen bg-bg flex flex-col">
-      <NavBar initialSearchQuery={q} />
+    <CatalogueView
+      breadcrumbs={[...BASE_CRUMBS, { label: q ? 'Search' : mode.title }]}
+      eyebrow={q ? 'Search results' : 'Browse'}
+      title={q ? `Results for “${q}”` : mode.title}
+      intro={q ? 'Matching product names, descriptions and materials across every category.' : mode.intro}
+      facets={!trending}
+      sortable={!trending}
+      emptyBody={q ? `Nothing matched “${q}”. Try a different or shorter search term.` : mode.empty}
+    />
+  )
+}
 
+function SearchPageInner() {
+  const searchParams = useSearchParams()
+  return (
+    <div className="min-h-screen bg-ivory flex flex-col">
+      <NavBar initialSearchQuery={searchParams.get('q')?.trim() ?? ''} />
       <main className="flex-1">
-        <div className="max-w-[1280px] mx-auto w-full px-4 sm:px-6 lg:px-16 py-8">
-          {/* Filter pill row */}
-          <div className="flex items-center gap-2 mb-6">
-            <button
-              type="button"
-              onClick={() => setFiltersOpen(true)}
-              className="inline-flex items-center gap-2 h-9 px-4 rounded-full border border-[#D0C8BE] text-[13px] font-[400] font-sans text-muted-text hover:text-primary hover:border-primary transition-colors"
-            >
-              <SlidersHorizontal size={14} />
-              All filters
-              {filterCount > 0 && (
-                <span className="min-w-[18px] h-[18px] rounded-full bg-primary text-white text-[10px] font-[600] inline-flex items-center justify-center">
-                  {filterCount}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {isLoading ? (
-            <LoadingSkeleton />
-          ) : products.length === 0 ? (
-            <EmptyState
-              title="No products found"
-              description={emptyDescription}
-            />
-          ) : (
-            <ProductGrid
-              products={products}
-              totalCount={total}
-              hasMore={!!hasNextPage}
-              isLoadingMore={isFetchingNextPage}
-              onLoadMore={fetchNextPage}
-              columns={5}
-            />
-          )}
-        </div>
+        <SearchResults />
       </main>
-
-      <FiltersDrawer
-        open={filtersOpen}
-        onOpenChange={setFiltersOpen}
-        filters={filters}
-        onChange={setFilters}
-        totalCount={total}
-      />
-
       <Footer />
     </div>
   )
 }
 
-// ─── Page (Suspense wrapper for useSearchParams) ──────────────────────────────
-
 export default function SearchPage() {
   return (
-    <Suspense>
-      <SearchResultsInner />
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-ivory flex flex-col">
+          <NavBar />
+          <main className="flex-1">
+            <CataloguePageSkeleton breadcrumbs={[...BASE_CRUMBS, { label: 'Search' }]} />
+          </main>
+          <Footer />
+        </div>
+      }
+    >
+      <SearchPageInner />
     </Suspense>
   )
 }

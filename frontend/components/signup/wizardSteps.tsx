@@ -1,24 +1,23 @@
 'use client'
 
-import { useState } from 'react'
-import { Eye, EyeOff } from 'lucide-react'
+import { useState, type InputHTMLAttributes } from 'react'
+import { AlertCircle, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { COUNTRIES } from '@/lib/countries'
 import { LANGUAGES } from '@/lib/languages'
+import { Button } from '@/components/ui/button'
 
-// ─── Faire-style buyer onboarding wizard — shared steps ────────────────────────
-// Step 1 (email capture, "Unlock wholesale pricing") lives in the auth modal
-// (components/shared/SignupEmailGate.tsx) since that's the gate that opens it.
-// Steps 2–7 live on a full page (app/signup/page.tsx), matching Faire's own
-// flow: only the initial email gate is a modal, everything after is a real
-// page with its own URL. Both share the types/constants/step components here.
+// ─── Buyer onboarding wizard — shared steps ────────────────────────────────────
+// Step 1 (email capture) is SignupEmailGate — shown in the auth modal as a
+// shortcut, or inline on /signup when the page is visited directly. Steps 2–7
+// live on the full page (app/signup/page.tsx). Both share the types, form
+// styles and step components here.
 //
-// Only email/password/name/country map to real, pre-existing account fields —
-// everything from "business type" onward (businessType, businessOpenedYear,
-// website, hearAboutUs, preferredLanguage, marketingOptOut) is a Faire-parity
-// field added specifically for this wizard (BuyerProfile, see prisma schema).
-// "I'm just shopping for myself" and "I don't have a website" skip the
-// business-specific steps rather than blocking on them.
+// Only email/password/name/country map to core account fields — everything
+// from "business type" onward (businessType, businessOpenedYear, website,
+// hearAboutUs, preferredLanguage, marketingOptOut) is optional BuyerProfile
+// data (see backend auth.validation.ts signupBuyerSchema). "I'm just shopping
+// for myself" and "I don't have a website" skip the business-specific steps.
 
 export const BUSINESS_TYPES = [
   { value: 'brick_and_mortar', label: 'Brick and mortar store', hint: 'A permanent retail location' },
@@ -43,7 +42,7 @@ export const HEAR_ABOUT_OPTIONS = [
   'Word of mouth', 'Instagram, Facebook', 'Search', 'Audio, podcast', 'Trade show', 'Blog, news article', 'Other',
 ]
 
-/** Steps 2–7 on the full page — step 1 (email) is the modal, not counted here. */
+/** Steps 2–7 on the full page — step 1 (email) is not counted here. */
 export const TOTAL_PAGE_STEPS = 6
 
 export interface WizardState {
@@ -69,98 +68,208 @@ export function initialWizardState(email = ''): WizardState {
   }
 }
 
+// ─── Form styling (spec §4) ────────────────────────────────────────────────────
+// Label 14/20/600 with 8px gap; input min-h 48px, 16/24, white, 1px line
+// border, 4px radius; helper/error 6px below; errors #A32929 text + border.
+
 export const INPUT_CLS =
-  'w-full h-11 px-3.5 rounded-lg border border-border-warm bg-surface text-[14px] font-sans text-primary placeholder:text-muted-text/50 focus:outline-none focus:border-accent transition-colors disabled:opacity-50'
-export const LABEL_CLS = 'block text-[13px] font-[500] font-sans text-primary mb-1.5'
+  'w-full min-h-12 px-4 py-3 rounded-[4px] border border-line bg-white font-sans text-[16px] leading-[24px] text-ink placeholder:text-muted/70 transition-colors duration-150 focus:border-forest disabled:opacity-50 aria-[invalid=true]:border-error'
+export const LABEL_CLS = 'block font-sans text-[14px] leading-[20px] font-[600] text-ink mb-2'
+export const HELP_CLS = 'mt-[6px] font-sans text-[13px] leading-[20px] text-muted'
+export const STEP_HEADING_CLS = 'type-h3 text-ink'
+
+/** Field-linked error. Give it the id the input references via aria-describedby. */
+export function FieldError({ id, message }: { id: string; message?: string | null }) {
+  if (!message) return null
+  return (
+    <p id={id} role="alert" className="mt-[6px] flex items-start gap-1.5 font-sans text-[13px] leading-[20px] text-error">
+      <AlertCircle size={14} className="mt-[3px] flex-shrink-0" aria-hidden="true" />
+      {message}
+    </p>
+  )
+}
+
+/** Form-level error (API failures etc.), announced on submit. */
+export function FormError({ message }: { message?: string | null }) {
+  if (!message) return null
+  return (
+    <div role="alert" className="flex items-start gap-2 rounded-[4px] border border-error bg-white px-4 py-3 font-sans text-[14px] leading-[20px] text-error">
+      <AlertCircle size={16} className="mt-[2px] flex-shrink-0" aria-hidden="true" />
+      {message}
+    </div>
+  )
+}
+
+/** Password input with an explicit, labelled Show/Hide toggle (44px target). */
+export function PasswordInput({
+  id, invalid, describedBy, className, ...props
+}: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & {
+  id: string
+  invalid?: boolean
+  describedBy?: string
+}) {
+  const [show, setShow] = useState(false)
+  return (
+    <div className="relative">
+      <input
+        id={id}
+        type={show ? 'text' : 'password'}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
+        className={cn(INPUT_CLS, 'pr-[72px]', className)}
+        {...props}
+      />
+      <button
+        type="button"
+        onClick={() => setShow((v) => !v)}
+        aria-controls={id}
+        aria-pressed={show}
+        aria-label={show ? 'Hide password' : 'Show password'}
+        className="absolute right-1 top-1/2 -translate-y-1/2 min-h-11 min-w-11 px-3 rounded-[4px] font-sans text-[14px] leading-[20px] font-[600] text-forest underline underline-offset-4 hover:text-forest-hover transition-colors"
+      >
+        {show ? 'Hide' : 'Show'}
+      </button>
+    </div>
+  )
+}
+
+/** Selectable option row (business type / hear-about-us). Forest + selected fill when chosen. */
+function OptionRow({ selected, label, hint, onClick, role }: {
+  selected: boolean
+  label: string
+  hint?: string
+  onClick: () => void
+  role: 'radio' | 'checkbox'
+}) {
+  return (
+    <button
+      type="button"
+      role={role}
+      aria-checked={selected}
+      onClick={onClick}
+      className={cn(
+        'flex min-h-12 items-center justify-between gap-3 text-left px-4 py-3 rounded-[4px] border bg-white transition-colors duration-150',
+        selected ? 'border-forest bg-selected' : 'border-line hover:border-forest'
+      )}
+    >
+      <span>
+        <span className={cn('block font-sans text-[16px] leading-[24px]', selected ? 'text-forest font-[600]' : 'text-ink')}>
+          {label}
+        </span>
+        {hint && <span className="block font-sans text-[13px] leading-[20px] text-muted">{hint}</span>}
+      </span>
+      <span
+        aria-hidden="true"
+        className={cn(
+          'w-[18px] h-[18px] flex items-center justify-center border flex-shrink-0',
+          role === 'radio' ? 'rounded-full' : 'rounded-[2px]',
+          selected ? 'bg-forest border-forest text-white' : 'border-muted bg-white'
+        )}
+      >
+        {selected && <Check size={12} strokeWidth={3} />}
+      </span>
+    </button>
+  )
+}
 
 // ─── Step 2 — name, password, country, language ────────────────────────────────
 
-export function Step2Welcome({ data, patch, onNext, error }: {
+export type Step2Field = 'firstName' | 'lastName' | 'password' | 'country'
+export type Step2Errors = Partial<Record<Step2Field, string>>
+
+export function validateStep2(data: WizardState): Step2Errors {
+  const errors: Step2Errors = {}
+  if (!data.firstName.trim()) errors.firstName = 'Enter your first name.'
+  if (!data.lastName.trim()) errors.lastName = 'Enter your last name.'
+  if (data.password.length < 8) errors.password = 'Password must be at least 8 characters.'
+  if (!data.country) errors.country = 'Select your country or region.'
+  return errors
+}
+
+export function Step2Welcome({ data, patch, onNext, errors }: {
   data: WizardState
   patch: (f: Partial<WizardState>) => void
   onNext: () => void
-  error: string | null
+  errors: Step2Errors
 }) {
-  const [showPassword, setShowPassword] = useState(false)
+  const err = (f: Step2Field) => (errors[f] ? `wizard-${f}-error` : undefined)
 
   return (
-    <div className="flex flex-col flex-1">
-      <h2 className="text-[22px] font-[600] font-display text-primary mb-1">Welcome! Let&apos;s get started</h2>
-      <p className="text-[13.5px] font-sans text-muted-text mb-6">Tell us a bit about yourself.</p>
+    <form
+      noValidate
+      onSubmit={(e) => { e.preventDefault(); onNext() }}
+      className="flex flex-col"
+    >
+      <h2 className={STEP_HEADING_CLS}>Tell us about yourself</h2>
+      <p className="type-body text-muted mt-2">Signing up as {data.email}</p>
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <div>
-          <label htmlFor="wizard-first-name" className={LABEL_CLS}>First name</label>
-          <input id="wizard-first-name" type="text" autoComplete="given-name" value={data.firstName}
-            onChange={(e) => patch({ firstName: e.target.value })} className={INPUT_CLS} />
+      <div className="mt-6 flex flex-col gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label htmlFor="wizard-firstName" className={LABEL_CLS}>First name</label>
+            <input id="wizard-firstName" type="text" autoComplete="given-name" value={data.firstName}
+              aria-invalid={!!errors.firstName || undefined} aria-describedby={err('firstName')}
+              onChange={(e) => patch({ firstName: e.target.value })} className={INPUT_CLS} />
+            <FieldError id="wizard-firstName-error" message={errors.firstName} />
+          </div>
+          <div>
+            <label htmlFor="wizard-lastName" className={LABEL_CLS}>Last name</label>
+            <input id="wizard-lastName" type="text" autoComplete="family-name" value={data.lastName}
+              aria-invalid={!!errors.lastName || undefined} aria-describedby={err('lastName')}
+              onChange={(e) => patch({ lastName: e.target.value })} className={INPUT_CLS} />
+            <FieldError id="wizard-lastName-error" message={errors.lastName} />
+          </div>
         </div>
-        <div>
-          <label htmlFor="wizard-last-name" className={LABEL_CLS}>Last name</label>
-          <input id="wizard-last-name" type="text" autoComplete="family-name" value={data.lastName}
-            onChange={(e) => patch({ lastName: e.target.value })} className={INPUT_CLS} />
-        </div>
-      </div>
 
-      <div className="mb-1">
-        <label htmlFor="wizard-password" className={LABEL_CLS}>Password</label>
-        <div className="relative">
-          <input
+        <div>
+          <label htmlFor="wizard-password" className={LABEL_CLS}>Password</label>
+          <PasswordInput
             id="wizard-password"
-            type={showPassword ? 'text' : 'password'}
             autoComplete="new-password"
             value={data.password}
+            invalid={!!errors.password}
+            describedBy={errors.password ? 'wizard-password-error wizard-password-help' : 'wizard-password-help'}
             onChange={(e) => patch({ password: e.target.value })}
-            className={cn(INPUT_CLS, 'pr-10')}
           />
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-text hover:text-primary transition-colors"
-          >
-            {showPassword ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
-          </button>
+          <p id="wizard-password-help" className={HELP_CLS}>8 characters minimum</p>
+          <FieldError id="wizard-password-error" message={errors.password} />
         </div>
+
+        <div>
+          <label htmlFor="wizard-country" className={LABEL_CLS}>Country/Region</label>
+          <select id="wizard-country" value={data.country} autoComplete="country-name"
+            aria-invalid={!!errors.country || undefined} aria-describedby={err('country')}
+            onChange={(e) => patch({ country: e.target.value })} className={INPUT_CLS}>
+            <option value="">Select a country…</option>
+            {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <FieldError id="wizard-country-error" message={errors.country} />
+        </div>
+
+        <div>
+          <label htmlFor="wizard-language" className={LABEL_CLS}>Language</label>
+          <select id="wizard-language" value={data.language} onChange={(e) => patch({ language: e.target.value })} className={INPUT_CLS}>
+            {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
+          </select>
+        </div>
+
+        <label className="flex min-h-11 items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={data.marketingOptOut}
+            onChange={(e) => patch({ marketingOptOut: e.target.checked })}
+            className="w-[18px] h-[18px] mt-[3px] rounded-[2px] accent-forest flex-shrink-0"
+          />
+          <span className="font-sans text-[14px] leading-[20px] text-muted mt-[1px]">
+            Opt out of emails with the latest from Solomon Bharat. You can change your preferences anytime.
+          </span>
+        </label>
       </div>
-      <p className="text-[11.5px] font-sans text-muted-text mb-4">8 characters minimum</p>
 
-      <div className="mb-4">
-        <label htmlFor="wizard-country" className={LABEL_CLS}>Country/Region</label>
-        <select id="wizard-country" value={data.country} onChange={(e) => patch({ country: e.target.value })} className={INPUT_CLS}>
-          <option value="">Select a country…</option>
-          {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-      </div>
-
-      <div className="mb-4">
-        <label htmlFor="wizard-language" className={LABEL_CLS}>Language</label>
-        <select id="wizard-language" value={data.language} onChange={(e) => patch({ language: e.target.value })} className={INPUT_CLS}>
-          {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
-        </select>
-      </div>
-
-      <label className="flex items-start gap-2.5 mb-4 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={data.marketingOptOut}
-          onChange={(e) => patch({ marketingOptOut: e.target.checked })}
-          className="w-4 h-4 mt-0.5 rounded border-border-warm accent-primary flex-shrink-0"
-        />
-        <span className="text-[12.5px] font-sans text-muted-text leading-[1.4]">
-          Opt out of emails with the latest from Solomon Bharat. You can change your preferences anytime.
-        </span>
-      </label>
-
-      {error && <p className="text-[12.5px] font-sans text-error mb-3">{error}</p>}
-
-      <button
-        type="button"
-        onClick={onNext}
-        className="w-full h-11 rounded-lg bg-primary text-white text-[14px] font-[600] font-sans hover:bg-primary/90 transition-colors mt-1"
-      >
-        Next
-      </button>
-    </div>
+      <Button type="submit" variant="primary" size="lg" className="w-full mt-6">
+        Continue
+      </Button>
+    </form>
   )
 }
 
@@ -173,52 +282,30 @@ export function Step3BusinessType({ data, patch, onNext, onShoppingForMyself }: 
   onShoppingForMyself: () => void
 }) {
   return (
-    <div className="flex flex-col flex-1">
-      <h2 className="text-[22px] font-[600] font-display text-primary mb-6 leading-tight">
-        Which best describes your business?
-      </h2>
+    <div className="flex flex-col">
+      <h2 id="wizard-business-type" className={STEP_HEADING_CLS}>Which best describes your business?</h2>
 
-      <div className="flex flex-col gap-3 mb-6">
-        {BUSINESS_TYPES.map((t) => {
-          const selected = data.businessType === t.value
-          return (
-            <button
-              key={t.value}
-              type="button"
-              onClick={() => patch({ businessType: t.value })}
-              className={cn(
-                'flex items-center justify-between gap-3 text-left px-4 py-3.5 rounded-lg border transition-colors',
-                selected ? 'border-primary bg-muted-bg' : 'border-border-warm hover:border-primary/40'
-              )}
-            >
-              <span>
-                <span className="block text-[14px] font-[500] font-sans text-primary">{t.label}</span>
-                {t.hint && <span className="block text-[12.5px] font-sans text-muted-text mt-0.5">{t.hint}</span>}
-              </span>
-              <span className={cn(
-                'w-5 h-5 rounded flex items-center justify-center border flex-shrink-0',
-                selected ? 'bg-primary border-primary text-white' : 'border-border-warm'
-              )}>
-                {selected && '✓'}
-              </span>
-            </button>
-          )
-        })}
+      <div role="radiogroup" aria-labelledby="wizard-business-type" className="mt-6 flex flex-col gap-3">
+        {BUSINESS_TYPES.map((t) => (
+          <OptionRow
+            key={t.value}
+            role="radio"
+            selected={data.businessType === t.value}
+            label={t.label}
+            hint={t.hint}
+            onClick={() => patch({ businessType: t.value })}
+          />
+        ))}
       </div>
 
-      <button
-        type="button"
-        onClick={onNext}
-        disabled={!data.businessType}
-        className="w-full h-11 rounded-lg bg-primary text-white text-[14px] font-[600] font-sans hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        Next
-      </button>
+      <Button type="button" variant="primary" size="lg" className="w-full mt-6" onClick={onNext} disabled={!data.businessType}>
+        Continue
+      </Button>
 
       <button
         type="button"
         onClick={onShoppingForMyself}
-        className="text-[13px] font-sans text-muted-text underline hover:text-primary transition-colors text-center mt-4"
+        className="mt-3 min-h-11 self-center font-sans text-[14px] leading-[20px] text-forest underline underline-offset-4 hover:text-forest-hover transition-colors"
       >
         I&apos;m just shopping for myself
       </button>
@@ -234,20 +321,22 @@ export function Step4OpenedYear({ data, patch, onNext }: {
   onNext: () => void
 }) {
   return (
-    <div className="flex flex-col flex-1">
-      <h2 className="text-[22px] font-[600] font-display text-primary mb-6">When did your business open?</h2>
+    <div className="flex flex-col">
+      <h2 id="wizard-opened-year" className={STEP_HEADING_CLS}>When did your business open?</h2>
 
-      <div className="grid grid-cols-2 gap-2.5 mb-6">
+      <div role="radiogroup" aria-labelledby="wizard-opened-year" className="mt-6 grid grid-cols-2 gap-3">
         {YEAR_OPTIONS.map((y) => {
           const selected = data.businessOpenedYear === y
           return (
             <button
               key={y}
               type="button"
+              role="radio"
+              aria-checked={selected}
               onClick={() => patch({ businessOpenedYear: y })}
               className={cn(
-                'h-11 px-3 rounded-lg border text-[14px] font-sans text-primary transition-colors',
-                selected ? 'border-primary bg-muted-bg font-[600]' : 'border-border-warm hover:border-primary/40'
+                'min-h-12 px-3 rounded-[4px] border bg-white font-sans text-[16px] leading-[24px] transition-colors duration-150',
+                selected ? 'border-forest bg-selected text-forest font-[600]' : 'border-line text-ink hover:border-forest'
               )}
             >
               {y}
@@ -256,14 +345,9 @@ export function Step4OpenedYear({ data, patch, onNext }: {
         })}
       </div>
 
-      <button
-        type="button"
-        onClick={onNext}
-        disabled={!data.businessOpenedYear}
-        className="w-full h-11 rounded-lg bg-primary text-white text-[14px] font-[600] font-sans hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        Next
-      </button>
+      <Button type="button" variant="primary" size="lg" className="w-full mt-6" onClick={onNext} disabled={!data.businessOpenedYear}>
+        Continue
+      </Button>
     </div>
   )
 }
@@ -277,32 +361,29 @@ export function Step5BusinessName({ data, patch, onNext, error }: {
   error: string | null
 }) {
   return (
-    <div className="flex flex-col flex-1">
-      <h2 className="text-[22px] font-[600] font-display text-primary mb-1">What&apos;s your business name?</h2>
-      <p className="text-[13.5px] font-sans text-muted-text mb-6">We&apos;ll use your business info to build your profile.</p>
+    <form noValidate onSubmit={(e) => { e.preventDefault(); onNext() }} className="flex flex-col">
+      <h2 className={STEP_HEADING_CLS}>What&apos;s your business name?</h2>
+      <p className="type-body text-muted mt-2">We&apos;ll use your business info to build your profile.</p>
 
-      <div className="mb-1">
+      <div className="mt-6">
         <label htmlFor="wizard-business-name" className={LABEL_CLS}>Business name</label>
         <input
           id="wizard-business-name"
           type="text"
-          placeholder="Enter the business name"
+          autoComplete="organization"
           value={data.businessName}
+          aria-invalid={!!error || undefined}
+          aria-describedby={error ? 'wizard-business-name-error' : undefined}
           onChange={(e) => patch({ businessName: e.target.value })}
           className={INPUT_CLS}
         />
+        <FieldError id="wizard-business-name-error" message={error} />
       </div>
-      {error && <p className="text-[12.5px] font-sans text-error mb-3 mt-2">{error}</p>}
 
-      <button
-        type="button"
-        onClick={onNext}
-        disabled={!data.businessName.trim()}
-        className="w-full h-11 rounded-lg bg-primary text-white text-[14px] font-[600] font-sans hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed mt-4"
-      >
-        Next
-      </button>
-    </div>
+      <Button type="submit" variant="primary" size="lg" className="w-full mt-6">
+        Continue
+      </Button>
+    </form>
   )
 }
 
@@ -315,39 +396,38 @@ export function Step6Website({ data, patch, onNext, onNoWebsite }: {
   onNoWebsite: () => void
 }) {
   return (
-    <div className="flex flex-col flex-1">
-      <h2 className="text-[22px] font-[600] font-display text-primary mb-1">What&apos;s your website?</h2>
-      <p className="text-[13.5px] font-sans text-muted-text mb-6">This helps us learn more about your business.</p>
+    <form noValidate onSubmit={(e) => { e.preventDefault(); onNext() }} className="flex flex-col">
+      <h2 className={STEP_HEADING_CLS}>What&apos;s your website?</h2>
+      <p className="type-body text-muted mt-2">This helps us learn more about your business.</p>
 
-      <div className="mb-1">
+      <div className="mt-6">
         <label htmlFor="wizard-website" className={LABEL_CLS}>Your website</label>
         <input
           id="wizard-website"
           type="text"
+          inputMode="url"
+          autoComplete="url"
           placeholder="https://www.yourstore.com/"
           value={data.website}
+          aria-describedby="wizard-website-help"
           onChange={(e) => patch({ website: e.target.value })}
           className={INPUT_CLS}
         />
-        <p className="text-[11.5px] font-sans text-muted-text mt-1">Enter your full domain (e.g., mystore.com)</p>
+        <p id="wizard-website-help" className={HELP_CLS}>Enter your full domain (e.g., mystore.com)</p>
       </div>
 
-      <button
-        type="button"
-        onClick={onNext}
-        className="w-full h-11 rounded-lg bg-primary text-white text-[14px] font-[600] font-sans hover:bg-primary/90 transition-colors mt-4"
-      >
-        Next
-      </button>
+      <Button type="submit" variant="primary" size="lg" className="w-full mt-6">
+        Continue
+      </Button>
 
       <button
         type="button"
         onClick={onNoWebsite}
-        className="text-[13px] font-sans text-muted-text underline hover:text-primary transition-colors text-center mt-4"
+        className="mt-3 min-h-11 self-center font-sans text-[14px] leading-[20px] text-forest underline underline-offset-4 hover:text-forest-hover transition-colors"
       >
         I don&apos;t have a website
       </button>
-    </div>
+    </form>
   )
 }
 
@@ -368,46 +448,36 @@ export function Step7HearAboutUs({ data, patch, onSubmit, loading, error }: {
   }
 
   return (
-    <div className="flex flex-col flex-1">
-      <h2 className="text-[22px] font-[600] font-display text-primary mb-6 leading-tight">
+    <div className="flex flex-col">
+      <h2 id="wizard-hear-about" className={STEP_HEADING_CLS}>
         One last thing — how did you hear about Solomon Bharat?
       </h2>
+      <p className="type-body text-muted mt-2">Optional. Choose any that apply.</p>
 
-      <div className="flex flex-col gap-2.5 mb-6">
-        {HEAR_ABOUT_OPTIONS.map((option) => {
-          const checked = data.hearAboutUs.includes(option)
-          return (
-            <button
-              key={option}
-              type="button"
-              onClick={() => toggle(option)}
-              className={cn(
-                'flex items-center justify-between gap-3 text-left px-4 py-3 rounded-lg border transition-colors',
-                checked ? 'border-primary' : 'border-border-warm hover:border-primary/40'
-              )}
-            >
-              <span className="text-[14px] font-sans text-primary">{option}</span>
-              <span className={cn(
-                'w-5 h-5 rounded flex items-center justify-center border flex-shrink-0',
-                checked ? 'bg-primary border-primary text-white' : 'border-border-warm'
-              )}>
-                {checked && '✓'}
-              </span>
-            </button>
-          )
-        })}
+      <div role="group" aria-labelledby="wizard-hear-about" className="mt-6 flex flex-col gap-3">
+        {HEAR_ABOUT_OPTIONS.map((option) => (
+          <OptionRow
+            key={option}
+            role="checkbox"
+            selected={data.hearAboutUs.includes(option)}
+            label={option}
+            onClick={() => toggle(option)}
+          />
+        ))}
       </div>
 
-      {error && <p className="text-[12.5px] font-sans text-error mb-3">{error}</p>}
+      {error && <div className="mt-6"><FormError message={error} /></div>}
 
-      <button
+      <Button
         type="button"
+        variant="primary"
+        size="lg"
+        className="w-full mt-6"
+        loading={loading}
         onClick={() => onSubmit(data.hearAboutUs)}
-        disabled={loading}
-        className="w-full h-11 rounded-lg bg-primary text-white text-[14px] font-[600] font-sans hover:bg-primary/90 transition-colors disabled:opacity-60"
       >
-        {loading ? 'Creating account…' : 'Start buying'}
-      </button>
+        Create buyer account
+      </Button>
     </div>
   )
 }

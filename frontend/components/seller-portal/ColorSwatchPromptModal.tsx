@@ -27,7 +27,7 @@ export function ColorSwatchPromptModal({ onAddSwatches, onMaybeLater }: ColorSwa
         </p>
 
         <button type="button" onClick={onAddSwatches}
-          className="w-full h-11 rounded bg-primary text-white text-[14px] font-[600] font-sans hover:bg-primary/90 transition-colors mb-4">
+          className="w-full h-11 rounded bg-forest text-white text-[14px] font-[600] font-sans hover:bg-forest-hover transition-colors mb-4">
           Add color swatches
         </button>
         <button type="button" onClick={onMaybeLater}

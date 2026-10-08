@@ -99,7 +99,7 @@ function DialogContent({ children, className, showClose = true, ...props }: Dial
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-primary/20 backdrop-blur-[12px] z-50"
+        className="fixed inset-0 bg-forest/20 backdrop-blur-[12px] z-50"
         onClick={() => setOpen(false)}
         aria-hidden="true"
       />

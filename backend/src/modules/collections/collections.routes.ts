@@ -12,7 +12,7 @@ import {
 } from './collections.validation';
 import { paginationQuerySchema } from '../../utils/pagination';
 import { validate } from '../../middleware/validate';
-import { requireAdmin, requireAuth } from '../../middleware/auth';
+import { optionalAuth, requireAdmin, requireAuth } from '../../middleware/auth';
 import { uploadImages } from '../../middleware/upload';
 import { asyncHandler } from '../../utils/asyncHandler';
 
@@ -277,6 +277,7 @@ collectionsRouter.get(
  */
 collectionsRouter.get(
   '/:slug',
+  optionalAuth,
   validate(slugParamSchema, 'params'),
   asyncHandler(collectionsController.getPublicDetail),
 );

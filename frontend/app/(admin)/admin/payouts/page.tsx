@@ -58,7 +58,7 @@ function PayoutRow({
   const isPending = payout.status === 'PENDING'
 
   return (
-    <tr className="border-b border-[#E5E1D8] last:border-0 hover:bg-[#F5F0E8]/30 transition-colors">
+    <tr className="border-b border-[#E5DCCB] last:border-0 hover:bg-[#F5F0E5]/30 transition-colors">
       <td className="py-3.5 pl-4 pr-2 w-10">
         {showCheckbox && isPending && (
           <input
@@ -66,34 +66,34 @@ function PayoutRow({
             checked={selected}
             onChange={onToggle}
             aria-label={`Select payout ${payout.id}`}
-            className="w-4 h-4 rounded border-[#E5E1D8] accent-[#A68B67] cursor-pointer"
+            className="w-4 h-4 rounded border-[#E5DCCB] accent-[#183D33] cursor-pointer"
           />
         )}
       </td>
       <td className="py-3.5 px-4">
-        <p className="text-[13px] font-[600] font-sans text-[#1A1A1A]" title={payout.orderId}>
+        <p className="text-[13px] font-[600] font-sans text-[#20201E]" title={payout.orderId}>
           {shortId(payout.orderId)}
         </p>
-        <p className="text-[11px] font-sans text-[#6B6460] mt-0.5" title={payout.orderItemId}>
+        <p className="text-[11px] font-sans text-[#665F55] mt-0.5" title={payout.orderItemId}>
           item {shortId(payout.orderItemId)}
         </p>
       </td>
-      <td className="py-3.5 px-4 text-[13px] font-sans text-[#6B6460]">
+      <td className="py-3.5 px-4 text-[13px] font-sans text-[#665F55]">
         <Link
           href={`/admin/sellers/${payout.sellerId}`}
-          className="hover:text-[#1A1A1A] hover:underline underline-offset-2 transition-colors"
+          className="hover:text-[#20201E] hover:underline underline-offset-2 transition-colors"
           title={payout.sellerId}
         >
           {shortId(payout.sellerId)}
         </Link>
       </td>
-      <td className="py-3.5 px-4 text-right text-[13px] font-[600] font-sans text-[#1A1A1A]">
+      <td className="py-3.5 px-4 text-right text-[13px] font-[600] font-sans text-[#20201E]">
         {formatCurrency(payout.amount)}
       </td>
       <td className="py-3.5 px-4">
         <StatusBadge status={payout.status} />
       </td>
-      <td className="py-3.5 px-4 text-[12px] font-sans text-[#6B6460] whitespace-nowrap">
+      <td className="py-3.5 px-4 text-[12px] font-sans text-[#665F55] whitespace-nowrap">
         {formatDate(payout.paidAt)}
       </td>
       <td className="py-3.5 px-4 max-w-[220px]">
@@ -106,16 +106,16 @@ function PayoutRow({
           <span
             className={cn(
               'text-[12px] font-sans truncate',
-              payout.notes ? 'text-[#6B6460]' : 'text-[#6B6460]/50 italic'
+              payout.notes ? 'text-[#665F55]' : 'text-[#665F55]/50 italic'
             )}
             title={payout.notes ?? undefined}
           >
             {payout.notes ? (payout.notes.length > 40 ? `${payout.notes.slice(0, 40)}…` : payout.notes) : 'No notes'}
           </span>
-          <Pencil size={11} className="shrink-0 text-[#6B6460] opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
+          <Pencil size={11} className="shrink-0 text-[#665F55] opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
         </button>
       </td>
-      <td className="py-3.5 px-4 text-[12px] font-sans text-[#6B6460] whitespace-nowrap">
+      <td className="py-3.5 px-4 text-[12px] font-sans text-[#665F55] whitespace-nowrap">
         {formatDate(payout.createdAt)}
       </td>
       <td className="py-3.5 px-4 text-right">
@@ -210,8 +210,8 @@ export default function AdminPayoutsPage() {
     <div>
       <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[28px] leading-[1.3] font-[500] font-sans text-[#1A1A1A]">Payouts</h1>
-          <p className="text-[14px] font-sans text-[#6B6460] mt-1">
+          <h1 className="text-[28px] leading-[1.3] font-[500] font-sans text-[#20201E]">Payouts</h1>
+          <p className="text-[14px] font-sans text-[#665F55] mt-1">
             Manage seller payouts — marked and paid manually
           </p>
         </div>
@@ -231,7 +231,7 @@ export default function AdminPayoutsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-4 border-b border-[#E5E1D8]">
+      <div className="flex gap-1 mb-4 border-b border-[#E5DCCB]">
         {(['PENDING', 'ALL'] as const).map((t) => (
           <button
             key={t}
@@ -239,7 +239,7 @@ export default function AdminPayoutsPage() {
             onClick={() => switchTab(t)}
             className={cn(
               'px-4 py-2.5 text-[13px] font-[600] font-sans border-b-2 -mb-px transition-colors',
-              tab === t ? 'border-[#A68B67] text-[#1A1A1A]' : 'border-transparent text-[#6B6460] hover:text-[#1A1A1A]'
+              tab === t ? 'border-[#183D33] text-[#20201E]' : 'border-transparent text-[#665F55] hover:text-[#20201E]'
             )}
           >
             {t === 'PENDING' ? 'Pending' : 'All'}
@@ -247,16 +247,16 @@ export default function AdminPayoutsPage() {
         ))}
       </div>
 
-      <div className="bg-white border border-[#E5E1D8] rounded-xl overflow-hidden">
+      <div className="bg-white border border-[#E5DCCB] rounded-xl overflow-hidden">
         {isLoading ? (
-          <div className="divide-y divide-[#E5E1D8]">
+          <div className="divide-y divide-[#E5DCCB]">
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="p-4 flex gap-4 animate-pulse">
                 <div className="flex-1 space-y-2">
-                  <div className="h-3.5 bg-[#F5F0E8] rounded w-24" />
-                  <div className="h-3 bg-[#F5F0E8] rounded w-32" />
+                  <div className="h-3.5 bg-[#F5F0E5] rounded w-24" />
+                  <div className="h-3 bg-[#F5F0E5] rounded w-32" />
                 </div>
-                <div className="h-6 bg-[#F5F0E8] rounded w-16" />
+                <div className="h-6 bg-[#F5F0E5] rounded w-16" />
               </div>
             ))}
           </div>
@@ -270,7 +270,7 @@ export default function AdminPayoutsPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[#E5E1D8] bg-[#F5F0E8]/40">
+                  <tr className="border-b border-[#E5DCCB] bg-[#F5F0E5]/40">
                     <th className="py-3 pl-4 pr-2 w-10">
                       {tab === 'PENDING' && pendingOnPage.length > 0 && (
                         <input
@@ -278,7 +278,7 @@ export default function AdminPayoutsPage() {
                           checked={allPendingSelected}
                           onChange={toggleAll}
                           aria-label="Select all pending payouts"
-                          className="w-4 h-4 rounded border-[#E5E1D8] accent-[#A68B67] cursor-pointer"
+                          className="w-4 h-4 rounded border-[#E5DCCB] accent-[#183D33] cursor-pointer"
                         />
                       )}
                     </th>
@@ -286,7 +286,7 @@ export default function AdminPayoutsPage() {
                       <th
                         key={h}
                         className={cn(
-                          'py-3 px-4 text-[12px] font-[600] font-sans text-[#6B6460] uppercase tracking-[0.06em]',
+                          'py-3 px-4 text-[12px] font-[600] font-sans text-[#665F55] uppercase tracking-[0.06em]',
                           h === 'Amount' ? 'text-right' : 'text-left'
                         )}
                       >
@@ -310,8 +310,8 @@ export default function AdminPayoutsPage() {
               </table>
             </div>
 
-            <div className="flex items-center justify-between px-4 py-3 border-t border-[#E5E1D8]">
-              <span className="text-[12px] leading-[1.3] font-[400] font-sans text-[#6B6460]">
+            <div className="flex items-center justify-between px-4 py-3 border-t border-[#E5DCCB]">
+              <span className="text-[12px] leading-[1.3] font-[400] font-sans text-[#665F55]">
                 Showing {rangeStart}&ndash;{rangeEnd} of {total.toLocaleString()}
               </span>
               <div className="flex items-center gap-1">
@@ -324,7 +324,7 @@ export default function AdminPayoutsPage() {
                 >
                   Prev
                 </Button>
-                <span className="text-[12px] font-[500] font-sans text-[#6B6460] px-2 select-none tabular-nums">
+                <span className="text-[12px] font-[500] font-sans text-[#665F55] px-2 select-none tabular-nums">
                   {page} / {totalPages}
                 </span>
                 <Button
@@ -355,9 +355,9 @@ export default function AdminPayoutsPage() {
               rows={5}
               placeholder="Add a note for this payout…"
               className={cn(
-                'w-full rounded border border-[#E5E1D8] bg-white px-3 py-2 resize-none',
-                'text-[14px] font-sans text-[#1A1A1A] placeholder:text-[#6B6460]/60',
-                'outline-none focus:ring-1 focus:ring-[#A68B67] focus:border-[#A68B67] transition-colors'
+                'w-full rounded border border-[#E5DCCB] bg-white px-3 py-2 resize-none',
+                'text-[14px] font-sans text-[#20201E] placeholder:text-[#665F55]/60',
+                'outline-none focus:ring-1 focus:ring-[#183D33] focus:border-[#183D33] transition-colors'
               )}
             />
           </div>

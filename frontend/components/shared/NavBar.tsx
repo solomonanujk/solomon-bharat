@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Menu, X, ChevronDown, LogOut, User as UserIcon, ShoppingCart, Globe, Package, MessageSquare, Heart, LayoutDashboard, Search as SearchIcon, Bell, Layers } from 'lucide-react'
+import { Menu, X, ChevronDown, LogOut, User as UserIcon, ShoppingCart, Globe, Package, MessageSquare, Heart, LayoutDashboard, Search as SearchIcon, Bell, Layers, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { useCurrencyStore } from '@/lib/store/useCurrencyStore'
@@ -28,6 +28,21 @@ const BUYER_NAV_ITEMS = [
 ]
 
 const FALLBACK_CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'AUD']
+
+// Header geometry (spec §3). Desktop: 72px main row + 44px category row; below
+// 1024px: 56px brand row + 60px search row (48px field + 12px bottom padding).
+// Both add up to 116px, plus the header's 1px bottom border. The spacer and the
+// mega menu's fixed offset below both rely on this — change them together.
+const HEADER_HEIGHT_CLASS = 'h-[117px]'
+const MEGA_MENU_TOP_CLASS = 'top-[117px]'
+
+// Shared popover surface for every header dropdown: white, 1px line, 6px radius.
+const POPOVER_CLASS =
+  'absolute right-0 top-full mt-1 z-50 bg-white border border-line rounded-[6px] shadow-[0_8px_24px_rgba(32,32,30,0.08)]'
+
+// Shared row style for links inside the header dropdowns / mobile drawer.
+const MENU_ITEM_CLASS =
+  'flex items-center gap-2.5 px-4 min-h-11 text-[14px] leading-[20px] font-[500] font-sans text-ink hover:bg-ivory hover:text-forest transition-colors duration-150'
 
 const currencyDisplayNames =
   typeof Intl !== 'undefined' && Intl.DisplayNames
@@ -67,6 +82,17 @@ function useOutsideClick(ref: React.RefObject<HTMLElement | null>, handler: () =
     document.addEventListener('mousedown', onMouseDown)
     return () => document.removeEventListener('mousedown', onMouseDown)
   }, [ref, handler, enabled])
+}
+
+function useEscapeKey(handler: () => void, enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') handler()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [handler, enabled])
 }
 
 function useScrolled(threshold = 24) {
@@ -110,6 +136,34 @@ function useHideOnScroll(enabled: boolean) {
   return enabled && scrollHidden
 }
 
+// Icon-only header control: 44px square hit area on every breakpoint.
+function iconButtonClass(ghost?: boolean) {
+  return cn(
+    'relative inline-flex items-center justify-center w-11 h-11 rounded-[4px] transition-colors duration-150',
+    ghost ? 'text-white hover:bg-white/10' : 'text-ink hover:text-forest hover:bg-ivory'
+  )
+}
+
+// ─── Wordmark ─────────────────────────────────────────────────────────────────
+// Text wordmark (Fraunces 500, 24/28 desktop, 21/26 mobile) in place of the old
+// PNG logo. The aria-label keeps the link's purpose explicit for screen readers.
+
+function Wordmark({ ghost, className }: { ghost?: boolean; className?: string }) {
+  return (
+    <Link
+      href="/"
+      aria-label="Solomon Bharat — home"
+      className={cn(
+        'inline-flex items-center min-h-11 whitespace-nowrap font-display font-[500] text-[21px] leading-[26px] lg:text-[24px] lg:leading-[28px]',
+        ghost ? 'text-white' : 'text-ink',
+        className
+      )}
+    >
+      Solomon Bharat
+    </Link>
+  )
+}
+
 // ─── Currency selector ────────────────────────────────────────────────────────
 
 function CurrencySelector({ ghost }: { ghost?: boolean }) {
@@ -118,7 +172,9 @@ function CurrencySelector({ ghost }: { ghost?: boolean }) {
   const { data: availableCurrencies = FALLBACK_CURRENCIES } = useCurrencies()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  useOutsideClick(ref, () => setOpen(false), open)
+  const close = () => setOpen(false)
+  useOutsideClick(ref, close, open)
+  useEscapeKey(close, open)
 
   return (
     <div ref={ref} className="relative">
@@ -126,33 +182,39 @@ function CurrencySelector({ ghost }: { ghost?: boolean }) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
+        aria-haspopup="true"
         aria-label={`Currency: ${currency}`}
         className={cn(
-          'inline-flex items-center gap-1.5 h-9 px-2.5 rounded text-[15px] font-[600] font-sans transition-colors',
-          ghost ? 'text-white hover:bg-white/10' : 'text-muted-text hover:text-primary hover:bg-muted-bg'
+          'inline-flex items-center gap-1.5 h-11 px-2.5 rounded-[4px] text-[14px] leading-[20px] font-[500] font-sans transition-colors duration-150',
+          ghost ? 'text-white hover:bg-white/10' : 'text-ink hover:text-forest hover:bg-ivory'
         )}
       >
-        <Globe size={14} aria-hidden="true" />
+        <Globe size={15} aria-hidden="true" />
         {currency}
-        <ChevronDown size={11} className={cn('transition-transform', open && 'rotate-180')} aria-hidden="true" />
+        <ChevronDown size={12} className={cn('transition-transform', open && 'rotate-180')} aria-hidden="true" />
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border-warm rounded shadow-[0_4px_20px_rgba(26,26,26,0.08)] py-1.5 min-w-[220px] max-h-[320px] overflow-y-auto">
+        <div className={cn(POPOVER_CLASS, 'py-1.5 w-[240px] max-h-[320px] overflow-y-auto')}>
           {availableCurrencies.map((c) => {
             const active = c === currency
             return (
               <button
                 key={c}
                 type="button"
+                aria-pressed={active}
                 onClick={() => { setCurrency(c); setOpen(false) }}
-                className={cn('w-full flex items-center justify-between px-4 py-2.5 transition-colors', active ? 'bg-muted-bg' : 'hover:bg-muted-bg')}
+                className={cn(
+                  'w-full flex items-center justify-between gap-3 px-4 min-h-11 text-left transition-colors duration-150',
+                  active ? 'bg-selected text-forest' : 'text-ink hover:bg-ivory'
+                )}
               >
-                <span className={cn('text-[13px] font-sans', active ? 'text-primary font-[600]' : 'text-muted-text')}>
+                <span className={cn('text-[14px] leading-[20px] font-sans', active && 'font-[600]')}>
                   {getCurrencyName(c)}
                 </span>
-                <span className={cn('text-[12px] font-[600] font-sans ml-3', active ? 'text-primary' : 'text-muted-text/70')}>
-                  {c}
+                <span className="inline-flex items-center gap-1.5 text-[12px] font-[600] font-sans">
+                  {active && <Check size={14} aria-hidden="true" />}
+                  <span className={active ? 'text-forest' : 'text-muted'}>{c}</span>
                 </span>
               </button>
             )
@@ -169,22 +231,28 @@ function CurrencySelector({ ghost }: { ghost?: boolean }) {
 // children in a third column. Every item is a real link to its own category page —
 // hovering only changes which columns are visible, it never blocks navigation.
 
+function MegaMenuColumnLabel({ children }: { children: React.ReactNode }) {
+  return <p className="type-eyebrow text-brass-deep mb-2">{children}</p>
+}
+
+function megaMenuLinkClass(active: boolean) {
+  return cn(
+    'py-2 text-[14px] leading-[20px] font-sans transition-colors duration-150',
+    active
+      ? 'text-forest font-[600] underline underline-offset-4'
+      : 'text-ink hover:text-forest hover:underline underline-offset-4'
+  )
+}
+
 function CategoryMegaMenu({ ghost }: { ghost?: boolean }) {
   const { data: tree = [] } = useCategoryTree()
   const [open, setOpen] = useState(false)
   const [activeL1, setActiveL1] = useState(0)
   const [activeL2, setActiveL2] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
-  useOutsideClick(ref, () => setOpen(false), open)
-
-  useEffect(() => {
-    if (!open) return
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [open])
+  const close = () => setOpen(false)
+  useOutsideClick(ref, close, open)
+  useEscapeKey(close, open)
 
   function handleOpen() {
     setActiveL1(0)
@@ -210,8 +278,9 @@ function CategoryMegaMenu({ ghost }: { ghost?: boolean }) {
         aria-expanded={open}
         aria-haspopup="true"
         className={cn(
-          'inline-flex items-center gap-1.5 h-9 px-4 rounded-full text-[15px] font-[500] font-sans transition-colors',
-          ghost ? 'text-white hover:bg-white/10' : 'text-primary hover:bg-muted-bg'
+          'inline-flex items-center gap-1.5 h-11 px-3 rounded-[4px] text-[14px] leading-[20px] font-[500] font-sans whitespace-nowrap transition-colors duration-150',
+          ghost ? 'text-white hover:bg-white/10' : 'text-ink hover:text-forest hover:bg-ivory',
+          open && !ghost && 'text-forest bg-ivory'
         )}
       >
         All categories
@@ -219,35 +288,29 @@ function CategoryMegaMenu({ ghost }: { ghost?: boolean }) {
       </button>
 
       {open && (
-        <div className="fixed top-[108px] left-0 right-0 z-50 bg-surface border-b border-border-warm shadow-[0_8px_30px_rgba(26,26,26,0.10)]">
-          <div className="max-w-7xl mx-auto px-8 py-10 relative">
+        <div className={cn('fixed left-0 right-0 z-50 bg-white border-y border-line shadow-[0_8px_24px_rgba(32,32,30,0.08)]', MEGA_MENU_TOP_CLASS)}>
+          <div className="sb-container py-8 relative">
             <button
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close categories menu"
-              className="absolute top-4 right-4 sm:right-8 inline-flex items-center justify-center w-8 h-8 rounded text-muted-text hover:text-primary hover:bg-muted-bg transition-colors"
+              className="absolute top-3 right-4 inline-flex items-center justify-center w-11 h-11 rounded-[4px] text-muted hover:text-forest hover:bg-ivory transition-colors duration-150"
             >
               <X size={16} aria-hidden="true" />
             </button>
 
-            <div className="flex gap-14 flex-wrap">
+            <div className="flex gap-12 flex-wrap pr-12">
               {/* Column 1 — level 1 */}
-              <div className="flex flex-col gap-1 min-w-[180px] flex-shrink-0">
-                <p className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-2">
-                  Categories
-                </p>
+              <div className="flex flex-col min-w-[180px] flex-shrink-0">
+                <MegaMenuColumnLabel>Categories</MegaMenuColumnLabel>
                 {tree.map((category, i) => (
                   <Link
                     key={category.id}
                     href={`/categories/${category.slug}`}
                     onClick={() => setOpen(false)}
                     onMouseEnter={() => handleHoverL1(i)}
-                    className={cn(
-                      'py-1.5 text-[15px] font-sans transition-colors',
-                      i === activeL1
-                        ? 'text-primary font-[600] underline underline-offset-4'
-                        : 'text-muted-text hover:text-primary'
-                    )}
+                    onFocus={() => handleHoverL1(i)}
+                    className={megaMenuLinkClass(i === activeL1)}
                   >
                     {category.name}
                   </Link>
@@ -256,22 +319,16 @@ function CategoryMegaMenu({ ghost }: { ghost?: boolean }) {
 
               {/* Column 2 — level 2 of the active level 1 */}
               {level2.length > 0 && (
-                <div className="flex flex-col gap-1 min-w-[200px] flex-shrink-0">
-                  <p className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-2">
-                    {activeL1Category?.name}
-                  </p>
+                <div className="flex flex-col min-w-[200px] flex-shrink-0">
+                  <MegaMenuColumnLabel>{activeL1Category?.name}</MegaMenuColumnLabel>
                   {level2.map((category, i) => (
                     <Link
                       key={category.id}
                       href={`/categories/${category.slug}`}
                       onClick={() => setOpen(false)}
                       onMouseEnter={() => setActiveL2(i)}
-                      className={cn(
-                        'py-1.5 text-[15px] font-sans transition-colors',
-                        i === activeL2
-                          ? 'text-primary font-[600] underline underline-offset-4'
-                          : 'text-muted-text hover:text-primary'
-                      )}
+                      onFocus={() => setActiveL2(i)}
+                      className={megaMenuLinkClass(i === activeL2)}
                     >
                       {category.name}
                     </Link>
@@ -281,16 +338,14 @@ function CategoryMegaMenu({ ghost }: { ghost?: boolean }) {
 
               {/* Column 3 — level 3 of the active level 2 */}
               {level3.length > 0 && (
-                <div className="flex flex-col gap-1 min-w-[200px] flex-shrink-0">
-                  <p className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-2">
-                    {activeL2Category?.name}
-                  </p>
+                <div className="flex flex-col min-w-[200px] flex-shrink-0">
+                  <MegaMenuColumnLabel>{activeL2Category?.name}</MegaMenuColumnLabel>
                   {level3.map((category) => (
                     <Link
                       key={category.id}
                       href={`/categories/${category.slug}`}
                       onClick={() => setOpen(false)}
-                      className="py-1.5 text-[15px] font-sans text-muted-text hover:text-primary transition-colors"
+                      className={megaMenuLinkClass(false)}
                     >
                       {category.name}
                     </Link>
@@ -313,8 +368,9 @@ function CategoryMegaMenu({ ghost }: { ghost?: boolean }) {
 // used. Only the search results page (which already has the value from its own
 // Suspense-wrapped useSearchParams call) passes the prop; everywhere else it's
 // simply undefined and the box starts empty as before.
+// Rendered twice (desktop row / mobile second row) — only one is ever visible.
 
-function NavSearchBar({ ghost, initialQuery }: { ghost?: boolean; initialQuery?: string }) {
+function NavSearchBar({ ghost, initialQuery, className }: { ghost?: boolean; initialQuery?: string; className?: string }) {
   const router = useRouter()
   const [value, setValue] = useState(initialQuery ?? '')
 
@@ -341,11 +397,11 @@ function NavSearchBar({ ghost, initialQuery }: { ghost?: boolean; initialQuery?:
   }
 
   return (
-    <form onSubmit={handleSubmit} className="hidden md:block flex-1 mx-3">
+    <form onSubmit={handleSubmit} role="search" className={cn('min-w-0', className)}>
       <div className="relative w-full">
         <SearchIcon
-          size={15}
-          className={cn('absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none', ghost ? 'text-white/70' : 'text-muted-text')}
+          size={16}
+          className={cn('absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none', ghost ? 'text-white/80' : 'text-muted')}
           aria-hidden="true"
         />
         <input
@@ -354,12 +410,15 @@ function NavSearchBar({ ghost, initialQuery }: { ghost?: boolean; initialQuery?:
           onChange={(e) => setValue(e.target.value)}
           placeholder='Search for "tote bags"'
           aria-label="Search products"
+          enterKeyHint="search"
           className={cn(
-            'w-full h-11 pl-10 pr-9 rounded-full text-[15px] font-sans border transition-colors focus:outline-none',
+            // Ivory fill, 1px line border, 24px radius (spec §4 SEARCH). 16px text
+            // keeps iOS from zooming the page on focus.
+            'w-full h-12 lg:h-10 pl-11 pr-11 rounded-[24px] text-[16px] leading-[24px] lg:text-[14px] lg:leading-[20px] font-sans border transition-colors duration-150',
             '[&::-webkit-search-cancel-button]:appearance-none',
             ghost
-              ? 'bg-white/10 border-white/20 text-white placeholder:text-white/60 focus:bg-white/20'
-              : 'bg-muted-bg/50 border-border-warm text-primary placeholder:text-muted-text/70 focus:border-accent focus:bg-surface'
+              ? 'bg-white/10 border-white/30 text-white placeholder:text-white/80 focus:bg-white/20'
+              : 'bg-ivory border-line text-ink placeholder:text-muted focus:border-forest focus:bg-white'
           )}
         />
         {value && (
@@ -368,8 +427,8 @@ function NavSearchBar({ ghost, initialQuery }: { ghost?: boolean; initialQuery?:
             onClick={handleClear}
             aria-label="Clear search"
             className={cn(
-              'absolute right-3 top-1/2 -translate-y-1/2 transition-colors',
-              ghost ? 'text-white/70 hover:text-white' : 'text-muted-text hover:text-primary'
+              'absolute right-1 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-10 h-10 rounded-full transition-colors duration-150',
+              ghost ? 'text-white/80 hover:text-white' : 'text-muted hover:text-forest'
             )}
           >
             <X size={14} aria-hidden="true" />
@@ -383,8 +442,9 @@ function NavSearchBar({ ghost, initialQuery }: { ghost?: boolean; initialQuery?:
 // ─── Category quick-links row ─────────────────────────────────────────────────
 // The secondary row under the main bar — curated links backed by real data
 // ("New Products" = createdAt desc, "Bestsellers" = isFeatured, "Trending" = real
-// order volume in the last 30 days), then the real level-1 categories. No "Sale" —
-// this marketplace has no discount-price concept to honestly back one.
+// order volume in the last 30 days — backed by products.repository findTrending),
+// then the real level-1 categories. No "Sale" — this marketplace has no
+// discount-price concept to honestly back one.
 
 const CURATED_LINKS = [
   { href: '/search?sort=newest', label: 'New products' },
@@ -395,9 +455,16 @@ const CURATED_LINKS = [
 function CategoryQuickLinksRow({ ghost }: { ghost?: boolean }) {
   const { data: tree = [], isLoading } = useCategoryTree()
 
+  const linkClass = cn(
+    'flex-shrink-0 inline-flex items-center h-11 whitespace-nowrap text-[14px] leading-[20px] font-[500] font-sans underline-offset-4 transition-colors duration-150',
+    ghost ? 'text-white/90 hover:text-white hover:underline' : 'text-muted hover:text-forest hover:underline'
+  )
+
   return (
-    <div className="hidden md:block">
-      <div className="max-w-7xl mx-auto px-4 h-11 flex items-center justify-center gap-6 overflow-x-auto scrollbar-none">
+    <nav aria-label="Featured and categories" className="hidden lg:block">
+      {/* justify-center-safe: centred while it fits, left-aligned (never clipped
+          off the start) once the row overflows and scrolls. */}
+      <div className="sb-container h-11 flex items-center justify-center-safe gap-6 overflow-x-auto [scrollbar-width:none]">
         {/* Curated links and real categories come from two different sources (static
             vs. an API call) — showing the curated links alone first, then having the
             categories pop in a couple seconds later, reads as a layout bug. Hold the
@@ -407,37 +474,31 @@ function CategoryQuickLinksRow({ ghost }: { ghost?: boolean }) {
         {!isLoading && (
           <>
             {CURATED_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  'flex-shrink-0 whitespace-nowrap text-[14px] font-[500] font-sans transition-colors',
-                  ghost ? 'text-white/85 hover:text-white' : 'text-muted-text hover:text-primary'
-                )}
-              >
+              <Link key={link.href} href={link.href} className={linkClass}>
                 {link.label}
               </Link>
             ))}
             {tree.map((category) => (
-              <Link
-                key={category.id}
-                href={`/categories/${category.slug}`}
-                className={cn(
-                  'flex-shrink-0 whitespace-nowrap text-[14px] font-[500] font-sans transition-colors',
-                  ghost ? 'text-white/85 hover:text-white' : 'text-muted-text hover:text-primary'
-                )}
-              >
+              <Link key={category.id} href={`/categories/${category.slug}`} className={linkClass}>
                 {category.name}
               </Link>
             ))}
           </>
         )}
       </div>
-    </div>
+    </nav>
   )
 }
 
 // ─── Cart button ──────────────────────────────────────────────────────────────
+
+function CountBadge({ count }: { count: number }) {
+  return (
+    <span className="absolute top-1.5 right-1.5 min-w-[16px] h-[16px] rounded-full bg-forest text-white text-[10px] font-[700] font-sans flex items-center justify-center px-1 tabular-nums leading-none pointer-events-none">
+      {count > 99 ? '99+' : count}
+    </span>
+  )
+}
 
 function CartButton({ ghost }: { ghost?: boolean }) {
   const items = useCartStore((s) => s.items)
@@ -447,17 +508,10 @@ function CartButton({ ghost }: { ghost?: boolean }) {
     <Link
       href="/cart"
       aria-label={`Cart — ${totalItems} item${totalItems !== 1 ? 's' : ''}`}
-      className={cn(
-        'relative inline-flex items-center justify-center w-9 h-9 rounded transition-colors',
-        ghost ? 'text-white hover:bg-white/10' : 'text-muted-text hover:text-primary hover:bg-muted-bg'
-      )}
+      className={iconButtonClass(ghost)}
     >
-      <ShoppingCart size={17} aria-hidden="true" />
-      {totalItems > 0 && (
-        <span className="absolute top-1 right-1 min-w-[14px] h-[14px] rounded-full bg-accent text-white text-[9px] font-[700] font-sans flex items-center justify-center px-0.5 tabular-nums leading-none pointer-events-none">
-          {totalItems > 99 ? '99+' : totalItems}
-        </span>
-      )}
+      <ShoppingCart size={18} aria-hidden="true" />
+      {totalItems > 0 && <CountBadge count={totalItems} />}
     </Link>
   )
 }
@@ -467,7 +521,9 @@ function CartButton({ ghost }: { ghost?: boolean }) {
 function NotificationBell({ ghost }: { ghost?: boolean }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  useOutsideClick(ref, () => setOpen(false), open)
+  const close = () => setOpen(false)
+  useOutsideClick(ref, close, open)
+  useEscapeKey(close, open)
 
   const { data: unreadCount = 0 } = useUnreadNotificationCount()
   const { data } = useNotifications({ limit: 6 })
@@ -486,29 +542,23 @@ function NotificationBell({ ghost }: { ghost?: boolean }) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
+        aria-haspopup="true"
         aria-label={unreadCount > 0 ? `Notifications — ${unreadCount} unread` : 'Notifications'}
-        className={cn(
-          'relative inline-flex items-center justify-center w-9 h-9 rounded transition-colors',
-          ghost ? 'text-white hover:bg-white/10' : 'text-muted-text hover:text-primary hover:bg-muted-bg'
-        )}
+        className={iconButtonClass(ghost)}
       >
-        <Bell size={17} aria-hidden="true" />
-        {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 min-w-[14px] h-[14px] rounded-full bg-accent text-white text-[9px] font-[700] font-sans flex items-center justify-center px-0.5 tabular-nums leading-none pointer-events-none">
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
-        )}
+        <Bell size={18} aria-hidden="true" />
+        {unreadCount > 0 && <CountBadge count={unreadCount} />}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border-warm rounded shadow-[0_4px_20px_rgba(26,26,26,0.08)] w-[340px] max-h-[420px] flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border-warm flex-shrink-0">
-            <span className="text-[13px] font-[600] font-sans text-primary">Notifications</span>
+        <div className={cn(POPOVER_CLASS, 'w-[340px] max-w-[calc(100vw-40px)] max-h-[420px] flex flex-col')}>
+          <div className="flex items-center justify-between px-4 py-2 border-b border-line flex-shrink-0">
+            <span className="text-[14px] leading-[20px] font-[600] font-sans text-ink">Notifications</span>
             {unreadCount > 0 && (
               <button
                 type="button"
                 onClick={() => markAllRead.mutate()}
-                className="text-[11.5px] font-[600] font-sans text-accent hover:underline"
+                className="min-h-11 text-[13px] font-[600] font-sans text-forest underline underline-offset-4 hover:text-forest-hover"
               >
                 Mark all read
               </button>
@@ -517,15 +567,18 @@ function NotificationBell({ ghost }: { ghost?: boolean }) {
 
           <div className="flex-1 overflow-y-auto">
             {notifications.length === 0 ? (
-              <p className="px-4 py-8 text-center text-[13px] font-sans text-muted-text">
+              <p className="px-4 py-8 text-center text-[14px] font-sans text-muted">
                 No notifications yet.
               </p>
             ) : (
               notifications.map((n) => {
                 const body = (
-                  <div className={cn('px-4 py-3 border-b border-border-warm last:border-0', !n.isRead && 'bg-accent/5')}>
-                    <p className="text-[13px] font-[600] font-sans text-primary leading-snug">{n.title}</p>
-                    <p className="text-[12px] font-sans text-muted-text mt-0.5 leading-snug line-clamp-2">
+                  <div className={cn('px-4 py-3 border-b border-line last:border-0', !n.isRead && 'bg-selected')}>
+                    <p className="text-[14px] font-[600] font-sans text-ink leading-snug">
+                      {!n.isRead && <span className="sr-only">Unread: </span>}
+                      {n.title}
+                    </p>
+                    <p className="text-[13px] font-sans text-muted mt-0.5 leading-snug line-clamp-2">
                       {n.message}
                     </p>
                   </div>
@@ -535,7 +588,7 @@ function NotificationBell({ ghost }: { ghost?: boolean }) {
                     key={n.id}
                     href={n.link}
                     onClick={() => handleItemClick(n.id, n.isRead)}
-                    className="block hover:bg-muted-bg transition-colors"
+                    className="block hover:bg-ivory transition-colors duration-150"
                   >
                     {body}
                   </Link>
@@ -544,7 +597,7 @@ function NotificationBell({ ghost }: { ghost?: boolean }) {
                     key={n.id}
                     type="button"
                     onClick={() => handleItemClick(n.id, n.isRead)}
-                    className="block w-full text-left hover:bg-muted-bg transition-colors"
+                    className="block w-full text-left hover:bg-ivory transition-colors duration-150"
                   >
                     {body}
                   </button>
@@ -556,7 +609,7 @@ function NotificationBell({ ghost }: { ghost?: boolean }) {
           <Link
             href="/notifications"
             onClick={() => setOpen(false)}
-            className="block text-center py-2.5 text-[12.5px] font-[600] font-sans text-accent border-t border-border-warm hover:bg-muted-bg transition-colors flex-shrink-0"
+            className="flex items-center justify-center min-h-11 text-[13px] font-[600] font-sans text-forest underline underline-offset-4 border-t border-line hover:bg-ivory transition-colors duration-150 flex-shrink-0"
           >
             View all
           </Link>
@@ -568,12 +621,14 @@ function NotificationBell({ ghost }: { ghost?: boolean }) {
 
 // ─── User dropdown ────────────────────────────────────────────────────────────
 
-function UserDropdown() {
+function UserDropdown({ ghost }: { ghost?: boolean }) {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  useOutsideClick(ref, () => setOpen(false), open)
+  const close = () => setOpen(false)
+  useOutsideClick(ref, close, open)
+  useEscapeKey(close, open)
 
   if (!user) return null
 
@@ -583,40 +638,37 @@ function UserDropdown() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
+        aria-haspopup="true"
         aria-label="Account menu"
-        className="inline-flex items-center h-9 px-2 rounded hover:bg-muted-bg transition-colors"
+        className={iconButtonClass(ghost)}
       >
-        <span className="w-7 h-7 rounded-full inline-flex items-center justify-center bg-muted-bg border border-border-warm text-muted-text">
-          <UserIcon size={13} aria-hidden="true" />
+        <span
+          className={cn(
+            'w-8 h-8 rounded-full inline-flex items-center justify-center border',
+            ghost ? 'border-white/40 text-white' : 'bg-ivory border-line text-forest'
+          )}
+        >
+          <UserIcon size={15} aria-hidden="true" />
         </span>
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border-warm rounded shadow-[0_4px_20px_rgba(26,26,26,0.08)] min-w-[220px]">
-          <div className="px-4 py-3 border-b border-border-warm">
-            <p className="text-[13px] font-[600] font-sans text-primary truncate">{user.email}</p>
+        <div className={cn(POPOVER_CLASS, 'w-[240px] max-w-[calc(100vw-40px)]')}>
+          <div className="px-4 py-3 border-b border-line">
+            <p className="text-[13px] font-[600] font-sans text-ink truncate">{user.email}</p>
           </div>
 
           {(user.role === 'BUYER' || user.role === 'AGENT') && (
             <div className="py-1">
               {BUYER_NAV_ITEMS.map(({ href, label, icon: Icon }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-2.5 px-4 py-2 text-[13px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg transition-colors"
-                >
-                  <Icon size={13} aria-hidden="true" />
+                <Link key={href} href={href} onClick={() => setOpen(false)} className={MENU_ITEM_CLASS}>
+                  <Icon size={15} aria-hidden="true" />
                   {label}
                 </Link>
               ))}
               {user.role === 'AGENT' && (
-                <Link
-                  href="/catalogue"
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-2.5 px-4 py-2 text-[13px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg transition-colors"
-                >
-                  <Layers size={13} aria-hidden="true" />
+                <Link href="/catalogue" onClick={() => setOpen(false)} className={MENU_ITEM_CLASS}>
+                  <Layers size={15} aria-hidden="true" />
                   My Catalogues
                 </Link>
               )}
@@ -625,12 +677,8 @@ function UserDropdown() {
 
           {user.role === 'SUPER_ADMIN' && (
             <div className="py-1">
-              <Link
-                href="/admin"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-2 text-[13px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg transition-colors"
-              >
-                <LayoutDashboard size={13} aria-hidden="true" />
+              <Link href="/admin" onClick={() => setOpen(false)} className={MENU_ITEM_CLASS}>
+                <LayoutDashboard size={15} aria-hidden="true" />
                 Admin Panel
               </Link>
             </div>
@@ -638,24 +686,20 @@ function UserDropdown() {
 
           {user.role === 'SELLER' && (
             <div className="py-1">
-              <Link
-                href="/portal"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-2 text-[13px] font-[500] font-sans text-muted-text hover:text-primary hover:bg-muted-bg transition-colors"
-              >
-                <LayoutDashboard size={13} aria-hidden="true" />
+              <Link href="/portal" onClick={() => setOpen(false)} className={MENU_ITEM_CLASS}>
+                <LayoutDashboard size={15} aria-hidden="true" />
                 Seller Portal
               </Link>
             </div>
           )}
 
-          <div className="border-t border-border-warm py-1">
+          <div className="border-t border-line py-1">
             <button
               type="button"
               onClick={() => { logout(); setOpen(false) }}
-              className="w-full flex items-center gap-2.5 px-4 py-2 text-[13px] font-[500] font-sans text-muted-text hover:text-red-500 hover:bg-muted-bg transition-colors"
+              className={cn(MENU_ITEM_CLASS, 'w-full hover:text-error')}
             >
-              <LogOut size={13} aria-hidden="true" />
+              <LogOut size={15} aria-hidden="true" />
               Sign out
             </button>
           </div>
@@ -666,6 +710,15 @@ function UserDropdown() {
 }
 
 // ─── Mobile drawer ────────────────────────────────────────────────────────────
+// Below 1024px the category row and mega menu are hidden, so the drawer carries
+// the curated links and level-1 categories alongside account links + currency.
+
+const DRAWER_LINK_CLASS =
+  'flex items-center gap-2.5 min-h-11 text-[15px] leading-[20px] font-[500] font-sans text-ink hover:text-forest transition-colors duration-150'
+
+function DrawerGroupLabel({ children }: { children: React.ReactNode }) {
+  return <p className="type-eyebrow text-brass-deep mb-1">{children}</p>
+}
 
 function MobileNavDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -675,77 +728,95 @@ function MobileNavDrawer({ open, onClose }: { open: boolean; onClose: () => void
   const currency = useCurrencyStore((s) => s.currency)
   const setCurrency = useCurrencyStore((s) => s.setCurrency)
   const { data: availableCurrencies = FALLBACK_CURRENCIES } = useCurrencies()
-  const pathname = usePathname()
+  const { data: tree = [] } = useCategoryTree()
 
-  function handleAuth() { onClose(); openAuthModal('login') }
+  function handleAuth(mode: 'login' | 'signup') { onClose(); openAuthModal(mode) }
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="right" className="w-[320px] max-w-[90vw] flex flex-col">
-        <SheetHeader>
-          <SheetTitle>Menu</SheetTitle>
-          <SheetClose />
+      <SheetContent side="left" className="w-[320px] max-w-[90vw] flex flex-col">
+        <SheetHeader className="px-5 py-2">
+          <SheetTitle className="text-[21px] leading-[26px] text-ink">Menu</SheetTitle>
+          <SheetClose className="w-11 h-11 -mr-2.5" aria-label="Close menu" />
         </SheetHeader>
 
-        <nav className="flex flex-col px-6 py-4 flex-1 overflow-y-auto gap-0">
+        <nav aria-label="Mobile" className="flex flex-col px-5 py-4 flex-1 overflow-y-auto gap-6">
           {isAuthenticated && user && (
-            <div className="mb-4 pb-4 border-b border-border-warm">
-              <p className="text-[13px] font-sans text-muted-text">{user.email}</p>
+            <div className="pb-4 border-b border-line">
+              <p className="text-[13px] font-sans text-muted truncate">{user.email}</p>
 
-              {(user.role === 'BUYER' || user.role === 'AGENT') && (
-                <div className="mt-3 flex flex-col gap-0.5">
-                  {BUYER_NAV_ITEMS.map(({ href, label, icon: Icon }) => (
-                    <Link
-                      key={href}
-                      href={href}
-                      onClick={onClose}
-                      className="flex items-center gap-2.5 py-2 text-[13px] font-[500] font-sans text-muted-text hover:text-primary transition-colors"
-                    >
-                      <Icon size={13} aria-hidden="true" />
-                      {label}
-                    </Link>
-                  ))}
-                  {user.role === 'AGENT' && (
-                    <Link
-                      href="/catalogue"
-                      onClick={onClose}
-                      className="flex items-center gap-2.5 py-2 text-[13px] font-[500] font-sans text-muted-text hover:text-primary transition-colors"
-                    >
-                      <Layers size={13} aria-hidden="true" />
-                      My Catalogues
-                    </Link>
-                  )}
-                </div>
-              )}
+              <div className="mt-2 flex flex-col">
+                {(user.role === 'BUYER' || user.role === 'AGENT') && (
+                  <>
+                    {BUYER_NAV_ITEMS.map(({ href, label, icon: Icon }) => (
+                      <Link key={href} href={href} onClick={onClose} className={DRAWER_LINK_CLASS}>
+                        <Icon size={15} aria-hidden="true" />
+                        {label}
+                      </Link>
+                    ))}
+                    {user.role === 'AGENT' && (
+                      <Link href="/catalogue" onClick={onClose} className={DRAWER_LINK_CLASS}>
+                        <Layers size={15} aria-hidden="true" />
+                        My Catalogues
+                      </Link>
+                    )}
+                  </>
+                )}
+                <Link href="/notifications" onClick={onClose} className={DRAWER_LINK_CLASS}>
+                  <Bell size={15} aria-hidden="true" />
+                  Notifications
+                </Link>
+              </div>
             </div>
           )}
 
-          <Link href="/" onClick={onClose} className="py-3 text-[15px] font-[500] font-sans text-primary hover:text-accent transition-colors border-b border-border-warm/50">
-            Home
-          </Link>
+          <div className="flex flex-col">
+            <Link href="/" onClick={onClose} className={DRAWER_LINK_CLASS}>Home</Link>
+            {CURATED_LINKS.map((link) => (
+              <Link key={link.href} href={link.href} onClick={onClose} className={DRAWER_LINK_CLASS}>
+                {link.label}
+              </Link>
+            ))}
+          </div>
 
-          <div className="mt-5 pt-4 border-t border-border-warm">
-            <p className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-3">
-              Currency
-            </p>
-            <div className="flex flex-col gap-1 max-h-[220px] overflow-y-auto">
+          {tree.length > 0 && (
+            <div className="flex flex-col">
+              <DrawerGroupLabel>Categories</DrawerGroupLabel>
+              {tree.map((category) => (
+                <Link
+                  key={category.id}
+                  href={`/categories/${category.slug}`}
+                  onClick={onClose}
+                  className={DRAWER_LINK_CLASS}
+                >
+                  {category.name}
+                </Link>
+              ))}
+            </div>
+          )}
+
+          <div className="pt-4 border-t border-line">
+            <DrawerGroupLabel>Currency</DrawerGroupLabel>
+            <div className="mt-2 flex flex-col gap-1 max-h-[220px] overflow-y-auto">
               {availableCurrencies.map((c) => {
                 const active = c === currency
                 return (
                   <button
                     key={c}
                     type="button"
+                    aria-pressed={active}
                     onClick={() => setCurrency(c)}
                     className={cn(
-                      'flex items-center justify-between w-full px-3 py-2.5 rounded border transition-colors text-left',
-                      active ? 'border-primary bg-primary/5' : 'border-border-warm hover:border-primary/40 hover:bg-muted-bg'
+                      'flex items-center justify-between gap-3 w-full px-3 min-h-11 rounded-[4px] border text-left transition-colors duration-150',
+                      active ? 'border-forest bg-selected text-forest' : 'border-line text-ink hover:bg-ivory'
                     )}
                   >
-                    <span className={cn('text-[13px] font-sans', active ? 'text-primary font-[600]' : 'text-muted-text')}>
+                    <span className={cn('text-[14px] font-sans', active && 'font-[600]')}>
                       {getCurrencyName(c)}
                     </span>
-                    <span className={cn('text-[12px] font-[600] font-sans', active ? 'text-primary' : 'text-muted-text/60')}>
-                      {c}
+                    <span className="inline-flex items-center gap-1.5 text-[12px] font-[600] font-sans">
+                      {active && <Check size={14} aria-hidden="true" />}
+                      <span className={active ? 'text-forest' : 'text-muted'}>{c}</span>
                     </span>
                   </button>
                 )
@@ -753,21 +824,26 @@ function MobileNavDrawer({ open, onClose }: { open: boolean; onClose: () => void
             </div>
           </div>
 
-          <div className="mt-6 flex flex-col gap-2">
+          <div className="flex flex-col gap-3 pb-2">
             {isAuthenticated ? (
-              <Button variant="ghost" className="w-full" onClick={() => { logout(); onClose() }}>
+              <Button variant="secondary" size="lg" className="w-full" onClick={() => { logout(); onClose() }}>
                 Sign out
               </Button>
             ) : (
               <>
-                <Button variant="primary" className="w-full" onClick={handleAuth}>Sign in</Button>
-                <Button
-                  variant={pathname?.startsWith('/sell') ? 'accent' : 'ghost'}
-                  className="w-full"
-                  asChild
-                >
-                  <Link href="/sell" onClick={onClose}>Sign up to sell</Link>
+                <Button variant="primary" size="lg" className="w-full" onClick={() => handleAuth('signup')}>
+                  Sign up to buy
                 </Button>
+                <Button variant="secondary" size="lg" className="w-full" onClick={() => handleAuth('login')}>
+                  Sign in
+                </Button>
+                <Link
+                  href="/sell"
+                  onClick={onClose}
+                  className="inline-flex items-center justify-center min-h-11 text-[14px] font-[600] font-sans text-forest underline underline-offset-4 hover:text-forest-hover"
+                >
+                  Sign up to sell
+                </Link>
               </>
             )}
           </div>
@@ -789,6 +865,10 @@ interface NavBarProps {
   initialSearchQuery?: string
 }
 
+// Desktop header buttons are 36px tall (size sm) but keep a 44px hit area via
+// an invisible pseudo-element that extends 4px above and below.
+const HIT_AREA_44 = 'relative after:absolute after:inset-x-0 after:-inset-y-1'
+
 export function NavBar({ transparent = false, initialSearchQuery }: NavBarProps) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const openAuthModal = useAuthStore((s) => s.openAuthModal)
@@ -798,99 +878,116 @@ export function NavBar({ transparent = false, initialSearchQuery }: NavBarProps)
   const hidden = useHideOnScroll(isAuthenticated)
 
   const ghost = transparent && !scrolled
+  const onSellPage = pathname?.startsWith('/sell') ?? false
 
   return (
     <>
-      {!transparent && <div className="shrink-0 h-16 md:h-[108px]" aria-hidden="true" />}
+      {!transparent && <div className={cn('shrink-0', HEADER_HEIGHT_CLASS)} aria-hidden="true" />}
 
       <header
         className={cn(
-          'fixed top-0 left-0 right-0 z-40 transition-all duration-300',
+          'fixed top-0 left-0 right-0 z-40 border-b transition-[translate,background-color,border-color] duration-300',
           hidden && '-translate-y-full',
-          ghost ? 'bg-transparent border-b border-transparent' : 'bg-surface border-b border-border-warm shadow-[0_1px_0_0_rgba(26,26,26,0.05)]'
+          ghost ? 'bg-transparent border-transparent' : 'bg-white border-line'
         )}
       >
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center gap-3">
-          {/* Logo */}
-          <Link href="/" aria-label="Solomon Bharat — home" className="flex-shrink-0 flex items-center self-stretch">
-            <img
-              src="/branding/solomon-bharat-logo.png"
-              alt="Solomon Bharat"
-              className={cn('h-14 w-auto object-contain block', ghost && 'brightness-0 invert')}
-            />
-          </Link>
+        {/* ── Desktop (≥1024px): 72px main row ─────────────────────────────── */}
+        <div className="hidden lg:flex sb-container h-[72px] items-center gap-3">
+          <Wordmark ghost={ghost} className="flex-shrink-0 mr-1" />
 
-          {/* Nav links — desktop */}
-          <nav className="hidden md:flex items-center gap-1 ml-4">
-            <CategoryMegaMenu ghost={ghost} />
-          </nav>
+          <CategoryMegaMenu ghost={ghost} />
 
-          <NavSearchBar ghost={ghost} initialQuery={initialSearchQuery} />
+          <NavSearchBar ghost={ghost} initialQuery={initialSearchQuery} className="flex-1 mx-1" />
 
-          {/* Right cluster */}
-          <div className="hidden md:flex items-center gap-1 flex-shrink-0 ml-auto">
+          <div className="flex items-center gap-1 flex-shrink-0">
             <CurrencySelector ghost={ghost} />
 
             {isAuthenticated ? (
               <>
                 <NotificationBell ghost={ghost} />
-                <UserDropdown />
+                <UserDropdown ghost={ghost} />
                 <CartButton ghost={ghost} />
               </>
             ) : (
               <>
                 <Link
                   href="/sell"
+                  aria-current={onSellPage ? 'page' : undefined}
                   className={cn(
-                    'inline-flex items-center h-9 px-3 rounded text-[15px] font-[500] font-sans transition-colors',
-                    pathname?.startsWith('/sell')
-                      ? ghost ? 'text-white bg-white/10' : 'text-primary font-[600] bg-muted-bg'
-                      : ghost ? 'text-white/80 hover:text-white hover:bg-white/10' : 'text-muted-text hover:text-primary hover:bg-muted-bg'
+                    'inline-flex items-center h-11 px-2.5 whitespace-nowrap text-[14px] leading-[20px] font-[500] font-sans underline-offset-4 transition-colors duration-150',
+                    ghost
+                      ? 'text-white hover:underline'
+                      : onSellPage
+                        ? 'text-forest font-[600] underline'
+                        : 'text-ink hover:text-forest hover:underline'
                   )}
                 >
                   Sign up to sell
                 </Link>
-                <button
-                  type="button"
+                <Button
+                  variant={ghost ? 'outlineOnForest' : 'secondary'}
+                  size="sm"
+                  className={cn('ml-1 whitespace-nowrap', HIT_AREA_44)}
                   onClick={() => openAuthModal('login')}
-                  className={cn(
-                    'inline-flex items-center h-9 px-3 rounded text-[15px] font-[500] font-sans transition-colors',
-                    ghost ? 'text-white/80 hover:text-white hover:bg-white/10' : 'text-muted-text hover:text-primary hover:bg-muted-bg'
-                  )}
                 >
                   Sign in
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant={ghost ? 'onForest' : 'primary'}
+                  size="sm"
+                  className={cn('ml-2 whitespace-nowrap', HIT_AREA_44)}
                   onClick={() => openAuthModal('signup')}
-                  className={cn(
-                    'inline-flex items-center h-9 px-5 ml-1 rounded font-[600] font-sans text-[15px] transition-colors',
-                    ghost ? 'bg-white text-primary hover:bg-white/90' : 'bg-primary text-white hover:bg-[#2a2a2a]'
-                  )}
                 >
                   Sign up to buy
-                </button>
+                </Button>
               </>
             )}
           </div>
+        </div>
 
-          {/* Mobile icons */}
-          <div className="flex md:hidden items-center gap-0.5 ml-auto">
-            {isAuthenticated && <CartButton ghost={ghost} />}
+        {/* ── Below 1024px: menu left, brand centred, account/cart right ───── */}
+        {/* 1fr/auto/1fr keeps the wordmark optically centred; icon buttons pull
+            into the gutter (-ml/-mr) so the 44px hit areas fit at 320px. */}
+        <div className="lg:hidden sb-container h-14 grid grid-cols-[1fr_auto_1fr] items-center">
+          <div className="flex items-center -ml-2.5">
             <button
               type="button"
               aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={mobileMenuOpen}
               onClick={() => setMobileMenuOpen((v) => !v)}
-              className={cn(
-                'inline-flex items-center justify-center w-9 h-9 rounded transition-colors',
-                ghost ? 'text-white hover:bg-white/10' : 'text-primary hover:bg-muted-bg'
-              )}
+              className={iconButtonClass(ghost)}
             >
-              {mobileMenuOpen ? <X size={17} aria-hidden="true" /> : <Menu size={17} aria-hidden="true" />}
+              {mobileMenuOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
             </button>
+          </div>
+
+          <Wordmark ghost={ghost} />
+
+          <div className="flex items-center justify-end -mr-2.5">
+            {isAuthenticated ? (
+              <>
+                <CartButton ghost={ghost} />
+                <UserDropdown ghost={ghost} />
+              </>
+            ) : (
+              <button
+                type="button"
+                aria-label="Sign in"
+                onClick={() => openAuthModal('login')}
+                className={iconButtonClass(ghost)}
+              >
+                <UserIcon size={20} aria-hidden="true" />
+              </button>
+            )}
           </div>
         </div>
 
+        {/* Search on its own row below 1024px: 48px field + 12px bottom padding. */}
+        <div className="lg:hidden sb-container pb-3">
+          <NavSearchBar ghost={ghost} initialQuery={initialSearchQuery} />
+        </div>
+
+        {/* ── Desktop: 44px category quick-links row ───────────────────────── */}
         <CategoryQuickLinksRow ghost={ghost} />
       </header>
 

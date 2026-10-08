@@ -1,46 +1,31 @@
 'use client'
 
 import { FilterSections } from '@/components/catalogue/FilterSections'
-import { CategorySidebarTree } from '@/components/catalogue/CategorySidebarTree'
-import type { ProductFilterValues } from '@/components/catalogue/FiltersDrawer'
+import type { ProductFilterValues } from '@/components/catalogue/catalogueParams'
 import type { CategoryNode } from '@/types'
 
 interface InlineFilterSidebarProps {
-  /** The current category page's own category — scopes the Category section
-   *  to just this subtree instead of the full site-wide list. */
-  categoryRoot: Pick<CategoryNode, 'id' | 'name' | 'children'>
   filters: ProductFilterValues
   onChange: (filters: ProductFilterValues) => void
+  rootCategory?: Pick<CategoryNode, 'id' | 'name' | 'children'>
+  showPrice?: boolean
 }
 
 /**
- * Desktop-only docked filter column for /categories/[slug] (Faire's category page
- * uses an inline sidebar rather than an overlay drawer here). /search keeps the
- * overlay `FiltersDrawer` — both share the same `FilterSections` controls.
- *
- * The category-name heading + "Clear all" live in the pill row above (same row
- * as "Hide filters"/sort, matching Faire's layout — the heading sits at this
- * column's own x-position, not stacked in a second row above it), not here.
+ * Desktop (≥1024px) filter column — 220px wide, sits beside the 3-card grid.
+ * Unlike the mobile drawer, changes here apply immediately (the grid is right
+ * beside it, so there is nothing hidden to "apply" to).
  */
-export function InlineFilterSidebar({ categoryRoot, filters, onChange }: InlineFilterSidebarProps) {
-  function commit(overrides: Partial<ProductFilterValues>) {
-    onChange({ ...filters, ...overrides })
-  }
-
+export function InlineFilterSidebar({ filters, onChange, rootCategory, showPrice }: InlineFilterSidebarProps) {
   return (
-    <div className="w-[260px] flex-shrink-0">
+    <aside aria-label="Product filters" className="w-[220px]">
+      <h2 className="sr-only">Filter products</h2>
       <FilterSections
         filters={filters}
-        onChange={commit}
-        hideCategoryLabel
-        categoryContent={
-          <CategorySidebarTree
-            root={categoryRoot}
-            value={filters.categoryId}
-            onChange={(categoryId) => commit({ categoryId })}
-          />
-        }
+        onChange={(overrides) => onChange({ ...filters, ...overrides })}
+        rootCategory={rootCategory}
+        showPrice={showPrice}
       />
-    </div>
+    </aside>
   )
 }

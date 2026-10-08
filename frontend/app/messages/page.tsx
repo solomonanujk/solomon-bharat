@@ -29,7 +29,7 @@ function ChatBubble({ message }: { message: BuyerMessage }) {
         <div className={cn(
           'px-4 py-2.5 rounded-2xl font-sans text-[14px] leading-[1.6]',
           isMe
-            ? 'bg-primary text-white rounded-br-sm'
+            ? 'bg-forest text-white rounded-br-sm'
             : 'bg-surface border border-border-warm text-primary rounded-bl-sm'
         )}>
           {message.body}
@@ -114,7 +114,7 @@ export default function MessagesPage() {
               onClick={handleSend}
               disabled={!input.trim() || sendMessage.isPending}
               aria-label="Send message"
-              className="w-9 h-9 flex-shrink-0 rounded bg-primary text-white flex items-center justify-center hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="w-9 h-9 flex-shrink-0 rounded bg-forest text-white flex items-center justify-center hover:bg-forest-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <Send size={14} aria-hidden="true" />
             </button>

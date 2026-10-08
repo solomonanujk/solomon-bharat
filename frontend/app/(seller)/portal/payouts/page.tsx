@@ -22,31 +22,31 @@ function SummaryCard({
 }) {
   if (featured) {
     return (
-      <div className="bg-[#1A1A1A] rounded-xl p-5 flex flex-col gap-1">
+      <div className="bg-forest rounded-xl p-5 flex flex-col gap-1">
         <div className="flex items-center gap-2 mb-1">
-          <Icon size={14} className="text-[#A68B67]" aria-hidden={true} />
+          <Icon size={14} className="text-[#183D33]" aria-hidden={true} />
           <p className="text-[12px] font-[600] font-sans text-[#C4BDB4] uppercase tracking-[0.07em]">{label}</p>
         </div>
         <p className="text-[28px] font-[700] font-sans text-white tabular-nums leading-none">{value}</p>
-        {sub && <p className="text-[11.5px] font-sans text-[#6B6460] mt-0.5">{sub}</p>}
+        {sub && <p className="text-[11.5px] font-sans text-[#665F55] mt-0.5">{sub}</p>}
       </div>
     )
   }
   return (
-    <div className="bg-white border border-[#E5E1D8] rounded-xl p-5">
+    <div className="bg-white border border-[#E5DCCB] rounded-xl p-5">
       <div className="flex items-center gap-2 mb-1">
         <Icon size={14} className="text-[#C4BDB4]" aria-hidden={true} />
         <p className="text-[12px] font-[600] font-sans text-[#9CA3AF] uppercase tracking-[0.07em]">{label}</p>
       </div>
-      <p className="text-[24px] font-[700] font-sans text-[#1A1A1A] tabular-nums leading-none mt-1">{value}</p>
+      <p className="text-[24px] font-[700] font-sans text-[#20201E] tabular-nums leading-none mt-1">{value}</p>
       {sub && <p className="text-[11.5px] font-sans text-[#9CA3AF] mt-1">{sub}</p>}
     </div>
   )
 }
 
 function SummaryCardSkeleton({ featured }: { featured?: boolean }) {
-  const bg = featured ? 'bg-[#1A1A1A]' : 'bg-white border border-[#E5E1D8]'
-  const shade = featured ? 'bg-[#2E2A24]' : 'bg-[#F5F0E8]'
+  const bg = featured ? 'bg-forest' : 'bg-white border border-[#E5DCCB]'
+  const shade = featured ? 'bg-[#2E2A24]' : 'bg-[#F5F0E5]'
   return (
     <div className={`${bg} rounded-xl p-5 animate-pulse`}>
       <div className={`h-3 w-28 ${shade} rounded mb-3`} />
@@ -84,8 +84,8 @@ export default function PayoutsPage() {
     <div>
       {/* Page header */}
       <div className="mb-6">
-        <h1 className="text-[24px] font-[700] font-sans text-[#1A1A1A] leading-tight">Payouts</h1>
-        <p className="text-[13px] font-sans text-[#6B6460] mt-0.5">
+        <h1 className="text-[24px] font-[700] font-sans text-[#20201E] leading-tight">Payouts</h1>
+        <p className="text-[13px] font-sans text-[#665F55] mt-0.5">
           Payouts are processed manually by Solomon Bharat and update once marked as paid.
         </p>
       </div>
@@ -122,11 +122,11 @@ export default function PayoutsPage() {
       </div>
 
       {isLoading ? (
-        <div className="bg-white border border-[#E5E1D8] rounded-xl overflow-hidden animate-pulse">
+        <div className="bg-white border border-[#E5DCCB] rounded-xl overflow-hidden animate-pulse">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-[58px] border-b border-[#F5F0E8] px-5 flex items-center gap-4">
-              <div className="h-3 w-24 bg-[#F5F0E8] rounded" />
-              <div className="h-3 w-20 bg-[#F5F0E8] rounded ml-auto" />
+            <div key={i} className="h-[58px] border-b border-[#F5F0E5] px-5 flex items-center gap-4">
+              <div className="h-3 w-24 bg-[#F5F0E5] rounded" />
+              <div className="h-3 w-20 bg-[#F5F0E5] rounded ml-auto" />
             </div>
           ))}
         </div>
@@ -135,20 +135,20 @@ export default function PayoutsPage() {
           <p className="text-[14px] font-sans text-red-500">Failed to load payouts.</p>
         </div>
       ) : payouts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center bg-white border border-[#E5E1D8] rounded-xl">
-          <div className="w-14 h-14 rounded-full bg-[#F5F0E8] flex items-center justify-center mb-4">
+        <div className="flex flex-col items-center justify-center py-20 text-center bg-white border border-[#E5DCCB] rounded-xl">
+          <div className="w-14 h-14 rounded-full bg-[#F5F0E5] flex items-center justify-center mb-4">
             <Wallet size={22} className="text-[#C4BDB4]" aria-hidden="true" />
           </div>
-          <p className="text-[16px] font-[600] font-sans text-[#1A1A1A] mb-1">No payouts yet</p>
-          <p className="text-[13.5px] font-sans text-[#6B6460]">Payouts for delivered orders will appear here.</p>
+          <p className="text-[16px] font-[600] font-sans text-[#20201E] mb-1">No payouts yet</p>
+          <p className="text-[13.5px] font-sans text-[#665F55]">Payouts for delivered orders will appear here.</p>
         </div>
       ) : (
         <>
-          <div className="bg-white border border-[#E5E1D8] rounded-xl overflow-hidden mb-4">
+          <div className="bg-white border border-[#E5DCCB] rounded-xl overflow-hidden mb-4">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px]">
                 <thead>
-                  <tr className="border-b border-[#E5E1D8] bg-[#F9F7F2]">
+                  <tr className="border-b border-[#E5DCCB] bg-[#F5F0E5]">
                     {['Date', 'Order Ref', 'Product', 'Amount', 'Status'].map((col) => (
                       <th key={col} className="px-5 py-3 text-left text-[11px] font-[700] font-sans text-[#9CA3AF] uppercase tracking-[0.07em]">
                         {col}
@@ -156,7 +156,7 @@ export default function PayoutsPage() {
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#F5F0E8]">
+                <tbody className="divide-y divide-[#F5F0E5]">
                   {payouts.map((payout) => (
                     <tr key={payout.id} className="hover:bg-[#FDFCF9] transition-colors">
                       <td className="px-5 py-4">
@@ -174,13 +174,13 @@ export default function PayoutsPage() {
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="text-[14px] font-[500] font-sans text-[#1A1A1A]">
+                        <span className="text-[14px] font-[500] font-sans text-[#20201E]">
                           {productNameByOrderItemId.get(payout.orderItemId) ??
                             payout.orderItemId.slice(0, 8).toUpperCase()}
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        <span className="tabular-nums text-[14px] font-[700] font-sans text-[#1A1A1A]">
+                        <span className="tabular-nums text-[14px] font-[700] font-sans text-[#20201E]">
                           {formatINR(payout.amount)}
                         </span>
                       </td>
@@ -196,7 +196,7 @@ export default function PayoutsPage() {
 
           {totalPages > 1 && (
             <div className="flex items-center justify-between">
-              <p className="text-[13px] font-sans text-[#6B6460]">
+              <p className="text-[13px] font-sans text-[#665F55]">
                 {total} payout{total !== 1 ? 's' : ''} total
               </p>
               <div className="flex items-center gap-2">
@@ -204,18 +204,18 @@ export default function PayoutsPage() {
                   type="button"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="h-8 px-3.5 rounded-lg border border-[#E5E1D8] text-[13px] font-[600] font-sans text-[#1A1A1A] hover:bg-[#F5F0E8] transition-colors disabled:opacity-40"
+                  className="h-8 px-3.5 rounded-lg border border-[#E5DCCB] text-[13px] font-[600] font-sans text-[#20201E] hover:bg-[#F5F0E5] transition-colors disabled:opacity-40"
                 >
                   Prev
                 </button>
-                <span className="text-[13px] font-sans text-[#6B6460] px-2">
+                <span className="text-[13px] font-sans text-[#665F55] px-2">
                   {page} / {totalPages}
                 </span>
                 <button
                   type="button"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="h-8 px-3.5 rounded-lg border border-[#E5E1D8] text-[13px] font-[600] font-sans text-[#1A1A1A] hover:bg-[#F5F0E8] transition-colors disabled:opacity-40"
+                  className="h-8 px-3.5 rounded-lg border border-[#E5DCCB] text-[13px] font-[600] font-sans text-[#20201E] hover:bg-[#F5F0E5] transition-colors disabled:opacity-40"
                 >
                   Next
                 </button>

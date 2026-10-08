@@ -36,7 +36,7 @@ export function CatalogueTray() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] w-[92vw] max-w-[440px] bg-primary text-white rounded-full shadow-xl px-5 py-3 flex items-center gap-4"
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] w-[92vw] max-w-[440px] bg-forest text-white rounded-full shadow-xl px-5 py-3 flex items-center gap-4"
     >
       <Layers size={16} className="flex-shrink-0" aria-hidden="true" />
       <p className="text-[13px] font-[700] font-sans flex-1">

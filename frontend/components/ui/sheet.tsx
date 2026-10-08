@@ -95,7 +95,7 @@ function SheetContent({ side = 'right', children, className, ...props }: SheetCo
       {/* Backdrop */}
       <div
         className={cn(
-          'fixed inset-0 bg-primary/20 z-40 transition-opacity duration-300',
+          'fixed inset-0 bg-forest/20 z-40 transition-opacity duration-300',
           open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         )}
         onClick={() => setOpen(false)}

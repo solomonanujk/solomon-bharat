@@ -54,7 +54,7 @@ export default function ApplyAgentPage() {
 
   if (applyAsAgent.isSuccess) {
     return (
-      <div className="min-h-screen bg-[#F9F7F2] flex flex-col">
+      <div className="min-h-screen bg-[#F5F0E5] flex flex-col">
         <NavBar />
         <main className="flex-1 flex items-center justify-center px-4 py-16">
           <div className="max-w-[480px] w-full text-center flex flex-col items-center gap-5">
@@ -62,29 +62,29 @@ export default function ApplyAgentPage() {
               <Check size={28} className="text-emerald-600" />
             </div>
             <div>
-              <h1 className="font-sans text-[28px] font-[700] text-[#1A1A1A] leading-tight mb-2">
+              <h1 className="font-sans text-[28px] font-[700] text-[#20201E] leading-tight mb-2">
                 Application submitted
               </h1>
-              <p className="font-sans text-[14.5px] text-[#6B6460] leading-[1.7]">
+              <p className="font-sans text-[14.5px] text-[#665F55] leading-[1.7]">
                 Thanks for applying to become a Solomon Bharat agent. Our team reviews every
                 application and will get back to you by email within 3 business days.
               </p>
             </div>
-            <div className="flex items-center gap-6 py-4 px-6 bg-white border border-[#E5E1D8] rounded-xl w-full">
+            <div className="flex items-center gap-6 py-4 px-6 bg-white border border-[#E5DCCB] rounded-xl w-full">
               {[
                 { icon: Clock, text: 'Response in 3 days' },
                 { icon: Shield, text: 'Secure & confidential' },
                 { icon: BadgeCheck, text: 'No fees required' },
               ].map(({ icon: Icon, text }) => (
                 <div key={text} className="flex flex-col items-center gap-1.5 flex-1">
-                  <Icon size={16} className="text-[#A68B67]" aria-hidden="true" />
-                  <span className="text-[11px] font-[500] font-sans text-[#6B6460] text-center">{text}</span>
+                  <Icon size={16} className="text-[#183D33]" aria-hidden="true" />
+                  <span className="text-[11px] font-[500] font-sans text-[#665F55] text-center">{text}</span>
                 </div>
               ))}
             </div>
             <Link
               href="/"
-              className="inline-flex items-center justify-center h-11 px-8 bg-[#1A1A1A] text-white text-[14px] font-[700] font-sans rounded-lg hover:bg-[#2E2A24] transition-colors"
+              className="inline-flex items-center justify-center h-11 px-8 bg-forest text-white text-[14px] font-[700] font-sans rounded-lg hover:bg-forest-hover transition-colors"
             >
               Return to home
             </Link>
@@ -96,7 +96,7 @@ export default function ApplyAgentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F9F7F2] flex flex-col">
+    <div className="min-h-screen bg-[#F5F0E5] flex flex-col">
       <NavBar />
 
       <main className="flex-1">
@@ -105,7 +105,7 @@ export default function ApplyAgentPage() {
           {/* Back link */}
           <Link
             href="/become-agent"
-            className="inline-flex items-center gap-2 text-[13px] font-[500] font-sans text-[#9CA3AF] hover:text-[#6B6460] transition-colors mb-8"
+            className="inline-flex items-center gap-2 text-[13px] font-[500] font-sans text-[#9CA3AF] hover:text-[#665F55] transition-colors mb-8"
           >
             <ArrowLeft size={14} aria-hidden="true" />
             Back to agent overview
@@ -120,15 +120,15 @@ export default function ApplyAgentPage() {
             ].map(({ num, label, active }, i, arr) => (
               <div key={num} className="flex items-center">
                 <div className="flex flex-col items-center gap-1.5">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-[700] font-sans ${active ? 'bg-[#A68B67] text-white' : 'bg-[#E5E1D8] text-[#9CA3AF]'}`}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-[700] font-sans ${active ? 'bg-[#183D33] text-white' : 'bg-[#E5DCCB] text-[#9CA3AF]'}`}>
                     {num}
                   </div>
-                  <span className={`text-[11px] font-[600] font-sans ${active ? 'text-[#A68B67]' : 'text-[#9CA3AF]'}`}>
+                  <span className={`text-[11px] font-[600] font-sans ${active ? 'text-[#183D33]' : 'text-[#9CA3AF]'}`}>
                     {label}
                   </span>
                 </div>
                 {i < arr.length - 1 && (
-                  <div className="w-20 h-0.5 bg-[#E5E1D8] mx-3 mb-5" />
+                  <div className="w-20 h-0.5 bg-[#E5DCCB] mx-3 mb-5" />
                 )}
               </div>
             ))}
@@ -136,13 +136,13 @@ export default function ApplyAgentPage() {
 
           {/* Page header */}
           <div className="mb-8">
-            <p className="text-[11px] font-[700] font-sans text-[#A68B67] tracking-[0.1em] uppercase mb-2">
+            <p className="text-[11px] font-[700] font-sans text-[#183D33] tracking-[0.1em] uppercase mb-2">
               Agent Application
             </p>
-            <h1 className="font-sans text-[28px] font-[700] text-[#1A1A1A] leading-tight mb-2">
+            <h1 className="font-sans text-[28px] font-[700] text-[#20201E] leading-tight mb-2">
               Tell us about yourself
             </h1>
-            <p className="font-sans text-[14.5px] text-[#6B6460] leading-[1.6]">
+            <p className="font-sans text-[14.5px] text-[#665F55] leading-[1.6]">
               This takes under 5 minutes. We review applications within 3 business days.
             </p>
           </div>
@@ -157,10 +157,10 @@ export default function ApplyAgentPage() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-0" noValidate>
-            <div className="bg-white border border-[#E5E1D8] rounded-xl p-6 space-y-5">
+            <div className="bg-white border border-[#E5DCCB] rounded-xl p-6 space-y-5">
 
               {/* Section: Personal info */}
-              <p className="text-[11px] font-[700] font-sans text-[#A68B67] uppercase tracking-[0.08em] pb-1 border-b border-[#F5F0E8]">
+              <p className="text-[11px] font-[700] font-sans text-[#183D33] uppercase tracking-[0.08em] pb-1 border-b border-[#F5F0E5]">
                 Personal information
               </p>
 
@@ -219,7 +219,7 @@ export default function ApplyAgentPage() {
               </div>
 
               {/* Section divider */}
-              <p className="text-[11px] font-[700] font-sans text-[#A68B67] uppercase tracking-[0.08em] pb-1 border-b border-[#F5F0E8] pt-1">
+              <p className="text-[11px] font-[700] font-sans text-[#183D33] uppercase tracking-[0.08em] pb-1 border-b border-[#F5F0E5] pt-1">
                 Location
               </p>
 
@@ -232,7 +232,7 @@ export default function ApplyAgentPage() {
                   onChange={(e) => set('businessAddress', e.target.value)}
                   disabled={applyAsAgent.isPending}
                   rows={2}
-                  className="mt-1.5 w-full rounded-lg border border-[#E5E1D8] bg-[#F9F7F2] px-3 py-2.5 text-[14px] font-sans text-[#1A1A1A] placeholder:text-[#9CA3AF] outline-none focus:border-[#A68B67] transition-colors resize-none"
+                  className="mt-1.5 w-full rounded-lg border border-[#E5DCCB] bg-[#F5F0E5] px-3 py-2.5 text-[14px] font-sans text-[#20201E] placeholder:text-[#9CA3AF] outline-none focus:border-[#183D33] transition-colors resize-none"
                 />
               </div>
 
@@ -250,7 +250,7 @@ export default function ApplyAgentPage() {
               </div>
 
               {/* Section divider */}
-              <p className="text-[11px] font-[700] font-sans text-[#A68B67] uppercase tracking-[0.08em] pb-1 border-b border-[#F5F0E8] pt-1">
+              <p className="text-[11px] font-[700] font-sans text-[#183D33] uppercase tracking-[0.08em] pb-1 border-b border-[#F5F0E5] pt-1">
                 About your application
               </p>
 
@@ -266,7 +266,7 @@ export default function ApplyAgentPage() {
                   onChange={(e) => set('message', e.target.value)}
                   disabled={applyAsAgent.isPending}
                   rows={4}
-                  className="mt-1.5 w-full rounded-lg border border-[#E5E1D8] bg-[#F9F7F2] px-3 py-2.5 text-[14px] font-sans text-[#1A1A1A] placeholder:text-[#9CA3AF] outline-none focus:border-[#A68B67] transition-colors resize-none"
+                  className="mt-1.5 w-full rounded-lg border border-[#E5DCCB] bg-[#F5F0E5] px-3 py-2.5 text-[14px] font-sans text-[#20201E] placeholder:text-[#9CA3AF] outline-none focus:border-[#183D33] transition-colors resize-none"
                 />
                 <p className="text-[11.5px] font-sans text-[#9CA3AF] mt-1.5">Helps us process your application faster. Max 500 characters.</p>
               </div>
@@ -280,9 +280,9 @@ export default function ApplyAgentPage() {
             <div className="flex items-center justify-between mt-5 gap-4 flex-wrap">
               <p className="text-[12px] font-sans text-[#9CA3AF] leading-[1.5]">
                 By submitting you agree to our{' '}
-                <Link href="/terms" className="text-[#A68B67] hover:underline">Terms of Service</Link>
+                <Link href="/terms" className="text-[#183D33] hover:underline">Terms of Service</Link>
                 {' '}and{' '}
-                <Link href="/agent-agreement" className="text-[#A68B67] hover:underline">Agent Agreement</Link>.
+                <Link href="/agent-agreement" className="text-[#183D33] hover:underline">Agent Agreement</Link>.
               </p>
               <Button
                 type="submit"
@@ -296,15 +296,15 @@ export default function ApplyAgentPage() {
             </div>
 
             {/* Trust strip */}
-            <div className="flex items-center gap-6 mt-5 pt-5 border-t border-[#E5E1D8]">
+            <div className="flex items-center gap-6 mt-5 pt-5 border-t border-[#E5DCCB]">
               {[
                 { icon: Shield, text: 'Your data is secure' },
                 { icon: Clock, text: 'Response within 3 days' },
                 { icon: BadgeCheck, text: 'No upfront fees' },
               ].map(({ icon: Icon, text }) => (
                 <div key={text} className="flex items-center gap-2">
-                  <Icon size={14} className="text-[#A68B67]" aria-hidden="true" />
-                  <span className="text-[12px] font-sans text-[#6B6460]">{text}</span>
+                  <Icon size={14} className="text-[#183D33]" aria-hidden="true" />
+                  <span className="text-[12px] font-sans text-[#665F55]">{text}</span>
                 </div>
               ))}
             </div>

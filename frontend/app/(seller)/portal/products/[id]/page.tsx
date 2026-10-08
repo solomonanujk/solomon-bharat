@@ -27,8 +27,8 @@ function SectionCard({
   children: React.ReactNode
 }) {
   return (
-    <div className="bg-white border border-[#E5E1D8] rounded-xl overflow-hidden">
-      <div className="px-5 py-3.5 border-b border-[#E5E1D8] bg-[#F9F7F2] flex items-center gap-2">
+    <div className="bg-white border border-[#E5DCCB] rounded-xl overflow-hidden">
+      <div className="px-5 py-3.5 border-b border-[#E5DCCB] bg-[#F5F0E5] flex items-center gap-2">
         {Icon && <Icon size={13} className="text-[#C4BDB4]" aria-hidden={true} />}
         <h3 className="text-[11px] font-[700] font-sans text-[#9CA3AF] uppercase tracking-[0.07em]">{title}</h3>
       </div>
@@ -42,7 +42,7 @@ function Field({ label, value }: { label: string; value?: React.ReactNode }) {
   return (
     <div>
       <p className="text-[11px] font-[700] font-sans text-[#9CA3AF] uppercase tracking-[0.06em] mb-0.5">{label}</p>
-      <div className="text-[13.5px] font-sans text-[#1A1A1A] leading-[1.5] whitespace-pre-wrap break-words">{value}</div>
+      <div className="text-[13.5px] font-sans text-[#20201E] leading-[1.5] whitespace-pre-wrap break-words">{value}</div>
     </div>
   )
 }
@@ -71,22 +71,22 @@ function priceTierLadder(tiers?: ProductPriceTier[]): string {
 }
 
 function FlatTierTable({ tiers }: { tiers: ProductPriceTier[] }) {
-  if (tiers.length === 0) return <p className="text-[13px] font-sans text-[#6B6460]">No price tiers set.</p>
+  if (tiers.length === 0) return <p className="text-[13px] font-sans text-[#665F55]">No price tiers set.</p>
   const sorted = [...tiers].sort((a, b) => a.moq - b.moq)
   return (
-    <div className="rounded-lg border border-[#E5E1D8] overflow-hidden">
+    <div className="rounded-lg border border-[#E5DCCB] overflow-hidden">
       <table className="w-full text-[13px] font-sans">
         <thead>
-          <tr className="bg-[#F9F7F2] border-b border-[#E5E1D8]">
+          <tr className="bg-[#F5F0E5] border-b border-[#E5DCCB]">
             <th className="text-left py-2.5 px-4 font-[700] text-[#9CA3AF] text-[11px] uppercase tracking-[0.06em]">MOQ</th>
             <th className="text-left py-2.5 px-4 font-[700] text-[#9CA3AF] text-[11px] uppercase tracking-[0.06em]">Price per unit</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-[#F5F0E8]">
+        <tbody className="divide-y divide-[#F5F0E5]">
           {sorted.map((t, i) => (
             <tr key={t.id ?? i}>
-              <td className="px-4 py-2.5 text-[#6B6460]">{t.moq}+ units</td>
-              <td className="px-4 py-2.5 text-[#1A1A1A] font-[600]">{formatINR(t.sellerPrice)}</td>
+              <td className="px-4 py-2.5 text-[#665F55]">{t.moq}+ units</td>
+              <td className="px-4 py-2.5 text-[#20201E] font-[600]">{formatINR(t.sellerPrice)}</td>
             </tr>
           ))}
         </tbody>
@@ -100,13 +100,13 @@ function VariantsTable({ variants }: { variants: MyProduct['variants'] }) {
     <div className="overflow-x-auto">
       <table className="w-full min-w-[920px] text-[12.5px] font-sans">
         <thead>
-          <tr className="bg-[#F9F7F2] border-b border-[#E5E1D8]">
+          <tr className="bg-[#F5F0E5] border-b border-[#E5DCCB]">
             {['Photo', 'Option', 'SKU', 'Price ladder', 'Inventory', 'Weight', 'Dimensions', 'Tariff code', 'Status'].map((col) => (
               <th key={col} className="text-left py-2.5 px-3 font-[700] text-[#9CA3AF] text-[11px] uppercase tracking-[0.06em] whitespace-nowrap">{col}</th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-[#F5F0E8]">
+        <tbody className="divide-y divide-[#F5F0E5]">
           {variants.map((v) => {
             const label = variantAttrs(v).map((a) => a.value).join(' / ')
             const weight = v.weight != null ? `${v.weight} ${v.weightUnit ?? 'kg'}` : '—'
@@ -118,18 +118,18 @@ function VariantsTable({ variants }: { variants: MyProduct['variants'] }) {
                 <td className="px-3 py-3">
                   {v.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={cloudinaryFit(v.imageUrl, 80)} alt="" className="w-9 h-9 rounded-lg object-cover border border-[#E5E1D8]" />
+                    <img src={cloudinaryFit(v.imageUrl, 80)} alt="" className="w-9 h-9 rounded-lg object-cover border border-[#E5DCCB]" />
                   ) : (
-                    <div className="w-9 h-9 rounded-lg bg-[#F5F0E8] border border-[#E5E1D8]" />
+                    <div className="w-9 h-9 rounded-lg bg-[#F5F0E5] border border-[#E5DCCB]" />
                   )}
                 </td>
-                <td className="px-3 py-3 text-[#1A1A1A] font-[600] whitespace-nowrap">{label || '—'}</td>
-                <td className="px-3 py-3 text-[#6B6460] whitespace-nowrap">{v.sku || '—'}</td>
-                <td className="px-3 py-3 text-[#1A1A1A] whitespace-nowrap">{priceTierLadder(v.priceTiers)}</td>
-                <td className="px-3 py-3 text-[#1A1A1A] tabular-nums">{v.inventory ?? '—'}</td>
-                <td className="px-3 py-3 text-[#6B6460] whitespace-nowrap">{weight}</td>
-                <td className="px-3 py-3 text-[#6B6460] whitespace-nowrap">{dims}</td>
-                <td className="px-3 py-3 text-[#6B6460] whitespace-nowrap">{v.tariffCode || '—'}</td>
+                <td className="px-3 py-3 text-[#20201E] font-[600] whitespace-nowrap">{label || '—'}</td>
+                <td className="px-3 py-3 text-[#665F55] whitespace-nowrap">{v.sku || '—'}</td>
+                <td className="px-3 py-3 text-[#20201E] whitespace-nowrap">{priceTierLadder(v.priceTiers)}</td>
+                <td className="px-3 py-3 text-[#20201E] tabular-nums">{v.inventory ?? '—'}</td>
+                <td className="px-3 py-3 text-[#665F55] whitespace-nowrap">{weight}</td>
+                <td className="px-3 py-3 text-[#665F55] whitespace-nowrap">{dims}</td>
+                <td className="px-3 py-3 text-[#665F55] whitespace-nowrap">{v.tariffCode || '—'}</td>
                 <td className="px-3 py-3"><VariantStatusPill status={v.status} /></td>
               </tr>
             )
@@ -146,8 +146,8 @@ function PendingChangeCard({ change }: { change: NonNullable<MyProduct['pendingP
       <Clock size={16} className="text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
       <div className="flex-1 min-w-0 space-y-3">
         <div>
-          <p className="text-[13px] font-[600] font-sans text-[#1A1A1A]">Pricing update awaiting admin review</p>
-          <p className="text-[12px] font-sans text-[#6B6460] mt-0.5">
+          <p className="text-[13px] font-[600] font-sans text-[#20201E]">Pricing update awaiting admin review</p>
+          <p className="text-[12px] font-sans text-[#665F55] mt-0.5">
             Submitted{' '}
             {new Date(change.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
             {' '}— buyers still see the current pricing below until this is approved.
@@ -159,18 +159,18 @@ function PendingChangeCard({ change }: { change: NonNullable<MyProduct['pendingP
               const attrs = v.attributes?.length ? v.attributes : [{ name: v.type, value: v.value }]
               return (
                 <div key={i} className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 text-[12.5px] font-sans">
-                  <span className="font-[600] text-[#1A1A1A]">{attrs.map((a) => a.value).join(' / ')}</span>
-                  {v.sku && <span className="text-[#6B6460]">SKU: {v.sku}</span>}
-                  <span className="text-[#1A1A1A]">{priceTierLadder(v.priceTiers)}</span>
+                  <span className="font-[600] text-[#20201E]">{attrs.map((a) => a.value).join(' / ')}</span>
+                  {v.sku && <span className="text-[#665F55]">SKU: {v.sku}</span>}
+                  <span className="text-[#20201E]">{priceTierLadder(v.priceTiers)}</span>
                 </div>
               )
             })}
           </div>
         ) : (
           <div className="space-y-1">
-            <p className="text-[12.5px] font-sans text-[#1A1A1A]">Proposed MOQ: {change.proposedMoq}</p>
+            <p className="text-[12.5px] font-sans text-[#20201E]">Proposed MOQ: {change.proposedMoq}</p>
             {change.proposedPriceTiers.map((t, i) => (
-              <p key={i} className="text-[12.5px] font-sans text-[#1A1A1A]">
+              <p key={i} className="text-[12.5px] font-sans text-[#20201E]">
                 {t.moq}+ units — {formatINR(t.sellerPrice)}
               </p>
             ))}
@@ -205,12 +205,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         <div className="flex items-center gap-3 min-w-0">
           <Link
             href="/portal/products"
-            className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[#E5E1D8] text-[#C4BDB4] hover:text-[#1A1A1A] hover:bg-[#F5F0E8] transition-colors shrink-0"
+            className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[#E5DCCB] text-[#C4BDB4] hover:text-[#20201E] hover:bg-[#F5F0E5] transition-colors shrink-0"
             aria-label="Back to products"
           >
             <ArrowLeft size={15} />
           </Link>
-          <h1 className="text-[24px] font-[700] font-sans text-[#1A1A1A] leading-tight truncate">
+          <h1 className="text-[24px] font-[700] font-sans text-[#20201E] leading-tight truncate">
             {product?.name ?? 'Product'}
           </h1>
         </div>
@@ -233,7 +233,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       {isLoading ? (
         <div className="space-y-4 animate-pulse">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-32 bg-white border border-[#E5E1D8] rounded-xl" />
+            <div key={i} className="h-32 bg-white border border-[#E5DCCB] rounded-xl" />
           ))}
         </div>
       ) : error || !product ? (
@@ -262,7 +262,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" aria-hidden="true" />
               <div>
                 <p className="text-[13px] font-[600] font-sans text-red-700">Rejection reason</p>
-                <p className="text-[13px] font-sans text-[#1A1A1A] mt-1 whitespace-pre-wrap">{product.rejectionReason}</p>
+                <p className="text-[13px] font-sans text-[#20201E] mt-1 whitespace-pre-wrap">{product.rejectionReason}</p>
               </div>
             </div>
           )}
@@ -270,7 +270,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           {product.pendingPricingChange && <PendingChangeCard change={product.pendingPricingChange} />}
 
           {/* Media */}
-          <div className="bg-white border border-[#E5E1D8] rounded-xl p-5">
+          <div className="bg-white border border-[#E5DCCB] rounded-xl p-5">
             <PhotoGallery images={sortedImageUrls} productName={product.name} />
             <ProductVideoStrip videos={sortedVideos} productName={product.name} />
           </div>
@@ -287,7 +287,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               </SectionCard>
 
               <SectionCard title="Description">
-                <p className="text-[13.5px] font-sans text-[#1A1A1A] leading-[1.7] whitespace-pre-wrap break-words">
+                <p className="text-[13.5px] font-sans text-[#20201E] leading-[1.7] whitespace-pre-wrap break-words">
                   {product.description}
                 </p>
               </SectionCard>
@@ -320,7 +320,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                       <div>
                         <p className="text-[11px] font-[700] font-sans text-[#9CA3AF] uppercase tracking-[0.06em] mb-1.5">Craft Photo</p>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={cloudinaryFit(product.craftImageUrl, 320)} alt="" className="w-full max-w-[280px] rounded-lg border border-[#E5E1D8] object-cover" />
+                        <img src={cloudinaryFit(product.craftImageUrl, 320)} alt="" className="w-full max-w-[280px] rounded-lg border border-[#E5DCCB] object-cover" />
                       </div>
                     )}
                     <Field label="Artisan Name" value={product.artisanName ?? '—'} />
@@ -349,12 +349,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
             {/* Right column */}
             <div className="space-y-5">
-              <div className="bg-white border border-[#E5E1D8] rounded-xl p-5 space-y-4">
+              <div className="bg-white border border-[#E5DCCB] rounded-xl p-5 space-y-4">
                 <div>
                   <p className="text-[11px] font-[700] font-sans text-[#9CA3AF] uppercase tracking-[0.06em] mb-1">
                     Price{product.variants.length > 0 ? ' (from)' : ''}
                   </p>
-                  <p className="text-[22px] font-[700] font-sans text-[#1A1A1A]">{formatINR(product.sellerPrice)}</p>
+                  <p className="text-[22px] font-[700] font-sans text-[#20201E]">{formatINR(product.sellerPrice)}</p>
                 </div>
                 <Field label="MOQ" value={`${product.moq} units`} />
                 <Field label="Order Step" value={product.stepQty} />
@@ -364,12 +364,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 <Field label="Tariff / HS code" value={product.tariffCode ?? '—'} />
               </div>
 
-              <div className="bg-white border border-[#E5E1D8] rounded-xl p-5 space-y-2">
+              <div className="bg-white border border-[#E5DCCB] rounded-xl p-5 space-y-2">
                 <p className="text-[11px] font-[700] font-sans text-[#9CA3AF] uppercase tracking-[0.06em]">Timeline</p>
-                <p className="text-[13px] font-sans text-[#1A1A1A]">
+                <p className="text-[13px] font-sans text-[#20201E]">
                   Created {new Date(product.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </p>
-                <p className="text-[13px] font-sans text-[#6B6460]">
+                <p className="text-[13px] font-sans text-[#665F55]">
                   Updated {new Date(product.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </p>
               </div>
