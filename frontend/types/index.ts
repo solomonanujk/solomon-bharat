@@ -641,3 +641,40 @@ export interface CartItem {
   variantLabel?: string
   leadTime?: string | null
 }
+
+// ─── Spreadsheet product import (Shopify / WooCommerce CSV or .xlsx) ─────────
+
+export type ProductImportSource = 'shopify' | 'woocommerce'
+
+export interface ImportCandidateVariant {
+  name: string
+  options: Record<string, string>
+  sku: string | null
+  /** Price from the file, treated as the seller's price to Solomon Bharat (INR). */
+  sellerPrice: number | null
+}
+
+/** One product parsed from an uploaded export — nothing is persisted yet. */
+export interface ImportCandidate {
+  /** Stable key within the uploaded file (e.g. Shopify handle / WooCommerce ID). */
+  key: string
+  name: string
+  description: string | null
+  imageUrls: string[]
+  sellerPrice: number | null
+  variants: ImportCandidateVariant[]
+  materials: string | null
+  /** Non-blocking problems detected while parsing (missing price, no images…). */
+  issues: string[]
+}
+
+export interface ProductImportPreview {
+  source: ProductImportSource
+  products: ImportCandidate[]
+  warnings: string[]
+}
+
+export interface ProductImportResult {
+  created: { id: string; name: string; slug: string }[]
+  failed: { key: string; name: string; error: string }[]
+}
