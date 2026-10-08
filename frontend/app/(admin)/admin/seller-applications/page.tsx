@@ -38,7 +38,7 @@ function RejectDialog({ application, onClose }: { application: SellerApplication
         <DialogHeader>
           <DialogTitle>Reject application</DialogTitle>
           <DialogDescription>
-            Rejecting <strong className="text-[#1A1A1A]">{application.businessName}</strong>. A reason is required and
+            Rejecting <strong className="text-[#20201E]">{application.businessName}</strong>. A reason is required and
             will be shared with the applicant.
           </DialogDescription>
         </DialogHeader>
@@ -48,7 +48,7 @@ function RejectDialog({ application, onClose }: { application: SellerApplication
             onChange={(e) => setReason(e.target.value)}
             placeholder="Reason for rejection (required)…"
             rows={4}
-            className="w-full px-3 py-2.5 rounded-lg border border-[#E5E1D8] bg-[#F9F7F2] text-[13.5px] font-sans text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#A68B67] transition-colors resize-none"
+            className="w-full px-3 py-2.5 rounded-lg border border-[#E5DCCB] bg-[#F5F0E5] text-[13.5px] font-sans text-[#20201E] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#183D33] transition-colors resize-none"
           />
         </div>
         <DialogFooter>
@@ -81,7 +81,7 @@ function RequestInfoDialog({ application, onClose }: { application: SellerApplic
         <DialogHeader>
           <DialogTitle>Request more information</DialogTitle>
           <DialogDescription>
-            Send <strong className="text-[#1A1A1A]">{application.businessName}</strong> a message describing what
+            Send <strong className="text-[#20201E]">{application.businessName}</strong> a message describing what
             additional information is needed.
           </DialogDescription>
         </DialogHeader>
@@ -91,7 +91,7 @@ function RequestInfoDialog({ application, onClose }: { application: SellerApplic
             onChange={(e) => setMessage(e.target.value)}
             placeholder="What information do you need from the applicant?"
             rows={4}
-            className="w-full px-3 py-2.5 rounded-lg border border-[#E5E1D8] bg-[#F9F7F2] text-[13.5px] font-sans text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#A68B67] transition-colors resize-none"
+            className="w-full px-3 py-2.5 rounded-lg border border-[#E5DCCB] bg-[#F5F0E5] text-[13.5px] font-sans text-[#20201E] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#183D33] transition-colors resize-none"
           />
         </div>
         <DialogFooter>
@@ -119,12 +119,12 @@ function NotesPanel({ application }: { application: SellerApplication }) {
   const trimmed = note.trim()
 
   return (
-    <div className="mt-4 pt-4 border-t border-[#F5F0E8] space-y-3">
-      <p className="text-[11px] font-[700] font-sans text-[#A68B67] uppercase tracking-[0.08em]">
+    <div className="mt-4 pt-4 border-t border-[#F5F0E5] space-y-3">
+      <p className="text-[11px] font-[700] font-sans text-[#183D33] uppercase tracking-[0.08em]">
         Internal notes
       </p>
       {application.internalNotes ? (
-        <p className="text-[13px] font-sans text-[#1A1A1A] whitespace-pre-wrap bg-[#F9F7F2] rounded-lg px-3 py-2.5">
+        <p className="text-[13px] font-sans text-[#20201E] whitespace-pre-wrap bg-[#F5F0E5] rounded-lg px-3 py-2.5">
           {application.internalNotes}
         </p>
       ) : (
@@ -136,7 +136,7 @@ function NotesPanel({ application }: { application: SellerApplication }) {
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Add a note (not visible to applicant)…"
-          className="flex-1 h-9 px-3 rounded-lg border border-[#E5E1D8] bg-white text-[13px] font-sans text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#A68B67] transition-colors"
+          className="flex-1 h-9 px-3 rounded-lg border border-[#E5DCCB] bg-white text-[13px] font-sans text-[#20201E] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#183D33] transition-colors"
         />
         <Button
           variant="ghost"
@@ -160,7 +160,7 @@ function DetailRow({ label, value }: { label: string; value?: React.ReactNode })
   return (
     <div>
       <p className="text-[10.5px] font-[700] font-sans text-[#9CA3AF] uppercase tracking-[0.06em] mb-0.5">{label}</p>
-      <p className="text-[13px] font-sans text-[#1A1A1A] leading-[1.4]">{value}</p>
+      <p className="text-[13px] font-sans text-[#20201E] leading-[1.4]">{value}</p>
     </div>
   )
 }
@@ -168,7 +168,7 @@ function DetailRow({ label, value }: { label: string; value?: React.ReactNode })
 function DetailGroup({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[11px] font-[700] font-sans text-[#A68B67] uppercase tracking-[0.08em] mb-2.5">{title}</p>
+      <p className="text-[11px] font-[700] font-sans text-[#183D33] uppercase tracking-[0.08em] mb-2.5">{title}</p>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">{children}</div>
     </div>
   )
@@ -176,7 +176,7 @@ function DetailGroup({ title, children }: { title: string; children: React.React
 
 function ApplicationDetailsPanel({ application: a }: { application: SellerApplication }) {
   return (
-    <div className="mt-4 pt-4 border-t border-[#F5F0E8] space-y-5">
+    <div className="mt-4 pt-4 border-t border-[#F5F0E5] space-y-5">
       <DetailGroup title="Brand">
         <DetailRow label="City" value={a.city} />
         <DetailRow label="Country" value={a.country} />
@@ -193,7 +193,7 @@ function ApplicationDetailsPanel({ application: a }: { application: SellerApplic
       {a.productDescription && (
         <div>
           <p className="text-[10.5px] font-[700] font-sans text-[#9CA3AF] uppercase tracking-[0.06em] mb-1">Product description</p>
-          <p className="text-[13px] font-sans text-[#1A1A1A] whitespace-pre-wrap">{a.productDescription}</p>
+          <p className="text-[13px] font-sans text-[#20201E] whitespace-pre-wrap">{a.productDescription}</p>
         </div>
       )}
 
@@ -238,16 +238,16 @@ function ApplicationCard({
   const canAct = application.status === 'PENDING' || application.status === 'MORE_INFO_REQUESTED'
 
   return (
-    <div className="bg-white border border-[#E5E1D8] rounded-xl p-5 hover:border-[#C4BDB4] transition-colors">
+    <div className="bg-white border border-[#E5DCCB] rounded-xl p-5 hover:border-[#C4BDB4] transition-colors">
       <div className="flex items-start justify-between gap-4 flex-wrap">
 
         {/* Left: application info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2.5 mb-1 flex-wrap">
-            <p className="text-[15px] font-[700] font-sans text-[#1A1A1A]">{application.businessName}</p>
+            <p className="text-[15px] font-[700] font-sans text-[#20201E]">{application.businessName}</p>
             <StatusBadge status={application.status} />
           </div>
-          <p className="text-[13px] font-sans text-[#6B6460] mb-3">{application.contactName}</p>
+          <p className="text-[13px] font-sans text-[#665F55] mb-3">{application.contactName}</p>
 
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px] font-sans text-[#9CA3AF]">
             <span className="flex items-center gap-1.5">
@@ -269,9 +269,9 @@ function ApplicationCard({
           </div>
 
           {application.message && (
-            <div className="mt-3 flex gap-2.5 bg-[#F9F7F2] rounded-lg px-3 py-2.5">
+            <div className="mt-3 flex gap-2.5 bg-[#F5F0E5] rounded-lg px-3 py-2.5">
               <MessageSquare size={13} className="text-[#C4BDB4] mt-0.5 shrink-0" aria-hidden="true" />
-              <p className="text-[13px] font-sans text-[#1A1A1A] whitespace-pre-wrap">{application.message}</p>
+              <p className="text-[13px] font-sans text-[#20201E] whitespace-pre-wrap">{application.message}</p>
             </div>
           )}
 
@@ -352,7 +352,7 @@ export default function SellerApplicationsPage() {
       {/* Header */}
       <div className="mb-7 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[26px] font-[700] font-sans text-[#1A1A1A] leading-tight">Seller Applications</h1>
+          <h1 className="text-[26px] font-[700] font-sans text-[#20201E] leading-tight">Seller Applications</h1>
           <p className="text-[13.5px] font-sans text-[#9CA3AF] mt-1">Review and action seller applications</p>
         </div>
         {total > 0 && (
@@ -370,12 +370,12 @@ export default function SellerApplicationsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by business name or email…"
-          className="w-full h-9 pl-9 pr-3 rounded-lg border border-[#E5E1D8] bg-white text-[13.5px] font-sans text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#A68B67] transition-colors"
+          className="w-full h-9 pl-9 pr-3 rounded-lg border border-[#E5DCCB] bg-white text-[13.5px] font-sans text-[#20201E] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#183D33] transition-colors"
         />
       </div>
 
       {/* Status tabs */}
-      <div className="flex gap-0 mb-5 border-b border-[#E5E1D8] overflow-x-auto">
+      <div className="flex gap-0 mb-5 border-b border-[#E5DCCB] overflow-x-auto">
         {STATUS_TABS.map(({ value, label }) => (
           <button
             key={label}
@@ -384,8 +384,8 @@ export default function SellerApplicationsPage() {
             className={cn(
               'px-4 py-2.5 text-[13px] font-[600] font-sans border-b-2 -mb-px transition-colors whitespace-nowrap',
               status === value
-                ? 'border-[#A68B67] text-[#A68B67]'
-                : 'border-transparent text-[#9CA3AF] hover:text-[#1A1A1A]'
+                ? 'border-[#183D33] text-[#183D33]'
+                : 'border-transparent text-[#9CA3AF] hover:text-[#20201E]'
             )}
           >
             {label}
@@ -397,26 +397,26 @@ export default function SellerApplicationsPage() {
       {isLoading ? (
         <div className="grid gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="bg-white border border-[#E5E1D8] rounded-xl p-5 animate-pulse">
+            <div key={i} className="bg-white border border-[#E5DCCB] rounded-xl p-5 animate-pulse">
               <div className="flex justify-between gap-4">
                 <div className="flex-1 space-y-3">
-                  <div className="h-4 bg-[#F5F0E8] rounded w-40" />
-                  <div className="h-3 bg-[#F5F0E8] rounded w-56" />
+                  <div className="h-4 bg-[#F5F0E5] rounded w-40" />
+                  <div className="h-3 bg-[#F5F0E5] rounded w-56" />
                 </div>
                 <div className="space-y-2">
-                  <div className="h-8 bg-[#F5F0E8] rounded w-24" />
-                  <div className="h-8 bg-[#F5F0E8] rounded w-24" />
+                  <div className="h-8 bg-[#F5F0E5] rounded w-24" />
+                  <div className="h-8 bg-[#F5F0E5] rounded w-24" />
                 </div>
               </div>
             </div>
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white border border-[#E5E1D8] rounded-xl py-16 flex flex-col items-center gap-3 text-center">
-          <div className="w-12 h-12 rounded-full bg-[#F5F0E8] flex items-center justify-center">
-            <ClipboardList size={22} className="text-[#A68B67]" aria-hidden="true" />
+        <div className="bg-white border border-[#E5DCCB] rounded-xl py-16 flex flex-col items-center gap-3 text-center">
+          <div className="w-12 h-12 rounded-full bg-[#F5F0E5] flex items-center justify-center">
+            <ClipboardList size={22} className="text-[#183D33]" aria-hidden="true" />
           </div>
-          <p className="text-[16px] font-[600] font-sans text-[#1A1A1A]">
+          <p className="text-[16px] font-[600] font-sans text-[#20201E]">
             {search ? 'No matching applications' : 'No applications found'}
           </p>
           {(search || status) && (
@@ -447,7 +447,7 @@ export default function SellerApplicationsPage() {
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="h-8 px-4 rounded-lg border border-[#E5E1D8] text-[12px] font-[600] font-sans text-[#6B6460] hover:text-[#1A1A1A] hover:border-[#C4BDB4] disabled:opacity-40 transition-colors"
+              className="h-8 px-4 rounded-lg border border-[#E5DCCB] text-[12px] font-[600] font-sans text-[#665F55] hover:text-[#20201E] hover:border-[#C4BDB4] disabled:opacity-40 transition-colors"
             >
               Prev
             </button>
@@ -455,7 +455,7 @@ export default function SellerApplicationsPage() {
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="h-8 px-4 rounded-lg border border-[#E5E1D8] text-[12px] font-[600] font-sans text-[#6B6460] hover:text-[#1A1A1A] hover:border-[#C4BDB4] disabled:opacity-40 transition-colors"
+              className="h-8 px-4 rounded-lg border border-[#E5DCCB] text-[12px] font-[600] font-sans text-[#665F55] hover:text-[#20201E] hover:border-[#C4BDB4] disabled:opacity-40 transition-colors"
             >
               Next
             </button>

@@ -51,7 +51,7 @@ export function PhotographyGuidelinesModal({ minImages, onClose }: PhotographyGu
         </ul>
 
         <button type="button" onClick={onClose}
-          className="w-full h-11 rounded bg-primary text-white text-[14px] font-[600] font-sans hover:bg-primary/90 transition-colors">
+          className="w-full h-11 rounded bg-forest text-white text-[14px] font-[600] font-sans hover:bg-forest-hover transition-colors">
           Got it
         </button>
       </div>

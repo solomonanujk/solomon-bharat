@@ -472,9 +472,12 @@ productsRouter.post(
  *         name: sort
  *         schema: { type: string, enum: [newest, featured] }
  *         description: Curated unscoped browse mode (navbar "New Products"/"Bestsellers") — also doesn't need categoryId/collectionId.
+ *     description: >
+ *       Guests (no/invalid token) and sellers get every price field (adminPrice, agentPrice,
+ *       per-tier and per-variant prices) as null. minPrice/maxPrice are rejected for them.
  *     responses:
  *       200: { description: Products list }
- *       400: { description: None of categoryId, collectionId, search, or sort was supplied }
+ *       400: { description: None of categoryId, collectionId, search, or sort was supplied, or a price filter was sent without buyer/agent auth }
  */
 productsRouter.get(
   '/',
@@ -525,7 +528,7 @@ productsRouter.get(
  * @openapi
  * /products/{slug}:
  *   get:
- *     summary: Get published product detail (public; priced with agentPrice too when the viewer is an authenticated agent)
+ *     summary: Get published product detail (public; all prices null for guests, agentPrice too when the viewer is an authenticated agent)
  *     tags: [Products]
  *     security: []
  *     responses:

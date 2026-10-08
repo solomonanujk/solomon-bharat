@@ -11,13 +11,12 @@ import { useInfiniteRecommendations } from '@/hooks/queries/useProducts'
 import { useRecentlyViewed, type RecentProduct } from '@/hooks/useRecentlyViewed'
 
 // ─── Recently viewed carousel ──────────────────────────────────────────────────
-// Exactly 6 cards visible per row at desktop width; chevrons page one row at a
-// time. Reuses the shared ProductCard (wishlist + cart quick-add included)
+// 6 cards visible per row at desktop width (3 tablet, 2 mobile); chevrons page
+// one row at a time. Reuses the shared ProductCard (wishlist + cart quick-add included)
 // rather than a bespoke card, so this list behaves identically to every other
 // product grid in the app.
 
 const VISIBLE_CARDS = 6
-const CARD_GAP_PX = 16
 
 // Guards against entries written to localStorage before `moq`/`avgRating`/
 // `reviewCount` were part of the tracked shape — an older cached entry can be
@@ -41,10 +40,8 @@ function toProductCardData(product: RecentProduct): ProductCardData {
 
 function RecentlyViewedCard({ product }: { product: RecentProduct }) {
   return (
-    <div
-      className="flex-shrink-0"
-      style={{ width: `calc((100% - ${(VISIBLE_CARDS - 1) * CARD_GAP_PX}px) / ${VISIBLE_CARDS})` }}
-    >
+    // Widths track the row gaps below (12 / 20 / 24px) so exactly 2 / 3 / 6 fit.
+    <div className="flex-shrink-0 w-[calc((100%-12px)/2)] md:w-[calc((100%-40px)/3)] lg:w-[calc((100%-120px)/6)]">
       <ProductCard product={toProductCardData(product)} />
     </div>
   )
@@ -84,45 +81,43 @@ function RecentlyViewedCarousel() {
 
   if (products.length === 0) return null
 
+  const showPager = products.length > VISIBLE_CARDS || canScrollLeft || canScrollRight
+  const pagerButton =
+    'w-11 h-11 rounded-full border border-line bg-white flex items-center justify-center text-forest transition-colors duration-150'
+
   return (
-    <section className="py-10 bg-bg border-t border-border-warm">
-      <div className="max-w-[1400px] mx-auto px-4 lg:px-10">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="font-display font-[400] text-primary text-[22px] leading-tight">
+    <section className="sb-section bg-ivory border-t border-line" aria-labelledby="recently-viewed-heading">
+      <div className="sb-container">
+        <div className="flex items-center justify-between gap-4 mb-6 lg:mb-8">
+          <h2 id="recently-viewed-heading" className="type-h2 text-ink">
             Recently viewed
           </h2>
 
-          {products.length > VISIBLE_CARDS && (
+          {showPager && (
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => scrollByPage(-1)}
                 disabled={!canScrollLeft}
                 aria-label="Show previous recently viewed products"
-                className={cn(
-                  'w-9 h-9 rounded-full border border-border-warm flex items-center justify-center text-primary transition-colors',
-                  canScrollLeft ? 'hover:bg-muted-bg' : 'opacity-30 cursor-not-allowed'
-                )}
+                className={cn(pagerButton, canScrollLeft ? 'hover:bg-ivory' : 'opacity-40 cursor-not-allowed')}
               >
-                <ChevronLeft size={16} aria-hidden="true" />
+                <ChevronLeft size={18} aria-hidden="true" />
               </button>
               <button
                 type="button"
                 onClick={() => scrollByPage(1)}
                 disabled={!canScrollRight}
                 aria-label="Show more recently viewed products"
-                className={cn(
-                  'w-9 h-9 rounded-full border border-border-warm flex items-center justify-center text-primary transition-colors',
-                  canScrollRight ? 'hover:bg-muted-bg' : 'opacity-30 cursor-not-allowed'
-                )}
+                className={cn(pagerButton, canScrollRight ? 'hover:bg-ivory' : 'opacity-40 cursor-not-allowed')}
               >
-                <ChevronRight size={16} aria-hidden="true" />
+                <ChevronRight size={18} aria-hidden="true" />
               </button>
             </div>
           )}
         </div>
 
-        <div ref={scrollRef} className="flex gap-4 overflow-x-auto scrollbar-none scroll-smooth">
+        <div ref={scrollRef} className="flex gap-3 md:gap-5 lg:gap-6 overflow-x-auto scrollbar-none scroll-smooth">
           {products.map((p) => (
             <RecentlyViewedCard key={p.id} product={p} />
           ))}
@@ -136,12 +131,12 @@ function RecentlyViewedCarousel() {
 
 function IdeasForYouSkeleton() {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-x-3 sm:gap-x-4 md:gap-x-6 gap-y-6 sm:gap-y-8 md:gap-y-10">
-      {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="animate-pulse">
-          <div className="aspect-square rounded-sm bg-muted-bg" />
-          <div className="h-4 bg-muted-bg rounded w-1/3 mt-2" />
-          <div className="h-3 bg-muted-bg rounded w-4/5 mt-1.5" />
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-5 lg:gap-6" aria-hidden="true">
+      {Array.from({ length: 10 }).map((_, i) => (
+        <div key={i} className="bg-white border border-line rounded-[6px] p-3 md:p-4 animate-pulse">
+          <div className="aspect-square md:aspect-[4/3] rounded-[4px] bg-ivory" />
+          <div className="h-4 bg-ivory rounded w-4/5 mt-3" />
+          <div className="h-4 bg-ivory rounded w-1/3 mt-2" />
         </div>
       ))}
     </div>
@@ -163,9 +158,9 @@ export function BuyerHomeFeed() {
 
   return (
     <>
-      <section className="pt-10 pb-2 bg-bg">
-        <div className="max-w-[1400px] mx-auto px-4 lg:px-10">
-          <h1 className="font-display font-[400] text-primary text-[20px] lg:text-[24px] leading-tight">
+      <section className="pt-12 lg:pt-[72px] pb-2 bg-ivory">
+        <div className="sb-container">
+          <h1 className="type-h1 text-ink">
             Welcome back{profile?.contactName ? `, ${profile.contactName}` : ''}
           </h1>
         </div>
@@ -174,9 +169,9 @@ export function BuyerHomeFeed() {
       <BuyerCategoryGrid />
       <RecentlyViewedCarousel />
 
-      <section className="py-10 bg-bg border-t border-border-warm">
-        <div className="max-w-[1400px] mx-auto px-4 lg:px-10">
-          <h2 className="font-display font-[400] text-primary text-[22px] leading-tight mb-6">
+      <section className="sb-section bg-ivory border-t border-line" aria-labelledby="ideas-for-you-heading">
+        <div className="sb-container">
+          <h2 id="ideas-for-you-heading" className="type-h2 text-ink mb-6 lg:mb-8">
             Ideas for you
           </h2>
           {isLoading ? (

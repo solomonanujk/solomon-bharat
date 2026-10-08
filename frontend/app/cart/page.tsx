@@ -155,7 +155,7 @@ function PriceDetails({ itemCount, total, onCheckout }: { itemCount: number; tot
         <button
           type="button"
           onClick={onCheckout}
-          className="w-full h-12 mt-5 rounded bg-primary text-white font-[600] font-sans text-[14px] hover:bg-[#2a2a2a] transition-colors"
+          className="w-full h-12 mt-5 rounded bg-forest text-white font-[600] font-sans text-[14px] hover:bg-[#0F241D] transition-colors"
         >
           Proceed to Checkout
         </button>

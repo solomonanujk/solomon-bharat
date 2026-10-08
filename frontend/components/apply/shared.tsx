@@ -41,7 +41,7 @@ export function ChoicePill({
       disabled={disabled}
       aria-pressed={selected}
       className={`inline-flex items-center gap-2 h-10 px-4 rounded-full border text-[13.5px] font-[500] font-sans transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-        selected ? 'bg-primary border-primary text-white' : 'bg-surface border-border-warm text-primary hover:border-primary'
+        selected ? 'bg-forest border-primary text-white' : 'bg-surface border-border-warm text-primary hover:border-primary'
       }`}
     >
       <span

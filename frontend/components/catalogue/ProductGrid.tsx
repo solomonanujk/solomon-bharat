@@ -5,81 +5,81 @@ import { cn } from '@/lib/utils'
 import { ProductCard } from '@/components/shared/ProductCard'
 import type { Product } from '@/types'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Layout ───────────────────────────────────────────────────────────────────
+// Fixed column counts (never auto-fit), so an incomplete last row keeps normal
+// card widths instead of stretching. Gaps: 12 mobile / 20 tablet / 24 desktop.
+//   3 — catalogue grids beside the 220px filter sidebar (2 / 3 / 3)
+//   4 — catalogue grids with no sidebar (2 / 3 / 4)
+//   5 — buyer home "Ideas for you" feed (2 / 3 / 5)
 
-interface ProductGridProps {
-  products: Product[]
-  totalCount: number
-  hasMore: boolean
-  isLoadingMore: boolean
-  onLoadMore: () => void
-  /** Columns at the widest breakpoint — 4 (default, category/collection grids) or 5 (buyer "Ideas for you" feed). */
-  columns?: 4 | 5
-  /** Optional per-product renderer — defaults to the buyer `ProductCard`. */
-  renderItem?: (product: Product) => React.ReactNode
+const COLUMN_CLASSES = {
+  3: 'grid-cols-2 md:grid-cols-3',
+  4: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
+  5: 'grid-cols-2 md:grid-cols-3 xl:grid-cols-5',
+} as const
+
+export type ProductGridColumns = keyof typeof COLUMN_CLASSES
+
+export const GRID_GAP_CLASSES = 'gap-3 md:gap-5 lg:gap-6'
+
+export function productGridClasses(columns: ProductGridColumns) {
+  return cn('grid', GRID_GAP_CLASSES, COLUMN_CLASSES[columns])
 }
 
-// ─── Empty state ──────────────────────────────────────────────────────────────
-
-function NoResults() {
+/** Neutral placeholder at the final ProductCard size (same padding, image ratio, rows). */
+export function ProductCardSkeleton() {
   return (
-    <div className="col-span-full flex flex-col items-center justify-center py-24 text-center">
-      <div className="w-14 h-14 rounded bg-muted-bg flex items-center justify-center mb-4">
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          aria-hidden="true"
-          className="text-muted-text"
-        >
-          <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M20 20L17 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          <path d="M8 11h6M11 8v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
+    <div className="flex flex-col bg-white border border-line rounded-[6px] p-3 md:p-4" aria-hidden="true">
+      <div className="aspect-square md:aspect-[4/3] rounded-[4px] bg-ivory animate-pulse" />
+      <div className="mt-3 flex flex-col gap-2">
+        <div className="h-4 w-4/5 rounded-[2px] bg-ivory animate-pulse" />
+        <div className="h-5 w-24 rounded-[2px] bg-ivory animate-pulse" />
+        <div className="h-4 w-3/5 rounded-[2px] bg-ivory animate-pulse" />
       </div>
-      <p className="text-[16px] font-[400] font-sans text-primary">No products found</p>
-      <p className="text-[14px] font-sans text-muted-text mt-1">
-        Try adjusting your filters or search query.
-      </p>
     </div>
   )
 }
 
-function CardSkeleton() {
+export function ProductGridSkeleton({ columns = 3, count = 6 }: { columns?: ProductGridColumns; count?: number }) {
   return (
-    <div className="flex flex-col animate-pulse">
-      <div className="aspect-square rounded-sm bg-muted-bg" />
-      <div className="h-4 bg-muted-bg rounded w-1/3 mt-2" />
-      <div className="h-3 bg-muted-bg rounded w-4/5 mt-1.5" />
+    <div className={productGridClasses(columns)} role="status" aria-label="Loading products">
+      {Array.from({ length: count }).map((_, i) => (
+        <ProductCardSkeleton key={i} />
+      ))}
     </div>
   )
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
-// Infinite scroll — a sentinel div near the bottom triggers onLoadMore as it
-// enters the viewport, instead of page-number pagination.
 
-const COLUMN_CLASSES = {
-  4: 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4',
-  5: 'grid-cols-2 md:grid-cols-3 xl:grid-cols-5',
-} as const
+interface ProductGridProps {
+  products: Product[]
+  columns?: ProductGridColumns
+  /** Optional per-product renderer — defaults to the buyer `ProductCard`. */
+  renderItem?: (product: Product) => React.ReactNode
+  /** Infinite-scroll mode (buyer home feed). Catalogue pages use page-number
+   *  pagination instead and omit these. */
+  totalCount?: number
+  hasMore?: boolean
+  isLoadingMore?: boolean
+  onLoadMore?: () => void
+}
 
 export function ProductGrid({
   products,
-  totalCount,
-  hasMore,
-  isLoadingMore,
-  onLoadMore,
   columns = 4,
   renderItem,
+  totalCount,
+  hasMore = false,
+  isLoadingMore = false,
+  onLoadMore,
 }: ProductGridProps) {
   const sentinelRef = useRef<HTMLDivElement>(null)
+  const infinite = !!onLoadMore
 
   useEffect(() => {
     const el = sentinelRef.current
-    if (!el || !hasMore) return
-
+    if (!el || !hasMore || !onLoadMore) return
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) onLoadMore()
@@ -92,40 +92,36 @@ export function ProductGrid({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Grid */}
-      <div
-        className={cn('grid gap-x-3 sm:gap-x-4 md:gap-x-6 gap-y-6 sm:gap-y-8 md:gap-y-10', COLUMN_CLASSES[columns])}
-        aria-label="Product results"
-      >
-        {products.length === 0 && !isLoadingMore ? (
-          <NoResults />
-        ) : (
-          <>
-            {products.map((product) =>
-              renderItem ? (
-                <Fragment key={product.id}>{renderItem(product)}</Fragment>
-              ) : (
-                <ProductCard key={product.id} product={product} />
-              )
+      <ul className={productGridClasses(columns)} aria-label="Products">
+        {products.map((product) => (
+          <li key={product.id} className="flex min-w-0">
+            {renderItem ? (
+              <Fragment>{renderItem(product)}</Fragment>
+            ) : (
+              <ProductCard product={product} className="w-full" />
             )}
-            {isLoadingMore && Array.from({ length: 4 }).map((_, i) => <CardSkeleton key={`skeleton-${i}`} />)}
-          </>
-        )}
-      </div>
+          </li>
+        ))}
+        {isLoadingMore &&
+          Array.from({ length: 4 }).map((_, i) => (
+            <li key={`skeleton-${i}`} className="flex min-w-0">
+              <div className="w-full">
+                <ProductCardSkeleton />
+              </div>
+            </li>
+          ))}
+      </ul>
 
-      {products.length > 0 && (
-        <div className="flex flex-col items-center gap-2 pt-2">
-          <p className="text-[12px] leading-[1.3] font-[300] font-sans text-muted-text">
-            Showing {products.length} of {totalCount} products
+      {infinite && products.length > 0 && (
+        <div className="flex flex-col items-center gap-1 pt-2">
+          <p className="type-caption text-muted">
+            Showing {products.length} of {totalCount ?? products.length} products
           </p>
-          {!hasMore && (
-            <p className="text-[12px] font-sans text-muted-text/70">You&apos;ve reached the end</p>
-          )}
+          {!hasMore && <p className="type-caption text-muted">You&apos;ve reached the end</p>}
         </div>
       )}
 
-      {/* Sentinel — enters the viewport ~400px before the actual bottom, triggering the next page */}
-      {hasMore && <div ref={sentinelRef} aria-hidden="true" className="h-1" />}
+      {infinite && hasMore && <div ref={sentinelRef} aria-hidden="true" className="h-1" />}
     </div>
   )
 }

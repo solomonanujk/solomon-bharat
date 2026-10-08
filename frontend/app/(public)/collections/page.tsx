@@ -1,96 +1,111 @@
 'use client'
 
-import Image from 'next/image'
+import { Suspense } from 'react'
 import Link from 'next/link'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { NavBar } from '@/components/shared/NavBar'
 import { Footer } from '@/components/shared/Footer'
-import { EmptyState } from '@/components/shared/EmptyState'
+import { Button } from '@/components/ui/button'
+import { Breadcrumbs } from '@/components/catalogue/Breadcrumbs'
+import { Pagination } from '@/components/catalogue/Pagination'
+import { CollectionCard, CollectionCardSkeleton } from '@/components/catalogue/CollectionCard'
 import { useCollections } from '@/hooks/queries/useCollections'
-import { cloudinaryFill } from '@/lib/cloudinaryImage'
 
-function CollectionSkeleton() {
-  return (
-    <div className="flex flex-col bg-surface border border-border-warm rounded overflow-hidden animate-pulse">
-      <div className="aspect-[16/10] bg-muted-bg" />
-      <div className="p-5">
-        <div className="h-5 bg-muted-bg rounded w-2/3" />
-        <div className="h-3 bg-muted-bg rounded w-full mt-3" />
-        <div className="h-3 bg-muted-bg rounded w-4/5 mt-1.5" />
+const PAGE_SIZE = 24
+const GRID = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5 lg:gap-6'
+
+function CollectionListing() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const pageParam = Number(searchParams.get('page'))
+  const page = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1
+
+  const { data, isPending, isError, refetch, isFetching } = useCollections({ page, limit: PAGE_SIZE })
+  const collections = data?.items ?? []
+
+  function goToPage(next: number) {
+    const params = new URLSearchParams(searchParams.toString())
+    if (next > 1) params.set('page', String(next))
+    else params.delete('page')
+    const qs = params.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+    window.scrollTo({ top: 0 })
+  }
+
+  let body: React.ReactNode
+  if (isPending) {
+    body = (
+      <div className={GRID} role="status" aria-label="Loading collections">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <CollectionCardSkeleton key={i} />
+        ))}
       </div>
+    )
+  } else if (isError && !data) {
+    body = (
+      <div role="alert" className="py-12 max-w-[520px]">
+        <h2 className="type-h3 text-ink">We couldn&apos;t load collections</h2>
+        <p className="mt-2 type-body text-muted">
+          Something went wrong while fetching collections — usually a brief connection problem. Please try again.
+        </p>
+        <Button variant="primary" size="lg" className="mt-6" loading={isFetching} onClick={() => refetch()}>
+          Retry
+        </Button>
+      </div>
+    )
+  } else if (collections.length === 0) {
+    body = (
+      <div className="py-12 max-w-[520px]">
+        <h2 className="type-h3 text-ink">No collections yet</h2>
+        <p className="mt-2 type-body text-muted">
+          Our team hasn&apos;t published any collections yet. In the meantime, you can search the full catalogue or
+          browse by category from the menu.
+        </p>
+        <Button asChild variant="primary" size="lg" className="mt-6">
+          <Link href="/search?sort=newest">Browse new products</Link>
+        </Button>
+      </div>
+    )
+  } else {
+    body = (
+      <>
+        <ul className={GRID}>
+          {collections.map((collection) => (
+            <li key={collection.id} className="min-w-0">
+              <CollectionCard collection={collection} />
+            </li>
+          ))}
+        </ul>
+        <Pagination page={page} totalPages={data?.totalPages ?? 1} onPageChange={goToPage} />
+      </>
+    )
+  }
+
+  return (
+    <div className="sb-container pt-4 lg:pt-6 pb-12 lg:pb-[72px]">
+      <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Collections' }]} />
+      <header className="mt-4">
+        <p className="type-eyebrow text-brass-dark">Curated by Solomon Bharat</p>
+        <h1 className="mt-2 type-h1 text-ink">Collections</h1>
+        <p className="mt-4 max-w-[660px] type-body text-muted">
+          Editorial groupings of products from our catalogue, put together around themes, seasons and uses.
+        </p>
+      </header>
+      <div className="mt-8">{body}</div>
     </div>
   )
 }
 
 export default function CollectionListingPage() {
-  const { data, isLoading } = useCollections({ limit: 48 })
-  const collections = data?.items ?? []
-
   return (
-    <div className="min-h-screen bg-bg flex flex-col">
+    <div className="min-h-screen bg-ivory flex flex-col">
       <NavBar />
-
       <main className="flex-1">
-        <div className="max-w-[1280px] mx-auto w-full px-4 py-10 sm:py-14">
-          <div className="mb-10 max-w-[560px]">
-            <p className="font-sans text-[12px] font-[600] text-accent uppercase tracking-[0.08em] mb-3">
-              Curated by Solomon Bharat
-            </p>
-            <h1 className="font-display font-[500] text-primary leading-[1.15] text-[30px] sm:text-[40px]">
-              Collections
-            </h1>
-            <p className="font-sans text-[14px] text-muted-text mt-3 leading-[1.6]">
-              Editorial groupings of our finest products, curated around themes, seasons, and use cases.
-            </p>
-          </div>
-
-          {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {Array.from({ length: 6 }).map((_, i) => <CollectionSkeleton key={i} />)}
-            </div>
-          ) : collections.length === 0 ? (
-            <EmptyState title="No collections yet" description="Check back soon." />
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {collections.map((collection) => (
-                <Link
-                  key={collection.id}
-                  href={`/collections/${collection.slug}`}
-                  className="group flex flex-col bg-surface border border-border-warm rounded overflow-hidden hover:border-primary/30 hover:shadow-[0_4px_20px_rgba(26,26,26,0.06)] transition-all duration-200"
-                >
-                  <div className="aspect-[16/10] overflow-hidden bg-muted-bg relative">
-                    {collection.heroImage ? (
-                      <Image
-                        src={cloudinaryFill(collection.heroImage, 1000, 625)}
-                        alt={collection.name}
-                        fill
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                        className="object-contain transition-transform duration-500 group-hover:scale-[1.04]"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-[#F0EBE3]">
-                        <span className="font-display text-[36px] font-[500] text-[#C8BEAE] select-none leading-none">
-                          {collection.name.charAt(0)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-5">
-                    <p className="font-display font-[500] text-primary text-[18px] leading-snug">
-                      {collection.name}
-                    </p>
-                    {collection.editorialIntro && (
-                      <p className="font-sans text-[13px] text-muted-text mt-2 leading-[1.6] line-clamp-2">
-                        {collection.editorialIntro}
-                      </p>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+        <Suspense>
+          <CollectionListing />
+        </Suspense>
       </main>
-
       <Footer />
     </div>
   )

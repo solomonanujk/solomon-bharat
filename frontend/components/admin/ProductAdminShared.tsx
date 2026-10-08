@@ -25,9 +25,9 @@ export function flattenLeaves(nodes: CategoryNode[], trail: string[] = []): Flat
 
 export function Section({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn('bg-white border border-[#E5E1D8] rounded-xl overflow-hidden', className)}>
-      <div className="px-5 py-3 border-b border-[#E5E1D8] bg-[#F5F0E8]/40">
-        <h3 className="text-[12px] font-[600] font-sans text-[#6B6460] uppercase tracking-[0.06em]">{title}</h3>
+    <div className={cn('bg-white border border-[#E5DCCB] rounded-xl overflow-hidden', className)}>
+      <div className="px-5 py-3 border-b border-[#E5DCCB] bg-[#F5F0E5]/40">
+        <h3 className="text-[12px] font-[600] font-sans text-[#665F55] uppercase tracking-[0.06em]">{title}</h3>
       </div>
       <div className="p-5 space-y-4">{children}</div>
     </div>
@@ -38,8 +38,8 @@ export function Field({ label, value }: { label: string; value?: React.ReactNode
   if (value === undefined || value === null || value === '') return null
   return (
     <div>
-      <p className="text-[11px] font-[600] font-sans text-[#6B6460] uppercase tracking-[0.06em] mb-0.5">{label}</p>
-      <div className="text-[13.5px] font-sans text-[#1A1A1A] leading-[1.5] whitespace-pre-wrap break-words">{value}</div>
+      <p className="text-[11px] font-[600] font-sans text-[#665F55] uppercase tracking-[0.06em] mb-0.5">{label}</p>
+      <div className="text-[13.5px] font-sans text-[#20201E] leading-[1.5] whitespace-pre-wrap break-words">{value}</div>
     </div>
   )
 }
@@ -187,29 +187,29 @@ export function TierPriceTable({ tiers, values, onChange, agentValues, onAgentCh
   }, [tiers])
 
   if (tiers.length === 0) {
-    return <p className="text-[13px] font-sans text-[#6B6460]">No price tiers set.</p>
+    return <p className="text-[13px] font-sans text-[#665F55]">No price tiers set.</p>
   }
 
   return (
     <div className="space-y-4">
       {groups.map(([label, groupTiers]) => (
         <div key={label ?? 'flat'} className="space-y-1.5">
-          {label && <p className="text-[12.5px] font-[600] font-sans text-[#1A1A1A]">{label}</p>}
-          <div className="rounded border border-[#E5E1D8] overflow-hidden">
+          {label && <p className="text-[12.5px] font-[600] font-sans text-[#20201E]">{label}</p>}
+          <div className="rounded border border-[#E5DCCB] overflow-hidden">
             <table className="w-full text-[12.5px] font-sans">
               <thead>
-                <tr className="bg-[#F5F0E8]/40 border-b border-[#E5E1D8]">
-                  <th className="text-left py-1.5 px-2.5 font-[600] text-[#6B6460]">MOQ</th>
-                  <th className="text-left py-1.5 px-2.5 font-[600] text-[#6B6460]">Seller Price</th>
-                  <th className="text-left py-1.5 px-2.5 font-[600] text-[#6B6460]">Admin Price</th>
-                  <th className="text-left py-1.5 px-2.5 font-[600] text-[#6B6460]">Agent Price</th>
+                <tr className="bg-[#F5F0E5]/40 border-b border-[#E5DCCB]">
+                  <th className="text-left py-1.5 px-2.5 font-[600] text-[#665F55]">MOQ</th>
+                  <th className="text-left py-1.5 px-2.5 font-[600] text-[#665F55]">Seller Price</th>
+                  <th className="text-left py-1.5 px-2.5 font-[600] text-[#665F55]">Admin Price</th>
+                  <th className="text-left py-1.5 px-2.5 font-[600] text-[#665F55]">Agent Price</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E5E1D8]">
+              <tbody className="divide-y divide-[#E5DCCB]">
                 {groupTiers.map(({ key, tier }) => (
                   <tr key={key}>
-                    <td className="px-2.5 py-1.5 text-[#1A1A1A]">{tier.moq}</td>
-                    <td className="px-2.5 py-1.5 text-[#1A1A1A]">{formatINR(tier.sellerPrice)}</td>
+                    <td className="px-2.5 py-1.5 text-[#20201E]">{tier.moq}</td>
+                    <td className="px-2.5 py-1.5 text-[#20201E]">{formatINR(tier.sellerPrice)}</td>
                     <td className="px-2.5 py-1.5">
                       {editable ? (
                         <input
@@ -219,12 +219,12 @@ export function TierPriceTable({ tiers, values, onChange, agentValues, onAgentCh
                           value={values?.[key] ?? ''}
                           onChange={(e) => onChange?.(key, e.target.value)}
                           placeholder="e.g. 500"
-                          className="w-24 h-7 px-2 rounded border border-[#E5E1D8] bg-white text-[12.5px] font-sans text-[#1A1A1A] focus:outline-none focus:border-[#A68B67] transition-colors disabled:opacity-50"
+                          className="w-24 h-7 px-2 rounded border border-[#E5DCCB] bg-white text-[12.5px] font-sans text-[#20201E] focus:outline-none focus:border-[#183D33] transition-colors disabled:opacity-50"
                         />
                       ) : tier.adminPrice != null ? (
-                        <span className="text-[#1A1A1A] font-[600]">{formatINR(tier.adminPrice)}</span>
+                        <span className="text-[#20201E] font-[600]">{formatINR(tier.adminPrice)}</span>
                       ) : (
-                        <span className="italic text-[#6B6460]">not set</span>
+                        <span className="italic text-[#665F55]">not set</span>
                       )}
                     </td>
                     <td className="px-2.5 py-1.5">
@@ -236,12 +236,12 @@ export function TierPriceTable({ tiers, values, onChange, agentValues, onAgentCh
                           value={agentValues?.[key] ?? ''}
                           onChange={(e) => onAgentChange?.(key, e.target.value)}
                           placeholder="e.g. 500"
-                          className="w-24 h-7 px-2 rounded border border-[#E5E1D8] bg-white text-[12.5px] font-sans text-[#1A1A1A] focus:outline-none focus:border-[#A68B67] transition-colors disabled:opacity-50"
+                          className="w-24 h-7 px-2 rounded border border-[#E5DCCB] bg-white text-[12.5px] font-sans text-[#20201E] focus:outline-none focus:border-[#183D33] transition-colors disabled:opacity-50"
                         />
                       ) : tier.agentPrice != null ? (
-                        <span className="text-[#1A1A1A] font-[600]">{formatINR(tier.agentPrice)}</span>
+                        <span className="text-[#20201E] font-[600]">{formatINR(tier.agentPrice)}</span>
                       ) : (
-                        <span className="italic text-[#6B6460]">not set</span>
+                        <span className="italic text-[#665F55]">not set</span>
                       )}
                     </td>
                   </tr>

@@ -73,7 +73,7 @@ export function AddedToCartPopup() {
         <Link
           href="/checkout"
           onClick={hide}
-          className="flex items-center justify-center h-11 w-full rounded bg-primary text-white text-[14px] font-[600] font-sans hover:bg-primary/90 transition-colors"
+          className="flex items-center justify-center h-11 w-full rounded bg-forest text-white text-[14px] font-[600] font-sans hover:bg-forest-hover transition-colors"
         >
           Proceed to checkout
         </Link>

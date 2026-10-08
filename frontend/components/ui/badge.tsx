@@ -18,9 +18,9 @@ export const badgeVariants = cva(
         accent:
           'bg-accent/10 text-accent-hover',
         primary:
-          'bg-primary/[8%] text-primary',
+          'bg-forest/[8%] text-primary',
         'solid-primary':
-          'bg-primary text-white',
+          'bg-forest text-white',
       },
     },
     defaultVariants: {

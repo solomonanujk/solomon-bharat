@@ -1,39 +1,43 @@
 import Image from 'next/image'
+import { ABOUT_PROMISES } from '@/components/homepage/homepageContent'
+
+// ─── About preview ────────────────────────────────────────────────────────────
+// Forest band: story + promise rows beside an illustrative photo (1:1 split,
+// 56px desktop gap). On mobile the text comes before the photo.
+
+const ABOUT_IMAGE_SRC =
+  'https://res.cloudinary.com/dxnqyvcdl/image/upload/v1788845176/homepage/1788845110281-retailer-storefront.png'
 
 export function RetailerHighlightSection() {
   return (
-    <section className="bg-[#3A2530] tracking-[0.02em]">
-      <div className="max-w-[1400px] mx-auto px-5 sm:px-6 lg:px-16 py-10 sm:py-14">
-
-        {/* Header row */}
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6 md:gap-10 mb-8 sm:mb-10">
-          <div>
-            <p className="font-display font-[500] text-white text-[18px] sm:text-[22px] lg:text-[26px] leading-[1.3] tracking-[0.05em]">
-              We&apos;re <span className="text-[#E8DE9A]">Solomon Bharat</span>.
-            </p>
-            <p className="font-sans font-[600] text-white text-[18px] sm:text-[22px] lg:text-[26px] leading-[1.3] tracking-[0.05em] mt-1">
-              The platform for retailers.
-            </p>
-          </div>
-          <p className="font-sans font-[600] text-white text-[15px] sm:text-[17px] lg:text-[18px] leading-[1.4] max-w-[600px] tracking-[0.1em]">
-            We make it easy for you to discover and source unique Indian products with{' '}
-            <span className="text-[#E8DE9A]">lower MOQs</span>, delivered to your doorstep within{' '}
-            <span className="text-[#E8DE9A]">7–10 days</span>, with{' '}
-            <span className="text-[#E8DE9A]">all customs and duties cleared</span>.
+    <section className="on-forest bg-forest sb-section" aria-labelledby="home-about-heading">
+      <div className="sb-container grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14 items-center">
+        <div className="min-w-0">
+          <h2 id="home-about-heading" className="type-h2 text-white">
+            We&apos;re <span className="text-brass">Solomon Bharat</span>. The platform for retailers.
+          </h2>
+          <p className="type-body text-light-text mt-4 max-w-[560px]">
+            We make it easy for you to discover and source unique Indian products.
           </p>
+
+          <ul className="mt-6 border-t border-light-text/25 divide-y divide-light-text/25">
+            {ABOUT_PROMISES.map((promise) => (
+              <li key={promise} className="py-4 type-body text-light-text">
+                {promise}
+              </li>
+            ))}
+          </ul>
         </div>
 
-        {/* Photo */}
-        <div className="relative w-full h-[240px] sm:h-[300px] lg:h-[360px] rounded overflow-hidden">
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[6px] bg-forest-hover">
           <Image
-            src="https://res.cloudinary.com/dxnqyvcdl/image/upload/v1788845176/homepage/1788845110281-retailer-storefront.png"
-            alt="Solomon Bharat storefront"
+            src={ABOUT_IMAGE_SRC}
+            alt="Illustrative retail storefront"
             fill
-            sizes="100vw"
+            sizes="(max-width: 1023px) 100vw, 560px"
             className="object-cover"
           />
         </div>
-
       </div>
     </section>
   )

@@ -17,10 +17,10 @@ const MAX_CARDS = 8
 
 function CategoryCardSkeleton() {
   return (
-    <div className="flex items-center gap-4 p-3.5 rounded-lg bg-muted-bg animate-pulse">
+    <div className="flex items-center gap-4 p-3 min-h-[96px] rounded-[6px] bg-white border border-line animate-pulse" aria-hidden="true">
       <div className="w-[92px] h-[72px] flex-shrink-0" />
       <div className="flex-1">
-        <div className="h-4 bg-border-warm rounded w-2/3" />
+        <div className="h-4 bg-ivory rounded w-2/3" />
       </div>
     </div>
   )
@@ -30,13 +30,13 @@ function CategoryCard({ category }: { category: CategoryNode }) {
   return (
     <Link
       href={`/categories/${category.slug}`}
-      className="group flex items-center gap-4 p-3.5 rounded-lg bg-muted-bg hover:bg-[#EFE7D8] transition-colors"
+      className="group flex items-center gap-4 p-3 min-h-[96px] rounded-[6px] bg-white border border-line transition-colors duration-150 hover:border-forest"
     >
       <div className="relative w-[92px] h-[72px] flex-shrink-0">
         {category.heroImage ? (
           <>
             {/* Back crop — tilted, white-bordered, peeking out top-right */}
-            <div className="absolute top-0 right-0 w-[52px] h-[62px] rounded-[4px] bg-white p-1 shadow-sm rotate-[9deg]">
+            <div className="absolute top-0 right-0 w-[52px] h-[62px] rounded-[4px] bg-white border border-line p-1 rotate-[9deg]">
               <div className="relative w-full h-full rounded-[2px] overflow-hidden">
                 <Image
                   src={category.heroImage}
@@ -49,19 +49,19 @@ function CategoryCard({ category }: { category: CategoryNode }) {
               </div>
             </div>
             {/* Front crop — the actual category photo, never cropped */}
-            <div className="absolute bottom-0 left-0 w-[64px] h-[64px] rounded-[6px] overflow-hidden shadow-sm bg-[#EDE4D3]">
+            <div className="absolute bottom-0 left-0 w-[64px] h-[64px] rounded-[6px] overflow-hidden border border-line bg-ivory">
               <Image
                 src={cloudinaryFill(category.heroImage, 160, 160)}
                 alt={category.name}
                 fill
                 sizes="64px"
-                className="object-contain transition-transform duration-300 group-hover:scale-[1.04]"
+                className="object-contain"
               />
             </div>
           </>
         ) : (
-          <div className="absolute bottom-0 left-0 w-[64px] h-[64px] rounded-[6px] bg-[#EDE4D3] flex items-center justify-center">
-            <span className="font-display text-[20px] font-[400] text-[#C8BEAE] select-none leading-none">
+          <div className="absolute bottom-0 left-0 w-[64px] h-[64px] rounded-[6px] bg-ivory border border-line flex items-center justify-center" aria-hidden="true">
+            <span className="font-display text-[20px] font-[500] text-line select-none leading-none">
               {category.name.charAt(0)}
             </span>
           </div>
@@ -69,7 +69,7 @@ function CategoryCard({ category }: { category: CategoryNode }) {
       </div>
 
       <div className="min-w-0">
-        <p className="font-sans font-[600] text-[15px] text-primary leading-snug">
+        <p className="font-sans font-[600] text-[14px] leading-[20px] text-ink break-words">
           {category.name}
         </p>
       </div>
@@ -85,9 +85,9 @@ export function BuyerCategoryGrid() {
   if (!isLoading && cards.length === 0) return null
 
   return (
-    <section className="pt-6 pb-10 bg-bg tracking-[0.02em]">
-      <div className="max-w-[1400px] mx-auto px-4 lg:px-10">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <section className="pt-6 pb-12 lg:pb-[72px] bg-ivory" aria-label="Shop by category">
+      <div className="sb-container">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5 lg:gap-6">
           {isLoading
             ? Array.from({ length: MAX_CARDS }).map((_, i) => <CategoryCardSkeleton key={i} />)
             : cards.map((category) => <CategoryCard key={category.id} category={category} />)}

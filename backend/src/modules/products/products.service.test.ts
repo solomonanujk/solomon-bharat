@@ -698,12 +698,110 @@ describe('ProductsService', () => {
         total: 1,
       });
 
-      const { data } = await service.listPublished({ categoryId: 'cat-l1' }, { page: 1, limit: 20 });
+      const { data } = await service.listPublished({ categoryId: 'cat-l1' }, { page: 1, limit: 20 }, Role.BUYER);
 
       expect(data[0]).not.toHaveProperty('sellerPrice');
       expect(data[0]).not.toHaveProperty('sellerId');
       expect(data[0]).not.toHaveProperty('declaredStock');
       expect(data[0].adminPrice).toBe('20');
+    });
+
+    describe('wholesale price gating (no numeric price before signup)', () => {
+      function pricedProduct(): ProductWithMedia {
+        return {
+          ...withMedia(buildProduct({ adminPrice: new Decimal(20), agentPrice: new Decimal(15) })),
+          priceTiers: [
+            { id: 'tier-1', productId: 'prod-1', moq: 20, sellerPrice: new Decimal(5), adminPrice: new Decimal(8), agentPrice: new Decimal(6) },
+          ],
+          variants: [
+            {
+              id: 'var-1',
+              productId: 'prod-1',
+              type: 'Color',
+              value: 'Red',
+              sku: null,
+              status: 'ACTIVE',
+              imageUrl: null,
+              createdAt: new Date(),
+              weight: null,
+              weightUnit: 'kg',
+              length: null,
+              width: null,
+              height: null,
+              dimensionUnit: 'cm',
+              tariffCode: null,
+              inventory: null,
+              attributes: [],
+              priceTiers: [
+                { id: 'vt-1', variantId: 'var-1', moq: 10, sellerPrice: new Decimal(3), adminPrice: new Decimal(9), agentPrice: new Decimal(7) },
+              ],
+            },
+          ],
+        };
+      }
+
+      beforeEach(() => {
+        vi.mocked(repo.findPublished).mockResolvedValue({ data: [pricedProduct()], total: 1 });
+      });
+
+      it('returns every price field as null for a guest', async () => {
+        const { data } = await service.listPublished({ categoryId: 'cat-l1' }, { page: 1, limit: 20 });
+
+        expect(data[0].adminPrice).toBeNull();
+        expect(data[0].agentPrice).toBeNull();
+        expect(data[0].priceTiers).toEqual([{ id: 'tier-1', moq: 20, adminPrice: null, agentPrice: null }]);
+        expect(data[0].variants[0].priceTiers).toEqual([{ id: 'vt-1', moq: 10, adminPrice: null, agentPrice: null }]);
+        expect(JSON.stringify(data)).not.toContain('sellerPrice');
+      });
+
+      it('returns every price field as null for a seller (admin_price is never shown to sellers)', async () => {
+        const { data } = await service.listPublished({ categoryId: 'cat-l1' }, { page: 1, limit: 20 }, Role.SELLER);
+
+        expect(data[0].adminPrice).toBeNull();
+        expect(data[0].priceTiers[0].adminPrice).toBeNull();
+        expect(data[0].variants[0].priceTiers[0].adminPrice).toBeNull();
+      });
+
+      it('returns adminPrice (but never agentPrice or sellerPrice) to a buyer, including per-variant tiers', async () => {
+        const { data } = await service.listPublished({ categoryId: 'cat-l1' }, { page: 1, limit: 20 }, Role.BUYER);
+
+        expect(data[0].adminPrice).toBe('20');
+        expect(data[0].agentPrice).toBeNull();
+        expect(data[0].priceTiers).toEqual([{ id: 'tier-1', moq: 20, adminPrice: '8', agentPrice: null }]);
+        expect(data[0].variants[0].priceTiers).toEqual([{ id: 'vt-1', moq: 10, adminPrice: '9', agentPrice: null }]);
+        expect(JSON.stringify(data)).not.toContain('sellerPrice');
+      });
+
+      it('returns adminPrice and agentPrice to an agent, including per-variant tiers', async () => {
+        const { data } = await service.listPublished({ categoryId: 'cat-l1' }, { page: 1, limit: 20 }, Role.AGENT);
+
+        expect(data[0].adminPrice).toBe('20');
+        expect(data[0].agentPrice).toBe('15');
+        expect(data[0].priceTiers).toEqual([{ id: 'tier-1', moq: 20, adminPrice: '8', agentPrice: '6' }]);
+        expect(data[0].variants[0].priceTiers).toEqual([{ id: 'vt-1', moq: 10, adminPrice: '9', agentPrice: '7' }]);
+        expect(JSON.stringify(data)).not.toContain('sellerPrice');
+      });
+
+      it('rejects a minPrice/maxPrice filter from a guest with 400 before querying', async () => {
+        await expect(
+          service.listPublished({ categoryId: 'cat-l1', minPrice: 0 }, { page: 1, limit: 20 }),
+        ).rejects.toMatchObject({ statusCode: 400, message: 'Sign in as a buyer to filter by price' });
+        await expect(
+          service.listPublished({ categoryId: 'cat-l1', maxPrice: 100 }, { page: 1, limit: 20 }, Role.SELLER),
+        ).rejects.toMatchObject({ statusCode: 400 });
+
+        expect(repo.findPublished).not.toHaveBeenCalled();
+      });
+
+      it('allows a price filter for an authenticated buyer', async () => {
+        await service.listPublished({ categoryId: 'cat-l1', minPrice: 5, maxPrice: 50 }, { page: 1, limit: 20 }, Role.BUYER);
+
+        expect(repo.findPublished).toHaveBeenCalledWith(
+          { categoryId: 'cat-l1', minPrice: 5, maxPrice: 50 },
+          { page: 1, limit: 20 },
+          ['cat-l3-1'],
+        );
+      });
     });
   });
 
@@ -1140,7 +1238,7 @@ describe('ProductsService', () => {
       });
       vi.mocked(repo.findRelated).mockResolvedValue([]);
 
-      const { product } = await service.getBySlug('table-runner');
+      const { product } = await service.getBySlug('table-runner', Role.BUYER);
 
       expect(product.priceTiers).toEqual([{ id: 'tier-1', moq: 20, adminPrice: '8', agentPrice: null }]);
       expect(JSON.stringify(product.priceTiers)).not.toContain('sellerPrice');
@@ -1169,6 +1267,26 @@ describe('ProductsService', () => {
 
       const asGuest = await service.getBySlug('table-runner');
       expect(asGuest.product.agentPrice).toBeNull();
+      expect(asGuest.product.adminPrice).toBeNull();
+      expect(asGuest.product.priceTiers).toEqual([{ id: 'tier-1', moq: 20, adminPrice: null, agentPrice: null }]);
+    });
+
+    it('strips prices from related products for a guest too', async () => {
+      vi.mocked(repo.findBySlugWithMedia).mockResolvedValue(
+        withMedia(buildProduct({ isPublished: true, approvalStatus: ProductApprovalStatus.APPROVED, adminPrice: new Decimal(8) })),
+      );
+      vi.mocked(repo.findRelated).mockResolvedValue([
+        withMedia(buildProduct({ id: 'prod-2', slug: 'other', adminPrice: new Decimal(12), agentPrice: new Decimal(10) })),
+      ]);
+
+      const asGuest = await service.getBySlug('table-runner');
+      expect(asGuest.product.adminPrice).toBeNull();
+      expect(asGuest.related[0].adminPrice).toBeNull();
+      expect(asGuest.related[0].agentPrice).toBeNull();
+
+      const asBuyer = await service.getBySlug('table-runner', Role.BUYER);
+      expect(asBuyer.product.adminPrice).toBe('8');
+      expect(asBuyer.related[0].adminPrice).toBe('12');
     });
   });
 

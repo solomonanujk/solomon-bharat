@@ -299,7 +299,7 @@ export function ColorSwatchModal({ colorValues, images, newImages, swatches, foc
           </div>
 
           <button type="button" onClick={goNext}
-            className="w-full h-11 rounded bg-primary text-white text-[14px] font-[600] font-sans hover:bg-primary/90 transition-colors mb-3.5">
+            className="w-full h-11 rounded bg-forest text-white text-[14px] font-[600] font-sans hover:bg-forest-hover transition-colors mb-3.5">
             {index < colorValues.length - 1 ? 'Next color' : 'Finish'}
           </button>
           <div className="text-center">
