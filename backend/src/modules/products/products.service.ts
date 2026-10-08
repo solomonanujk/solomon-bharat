@@ -17,6 +17,7 @@ import { ProductsRepository, productsRepository } from './products.repository';
 import {
   AdminProductListFilter,
   ApplyPricingChangeInput,
+  BuyerPriceTier,
   BuyerProduct,
   CreateProductInput,
   PendingPricingChange,
@@ -46,14 +47,39 @@ const OPEN_REVIEW_STATUSES: ProductApprovalStatus[] = [
   ProductApprovalStatus.RESUBMITTED,
 ];
 
-// NOTE (pre-existing, out of scope here): this passes `variants[].priceTiers` straight
-// through, which includes each tier's raw `sellerPrice`/`adminPrice`/`agentPrice`
-// fields — a leak of seller/admin-side data into the buyer projection.
+/**
+ * "No numeric wholesale price before signup" — enforced here, server-side, rather than
+ * by the frontend hiding text. Guests (no role) never get a price; sellers never see
+ * admin_price either (AGENTS.md "Pricing"). Buyers, agents and admins do.
+ */
+export function canViewWholesalePrice(viewerRole?: Role): boolean {
+  return viewerRole === Role.BUYER || viewerRole === Role.AGENT || viewerRole === Role.SUPER_ADMIN;
+}
+
+interface PricedTierRow {
+  id: string;
+  moq: number;
+  adminPrice: { toString(): string } | null;
+  agentPrice: { toString(): string } | null;
+}
+
+/** Strips a raw tier row (flat or variant) down to its buyer-safe shape — never
+ *  sellerPrice, agentPrice only for agents, no prices at all for guests/sellers. */
+function toBuyerPriceTier(t: PricedTierRow, canSeePrice: boolean, isAgent: boolean): BuyerPriceTier {
+  return {
+    id: t.id,
+    moq: t.moq,
+    adminPrice: canSeePrice ? (t.adminPrice ? t.adminPrice.toString() : '0') : null,
+    agentPrice: isAgent && t.agentPrice ? t.agentPrice.toString() : null,
+  };
+}
+
 function toBuyerProduct(
   product: ProductWithMedia,
   rating?: { avgRating: number; reviewCount: number },
   viewerRole?: Role,
 ): BuyerProduct {
+  const canSeePrice = canViewWholesalePrice(viewerRole);
   const isAgent = viewerRole === Role.AGENT;
   return {
     id: product.id,
@@ -64,24 +90,24 @@ function toBuyerProduct(
     dimensions: product.dimensions,
     weight: product.weight,
     moq: product.moq,
-    adminPrice: product.adminPrice ? product.adminPrice.toString() : '0',
+    adminPrice: canSeePrice ? (product.adminPrice ? product.adminPrice.toString() : '0') : null,
     // Only populated for an authenticated AGENT viewer — never sent to buyers.
     agentPrice: isAgent && product.agentPrice ? product.agentPrice.toString() : null,
     priceTiers: product.priceTiers
       .filter((t) => t.adminPrice != null || t.agentPrice != null)
-      .map((t) => ({
-        id: t.id,
-        moq: t.moq,
-        adminPrice: t.adminPrice ? t.adminPrice.toString() : '0',
-        agentPrice: isAgent && t.agentPrice ? t.agentPrice.toString() : null,
-      })),
+      .map((t) => toBuyerPriceTier(t, canSeePrice, isAgent)),
     leadTime: product.leadTime,
     categoryId: product.categoryId,
     isFeatured: product.isFeatured,
     publishedAt: product.publishedAt,
     images: product.images,
     videos: product.videos,
-    variants: product.variants,
+    // Variant tiers are re-projected too — the raw VariantPriceTier rows carry the
+    // seller's own cost (sellerPrice) and the agent-only agentPrice.
+    variants: product.variants.map((v) => ({
+      ...v,
+      priceTiers: v.priceTiers.map((t) => toBuyerPriceTier(t, canSeePrice, isAgent)),
+    })),
     avgRating: rating?.avgRating ?? null,
     reviewCount: rating?.reviewCount ?? 0,
     tags: product.tags,
@@ -955,6 +981,12 @@ export class ProductsService {
     // required.
     if (!filter.categoryId && !filter.collectionId && !filter.search && !filter.sort) {
       throw AppError.badRequest('A category, collection, search term, or sort mode is required');
+    }
+
+    // A price-range filter against a guest's request would let them binary-search the
+    // hidden wholesale price, so it's refused outright rather than silently ignored.
+    if (!canViewWholesalePrice(viewerRole) && (filter.minPrice !== undefined || filter.maxPrice !== undefined)) {
+      throw AppError.badRequest('Sign in as a buyer to filter by price');
     }
 
     // viewerRole is folded into the cache key — an AGENT viewer's response carries

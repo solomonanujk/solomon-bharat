@@ -223,7 +223,7 @@ function PriceDetails({
           type="button"
           onClick={onPlaceOrder}
           disabled={!!disabledReason || isPending}
-          className="w-full h-12 mt-5 rounded bg-primary text-white font-[600] font-sans text-[14px] hover:bg-[#2a2a2a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full h-12 mt-5 rounded bg-forest text-white font-[600] font-sans text-[14px] hover:bg-[#0F241D] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isPending ? 'Redirecting to PayPal…' : 'Pay with PayPal'}
         </button>

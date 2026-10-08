@@ -113,7 +113,7 @@ function MultiSelectDropdown({ label, options, values, onChange, disabled }: {
       {values.length > 0 && (
         <div className="flex flex-wrap gap-2 mt-3">
           {values.map((v) => (
-            <span key={v} className="inline-flex items-center gap-2 bg-primary text-white rounded-full pl-3.5 pr-1.5 py-1.5 text-[13px] font-sans">
+            <span key={v} className="inline-flex items-center gap-2 bg-forest text-white rounded-full pl-3.5 pr-1.5 py-1.5 text-[13px] font-sans">
               {v}
               <button type="button" onClick={() => onChange(values.filter((x) => x !== v))} aria-label={`Remove ${v}`}
                 className="w-4.5 h-4.5 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors">
@@ -726,11 +726,11 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
           <p className="text-[13px] font-sans text-muted-text mb-4">Attribute this product to a seller, or create it as house inventory.</p>
           <div className="flex gap-3 mb-4">
             <button type="button" onClick={() => setSellerMode('existing')}
-              className={`choice-box-like h-10 px-4 rounded border text-[14px] font-[600] font-sans transition-colors ${sellerMode === 'existing' ? 'border-primary bg-primary text-white' : 'border-border-warm text-primary'}`}>
+              className={`choice-box-like h-10 px-4 rounded border text-[14px] font-[600] font-sans transition-colors ${sellerMode === 'existing' ? 'border-primary bg-forest text-white' : 'border-border-warm text-primary'}`}>
               Existing seller
             </button>
             <button type="button" onClick={() => setSellerMode('house')}
-              className={`h-10 px-4 rounded border text-[14px] font-[600] font-sans transition-colors ${sellerMode === 'house' ? 'border-primary bg-primary text-white' : 'border-border-warm text-primary'}`}>
+              className={`h-10 px-4 rounded border text-[14px] font-[600] font-sans transition-colors ${sellerMode === 'house' ? 'border-primary bg-forest text-white' : 'border-border-warm text-primary'}`}>
               House inventory
             </button>
           </div>
@@ -966,11 +966,11 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
             </p>
             <div className="flex gap-4">
               <button type="button" disabled={pricingLocked} onClick={chooseYes}
-                className={`w-[140px] h-11 rounded border text-[14px] font-[600] font-sans transition-colors disabled:opacity-50 ${hasOptions === 'yes' ? 'border-primary bg-primary text-white' : 'border-border-warm text-primary hover:border-primary'}`}>
+                className={`w-[140px] h-11 rounded border text-[14px] font-[600] font-sans transition-colors disabled:opacity-50 ${hasOptions === 'yes' ? 'border-primary bg-forest text-white' : 'border-border-warm text-primary hover:border-primary'}`}>
                 Yes
               </button>
               <button type="button" disabled={pricingLocked} onClick={chooseNo}
-                className={`w-[140px] h-11 rounded border text-[14px] font-[600] font-sans transition-colors disabled:opacity-50 ${hasOptions === 'no' ? 'border-primary bg-primary text-white' : 'border-border-warm text-primary hover:border-primary'}`}>
+                className={`w-[140px] h-11 rounded border text-[14px] font-[600] font-sans transition-colors disabled:opacity-50 ${hasOptions === 'no' ? 'border-primary bg-forest text-white' : 'border-border-warm text-primary hover:border-primary'}`}>
                 No
               </button>
             </div>
@@ -1290,7 +1290,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       {publishModalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-black/45" role="dialog" aria-modal="true">
           <div className="bg-surface rounded-xl p-9 max-w-md w-full text-center">
-            <div className="w-14 h-14 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-4">
+            <div className="w-14 h-14 rounded-full bg-forest/10 text-primary flex items-center justify-center mx-auto mb-4">
               <Check size={26} />
             </div>
             <h2 className="text-[20px] font-[600] font-display text-primary mb-3">Submitted for review</h2>

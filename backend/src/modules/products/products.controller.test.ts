@@ -264,6 +264,38 @@ describe('products controller', () => {
         undefined,
       );
     });
+
+    it.each([Role.BUYER, Role.AGENT])('forwards an authenticated %s role so the service can price the listing', async (role) => {
+      vi.mocked(productsService.listPublished).mockResolvedValue({ data: [], total: 0 } as never);
+      const res = await request(app).get('/api/v1/products').query({ categoryId: CATEGORY_ID }).set(authHeader(role));
+      expect(res.status).toBe(200);
+      expect(productsService.listPublished).toHaveBeenCalledWith(expect.any(Object), expect.any(Object), role);
+    });
+
+    it('treats an invalid token as a guest (no role forwarded)', async () => {
+      vi.mocked(productsService.listPublished).mockResolvedValue({ data: [], total: 0 } as never);
+      const res = await request(app)
+        .get('/api/v1/products')
+        .query({ categoryId: CATEGORY_ID })
+        .set('Authorization', 'Bearer not-a-real-token');
+      expect(res.status).toBe(200);
+      expect(productsService.listPublished).toHaveBeenCalledWith(expect.any(Object), expect.any(Object), undefined);
+    });
+
+    it('forwards price filters with the guest (undefined) role and surfaces the service 400', async () => {
+      const { AppError } = await import('../../utils/errors');
+      vi.mocked(productsService.listPublished).mockRejectedValue(
+        AppError.badRequest('Sign in as a buyer to filter by price'),
+      );
+      const res = await request(app).get('/api/v1/products').query({ categoryId: CATEGORY_ID, minPrice: 10 });
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe('Sign in as a buyer to filter by price');
+      expect(productsService.listPublished).toHaveBeenCalledWith(
+        expect.objectContaining({ minPrice: 10 }),
+        expect.any(Object),
+        undefined,
+      );
+    });
   });
 
   describe('GET /api/v1/products/:slug', () => {
@@ -275,6 +307,14 @@ describe('products controller', () => {
       const res = await request(app).get('/api/v1/products/table-runner');
       expect(res.status).toBe(200);
       expect(res.body.data.product.slug).toBe('table-runner');
+      expect(productsService.getBySlug).toHaveBeenCalledWith('table-runner', undefined);
+    });
+
+    it.each([Role.BUYER, Role.AGENT])('forwards an authenticated %s role to the service', async (role) => {
+      vi.mocked(productsService.getBySlug).mockResolvedValue({ product: { slug: 'table-runner' }, related: [] } as never);
+      const res = await request(app).get('/api/v1/products/table-runner').set(authHeader(role));
+      expect(res.status).toBe(200);
+      expect(productsService.getBySlug).toHaveBeenCalledWith('table-runner', role);
     });
   });
 

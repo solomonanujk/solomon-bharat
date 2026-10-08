@@ -9,7 +9,10 @@ import { HeroSection } from '@/components/homepage/HeroSection'
 import { CategorySection } from '@/components/homepage/CategorySection'
 import { RetailerHighlightSection } from '@/components/homepage/RetailerHighlightSection'
 import { HowItWorksSection } from '@/components/homepage/HowItWorksSection'
-import { TestimonialsSection } from '@/components/homepage/TestimonialsSection'
+import { TrustBar } from '@/components/homepage/TrustBar'
+import { BestsellersSection } from '@/components/homepage/BestsellersSection'
+import { BenefitsSection } from '@/components/homepage/BenefitsSection'
+import { SellerAndFinalCtaSection } from '@/components/homepage/SellerAndFinalCtaSection'
 import { BuyerHomeFeed } from '@/components/homepage/BuyerHomeFeed'
 
 // ─── Homepage ─────────────────────────────────────────────────────────────────
@@ -45,19 +48,24 @@ export default function HomePage() {
   const isBuyer = hasHydrated && isAuthenticated && (user?.role === 'BUYER' || user?.role === 'AGENT')
 
   return (
-    <div className="min-h-screen bg-bg flex flex-col">
+    <div className="min-h-screen bg-ivory flex flex-col">
       <NavBar />
 
       <main className="flex-1">
         {isBuyer ? (
           <BuyerHomeFeed />
         ) : (
+          // Order per redesign spec §5.2. The reviews band is deliberately omitted
+          // until there are real, permissioned buyer quotes.
           <>
             <HeroSection />
+            <TrustBar />
             <CategorySection />
+            <BestsellersSection />
             <RetailerHighlightSection />
             <HowItWorksSection />
-            <TestimonialsSection />
+            <BenefitsSection />
+            <SellerAndFinalCtaSection />
           </>
         )}
       </main>

@@ -9,10 +9,10 @@ import { useMySellerProfile, useUpdateMySellerProfile } from '@/hooks/queries/us
 import { useMe, useForgotPassword } from '@/hooks/queries/useAuth'
 
 const INPUT_CLS =
-  'w-full h-10 px-3.5 rounded-lg border border-[#E5E1D8] bg-[#F9F7F2] text-[14px] font-sans text-[#1A1A1A] placeholder:text-[#C4BDB4] focus:outline-none focus:border-[#A68B67] transition-colors'
+  'w-full h-10 px-3.5 rounded-lg border border-[#E5DCCB] bg-[#F5F0E5] text-[14px] font-sans text-[#20201E] placeholder:text-[#C4BDB4] focus:outline-none focus:border-[#183D33] transition-colors'
 
 const TEXTAREA_CLS =
-  'w-full px-3.5 py-2.5 rounded-lg border border-[#E5E1D8] bg-[#F9F7F2] text-[14px] font-sans text-[#1A1A1A] placeholder:text-[#C4BDB4] focus:outline-none focus:border-[#A68B67] transition-colors resize-none'
+  'w-full px-3.5 py-2.5 rounded-lg border border-[#E5DCCB] bg-[#F5F0E5] text-[14px] font-sans text-[#20201E] placeholder:text-[#C4BDB4] focus:outline-none focus:border-[#183D33] transition-colors resize-none'
 
 function Section({
   title,
@@ -26,15 +26,15 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section className="bg-white border border-[#E5E1D8] rounded-xl overflow-hidden mb-5">
-      <div className="px-6 py-4 border-b border-[#E5E1D8] bg-[#F9F7F2] flex items-start gap-3">
-        <div className="w-7 h-7 rounded-lg bg-[#F5F0E8] flex items-center justify-center shrink-0 mt-0.5">
-          <Icon size={13} className="text-[#A68B67]" aria-hidden={true} />
+    <section className="bg-white border border-[#E5DCCB] rounded-xl overflow-hidden mb-5">
+      <div className="px-6 py-4 border-b border-[#E5DCCB] bg-[#F5F0E5] flex items-start gap-3">
+        <div className="w-7 h-7 rounded-lg bg-[#F5F0E5] flex items-center justify-center shrink-0 mt-0.5">
+          <Icon size={13} className="text-[#183D33]" aria-hidden={true} />
         </div>
         <div>
-          <h2 className="text-[14px] font-[700] font-sans text-[#1A1A1A] leading-snug">{title}</h2>
+          <h2 className="text-[14px] font-[700] font-sans text-[#20201E] leading-snug">{title}</h2>
           {description && (
-            <p className="text-[12.5px] font-sans text-[#6B6460] mt-0.5 leading-relaxed">{description}</p>
+            <p className="text-[12.5px] font-sans text-[#665F55] mt-0.5 leading-relaxed">{description}</p>
           )}
         </div>
       </div>
@@ -46,7 +46,7 @@ function Section({
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-[11.5px] font-[700] font-sans text-[#6B6460] uppercase tracking-[0.07em] mb-1.5">
+      <label className="block text-[11.5px] font-[700] font-sans text-[#665F55] uppercase tracking-[0.07em] mb-1.5">
         {label}
       </label>
       {children}
@@ -64,7 +64,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       onClick={() => onChange(!checked)}
       className={cn(
         'relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors',
-        checked ? 'bg-[#A68B67]' : 'bg-[#E5E1D8]'
+        checked ? 'bg-[#183D33]' : 'bg-[#E5DCCB]'
       )}
     >
       <span
@@ -136,7 +136,7 @@ export default function SettingsPage() {
     return (
       <div className="space-y-4 animate-pulse max-w-2xl">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-40 bg-white border border-[#E5E1D8] rounded-xl" />
+          <div key={i} className="h-40 bg-white border border-[#E5DCCB] rounded-xl" />
         ))}
       </div>
     )
@@ -145,8 +145,8 @@ export default function SettingsPage() {
   return (
     <div className="max-w-2xl">
       <div className="mb-6">
-        <h1 className="text-[24px] font-[700] font-sans text-[#1A1A1A] leading-tight">Settings</h1>
-        <p className="text-[13px] font-sans text-[#6B6460] mt-0.5">Manage your profile, bank details, and preferences.</p>
+        <h1 className="text-[24px] font-[700] font-sans text-[#20201E] leading-tight">Settings</h1>
+        <p className="text-[13px] font-sans text-[#665F55] mt-0.5">Manage your profile, bank details, and preferences.</p>
       </div>
 
       {/* Business Profile */}
@@ -212,12 +212,12 @@ export default function SettingsPage() {
 
       {/* Notification Preferences */}
       <Section title="Notification Preferences" description="Choose what Solomon Bharat notifies you about." icon={Bell}>
-        <div className="divide-y divide-[#F5F0E8]">
+        <div className="divide-y divide-[#F5F0E5]">
           {NOTIFICATION_KEYS.map(({ key, label, hint }) => (
             <div key={key} className="flex items-center justify-between gap-4 py-3.5 first:pt-0 last:pb-0">
               <div className="min-w-0">
-                <p className="text-[14px] font-[500] font-sans text-[#1A1A1A]">{label}</p>
-                <p className="text-[12px] font-sans text-[#6B6460] mt-0.5">{hint}</p>
+                <p className="text-[14px] font-[500] font-sans text-[#20201E]">{label}</p>
+                <p className="text-[12px] font-sans text-[#665F55] mt-0.5">{hint}</p>
               </div>
               <Toggle
                 checked={notificationPrefs[key] !== false}
@@ -238,8 +238,8 @@ export default function SettingsPage() {
       <Section title="Security" description="Manage your login credentials." icon={Shield}>
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-[14px] font-[500] font-sans text-[#1A1A1A]">Password</p>
-            <p className="text-[12.5px] font-sans text-[#6B6460] mt-0.5">
+            <p className="text-[14px] font-[500] font-sans text-[#20201E]">Password</p>
+            <p className="text-[12.5px] font-sans text-[#665F55] mt-0.5">
               {me?.email
                 ? `We’ll email a reset link to ${me.email}.`
                 : 'Send a password reset link to your account email.'}

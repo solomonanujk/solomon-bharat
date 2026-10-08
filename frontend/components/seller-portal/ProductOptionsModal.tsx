@@ -47,7 +47,7 @@ function PillInput({ pills, onRemove, inputValue, onInputChange, onInputKeyDown,
   return (
     <div className={`border border-border-warm rounded-md px-2.5 py-2 flex flex-wrap gap-2 items-center ${disabled ? 'bg-muted-bg/30' : ''}`}>
       {pills.map((v) => (
-        <span key={v} className="inline-flex items-center gap-2 bg-primary text-white rounded-full pl-3.5 pr-1.5 py-1.5 text-[13px] font-sans">
+        <span key={v} className="inline-flex items-center gap-2 bg-forest text-white rounded-full pl-3.5 pr-1.5 py-1.5 text-[13px] font-sans">
           {v}
           <button type="button" onClick={() => onRemove(v)} aria-label={`Remove ${v}`}
             className="w-4.5 h-4.5 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors">
@@ -160,7 +160,7 @@ export function ProductOptionsModal({ sizeValues, axisType, axisValues, disabled
 
           {rows.map((row, i) => (
             <div key={row.id} className="contents">
-              <div className="w-6 h-6 rounded-full bg-primary text-white text-[12px] font-sans flex items-center justify-center self-start mt-1">
+              <div className="w-6 h-6 rounded-full bg-forest text-white text-[12px] font-sans flex items-center justify-center self-start mt-1">
                 {i + 1}
               </div>
               <OptionTypeDropdown value={row.type} usedTypes={usedTypes} disabled={disabled}
@@ -188,7 +188,7 @@ export function ProductOptionsModal({ sizeValues, axisType, axisValues, disabled
 
         <div className="flex flex-col items-center gap-3.5 mt-8">
           <button type="button" disabled={disabled} onClick={handleSave}
-            className="w-full h-12 rounded bg-primary text-white text-[14px] font-[600] font-sans hover:bg-primary/90 transition-colors disabled:opacity-50">
+            className="w-full h-12 rounded bg-forest text-white text-[14px] font-[600] font-sans hover:bg-forest-hover transition-colors disabled:opacity-50">
             Save &amp; continue
           </button>
           <button type="button" onClick={onCancel}

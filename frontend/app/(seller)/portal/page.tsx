@@ -31,10 +31,10 @@ function KpiCard({ label, value, icon: Icon, iconBg, iconColor, hint, featured }
       'rounded-xl border p-5 flex flex-col gap-3',
       featured
         ? 'bg-[#1C1A18] border-[#2E2A24]'
-        : 'bg-white border-[#E5E1D8]',
+        : 'bg-white border-[#E5DCCB]',
     )}>
       <div className="flex items-center justify-between">
-        <span className={cn('text-[12px] font-[500] font-sans', featured ? 'text-[#9A9189]' : 'text-[#6B6460]')}>
+        <span className={cn('text-[12px] font-[500] font-sans', featured ? 'text-[#9A9189]' : 'text-[#665F55]')}>
           {label}
         </span>
         <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', iconBg)}>
@@ -42,11 +42,11 @@ function KpiCard({ label, value, icon: Icon, iconBg, iconColor, hint, featured }
         </div>
       </div>
       <div>
-        <p className={cn('text-[28px] font-[700] font-sans leading-none tabular-nums', featured ? 'text-white' : 'text-[#1A1A1A]')}>
+        <p className={cn('text-[28px] font-[700] font-sans leading-none tabular-nums', featured ? 'text-white' : 'text-[#20201E]')}>
           {value}
         </p>
         {hint && (
-          <p className={cn('text-[11px] font-sans mt-1.5 leading-snug', featured ? 'text-[#6B6460]' : 'text-[#9CA3AF]')}>
+          <p className={cn('text-[11px] font-sans mt-1.5 leading-snug', featured ? 'text-[#665F55]' : 'text-[#9CA3AF]')}>
             {hint}
           </p>
         )}
@@ -57,9 +57,9 @@ function KpiCard({ label, value, icon: Icon, iconBg, iconColor, hint, featured }
 
 function KpiSkeleton() {
   return (
-    <div className="bg-white border border-[#E5E1D8] rounded-xl p-5 animate-pulse">
-      <div className="h-3 bg-[#F5F0E8] rounded w-1/2 mb-4" />
-      <div className="h-8 bg-[#F5F0E8] rounded w-1/3" />
+    <div className="bg-white border border-[#E5DCCB] rounded-xl p-5 animate-pulse">
+      <div className="h-3 bg-[#F5F0E5] rounded w-1/2 mb-4" />
+      <div className="h-8 bg-[#F5F0E5] rounded w-1/3" />
     </div>
   )
 }
@@ -74,7 +74,7 @@ interface Activity {
 
 function ActivityRow({ activity }: { activity: Activity }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3.5 border-b border-[#F5F0E8] last:border-0">
+    <div className="flex items-center justify-between gap-4 py-3.5 border-b border-[#F5F0E5] last:border-0">
       <div className="min-w-0 flex-1">{activity.content}</div>
       <span className="text-[11.5px] font-sans text-[#9CA3AF] shrink-0">
         {new Date(activity.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
@@ -127,7 +127,7 @@ export default function SellerDashboardPage() {
         id: `product-${p.id}`,
         date: p.updatedAt,
         content: (
-          <p className="text-[13px] font-sans text-[#1A1A1A] truncate flex items-center gap-2">
+          <p className="text-[13px] font-sans text-[#20201E] truncate flex items-center gap-2">
             <span className="font-[600] truncate">{p.name}</span>
             <ApprovalStatusBadge status={p.approvalStatus} />
           </p>
@@ -140,7 +140,7 @@ export default function SellerDashboardPage() {
         id: `order-${item.orderItemId}`,
         date: item.createdAt,
         content: (
-          <p className="text-[13px] font-sans text-[#1A1A1A] truncate flex items-center gap-2">
+          <p className="text-[13px] font-sans text-[#20201E] truncate flex items-center gap-2">
             <ShoppingBag size={13} className="text-blue-500 shrink-0" aria-hidden="true" />
             Order: <span className="font-[600] truncate">{item.productName}</span>
             <span className="text-[#9CA3AF]">×{item.quantity}</span>
@@ -155,7 +155,7 @@ export default function SellerDashboardPage() {
         id: `payout-${payout.id}`,
         date: payout.createdAt,
         content: (
-          <p className="text-[13px] font-sans text-[#1A1A1A] truncate flex items-center gap-2">
+          <p className="text-[13px] font-sans text-[#20201E] truncate flex items-center gap-2">
             <Wallet size={13} className="text-emerald-600 shrink-0" aria-hidden="true" />
             Payout: <span className="font-[600]">{formatINR(payout.amount)}</span>
             <PayoutStatusBadge status={payout.status} />
@@ -175,17 +175,17 @@ export default function SellerDashboardPage() {
       {/* Page header with greeting */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-[12px] font-[600] font-sans text-[#A68B67] tracking-[0.06em] uppercase mb-1">
+          <p className="text-[12px] font-[600] font-sans text-[#183D33] tracking-[0.06em] uppercase mb-1">
             {greeting}
           </p>
-          <h1 className="text-[26px] font-[700] font-sans text-[#1A1A1A] leading-tight">
+          <h1 className="text-[26px] font-[700] font-sans text-[#20201E] leading-tight">
             {sellerFirstName}
           </h1>
           <p className="text-[13.5px] font-sans text-[#9CA3AF] mt-0.5">Here's what's happening with your store</p>
         </div>
         <Link
           href="/portal/products/new"
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#A68B67] text-white text-[13px] font-[600] font-sans rounded-lg hover:bg-[#8A7357] transition-colors shadow-sm"
+          className="flex items-center gap-2 px-4 py-2.5 bg-[#183D33] text-white text-[13px] font-[600] font-sans rounded-lg hover:bg-[#8A7357] transition-colors shadow-sm"
         >
           <Plus size={14} aria-hidden="true" />
           Submit Product
@@ -194,7 +194,7 @@ export default function SellerDashboardPage() {
 
       {/* Product status KPIs */}
       <div>
-        <p className="text-[11px] font-[700] font-sans text-[#A68B67] tracking-[0.1em] uppercase mb-3">Products</p>
+        <p className="text-[11px] font-[700] font-sans text-[#183D33] tracking-[0.1em] uppercase mb-3">Products</p>
         {kpiLoading ? (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {Array.from({ length: 4 }).map((_, i) => <KpiSkeleton key={i} />)}
@@ -226,8 +226,8 @@ export default function SellerDashboardPage() {
               label="Total Submitted"
               value={String(totalSubmitted)}
               icon={Package}
-              iconBg="bg-[#F5F0E8]"
-              iconColor="text-[#A68B67]"
+              iconBg="bg-[#F5F0E5]"
+              iconColor="text-[#183D33]"
             />
           </div>
         )}
@@ -235,14 +235,14 @@ export default function SellerDashboardPage() {
 
       {/* Earnings KPIs */}
       <div>
-        <p className="text-[11px] font-[700] font-sans text-[#A68B67] tracking-[0.1em] uppercase mb-3">Earnings</p>
+        <p className="text-[11px] font-[700] font-sans text-[#183D33] tracking-[0.1em] uppercase mb-3">Earnings</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <KpiCard
             label="Total Earnings Paid Out"
             value={payoutSummaryQ.isLoading ? '—' : formatINR(payoutSummaryQ.data?.totalEarned ?? 0)}
             icon={Wallet}
-            iconBg="bg-[#A68B67]/10"
-            iconColor="text-[#A68B67]"
+            iconBg="bg-[#183D33]/10"
+            iconColor="text-[#183D33]"
             featured
           />
           <KpiCard
@@ -268,16 +268,16 @@ export default function SellerDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[11px] font-[700] font-sans text-[#A68B67] tracking-[0.1em] uppercase">Recent Activity</p>
-            <Link href="/portal/products" className="flex items-center gap-1 text-[12px] font-[600] font-sans text-[#A68B67] hover:text-[#8A7357] transition-colors">
+            <p className="text-[11px] font-[700] font-sans text-[#183D33] tracking-[0.1em] uppercase">Recent Activity</p>
+            <Link href="/portal/products" className="flex items-center gap-1 text-[12px] font-[600] font-sans text-[#183D33] hover:text-[#8A7357] transition-colors">
               All products <ArrowRight size={11} />
             </Link>
           </div>
-          <div className="bg-white border border-[#E5E1D8] rounded-xl px-5 py-1">
+          <div className="bg-white border border-[#E5DCCB] rounded-xl px-5 py-1">
             {activityLoading ? (
               <div className="py-5 space-y-4 animate-pulse">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="h-4 bg-[#F5F0E8] rounded w-3/4" />
+                  <div key={i} className="h-4 bg-[#F5F0E5] rounded w-3/4" />
                 ))}
               </div>
             ) : activity.length === 0 ? (
@@ -295,23 +295,23 @@ export default function SellerDashboardPage() {
 
         {/* Quick links */}
         <div>
-          <p className="text-[11px] font-[700] font-sans text-[#A68B67] tracking-[0.1em] uppercase mb-3">Quick links</p>
+          <p className="text-[11px] font-[700] font-sans text-[#183D33] tracking-[0.1em] uppercase mb-3">Quick links</p>
           <div className="space-y-2">
             {[
-              { href: '/portal/products/new', label: 'Submit a New Product', icon: Plus, color: 'text-[#A68B67]', bg: 'bg-[#F5F0E8]' },
+              { href: '/portal/products/new', label: 'Submit a New Product', icon: Plus, color: 'text-[#183D33]', bg: 'bg-[#F5F0E5]' },
               { href: '/portal/orders', label: 'View My Orders', icon: ShoppingBag, color: 'text-blue-600', bg: 'bg-blue-50' },
               { href: '/portal/payouts', label: 'Check Payouts', icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-              { href: '/portal/settings', label: 'Update Settings', icon: ArrowRight, color: 'text-[#9CA3AF]', bg: 'bg-[#F9F7F2]' },
+              { href: '/portal/settings', label: 'Update Settings', icon: ArrowRight, color: 'text-[#9CA3AF]', bg: 'bg-[#F5F0E5]' },
             ].map(({ href, label, icon: Icon, color, bg }) => (
               <Link
                 key={href}
                 href={href}
-                className="flex items-center gap-3 p-3.5 bg-white border border-[#E5E1D8] rounded-xl hover:border-[#C4BDB4] hover:shadow-sm transition-all"
+                className="flex items-center gap-3 p-3.5 bg-white border border-[#E5DCCB] rounded-xl hover:border-[#C4BDB4] hover:shadow-sm transition-all"
               >
                 <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', bg)}>
                   <Icon size={14} className={color} aria-hidden="true" />
                 </div>
-                <span className="text-[13px] font-[500] font-sans text-[#1A1A1A]">{label}</span>
+                <span className="text-[13px] font-[500] font-sans text-[#20201E]">{label}</span>
                 <ArrowRight size={13} className="text-[#C4BDB4] ml-auto" aria-hidden="true" />
               </Link>
             ))}

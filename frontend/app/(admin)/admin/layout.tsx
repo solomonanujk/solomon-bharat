@@ -56,7 +56,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!isAuthenticated || user?.role !== 'SUPER_ADMIN') return null
 
   return (
-    <div className="flex min-h-screen bg-[#F9F7F2]">
+    <div className="flex min-h-screen bg-[#F5F0E5]">
       {/* Sidebar — hidden on mobile */}
       <div className="hidden lg:block">
         <AdminSidebar />
@@ -69,7 +69,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
          wrapper, causing the entire page to scroll horizontally. */}
       <div className="flex-1 min-w-0 lg:ml-[260px] flex flex-col min-h-screen">
         {/* Top bar */}
-        <header className="h-16 border-b border-[#E5E1D8] bg-white flex items-center justify-between px-6 sticky top-0 z-20">
+        <header className="h-16 border-b border-[#E5DCCB] bg-white flex items-center justify-between px-6 sticky top-0 z-20">
           <div className="relative max-w-[280px] w-full hidden sm:block">
             <Search
               size={14}
@@ -79,7 +79,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <input
               type="search"
               placeholder="Search orders, sellers, buyers..."
-              className="w-full h-9 pl-9 pr-4 rounded-md border border-[#E5E1D8] bg-[#F9F7F2] text-[13.5px] font-sans text-[#1A1A1A] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#A68B67] transition-colors"
+              className="w-full h-9 pl-9 pr-4 rounded-md border border-[#E5DCCB] bg-[#F5F0E5] text-[13.5px] font-sans text-[#20201E] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#183D33] transition-colors"
             />
           </div>
 
@@ -89,22 +89,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               aria-label="Notifications"
               className={cn(
                 'w-9 h-9 flex items-center justify-center rounded-md',
-                'border border-[#E5E1D8] text-[#9CA3AF]',
-                'hover:text-[#1A1A1A] hover:bg-[#F5F0E8] transition-colors relative'
+                'border border-[#E5DCCB] text-[#9CA3AF]',
+                'hover:text-[#20201E] hover:bg-[#F5F0E5] transition-colors relative'
               )}
             >
               <Bell size={15} aria-hidden="true" />
               {notificationCount > 0 && (
-                <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-[#A68B67]" aria-hidden="true" />
+                <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-[#183D33]" aria-hidden="true" />
               )}
             </button>
 
-            <div className="h-5 w-px bg-[#E5E1D8]" />
+            <div className="h-5 w-px bg-[#E5DCCB]" />
             <div
-              className="w-8 h-8 rounded-full bg-[#F5F0E8] border border-[#E5E1D8] flex items-center justify-center shrink-0"
+              className="w-8 h-8 rounded-full bg-[#F5F0E5] border border-[#E5DCCB] flex items-center justify-center shrink-0"
               aria-label={adminName}
             >
-              <span className="text-[11px] font-[700] font-sans text-[#A68B67]">
+              <span className="text-[11px] font-[700] font-sans text-[#183D33]">
                 {adminInitials}
               </span>
             </div>
@@ -116,7 +116,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </div>
 
       {/* Mobile bottom tab bar */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-[#E5E1D8] flex">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-[#E5DCCB] flex">
         {MOBILE_TABS.map(({ href, label, icon: Icon }) => {
           const active = isActive(href)
           return (
@@ -125,7 +125,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               href={href}
               className={cn(
                 'flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 text-[10px] font-[600] font-sans transition-colors',
-                active ? 'text-[#A68B67]' : 'text-[#9CA3AF] hover:text-[#1A1A1A]'
+                active ? 'text-[#183D33]' : 'text-[#9CA3AF] hover:text-[#20201E]'
               )}
             >
               <Icon size={18} aria-hidden="true" />

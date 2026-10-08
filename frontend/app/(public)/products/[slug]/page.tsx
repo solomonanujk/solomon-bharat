@@ -1,9 +1,9 @@
 'use client'
 
-import { use, useEffect } from 'react'
+import { use, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { NavBar } from '@/components/shared/NavBar'
 import { Footer } from '@/components/shared/Footer'
 import { PhotoGallery } from '@/components/pdp/PhotoGallery'
@@ -11,22 +11,38 @@ import { ProductVideoStrip } from '@/components/pdp/ProductVideoStrip'
 import { ProductInfo } from '@/components/pdp/ProductInfo'
 import { ProductCard } from '@/components/shared/ProductCard'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { cn } from '@/lib/utils'
+import { useAuth } from '@/hooks/useAuth'
 import { useProduct } from '@/hooks/queries/useProducts'
+import { useCategoryTree } from '@/hooks/queries/useCategories'
 import { useRecentlyViewed } from '@/hooks/useRecentlyViewed'
+import type { CategoryNode, Product } from '@/types'
+
+// ─── Category path ────────────────────────────────────────────────────────────
+// The product record only carries its Level-3 categoryId, so the breadcrumb and
+// eyebrow are resolved against the (already cached, NavBar-shared) public tree.
+
+function findCategoryPath(nodes: CategoryNode[] | undefined, id: string): CategoryNode[] {
+  for (const node of nodes ?? []) {
+    if (node.id === id) return [node]
+    const sub = findCategoryPath(node.children, id)
+    if (sub.length) return [node, ...sub]
+  }
+  return []
+}
 
 // ─── Related products ─────────────────────────────────────────────────────────
 
-function RelatedProducts({ products }: { products: import('@/types').Product[] }) {
-  if (!products || products.length === 0) return null
+function RelatedProducts({ products, currentId }: { products: Product[]; currentId: string }) {
+  const items = products.filter((p) => p.id !== currentId).slice(0, 8)
+  if (items.length === 0) return null
 
   return (
-    <section className="border-t border-border-warm">
-      <div className="max-w-[1280px] mx-auto w-full px-6 lg:px-16 py-10">
-        <h2 className="font-display font-[600] text-primary text-[20px] leading-tight mb-6">
-          Related products
-        </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-          {products.slice(0, 6).map((p) => (
+    <section aria-labelledby="pdp-related-heading" className="sb-section bg-white border-t border-line">
+      <div className="sb-container">
+        <h2 id="pdp-related-heading" className="type-h2 text-ink mb-6 lg:mb-8">Related products</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5 lg:gap-6">
+          {items.map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}
         </div>
@@ -35,27 +51,27 @@ function RelatedProducts({ products }: { products: import('@/types').Product[] }
   )
 }
 
-// ─── Loading skeleton ─────────────────────────────────────────────────────────
+// ─── Loading skeleton — final layout sizes, neutral fills ─────────────────────
 
 function PDPSkeleton() {
   return (
-    <main className="flex-1 max-w-[1280px] mx-auto w-full px-6 lg:px-16 py-12">
-      <div className="flex items-center gap-2 mb-8">
-        {[12, 20, 2, 32].map((w, i) => (
-          <div key={i} className={`h-3 bg-muted-bg rounded w-${w} animate-pulse`} />
-        ))}
-      </div>
-      <div className="flex flex-col lg:flex-row gap-12 lg:gap-16">
-        <div className="w-full lg:w-[60%] flex flex-col gap-2">
-          <div className="flex gap-2 h-[340px]">
-            <div className="flex-[2] bg-muted-bg rounded animate-pulse" />
-            <div className="flex-[3] bg-muted-bg rounded animate-pulse" />
+    <main className="flex-1 sb-container py-6 lg:py-8" aria-busy="true" aria-label="Loading product">
+      <div className="h-5 w-64 max-w-full bg-line/60 rounded-[4px] animate-pulse mb-6" />
+      <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-8 lg:gap-14">
+        <div className="flex flex-col gap-3">
+          <div className="w-full aspect-square bg-line/60 rounded-[6px] animate-pulse" />
+          <div className="flex gap-3">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="w-16 h-16 lg:w-[72px] lg:h-[72px] bg-line/60 rounded-[4px] animate-pulse" />
+            ))}
           </div>
         </div>
-        <div className="w-full lg:w-[40%] flex flex-col gap-4">
-          <div className="h-7 bg-muted-bg rounded w-3/4 animate-pulse" />
-          <div className="h-10 bg-muted-bg rounded w-1/2 animate-pulse" />
-          <div className="h-12 bg-muted-bg rounded animate-pulse mt-4" />
+        <div className="flex flex-col gap-4 pt-3">
+          <div className="h-4 w-32 bg-line/60 rounded-[4px] animate-pulse" />
+          <div className="h-10 w-3/4 bg-line/60 rounded-[4px] animate-pulse" />
+          <div className="h-20 w-full bg-line/60 rounded-[4px] animate-pulse" />
+          <div className="h-5 w-28 bg-line/60 rounded-[2px] animate-pulse" />
+          <div className="h-[220px] w-full bg-line/60 rounded-[6px] animate-pulse mt-2" />
         </div>
       </div>
     </main>
@@ -67,7 +83,9 @@ function PDPSkeleton() {
 export default function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params)
   const router = useRouter()
+  const { isAuthenticated } = useAuth()
   const { data: product, isLoading, isError } = useProduct(slug)
+  const { data: categoryTree } = useCategoryTree()
   const { track } = useRecentlyViewed()
 
   useEffect(() => {
@@ -86,6 +104,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id])
 
+  const categoryPath = useMemo(
+    () => (product ? findCategoryPath(categoryTree, product.categoryId) : []),
+    [categoryTree, product]
+  )
+
   if (isLoading) {
     return (
       <div className="bg-bg min-h-screen flex flex-col">
@@ -100,7 +123,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     return (
       <div className="bg-bg min-h-screen flex flex-col">
         <NavBar />
-        <main className="flex-1 flex items-center justify-center">
+        <main className="flex-1 flex items-center justify-center sb-container sb-section">
           <EmptyState
             title="Product not found"
             description="This product may have been removed or the link is incorrect."
@@ -113,43 +136,67 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   }
 
   const images = [...(product.images ?? [])].sort((a, b) => a.sortOrder - b.sortOrder).map((img) => img.url)
+  const categoryName = categoryPath.length ? categoryPath[categoryPath.length - 1].name : null
+
+  const crumbLink =
+    'inline-flex items-center min-h-11 underline underline-offset-4 decoration-line hover:text-ink hover:decoration-forest transition-colors duration-150'
 
   return (
-    <div className="bg-bg min-h-screen flex flex-col">
+    // Guests on mobile get bottom padding matching the sticky signup bar
+    // (ProductInfo) so it never covers the footer's last row.
+    <div
+      className={cn(
+        'bg-bg min-h-screen flex flex-col',
+        !isAuthenticated && 'pb-[calc(76px+env(safe-area-inset-bottom))] lg:pb-0'
+      )}
+    >
       <NavBar />
 
       <main className="flex-1">
-        <div className="max-w-[1280px] mx-auto w-full px-4 sm:px-6 lg:px-16 py-6 sm:py-10">
+        <div className="sb-container pt-2 pb-12 lg:pt-4 lg:pb-[72px]">
           {/* Breadcrumb */}
-          <nav className="flex items-center gap-0.5 mb-8 text-[11px] font-sans text-muted-text" aria-label="Breadcrumb">
+          <div className="flex flex-wrap items-center gap-x-4 mb-4 lg:mb-6">
             <button
               type="button"
               onClick={() => router.back()}
-              className="inline-flex items-center gap-1 mr-3 font-[700] hover:text-primary transition-colors"
+              className="inline-flex items-center gap-1 min-h-11 text-[14px] leading-[20px] font-[600] text-forest hover:text-forest-hover transition-colors duration-150"
             >
-              <ArrowLeft size={13} />
+              <ArrowLeft size={16} aria-hidden="true" />
               Back
             </button>
-            <span aria-hidden="true">/</span>
-            <Link href="/" className="hover:text-primary transition-colors">Home</Link>
-            <span aria-hidden="true">/</span>
-            <span className="text-primary truncate max-w-[200px]">{product.name}</span>
-          </nav>
+            <nav aria-label="Breadcrumb" className="min-w-0">
+              <ol className="flex flex-wrap items-center gap-x-1.5 text-[13px] leading-[20px] text-muted">
+                <li className="inline-flex items-center">
+                  <Link href="/" className={crumbLink}>Home</Link>
+                </li>
+                {categoryPath.map((c) => (
+                  <li key={c.id} className="inline-flex items-center gap-1.5">
+                    <ChevronRight size={14} className="text-muted" aria-hidden="true" />
+                    <Link href={`/categories/${c.slug}`} className={crumbLink}>{c.name}</Link>
+                  </li>
+                ))}
+                <li className="inline-flex items-center gap-1.5 min-w-0">
+                  <ChevronRight size={14} className="text-muted flex-shrink-0" aria-hidden="true" />
+                  <span aria-current="page" className="text-ink truncate max-w-[200px] sm:max-w-[320px]">{product.name}</span>
+                </li>
+              </ol>
+            </nav>
+          </div>
 
-          {/* Two-column layout */}
-          <div className="flex flex-col lg:flex-row gap-10 lg:gap-12 lg:items-start">
-            <div className="w-full lg:w-[54%] lg:sticky lg:top-[88px] lg:self-start">
+          {/* Gallery : details = 1.1 : 1, 56px gap; stacked with 32px gap below 1024px */}
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] gap-8 lg:gap-14 lg:items-start">
+            <div className="min-w-0 lg:sticky lg:top-[136px]">
               <PhotoGallery images={images} productName={product.name} />
               <ProductVideoStrip videos={product.videos ?? []} productName={product.name} />
             </div>
 
-            <div className="w-full lg:w-[46%]">
-              <ProductInfo product={product} />
+            <div className="min-w-0">
+              <ProductInfo product={product} categoryName={categoryName} />
             </div>
           </div>
         </div>
 
-        <RelatedProducts products={product.related ?? []} />
+        <RelatedProducts products={product.related ?? []} currentId={product.id} />
       </main>
 
       <Footer />

@@ -1,23 +1,54 @@
 @import "tailwindcss";
 
+/* ─── "Forest & Brass" design tokens ──────────────────────────────────────────
+   Brass is an ACCENT only — never a button fill. Primary buttons are forest on
+   light grounds and white/ivory on forest grounds. #C6A15B passes contrast only
+   on forest; use brass-deep on white and brass-dark on ivory for small text. */
 :root {
-  --bg: #F9F7F2;
-  --surface: #FCFAFA;
-  --primary: #1A1A1A;
-  --accent: #A68B67;
-  --accent-hover: #8B7055;
-  --muted-bg: #F5F0E8;
-  --muted-text: #444748;
-  --border-warm: #E5E1D8;
-  /** Dimmer than --primary — used for product name/price text specifically,
-   *  so it reads a touch softer than pure near-black without being muted. */
-  --product-text: #35322C;
+  --forest: #183D33;
+  --forest-hover: #0F241D;
+  --ivory: #F5F0E5;
+  --brass: #C6A15B;
+  --brass-deep: #8F6E35;
+  --brass-dark: #86652E;
+  --white: #FFFFFF;
+  --ink: #20201E;
+  --muted: #665F55;
+  --line: #E5DCCB;
+  --review-ground: #EEE8D8;
+  --light-text: #D9E2DA;
+  --selected: #E7EDE7;
+  --error: #A32929;
+
+  /* Legacy aliases — older components still use these names. They point at the
+     new palette so every surface picks up the redesign without a rename. */
+  --bg: var(--ivory);
+  --surface: var(--white);
+  --primary: var(--ink);
+  --accent: var(--forest);
+  --accent-hover: var(--forest-hover);
+  --muted-bg: var(--ivory);
+  --muted-text: var(--muted);
+  --border-warm: var(--line);
+  --product-text: var(--ink);
   --success: #6B7E6B;
-  --error: #BA1A1A;
   --warning: #C29D72;
 }
 
 @theme {
+  --color-forest: var(--forest);
+  --color-forest-hover: var(--forest-hover);
+  --color-ivory: var(--ivory);
+  --color-brass: var(--brass);
+  --color-brass-deep: var(--brass-deep);
+  --color-brass-dark: var(--brass-dark);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-review-ground: var(--review-ground);
+  --color-light-text: var(--light-text);
+  --color-selected: var(--selected);
+
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-primary: var(--primary);
@@ -30,22 +61,20 @@
   --color-error: var(--error);
   --color-warning: var(--warning);
   --color-product-text: var(--product-text);
-  /* Correct Tailwind v4 theme namespace is `--font-*` (generates `font-display`/
-     `font-sans` utilities) — previously this was the non-namespaced
-     `--font-family-*`, which Tailwind never recognized, so those utility classes
-     silently generated no CSS at all. Each points at the distinctly-named raw
-     variable next/font sets on <html> (see layout.tsx) rather than reusing the
-     same name, to avoid a self-referential custom property. */
-  --font-display: var(--font-playfair);
-  --font-sans: var(--font-public-sans);
+
+  /* Each points at the distinctly-named raw variable next/font sets on <html>
+     (see layout.tsx) rather than reusing the same name, to avoid a
+     self-referential custom property. */
+  --font-display: var(--font-playfair), Georgia, serif;
+  --font-sans: var(--font-public-sans), Arial, sans-serif;
 }
 
 @layer base {
   body {
-    font-family: var(--font-sans), system-ui, sans-serif;
-    background: var(--bg);
-    color: var(--primary);
-    letter-spacing: 0.02em;
+    font-family: var(--font-sans);
+    font-optical-sizing: auto;
+    background: var(--ivory);
+    color: var(--ink);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -56,6 +85,31 @@
     box-sizing: border-box;
   }
 
+  h1, h2 {
+    letter-spacing: -0.02em;
+  }
+
+  /* Never remove a focus outline without a replacement: 2px forest ring with a
+     3px offset on light grounds. Forest sections override via `.on-forest`. */
+  :focus-visible {
+    outline: 2px solid var(--forest);
+    outline-offset: 3px;
+  }
+  .on-forest :focus-visible {
+    outline-color: var(--white);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
   /* Scrollbar styling — thin, warm */
   ::-webkit-scrollbar {
     width: 6px;
@@ -63,21 +117,152 @@
   }
 
   ::-webkit-scrollbar-track {
-    background: var(--muted-bg);
+    background: var(--ivory);
   }
 
   ::-webkit-scrollbar-thumb {
-    background: var(--border-warm);
+    background: var(--line);
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--muted-text);
+    background: var(--muted);
   }
 
   /* Firefox */
   * {
     scrollbar-width: thin;
-    scrollbar-color: var(--border-warm) var(--muted-bg);
+    scrollbar-color: var(--line) var(--ivory);
   }
+}
+
+/* ─── Layout primitives ───────────────────────────────────────────────────────
+   Container: 1152px max; gutters 20px <768, 32px 768–1199, 64px ≥1200.
+   Section padding: 48px mobile, 72px desktop. */
+@utility sb-container {
+  width: 100%;
+  max-width: calc(1152px + 2 * 20px);
+  margin-inline: auto;
+  padding-inline: 20px;
+  @media (width >= 768px) {
+    max-width: calc(1152px + 2 * 32px);
+    padding-inline: 32px;
+  }
+  @media (width >= 1200px) {
+    max-width: calc(1152px + 2 * 64px);
+    padding-inline: 64px;
+  }
+}
+
+@utility sb-section {
+  padding-block: 48px;
+  @media (width >= 1024px) {
+    padding-block: 72px;
+  }
+}
+
+/* ─── Type scale (desktop / mobile) ─────────────────────────────────────────── */
+@utility type-hero {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 40px;
+  line-height: 45px;
+  letter-spacing: -0.02em;
+  @media (width >= 1024px) {
+    font-size: 56px;
+    line-height: 60px;
+  }
+}
+
+@utility type-h1 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 30px;
+  line-height: 35px;
+  letter-spacing: -0.02em;
+  @media (width >= 1024px) {
+    font-size: 40px;
+    line-height: 46px;
+  }
+}
+
+@utility type-h2 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 28px;
+  line-height: 34px;
+  letter-spacing: -0.02em;
+  @media (width >= 1024px) {
+    font-size: 36px;
+    line-height: 43px;
+  }
+}
+
+@utility type-h3 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 20px;
+  line-height: 25px;
+  @media (width >= 1024px) {
+    font-size: 22px;
+    line-height: 27px;
+  }
+}
+
+@utility type-step-number {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 40px;
+  line-height: 48px;
+}
+
+@utility type-hero-body {
+  font-size: 16px;
+  line-height: 26px;
+  @media (width >= 1024px) {
+    font-size: 18px;
+    line-height: 27px;
+  }
+}
+
+@utility type-body {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+@utility type-caption {
+  font-size: 13px;
+  line-height: 20px;
+}
+
+@utility type-eyebrow {
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+@utility type-price {
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 30px;
+  @media (width >= 1024px) {
+    font-size: 28px;
+    line-height: 34px;
+  }
+}
+
+/* MOQ tag: 12/16/600, 2px radius, 2px/7px padding, deep brass on white. */
+@utility moq-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 2px;
+  color: var(--brass-deep);
+  background: var(--white);
+  border: 1px solid var(--line);
 }

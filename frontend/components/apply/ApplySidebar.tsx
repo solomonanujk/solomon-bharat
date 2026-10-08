@@ -11,7 +11,7 @@ const STEPS = [
 
 export function ApplySidebar({ step }: { step: number }) {
   return (
-    <div className="hidden lg:flex flex-col w-[280px] flex-shrink-0 p-7 bg-primary">
+    <div className="hidden lg:flex flex-col w-[280px] flex-shrink-0 p-7 bg-forest">
       <div className="mb-10">
         <p className="font-display font-[700] text-white text-[19px] leading-none">
           Solomon <span className="text-accent">Bharat</span>

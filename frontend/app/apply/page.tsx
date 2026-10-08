@@ -173,7 +173,7 @@ export default function ApplyPage() {
                     type="button"
                     onClick={goNext}
                     disabled={applyAsSeller.isPending}
-                    className="h-11 px-6 rounded-full text-[13.5px] font-[700] font-sans text-white bg-primary hover:bg-[#2a2a2a] transition-colors disabled:opacity-50"
+                    className="h-11 px-6 rounded-full text-[13.5px] font-[700] font-sans text-white bg-forest hover:bg-[#0F241D] transition-colors disabled:opacity-50"
                   >
                     {applyAsSeller.isPending
                       ? 'Submitting…'

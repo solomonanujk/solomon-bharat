@@ -142,7 +142,7 @@ export function CategoryCascadeSelect({ tree, value, onChange, disabled }: Categ
                   key={l3.id}
                   type="button"
                   onClick={() => selectLeaf(l3.id)}
-                  className={`${ROW_BASE_CLS} ${value === l3.id ? 'bg-primary text-white' : 'text-primary hover:bg-muted-bg/60'}`}
+                  className={`${ROW_BASE_CLS} ${value === l3.id ? 'bg-forest text-white' : 'text-primary hover:bg-muted-bg/60'}`}
                 >
                   <span className="truncate">{l3.name}</span>
                   {value === l3.id && <Check size={12} className="shrink-0" />}

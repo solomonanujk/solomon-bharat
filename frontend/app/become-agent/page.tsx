@@ -51,7 +51,7 @@ function Hero() {
             {/* Eyebrow pill — matches homepage style */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-border-warm bg-white/60 backdrop-blur-sm mb-7">
               <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden>
-                <path d="M6.5 1L8.2 5.1H12.5L9.2 7.6L10.4 11.8L6.5 9.3L2.6 11.8L3.8 7.6L0.5 5.1H4.8L6.5 1Z" fill="#A68B67"/>
+                <path d="M6.5 1L8.2 5.1H12.5L9.2 7.6L10.4 11.8L6.5 9.3L2.6 11.8L3.8 7.6L0.5 5.1H4.8L6.5 1Z" fill="#183D33"/>
               </svg>
               <span className="font-sans text-[11px] font-[700] text-accent uppercase tracking-[0.1em]">
                 Become an Agent
@@ -76,7 +76,7 @@ function Hero() {
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 href="/apply-agent"
-                className="inline-flex items-center gap-2 rounded bg-primary text-white font-[700] font-sans text-[14px] px-6 py-3 hover:bg-[#2a2a2a] transition-colors"
+                className="inline-flex items-center gap-2 rounded bg-forest text-white font-[700] font-sans text-[14px] px-6 py-3 hover:bg-[#0F241D] transition-colors"
               >
                 Apply now — it&apos;s free
                 <ArrowRight size={14} aria-hidden />
@@ -306,7 +306,7 @@ function HowItWorks() {
         <div className="mt-10 text-center">
           <Link
             href="/apply-agent"
-            className="inline-flex items-center gap-2 rounded-lg bg-primary text-white font-[700] font-sans text-[15px] px-9 py-4 hover:bg-[#2a2a2a] transition-all hover:shadow-xl hover:shadow-black/12 hover:-translate-y-0.5"
+            className="inline-flex items-center gap-2 rounded-lg bg-forest text-white font-[700] font-sans text-[15px] px-9 py-4 hover:bg-[#0F241D] transition-all hover:shadow-xl hover:shadow-black/12 hover:-translate-y-0.5"
           >
             Start your application
             <ArrowRight size={15} aria-hidden />
@@ -468,7 +468,7 @@ function Testimonials() {
 
               <div className="flex gap-0.5">
                 {Array.from({ length: 5 }, (_, i) => (
-                  <Star key={i} size={13} fill="#A68B67" stroke="none" aria-hidden />
+                  <Star key={i} size={13} fill="#183D33" stroke="none" aria-hidden />
                 ))}
               </div>
               <blockquote className="font-sans text-[14px] text-muted-text leading-[1.75] flex-1 relative z-10">
@@ -761,7 +761,7 @@ function FinalCTA() {
 
         <Link
           href="/apply-agent"
-          className="inline-flex items-center gap-2 rounded bg-primary text-white font-[700] font-sans text-[14px] px-8 py-3.5 hover:bg-[#2a2a2a] transition-colors"
+          className="inline-flex items-center gap-2 rounded bg-forest text-white font-[700] font-sans text-[14px] px-8 py-3.5 hover:bg-[#0F241D] transition-colors"
         >
           Apply now — it&apos;s free
           <ArrowRight size={14} aria-hidden />

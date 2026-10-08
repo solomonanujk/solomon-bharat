@@ -251,15 +251,24 @@ export interface SellerProductListFilter {
   approvalStatus?: ProductApprovalStatus;
 }
 
-/** A flat (non-variant) price tier stripped down to what a buyer may see — never the
- *  raw ProductPriceTier row, which also carries the seller's own cost (sellerPrice). */
+/** A price tier (flat or per-variant) stripped down to what a buyer may see — never the
+ *  raw ProductPriceTier/VariantPriceTier row, which also carries the seller's own cost
+ *  (sellerPrice). */
 export interface BuyerPriceTier {
   id: string;
   moq: number;
-  adminPrice: string;
+  /** null for viewers not entitled to wholesale pricing (guests, sellers) — see
+   *  canViewWholesalePrice in products.service.ts. */
+  adminPrice: string | null;
   /** Only populated when the requester is an authenticated AGENT — never sent to buyers. */
   agentPrice: string | null;
 }
+
+/** Buyer-safe variant — the raw ProductVariant minus its raw price tiers. */
+export type BuyerVariant = ProductVariant & {
+  attributes: VariantAttribute[];
+  priceTiers: BuyerPriceTier[];
+};
 
 /** Buyer-safe projection — never includes sellerId, sellerPrice, or declaredStock. */
 export interface BuyerProduct {
@@ -271,7 +280,8 @@ export interface BuyerProduct {
   dimensions: string | null;
   weight: string | null;
   moq: number;
-  adminPrice: string;
+  /** null for guests (and sellers) — no numeric wholesale price before signup. */
+  adminPrice: string | null;
   /** Only populated when the requester is an authenticated AGENT — never sent to buyers. */
   agentPrice: string | null;
   /** Only the product's own flat tiers — empty when this product uses variants
@@ -283,7 +293,7 @@ export interface BuyerProduct {
   publishedAt: Date | null;
   images: ProductImage[];
   videos: ProductVideo[];
-  variants: VariantWithDetail[];
+  variants: BuyerVariant[];
   avgRating: number | null;
   reviewCount: number;
   tags: string[];

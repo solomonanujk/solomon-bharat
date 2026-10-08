@@ -84,7 +84,7 @@ function CheckoutReturnInner() {
               <button
                 type="button"
                 onClick={() => router.push('/orders')}
-                className="mt-2 h-11 px-8 rounded bg-primary text-white font-[700] font-sans text-[14px] hover:bg-primary/90 transition-colors"
+                className="mt-2 h-11 px-8 rounded bg-forest text-white font-[700] font-sans text-[14px] hover:bg-forest-hover transition-colors"
               >
                 View my orders
               </button>
@@ -104,7 +104,7 @@ function CheckoutReturnInner() {
               </p>
               <Link
                 href="/cart"
-                className="mt-2 h-11 px-8 inline-flex items-center rounded bg-primary text-white font-[700] font-sans text-[14px] hover:bg-primary/90 transition-colors"
+                className="mt-2 h-11 px-8 inline-flex items-center rounded bg-forest text-white font-[700] font-sans text-[14px] hover:bg-forest-hover transition-colors"
               >
                 Return to cart
               </Link>

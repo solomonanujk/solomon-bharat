@@ -33,15 +33,15 @@ export default function AdminProductDetailPage() {
   if (isLoading) {
     return (
       <div className="max-w-5xl mx-auto animate-pulse space-y-5">
-        <div className="h-5 bg-[#F5F0E8] rounded w-24" />
-        <div className="h-64 bg-[#F5F0E8] rounded" />
+        <div className="h-5 bg-[#F5F0E5] rounded w-24" />
+        <div className="h-64 bg-[#F5F0E5] rounded" />
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
           <div className="space-y-5">
-            <div className="h-40 bg-[#F5F0E8] rounded" />
-            <div className="h-40 bg-[#F5F0E8] rounded" />
+            <div className="h-40 bg-[#F5F0E5] rounded" />
+            <div className="h-40 bg-[#F5F0E5] rounded" />
           </div>
           <div className="space-y-5">
-            <div className="h-40 bg-[#F5F0E8] rounded" />
+            <div className="h-40 bg-[#F5F0E5] rounded" />
           </div>
         </div>
       </div>
@@ -51,15 +51,15 @@ export default function AdminProductDetailPage() {
   if (!product) {
     return (
       <div className="max-w-5xl mx-auto">
-        <Link href="/admin/products" className="flex items-center gap-1.5 text-[13px] font-sans text-[#6B6460] hover:text-[#1A1A1A] transition-colors mb-6">
+        <Link href="/admin/products" className="flex items-center gap-1.5 text-[13px] font-sans text-[#665F55] hover:text-[#20201E] transition-colors mb-6">
           <ArrowLeft size={14} aria-hidden="true" /> Back to Products
         </Link>
-        <div className="bg-white border border-[#E5E1D8] rounded-xl py-20 flex flex-col items-center gap-3">
-          <Package size={32} className="text-[#E5E1D8]" aria-hidden="true" />
-          <p className="text-[15px] font-[600] font-sans text-[#1A1A1A]">
+        <div className="bg-white border border-[#E5DCCB] rounded-xl py-20 flex flex-col items-center gap-3">
+          <Package size={32} className="text-[#E5DCCB]" aria-hidden="true" />
+          <p className="text-[15px] font-[600] font-sans text-[#20201E]">
             {isError ? 'Failed to load product — check that the backend is running' : 'Product not found'}
           </p>
-          {isError && <p className="text-[12px] font-sans text-[#6B6460]">ID: {params.id}</p>}
+          {isError && <p className="text-[12px] font-sans text-[#665F55]">ID: {params.id}</p>}
         </div>
       </div>
     )
@@ -73,7 +73,7 @@ export default function AdminProductDetailPage() {
   return (
     <div className="max-w-5xl mx-auto">
       {/* Back */}
-      <Link href="/admin/products" className="flex items-center gap-1.5 text-[13px] font-sans text-[#6B6460] hover:text-[#1A1A1A] transition-colors mb-6">
+      <Link href="/admin/products" className="flex items-center gap-1.5 text-[13px] font-sans text-[#665F55] hover:text-[#20201E] transition-colors mb-6">
         <ArrowLeft size={14} aria-hidden="true" /> Back to Products
       </Link>
 
@@ -87,13 +87,13 @@ export default function AdminProductDetailPage() {
                 <CheckCircle2 size={12} aria-hidden="true" /> Published
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-[#6B6460]">
+              <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-[#665F55]">
                 <XCircle size={12} aria-hidden="true" /> Unpublished
               </span>
             )}
             {product.isFeatured && (
-              <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-[#A68B67]">
-                <Star size={12} className="fill-[#A68B67]" aria-hidden="true" /> Featured
+              <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-[#183D33]">
+                <Star size={12} className="fill-[#183D33]" aria-hidden="true" /> Featured
               </span>
             )}
             {product.pendingPricingChange && (
@@ -105,8 +105,8 @@ export default function AdminProductDetailPage() {
               </Link>
             )}
           </div>
-          <h1 className="text-[28px] leading-[1.3] font-[500] font-sans text-[#1A1A1A]">{product.name}</h1>
-          <p className="text-[13px] font-sans text-[#6B6460] mt-1">/{product.slug}</p>
+          <h1 className="text-[28px] leading-[1.3] font-[500] font-sans text-[#20201E]">{product.name}</h1>
+          <p className="text-[13px] font-sans text-[#665F55] mt-1">/{product.slug}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Link href={`/admin/products/${product.id}/edit-product`} className={cn(buttonVariants({ variant: 'primary', size: 'sm' }))}>
@@ -126,7 +126,7 @@ export default function AdminProductDetailPage() {
           <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" aria-hidden="true" />
           <div>
             <p className="text-[13px] font-[600] font-sans text-red-500">Rejection reason</p>
-            <p className="text-[13px] font-sans text-[#1A1A1A] mt-1 whitespace-pre-wrap">{product.rejectionReason}</p>
+            <p className="text-[13px] font-sans text-[#20201E] mt-1 whitespace-pre-wrap">{product.rejectionReason}</p>
           </div>
         </div>
       )}
@@ -137,7 +137,7 @@ export default function AdminProductDetailPage() {
           <button
             type="button"
             onClick={() => openLightbox(sortedImages[Math.min(activeImage, sortedImages.length - 1)].url, product.name)}
-            className="w-full bg-white border border-[#E5E1D8] rounded-xl overflow-hidden aspect-[16/9] flex items-center justify-center cursor-zoom-in"
+            className="w-full bg-white border border-[#E5DCCB] rounded-xl overflow-hidden aspect-[16/9] flex items-center justify-center cursor-zoom-in"
             aria-label={`View ${product.name} full size`}
           >
             <img
@@ -154,8 +154,8 @@ export default function AdminProductDetailPage() {
                   type="button"
                   onClick={() => setActiveImage(i)}
                   className={cn(
-                    'w-16 h-16 rounded overflow-hidden border-2 shrink-0 bg-[#F5F0E8] transition-colors',
-                    i === activeImage ? 'border-accent' : 'border-[#E5E1D8] opacity-70 hover:opacity-100'
+                    'w-16 h-16 rounded overflow-hidden border-2 shrink-0 bg-[#F5F0E5] transition-colors',
+                    i === activeImage ? 'border-accent' : 'border-[#E5DCCB] opacity-70 hover:opacity-100'
                   )}
                 >
                   <img src={cloudinaryFill(img.url, 160, 160)} alt="" className="w-full h-full object-contain" />
@@ -174,11 +174,11 @@ export default function AdminProductDetailPage() {
               <Field label="Seller Price (from)" value={formatINR(product.sellerPrice)} />
               <Field
                 label="Admin Price (from)"
-                value={product.adminPrice != null ? formatINR(product.adminPrice) : <span className="italic text-[#6B6460]">not set</span>}
+                value={product.adminPrice != null ? formatINR(product.adminPrice) : <span className="italic text-[#665F55]">not set</span>}
               />
               <Field
                 label="Agent Price (from)"
-                value={product.agentPrice != null ? formatINR(product.agentPrice) : <span className="italic text-[#6B6460]">not set</span>}
+                value={product.agentPrice != null ? formatINR(product.agentPrice) : <span className="italic text-[#665F55]">not set</span>}
               />
             </div>
           </Section>
@@ -188,7 +188,7 @@ export default function AdminProductDetailPage() {
           </Section>
 
           <Section title="Description">
-            <p className="text-[13.5px] font-sans text-[#1A1A1A] leading-[1.7] whitespace-pre-wrap break-words">
+            <p className="text-[13.5px] font-sans text-[#20201E] leading-[1.7] whitespace-pre-wrap break-words">
               {product.description}
             </p>
           </Section>
@@ -215,7 +215,7 @@ export default function AdminProductDetailPage() {
               {product.craftImageUrl && (
                 <div className="mb-4">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={cloudinaryFill(product.craftImageUrl, 320, 240)} alt="" className="w-full max-w-[280px] rounded-lg border border-[#E5E1D8] object-cover" />
+                  <img src={cloudinaryFill(product.craftImageUrl, 320, 240)} alt="" className="w-full max-w-[280px] rounded-lg border border-[#E5DCCB] object-cover" />
                 </div>
               )}
               <Field label="How It's Made" value={product.howItIsMade ?? '—'} />
@@ -225,19 +225,19 @@ export default function AdminProductDetailPage() {
 
           <Section title="Variants">
             {product.variants.length === 0 ? (
-              <p className="text-[13px] font-sans text-[#6B6460]">No variants.</p>
+              <p className="text-[13px] font-sans text-[#665F55]">No variants.</p>
             ) : (
               <div className="space-y-3">
                 {product.variants.map((v) => (
                   <div key={v.id} className="flex flex-wrap items-center gap-2">
-                    <span className="text-[12.5px] font-[600] font-sans text-[#1A1A1A] bg-[#F5F0E8] border border-[#E5E1D8] px-3 py-1.5 rounded">
+                    <span className="text-[12.5px] font-[600] font-sans text-[#20201E] bg-[#F5F0E5] border border-[#E5DCCB] px-3 py-1.5 rounded">
                       {v.type}: {v.value}
                     </span>
                     {v.sku && (
-                      <span className="text-[11.5px] font-sans text-[#6B6460]">SKU: {v.sku}</span>
+                      <span className="text-[11.5px] font-sans text-[#665F55]">SKU: {v.sku}</span>
                     )}
                     {(v.attributes ?? []).length > 1 && (
-                      <span className="text-[11.5px] font-sans text-[#6B6460]">
+                      <span className="text-[11.5px] font-sans text-[#665F55]">
                         {v.attributes!.map((a) => `${a.name}: ${a.value}`).join(', ')}
                       </span>
                     )}
@@ -250,12 +250,12 @@ export default function AdminProductDetailPage() {
 
         {/* Right column */}
         <div className="space-y-5">
-          <div className="bg-white border border-[#E5E1D8] rounded-xl p-5 space-y-2">
-            <p className="text-[11px] font-[600] font-sans text-[#6B6460] uppercase tracking-[0.06em]">Timeline</p>
-            <p className="text-[13px] font-sans text-[#1A1A1A]">
+          <div className="bg-white border border-[#E5DCCB] rounded-xl p-5 space-y-2">
+            <p className="text-[11px] font-[600] font-sans text-[#665F55] uppercase tracking-[0.06em]">Timeline</p>
+            <p className="text-[13px] font-sans text-[#20201E]">
               Created {new Date(product.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
             </p>
-            <p className="text-[13px] font-sans text-[#6B6460]">
+            <p className="text-[13px] font-sans text-[#665F55]">
               Updated {new Date(product.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
             </p>
           </div>

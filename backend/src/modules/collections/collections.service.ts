@@ -1,4 +1,4 @@
-import { Collection, CollectionStatus } from '@prisma/client';
+import { Collection, CollectionStatus, Role } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { AppError } from '../../utils/errors';
 import { slugify, uniqueSlugSuffix, entityFolder } from '../../utils/helpers';
@@ -187,14 +187,15 @@ export class CollectionsService {
     return collections;
   }
 
-  async getPublicDetail(slug: string, pagination: PaginationQuery) {
+  /** viewerRole drives product pricing exactly as on /products — guests get no prices. */
+  async getPublicDetail(slug: string, pagination: PaginationQuery, viewerRole?: Role) {
     const collection = await this.repo.findBySlug(slug);
     if (!collection || !this.repo.isVisible(collection)) {
       throw AppError.notFound('Collection not found');
     }
 
     const [{ data: products, total }, related] = await Promise.all([
-      this.products.listPublished({ collectionId: collection.id }, pagination),
+      this.products.listPublished({ collectionId: collection.id }, pagination, viewerRole),
       this.repo.findRelated(collection.id, 4),
     ]);
 

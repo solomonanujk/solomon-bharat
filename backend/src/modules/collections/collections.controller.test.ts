@@ -76,6 +76,20 @@ describe('collections controller', () => {
       } as never);
       const res = await request(app).get('/api/v1/collections/sustainable-living');
       expect(res.status).toBe(200);
+      // Guest — no role, so the products service strips every price.
+      expect(collectionsService.getPublicDetail).toHaveBeenCalledWith('sustainable-living', expect.any(Object), undefined);
+    });
+
+    it.each([Role.BUYER, Role.AGENT])('forwards an authenticated %s role (optionalAuth) for pricing', async (role) => {
+      vi.mocked(collectionsService.getPublicDetail).mockResolvedValue({
+        collection: { id: COLLECTION_ID },
+        products: [],
+        total: 0,
+        related: [],
+      } as never);
+      const res = await request(app).get('/api/v1/collections/sustainable-living').set(authHeader(role));
+      expect(res.status).toBe(200);
+      expect(collectionsService.getPublicDetail).toHaveBeenCalledWith('sustainable-living', expect.any(Object), role);
     });
   });
 
