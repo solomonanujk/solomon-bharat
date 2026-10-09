@@ -22,7 +22,8 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
  * since login was being asked to satisfy a check whose token it hasn't been issued yet.
  */
 export function csrfProtection(req: Request, _res: Response, next: NextFunction): void {
-  if (SAFE_METHODS.has(req.method) || req.path.startsWith('/auth/')) {
+  // Provider webhooks are machine-to-machine (verified by signature, never by a browser cookie).
+  if (SAFE_METHODS.has(req.method) || req.path.startsWith('/auth/') || req.path.startsWith('/payments/webhooks/')) {
     next();
     return;
   }

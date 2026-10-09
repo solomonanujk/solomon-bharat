@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Notification, NotificationType, Role } from '@prisma/client';
 import { NotificationsRepository } from './notifications.repository';
+
+const { sendMailMock } = vi.hoisted(() => ({ sendMailMock: vi.fn() }));
+vi.mock('../../providers/mail', () => ({ mailProvider: { sendMail: sendMailMock } }));
 import { NotificationsService } from './notifications.service';
 
 function buildNotification(overrides: Partial<Notification> = {}): Notification {
@@ -26,6 +29,7 @@ function buildMockRepo(): NotificationsRepository {
     markAllRead: vi.fn(),
     countUnread: vi.fn(),
     findUserIdsByRole: vi.fn(),
+    findOrderForBrandAlert: vi.fn(),
   } as unknown as NotificationsRepository;
 }
 
@@ -137,6 +141,83 @@ describe('NotificationsService', () => {
       expect(repo.create).toHaveBeenCalledWith(
         expect.objectContaining({ userId: 'buyer-user-1', type: NotificationType.NEW_MESSAGE }),
       );
+    });
+  });
+
+  describe('brand notifications', () => {
+    const order = {
+      adminPriceTotal: '1500.00',
+      sellerProfile: { user: { id: 'brand-user-1', email: 'brand@example.com' } },
+      shippingAddress: { city: 'London', country: 'UK' },
+      items: [{ quantity: 3, lineAdminTotal: '1500.00', product: { name: 'Brass <Vase>' } }],
+    };
+
+    beforeEach(() => {
+      sendMailMock.mockReset();
+      sendMailMock.mockResolvedValue(undefined);
+      vi.mocked(repo.create).mockResolvedValue(buildNotification());
+    });
+
+    it('notifyBrandNewOrder sends an in-app notification and an email without buyer identity', async () => {
+      vi.mocked(repo.findOrderForBrandAlert).mockResolvedValue(order as never);
+
+      await service.notifyBrandNewOrder('order-9');
+
+      expect(repo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'brand-user-1',
+          type: NotificationType.NEW_ORDER_RECEIVED,
+          link: '/portal/orders/order-9',
+        }),
+      );
+      const mail = sendMailMock.mock.calls[0][0] as { to: string; html: string };
+      expect(mail.to).toBe('brand@example.com');
+      expect(mail.html).toContain('Brass &lt;Vase&gt; &times; 3');
+      expect(mail.html).toContain('₹1500.00');
+      expect(mail.html).toContain('London, UK');
+      expect(mail.html).toContain('/portal/orders/order-9');
+    });
+
+    it('notifyBrandNewOrder does nothing for a missing or non-brand order', async () => {
+      vi.mocked(repo.findOrderForBrandAlert).mockResolvedValueOnce(null);
+      await service.notifyBrandNewOrder('missing');
+      vi.mocked(repo.findOrderForBrandAlert).mockResolvedValueOnce({ ...order, sellerProfile: null } as never);
+      await service.notifyBrandNewOrder('curated');
+
+      expect(repo.create).not.toHaveBeenCalled();
+      expect(sendMailMock).not.toHaveBeenCalled();
+    });
+
+    it('notifyBrandNewOrder never throws when the mail provider fails', async () => {
+      vi.mocked(repo.findOrderForBrandAlert).mockResolvedValue(order as never);
+      sendMailMock.mockRejectedValue(new Error('smtp down'));
+
+      await expect(service.notifyBrandNewOrder('order-9')).resolves.toBeUndefined();
+    });
+
+    it('notifyBrandNewOrder never throws when the lookup or the in-app write fails', async () => {
+      vi.mocked(repo.findOrderForBrandAlert).mockRejectedValueOnce(new Error('db down'));
+      await expect(service.notifyBrandNewOrder('order-9')).resolves.toBeUndefined();
+
+      vi.mocked(repo.findOrderForBrandAlert).mockResolvedValue(order as never);
+      vi.mocked(repo.create).mockRejectedValueOnce(new Error('write failed'));
+      await expect(service.notifyBrandNewOrder('order-9')).resolves.toBeUndefined();
+    });
+
+    it('notifyBrandApplicationApproved sends a BRAND_APPLICATION_APPROVED notification', async () => {
+      await service.notifyBrandApplicationApproved('brand-user-1');
+
+      expect(repo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'brand-user-1', type: NotificationType.BRAND_APPLICATION_APPROVED }),
+      );
+    });
+
+    it('notifyPayoutPaid uses the rupee sign', async () => {
+      await service.notifyPayoutPaid('user-1', '750.00');
+
+      const arg = vi.mocked(repo.create).mock.calls[0][0];
+      expect(arg.message).toContain('₹750.00');
+      expect(arg.message).not.toContain('$');
     });
   });
 

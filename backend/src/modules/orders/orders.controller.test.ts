@@ -28,6 +28,11 @@ vi.mock('./orders.service', () => ({
     cancelOrder: vi.fn(),
     setTrackingNumber: vi.fn(),
     setExportDocuments: vi.fn(),
+    listForBrand: vi.fn(),
+    getForBrand: vi.fn(),
+    brandConfirm: vi.fn(),
+    brandShip: vi.fn(),
+    brandDeliver: vi.fn(),
   },
 }));
 
@@ -42,6 +47,7 @@ vi.mock('../buyers/buyers.service', () => ({
 import { createApp } from '../../app';
 import { authHeader } from '../../test-utils/authToken';
 import { ordersService } from './orders.service';
+import { prisma } from '../../config/prisma';
 import { sellersService } from '../sellers/sellers.service';
 import { buyersService } from '../buyers/buyers.service';
 
@@ -183,6 +189,76 @@ describe('orders controller', () => {
         .set(authHeader(Role.SUPER_ADMIN))
         .send({ documents: ['not-a-url'] });
       expect(res.status).toBe(422);
+    });
+  });
+
+  describe('brand fulfilment routes (marketplace SELLER only)', () => {
+    const asBrand = () => {
+      vi.mocked(prisma.sellerProfile.findFirst).mockResolvedValue({ sellerType: 'MARKETPLACE' } as never);
+      vi.mocked(sellersService.getMyProfile).mockResolvedValue({ id: 'brand-profile-1' } as never);
+    };
+
+    it('requires auth', async () => {
+      expect((await request(app).get('/api/v1/orders/brand')).status).toBe(401);
+    });
+
+    it('forbids buyers, admins and CURATED sellers', async () => {
+      expect((await request(app).get('/api/v1/orders/brand').set(authHeader(Role.BUYER))).status).toBe(403);
+      expect((await request(app).get('/api/v1/orders/brand').set(authHeader(Role.SUPER_ADMIN))).status).toBe(403);
+      vi.mocked(prisma.sellerProfile.findFirst).mockResolvedValue({ sellerType: 'CURATED' } as never);
+      const res = await request(app).get('/api/v1/orders/brand').set(authHeader(Role.SELLER));
+      expect(res.status).toBe(403);
+      expect(ordersService.listForBrand).not.toHaveBeenCalled();
+    });
+
+    it('lists the orders of the brand scoped to ITS seller profile with a status filter', async () => {
+      asBrand();
+      vi.mocked(ordersService.listForBrand).mockResolvedValue({ data: [], total: 0 });
+      const res = await request(app).get('/api/v1/orders/brand?status=CONFIRMED').set(authHeader(Role.SELLER));
+      expect(res.status).toBe(200);
+      expect(ordersService.listForBrand).toHaveBeenCalledWith('brand-profile-1', 'CONFIRMED', expect.objectContaining({ page: 1 }));
+      expect(res.body.meta.total).toBe(0);
+    });
+
+    it('rejects an invalid status filter with 422', async () => {
+      asBrand();
+      const res = await request(app).get('/api/v1/orders/brand?status=NOPE').set(authHeader(Role.SELLER));
+      expect(res.status).toBe(422);
+    });
+
+    it('confirm / ship / deliver pass the caller profile id to the service', async () => {
+      asBrand();
+      vi.mocked(ordersService.brandConfirm).mockResolvedValue({ id: ORDER_ID } as never);
+      vi.mocked(ordersService.brandShip).mockResolvedValue({ id: ORDER_ID } as never);
+      vi.mocked(ordersService.brandDeliver).mockResolvedValue({ id: ORDER_ID } as never);
+
+      expect((await request(app).post(`/api/v1/orders/brand/${ORDER_ID}/confirm`).set(authHeader(Role.SELLER))).status).toBe(200);
+      expect(ordersService.brandConfirm).toHaveBeenCalledWith('brand-profile-1', ORDER_ID);
+
+      const ship = await request(app)
+        .post(`/api/v1/orders/brand/${ORDER_ID}/ship`)
+        .set(authHeader(Role.SELLER))
+        .send({ trackingNumber: 'TRK1', carrier: 'DHL' });
+      expect(ship.status).toBe(200);
+      expect(ordersService.brandShip).toHaveBeenCalledWith('brand-profile-1', ORDER_ID, 'TRK1', 'DHL');
+
+      expect((await request(app).post(`/api/v1/orders/brand/${ORDER_ID}/deliver`).set(authHeader(Role.SELLER))).status).toBe(200);
+      expect(ordersService.brandDeliver).toHaveBeenCalledWith('brand-profile-1', ORDER_ID);
+    });
+
+    it('ship requires a tracking number', async () => {
+      asBrand();
+      const res = await request(app).post(`/api/v1/orders/brand/${ORDER_ID}/ship`).set(authHeader(Role.SELLER)).send({});
+      expect(res.status).toBe(422);
+      expect(ordersService.brandShip).not.toHaveBeenCalled();
+    });
+
+    it('get one order', async () => {
+      asBrand();
+      vi.mocked(ordersService.getForBrand).mockResolvedValue({ id: ORDER_ID } as never);
+      const res = await request(app).get(`/api/v1/orders/brand/${ORDER_ID}`).set(authHeader(Role.SELLER));
+      expect(res.status).toBe(200);
+      expect(ordersService.getForBrand).toHaveBeenCalledWith('brand-profile-1', ORDER_ID);
     });
   });
 });

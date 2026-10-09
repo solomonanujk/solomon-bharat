@@ -49,3 +49,14 @@ export type AdminOrderListQueryDto = z.infer<typeof adminOrderListQuerySchema>;
 export const idParamSchema = z.object({
   id: z.string().uuid(),
 });
+
+export const brandOrderListQuerySchema = paginationQuerySchema.extend({
+  status: z.nativeEnum(OrderStatus).optional(),
+});
+export type BrandOrderListQueryDto = z.infer<typeof brandOrderListQuerySchema>;
+
+export const brandShipSchema = z.object({
+  trackingNumber: z.string().trim().min(1).max(200),
+  carrier: z.string().trim().min(1).max(100).optional(),
+});
+export type BrandShipDto = z.infer<typeof brandShipSchema>;

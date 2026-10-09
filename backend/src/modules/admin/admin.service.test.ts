@@ -32,6 +32,8 @@ function buildMockRepo(): AdminRepository {
     countTotalBuyers: vi.fn(),
     countTotalApprovedSellers: vi.fn(),
     revenueTotals: vi.fn(),
+    brandRevenueTotals: vi.fn(),
+    brandRevenueBreakdown: vi.fn(),
     sellerPayoutsTotal: vi.fn(),
     ordersByStatus: vi.fn(),
     ordersWithBuyerCountry: vi.fn(),
@@ -73,6 +75,7 @@ describe('AdminService', () => {
       vi.mocked(repo.totalGMV).mockResolvedValue(10000);
       vi.mocked(repo.countTotalBuyers).mockResolvedValue(50);
       vi.mocked(repo.countTotalApprovedSellers).mockResolvedValue(20);
+      vi.mocked(repo.brandRevenueTotals).mockResolvedValue({ brandGmv: 2000, commissionEarned: 400 });
 
       const summary = await service.getDashboard();
 
@@ -86,6 +89,8 @@ describe('AdminService', () => {
         totalGMV: '10000.00',
         totalBuyers: 50,
         totalApprovedSellers: 20,
+        commissionEarned: '400.00',
+        brandGmv: '2000.00',
       });
     });
   });
@@ -114,10 +119,52 @@ describe('AdminService', () => {
     it('revenue combines order totals with seller payouts for the period', async () => {
       vi.mocked(repo.revenueTotals).mockResolvedValue({ gmv: 1000, adminMargin: 400 });
       vi.mocked(repo.sellerPayoutsTotal).mockResolvedValue(600);
+      vi.mocked(repo.brandRevenueTotals).mockResolvedValue({ brandGmv: 0, commissionEarned: 0 });
+      vi.mocked(repo.brandRevenueBreakdown).mockResolvedValue([]);
 
       const rows = await service.getReport('revenue', {});
 
-      expect(rows).toEqual([{ gmv: '1000.00', adminMargin: '400.00', sellerPayouts: '600.00' }]);
+      expect(rows).toEqual([
+        {
+          gmv: '1000.00',
+          adminMargin: '400.00',
+          sellerPayouts: '600.00',
+          commissionEarned: '0.00',
+          brandGmv: '0.00',
+          brands: [],
+        },
+      ]);
+    });
+
+    it('revenue adds commissionEarned, brandGmv and a per-brand breakdown sorted by GMV', async () => {
+      vi.mocked(repo.revenueTotals).mockResolvedValue({ gmv: 3000, adminMargin: 1000 });
+      vi.mocked(repo.sellerPayoutsTotal).mockResolvedValue(0);
+      vi.mocked(repo.brandRevenueTotals).mockResolvedValue({ brandGmv: 2000, commissionEarned: 400 });
+      vi.mocked(repo.brandRevenueBreakdown).mockResolvedValue([
+        { sellerProfileId: 's1', brandName: 'Small', ordersCount: 1, gmv: 500, commission: 125 },
+        { sellerProfileId: 's2', brandName: 'Big', ordersCount: 3, gmv: 1500, commission: 275 },
+      ]);
+
+      const rows = await service.getReport('revenue', {});
+      const row = rows[0] as { commissionEarned: string; brandGmv: string; brands: { brandName: string; commission: string }[] };
+
+      expect(row.commissionEarned).toBe('400.00');
+      expect(row.brandGmv).toBe('2000.00');
+      expect(row.brands.map((b) => b.brandName)).toEqual(['Big', 'Small']);
+      expect(row.brands[0].commission).toBe('275.00');
+    });
+
+    it('revenue CSV serialises the per-brand breakdown as JSON in one quoted cell', async () => {
+      vi.mocked(repo.revenueTotals).mockResolvedValue({ gmv: 1, adminMargin: 1 });
+      vi.mocked(repo.sellerPayoutsTotal).mockResolvedValue(0);
+      vi.mocked(repo.brandRevenueTotals).mockResolvedValue({ brandGmv: 1, commissionEarned: 1 });
+      vi.mocked(repo.brandRevenueBreakdown).mockResolvedValue([
+        { sellerProfileId: 's1', brandName: 'B', ordersCount: 1, gmv: 1, commission: 1 },
+      ]);
+
+      const csv = await service.getReportAsCsv('revenue', {});
+
+      expect(csv).toContain('"[{""sellerProfileId"":""s1""');
     });
 
     it('orders-by-status passes each grouped row through unchanged', async () => {

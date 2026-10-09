@@ -43,6 +43,18 @@ export class NotificationsRepository {
     return this.db.notification.count({ where: { userId, isRead: false } });
   }
 
+  findOrderForBrandAlert(orderId: string) {
+    return this.db.order.findUnique({
+      where: { id: orderId },
+      select: {
+        adminPriceTotal: true,
+        sellerProfile: { select: { user: { select: { id: true, email: true } } } },
+        shippingAddress: { select: { city: true, country: true } },
+        items: { select: { quantity: true, lineAdminTotal: true, product: { select: { name: true } } } },
+      },
+    });
+  }
+
   async findUserIdsByRole(role: Role): Promise<string[]> {
     const users = await this.db.user.findMany({ where: { role }, select: { id: true } });
     return users.map((u) => u.id);

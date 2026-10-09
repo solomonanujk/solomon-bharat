@@ -29,6 +29,7 @@ function buildProduct(overrides: Partial<Product> = {}): ProductWithMedia {
   const product: Product = {
     id: 'prod-1',
     sellerId: 'seller-1',
+    brandId: null,
     categoryId: 'cat-1',
     name: 'Table Runner',
     slug: 'table-runner',
@@ -72,6 +73,8 @@ function buildOrder(overrides: Partial<Order> = {}): Order {
   return {
     id: 'order-1',
     buyerId: 'buyer-1',
+    sellerProfileId: null,
+    checkoutId: null,
     shippingAddressId: null,
     status: OrderStatus.PAYMENT_RECEIVED,
     adminPriceTotal: new Decimal(120),

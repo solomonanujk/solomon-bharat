@@ -64,7 +64,7 @@ export const sellersController = {
   },
 
   async getMyProfile(req: Request, res: Response): Promise<void> {
-    const profile = await sellersService.getMyProfile(req.user!.id);
+    const profile = await sellersService.getMyProfileWithBrand(req.user!.id);
     sendSuccess(res, profile);
   },
 

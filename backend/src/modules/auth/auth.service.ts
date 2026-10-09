@@ -10,15 +10,25 @@ import {
   verifyRefreshToken,
 } from '../../utils/jwt';
 import { SafeUser, toSafeUser } from '../../utils/safeUser';
+import { toBrandSummary } from '../../utils/brandSummary';
 import { mailProvider } from '../../providers/mail';
 import { AuthRepository, authRepository } from './auth.repository';
-import { AuthResult, LoginInput, SignupBuyerInput, TokenPair } from './auth.types';
+import { AuthResult, LoginInput, SessionUser, SignupBuyerInput, TokenPair } from './auth.types';
 
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1h
 
 export class AuthService {
   constructor(private readonly repo: AuthRepository = authRepository) {}
+
+  /** Adds sellerType + brand summary for SELLER accounts so the portal can pick its UI without a second call. */
+  private async toSessionUser(user: User): Promise<SessionUser> {
+    const safe = toSafeUser(user);
+    if (user.role !== 'SELLER') return safe;
+    const profile = await this.repo.findSellerProfileWithBrandByUserId(user.id);
+    if (!profile) return safe;
+    return { ...safe, sellerType: profile.sellerType, brand: profile.brand ? toBrandSummary(profile.brand) : null };
+  }
 
   private async issueTokenPair(user: User): Promise<TokenPair> {
     const rawRefreshToken = generateOpaqueToken();
@@ -83,7 +93,7 @@ export class AuthService {
     }
 
     const tokens = await this.issueTokenPair(user);
-    return { user: toSafeUser(user), tokens };
+    return { user: await this.toSessionUser(user), tokens };
   }
 
   /**
@@ -146,7 +156,7 @@ export class AuthService {
     }
 
     const tokens = await this.issueTokenPair(user);
-    return { user: toSafeUser(user), tokens };
+    return { user: await this.toSessionUser(user), tokens };
   }
 
   /**
@@ -154,13 +164,13 @@ export class AuthService {
    * frontend's Next.js middleware to enforce server-side route protection (the access token
    * lives only in browser memory, so middleware has no other way to know who's logged in).
    */
-  async validateSession(rawRefreshToken: string): Promise<SafeUser> {
+  async validateSession(rawRefreshToken: string): Promise<SessionUser> {
     const { userId } = await this.verifyRefreshTokenRecord(rawRefreshToken);
     const user = await this.repo.findUserById(userId);
     if (!user || user.status !== 'ACTIVE') {
       throw AppError.unauthorized('Account is no longer active');
     }
-    return toSafeUser(user);
+    return this.toSessionUser(user);
   }
 
   async logout(rawRefreshToken: string | undefined): Promise<void> {
@@ -222,12 +232,12 @@ export class AuthService {
     await this.repo.revokeAllRefreshTokensForUser(record.userId);
   }
 
-  async getMe(userId: string): Promise<SafeUser> {
+  async getMe(userId: string): Promise<SessionUser> {
     const user = await this.repo.findUserById(userId);
     if (!user) {
       throw AppError.notFound('User not found');
     }
-    return toSafeUser(user);
+    return this.toSessionUser(user);
   }
 }
 

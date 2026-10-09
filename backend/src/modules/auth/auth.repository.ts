@@ -1,4 +1,4 @@
-import { PrismaClient, Role, User } from '@prisma/client';
+import { Brand, PrismaClient, Role, SellerProfile, User } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { SignupBuyerInput } from './auth.types';
 
@@ -7,6 +7,10 @@ export class AuthRepository {
 
   findUserByEmail(email: string): Promise<User | null> {
     return this.db.user.findUnique({ where: { email } });
+  }
+
+  findSellerProfileWithBrandByUserId(userId: string): Promise<(SellerProfile & { brand: Brand | null }) | null> {
+    return this.db.sellerProfile.findUnique({ where: { userId }, include: { brand: true } });
   }
 
   findUserById(id: string): Promise<User | null> {

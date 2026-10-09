@@ -149,6 +149,17 @@ describe('BuyersService', () => {
       expect(repo.addWishlistItem).not.toHaveBeenCalled();
     });
 
+    it('rejects wishlisting a product of a suspended brand', async () => {
+      vi.mocked(prisma.product.findUnique).mockResolvedValue({
+        id: 'prod-1',
+        deletedAt: null,
+        isPublished: true,
+        brand: { status: 'SUSPENDED' },
+      } as never);
+      await expect(service.addToWishlist('buyer-1', 'prod-1')).rejects.toMatchObject({ statusCode: 404 });
+      expect(repo.addWishlistItem).not.toHaveBeenCalled();
+    });
+
     it('is idempotent — does not error or duplicate if already wishlisted', async () => {
       vi.mocked(prisma.product.findUnique).mockResolvedValue({
         id: 'prod-1',
@@ -235,6 +246,44 @@ describe('BuyersService', () => {
   });
 
   describe('wishlist listing and removal', () => {
+    const wishRow = (id: string, brand: unknown) => ({
+      id: `wish-${id}`,
+      createdAt: new Date(),
+      product: {
+        id,
+        name: id,
+        slug: id,
+        adminPrice: { toString: () => '20' },
+        moq: 10,
+        leadTime: null,
+        images: [],
+        brand,
+      },
+    });
+
+    it('listWishlist attaches the whitelisted brand summary (null for curated)', async () => {
+      vi.mocked(repo.findWishlist).mockResolvedValue([
+        wishRow('curated', null),
+        wishRow('branded', {
+          id: 'b1', name: 'Acme', slug: 'acme', logoUrl: null, isVerified: true, status: 'ACTIVE', minOrderValueInr: { toString: () => '500' },
+        }),
+      ] as never);
+      const items = await service.listWishlist('buyer-1');
+      expect(items[0].product.brand).toBeNull();
+      expect(items[1].product.brand).toEqual({
+        id: 'b1', name: 'Acme', slug: 'acme', logoUrl: null, isVerified: true, minOrderValueInr: 500,
+      });
+    });
+
+    it('listWishlist drops products of a suspended brand', async () => {
+      vi.mocked(repo.findWishlist).mockResolvedValue([
+        wishRow('hidden', {
+          id: 'b2', name: 'Bad', slug: 'bad', logoUrl: null, isVerified: false, status: 'SUSPENDED', minOrderValueInr: 0,
+        }),
+      ] as never);
+      await expect(service.listWishlist('buyer-1')).resolves.toEqual([]);
+    });
+
     it('listWishlist maps product prices to strings and picks the first image', async () => {
       vi.mocked(repo.findWishlist).mockResolvedValue([
         {

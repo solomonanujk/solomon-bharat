@@ -22,6 +22,11 @@ export class MockPaymentProvider implements PaymentProvider {
     return { providerOrderId, approveUrl: null };
   }
 
+  /** Mock mode has no signing secret to check against, so verification is skipped. */
+  async verifyWebhook(): Promise<boolean> {
+    return true;
+  }
+
   async captureOrder(providerOrderId: string): Promise<CaptureOrderResult> {
     const providerPaymentId = `MOCK-CAPTURE-${crypto.randomUUID()}`;
     logger.info(

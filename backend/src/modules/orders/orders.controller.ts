@@ -6,6 +6,8 @@ import { buyersService } from '../buyers/buyers.service';
 import { ordersService } from './orders.service';
 import {
   AdminOrderListQueryDto,
+  BrandOrderListQueryDto,
+  BrandShipDto,
   CancelOrderDto,
   ExportDocumentsDto,
   ProcureDto,
@@ -42,6 +44,35 @@ export const ordersController = {
     const pagination = req.query as unknown as PaginationQuery;
     const { data, total } = await ordersService.listItemsForSeller(sellerProfileId, pagination);
     sendSuccess(res, data, 'Order items retrieved', 200, buildPaginationMeta(total, pagination));
+  },
+
+  async listBrand(req: Request, res: Response): Promise<void> {
+    const sellerProfileId = await resolveSellerProfileId(req.user!.id);
+    const { status, ...pagination } = req.query as unknown as BrandOrderListQueryDto;
+    const { data, total } = await ordersService.listForBrand(sellerProfileId, status, pagination);
+    sendSuccess(res, data, 'Brand orders retrieved', 200, buildPaginationMeta(total, pagination));
+  },
+
+  async getBrand(req: Request, res: Response): Promise<void> {
+    const sellerProfileId = await resolveSellerProfileId(req.user!.id);
+    sendSuccess(res, await ordersService.getForBrand(sellerProfileId, req.params.id));
+  },
+
+  async brandConfirm(req: Request, res: Response): Promise<void> {
+    const sellerProfileId = await resolveSellerProfileId(req.user!.id);
+    sendSuccess(res, await ordersService.brandConfirm(sellerProfileId, req.params.id), 'Order confirmed');
+  },
+
+  async brandShip(req: Request, res: Response): Promise<void> {
+    const sellerProfileId = await resolveSellerProfileId(req.user!.id);
+    const dto = req.body as BrandShipDto;
+    const order = await ordersService.brandShip(sellerProfileId, req.params.id, dto.trackingNumber, dto.carrier);
+    sendSuccess(res, order, 'Order marked as shipped');
+  },
+
+  async brandDeliver(req: Request, res: Response): Promise<void> {
+    const sellerProfileId = await resolveSellerProfileId(req.user!.id);
+    sendSuccess(res, await ordersService.brandDeliver(sellerProfileId, req.params.id), 'Order marked as delivered');
   },
 
   async listAdmin(req: Request, res: Response): Promise<void> {

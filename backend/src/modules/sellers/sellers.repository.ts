@@ -1,7 +1,11 @@
-import { Prisma, PrismaClient, Role, SellerApplication, SellerProfile, User } from '@prisma/client';
+import { Brand, Prisma, PrismaClient, Role, SellerApplication, SellerProfile, SellerType, User } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { PaginationQuery, toSkipTake } from '../../utils/pagination';
 import { ApplicationListFilter, SubmitApplicationInput, UpdateSellerProfileInput } from './sellers.types';
+
+/** Public-safe brand reference shown next to a seller in admin lists (no legal/rate fields). */
+const ADMIN_BRAND_REF_SELECT = { id: true, name: true, slug: true, status: true, isVerified: true } as const;
+type AdminBrandRef = Prisma.BrandGetPayload<{ select: typeof ADMIN_BRAND_REF_SELECT }>;
 
 export class SellersRepository {
   constructor(private readonly db: PrismaClient = prisma) {}
@@ -50,10 +54,17 @@ export class SellersRepository {
     return this.db.user.findUnique({ where: { email } });
   }
 
+  /**
+   * Creates the SELLER account + profile from an approved application. For a MARKETPLACE
+   * application `brandSlug` must be supplied and the Brand row is created in the same
+   * nested write (one transaction), so a MARKETPLACE profile never exists without its brand.
+   */
   async createSellerUserAndProfile(
     application: SellerApplication,
     passwordHash: string,
-  ): Promise<{ user: User; profile: SellerProfile }> {
+    brandSlug?: string,
+  ): Promise<{ user: User; profile: SellerProfile; brand: Brand | null }> {
+    const isMarketplace = application.sellerType === SellerType.MARKETPLACE && brandSlug !== undefined;
     const user = await this.db.user.create({
       data: {
         email: application.email,
@@ -67,12 +78,39 @@ export class SellersRepository {
             contactName: application.contactName,
             phone: application.phone,
             businessAddress: application.businessAddress,
+            sellerType: isMarketplace ? SellerType.MARKETPLACE : SellerType.CURATED,
+            ...(isMarketplace
+              ? {
+                  brand: {
+                    create: {
+                      name: application.brandName ?? application.businessName,
+                      slug: brandSlug,
+                      logoUrl: application.brandLogoUrl,
+                      bannerUrl: application.brandBannerUrl,
+                      story: application.brandStory,
+                      website: application.brandWebsite ?? application.websiteOrSocialLink,
+                      country: application.country,
+                      minOrderValueInr: application.minOrderValueInr ?? 0,
+                    },
+                  },
+                }
+              : {}),
           },
         },
       },
-      include: { sellerProfile: true },
+      include: { sellerProfile: { include: { brand: true } } },
     });
-    return { user, profile: user.sellerProfile as SellerProfile };
+    const profile = user.sellerProfile as SellerProfile & { brand: Brand | null };
+    return { user, profile, brand: profile.brand ?? null };
+  }
+
+  async brandSlugExists(slug: string): Promise<boolean> {
+    const count = await this.db.brand.count({ where: { slug } });
+    return count > 0;
+  }
+
+  findSellerProfileWithBrandByUserId(userId: string): Promise<(SellerProfile & { brand: Brand | null }) | null> {
+    return this.db.sellerProfile.findUnique({ where: { userId }, include: { brand: true } });
   }
 
   findSellerProfileByUserId(userId: string): Promise<SellerProfile | null> {
@@ -93,12 +131,12 @@ export class SellersRepository {
 
   async findSellers(
     pagination: PaginationQuery,
-  ): Promise<{ data: (SellerProfile & { user: User })[]; total: number }> {
+  ): Promise<{ data: (SellerProfile & { user: User; brand: AdminBrandRef | null })[]; total: number }> {
     const where = { deletedAt: null };
     const [data, total] = await Promise.all([
       this.db.sellerProfile.findMany({
         where,
-        include: { user: true },
+        include: { user: true, brand: { select: ADMIN_BRAND_REF_SELECT } },
         orderBy: { createdAt: 'desc' },
         ...toSkipTake(pagination),
       }),
@@ -107,8 +145,13 @@ export class SellersRepository {
     return { data, total };
   }
 
-  findSellerWithUserById(id: string): Promise<(SellerProfile & { user: User }) | null> {
-    return this.db.sellerProfile.findUnique({ where: { id }, include: { user: true } });
+  findSellerWithUserById(
+    id: string,
+  ): Promise<(SellerProfile & { user: User; brand: AdminBrandRef | null }) | null> {
+    return this.db.sellerProfile.findUnique({
+      where: { id },
+      include: { user: true, brand: { select: ADMIN_BRAND_REF_SELECT } },
+    });
   }
 
   // ─── House seller profile (admin-authored products with no real seller) ──────

@@ -88,6 +88,29 @@ describe('AdminRepository', () => {
     expect(arg.where.createdAt).toBeUndefined();
   });
 
+  it('brandRevenueTotals only counts brand orders (sellerProfileId set) and returns commission as margin', async () => {
+    db.order.aggregate.mockResolvedValue({ _sum: { adminPriceTotal: 800, adminMargin: 200 } });
+    await expect(repo.brandRevenueTotals({})).resolves.toEqual({ brandGmv: 800, commissionEarned: 200 });
+    const arg = db.order.aggregate.mock.calls[0][0];
+    expect(arg.where.sellerProfileId).toEqual({ not: null });
+  });
+
+  it('brandRevenueBreakdown groups by brand and resolves the brand name', async () => {
+    db.order.groupBy.mockResolvedValue([
+      { sellerProfileId: 's1', _count: { _all: 2 }, _sum: { adminPriceTotal: 100, adminMargin: 25 } },
+    ]);
+    db.sellerProfile.findMany.mockResolvedValue([{ id: 's1', businessName: 'Legal Co', brand: { name: 'Brand One' } }]);
+    await expect(repo.brandRevenueBreakdown({})).resolves.toEqual([
+      { sellerProfileId: 's1', brandName: 'Brand One', ordersCount: 2, gmv: 100, commission: 25 },
+    ]);
+  });
+
+  it('brandRevenueBreakdown returns [] without a seller lookup when there are no brand orders', async () => {
+    db.order.groupBy.mockResolvedValue([]);
+    await expect(repo.brandRevenueBreakdown({})).resolves.toEqual([]);
+    expect(db.sellerProfile.findMany).not.toHaveBeenCalled();
+  });
+
   it('sellerPayoutsTotal scopes to PAID payouts, filtered by paidAt when a range is given', async () => {
     db.payout.aggregate.mockResolvedValue({ _sum: { amount: 200 } });
     const from = new Date('2026-01-01');

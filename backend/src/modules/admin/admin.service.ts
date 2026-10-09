@@ -5,6 +5,7 @@ import { toSafeUser, SafeUser } from '../../utils/safeUser';
 import { PaginationQuery } from '../../utils/pagination';
 import { AdminRepository, adminRepository } from './admin.repository';
 import {
+  BrandRevenueRow,
   CategoryPerformanceRow,
   CollectionPerformanceRow,
   DashboardSummary,
@@ -26,8 +27,13 @@ function toCsv(rows: ReportRow[]): string {
   for (const row of records) {
     const values = headers.map((h) => {
       const value = row[h];
-      const str = value === undefined || value === null ? '' : String(value);
-      return str.includes(',') ? `"${str.replace(/"/g, '""')}"` : str;
+      const str =
+        value === undefined || value === null
+          ? ''
+          : typeof value === 'object'
+            ? JSON.stringify(value)
+            : String(value);
+      return str.includes(',') || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
     });
     lines.push(values.join(','));
   }
@@ -47,6 +53,7 @@ export class AdminService {
       totalGMV,
       totalBuyers,
       totalApprovedSellers,
+      brandTotals,
     ] = await Promise.all([
       this.repo.countPendingSellerApplications(),
       this.repo.countPendingProductReviews(),
@@ -56,6 +63,7 @@ export class AdminService {
       this.repo.totalGMV(),
       this.repo.countTotalBuyers(),
       this.repo.countTotalApprovedSellers(),
+      this.repo.brandRevenueTotals({}),
     ]);
 
     return {
@@ -68,15 +76,37 @@ export class AdminService {
       totalGMV: totalGMV.toFixed(2),
       totalBuyers,
       totalApprovedSellers,
+      commissionEarned: brandTotals.commissionEarned.toFixed(2),
+      brandGmv: brandTotals.brandGmv.toFixed(2),
     };
   }
 
   private async revenueReport(range: DateRangeFilter): Promise<RevenueReport[]> {
-    const [{ gmv, adminMargin }, sellerPayouts] = await Promise.all([
+    const [{ gmv, adminMargin }, sellerPayouts, brandTotals, brandRows] = await Promise.all([
       this.repo.revenueTotals(range),
       this.repo.sellerPayoutsTotal(range),
+      this.repo.brandRevenueTotals(range),
+      this.repo.brandRevenueBreakdown(range),
     ]);
-    return [{ gmv: gmv.toFixed(2), adminMargin: adminMargin.toFixed(2), sellerPayouts: sellerPayouts.toFixed(2) }];
+    const brands: BrandRevenueRow[] = brandRows
+      .map((b) => ({
+        sellerProfileId: b.sellerProfileId,
+        brandName: b.brandName,
+        ordersCount: b.ordersCount,
+        gmv: b.gmv.toFixed(2),
+        commission: b.commission.toFixed(2),
+      }))
+      .sort((a, b) => Number(b.gmv) - Number(a.gmv));
+    return [
+      {
+        gmv: gmv.toFixed(2),
+        adminMargin: adminMargin.toFixed(2),
+        sellerPayouts: sellerPayouts.toFixed(2),
+        commissionEarned: brandTotals.commissionEarned.toFixed(2),
+        brandGmv: brandTotals.brandGmv.toFixed(2),
+        brands,
+      },
+    ];
   }
 
   private async ordersByStatusReport(range: DateRangeFilter): Promise<OrdersByStatusRow[]> {

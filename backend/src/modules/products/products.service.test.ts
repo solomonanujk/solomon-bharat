@@ -55,6 +55,7 @@ function buildProduct(overrides: Partial<Product> = {}): Product {
   return {
     id: 'prod-1',
     sellerId: 'seller-1',
+    brandId: null,
     categoryId: 'cat-l3-1',
     name: 'Table Runner',
     slug: 'table-runner',
@@ -116,6 +117,9 @@ function buildMockRepo(): ProductsRepository {
     findTrending: vi.fn(),
     findRecommended: vi.fn(),
     findRelated: vi.fn(),
+    findMoreFromBrand: vi.fn().mockResolvedValue([]),
+    findBrandFacets: vi.fn(),
+    findSellerContext: vi.fn().mockResolvedValue({ sellerType: 'CURATED', brand: null }),
     findForSeller: vi.fn(),
     findForAdmin: vi.fn(),
     findPendingPricingChange: vi.fn().mockResolvedValue(null),

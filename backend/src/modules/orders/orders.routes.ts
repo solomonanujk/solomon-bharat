@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { ordersController } from './orders.controller';
 import {
   adminOrderListQuerySchema,
+  brandOrderListQuerySchema,
+  brandShipSchema,
   cancelOrderSchema,
   exportDocumentsSchema,
   idParamSchema,
@@ -11,7 +13,13 @@ import {
 } from './orders.validation';
 import { paginationQuerySchema } from '../../utils/pagination';
 import { validate } from '../../middleware/validate';
-import { requireAdmin, requireAuth, requireBuyerOrAgent, requireSeller } from '../../middleware/auth';
+import {
+  requireAdmin,
+  requireAuth,
+  requireBuyerOrAgent,
+  requireMarketplaceSeller,
+  requireSeller,
+} from '../../middleware/auth';
 import { asyncHandler } from '../../utils/asyncHandler';
 
 export const ordersRouter = Router();
@@ -69,6 +77,100 @@ ordersRouter.get(
   requireSeller,
   validate(paginationQuerySchema, 'query'),
   asyncHandler(ordersController.listSellerItems),
+);
+
+// ── Marketplace brand fulfilment ─────────────────────────────────────
+
+/**
+ * @openapi
+ * /orders/brand:
+ *   get:
+ *     summary: List my brand's orders with buyer name/phone/shipping address and commission breakdown (marketplace SELLER only)
+ *     tags: [Orders]
+ *     parameters:
+ *       - { in: query, name: status, schema: { type: string } }
+ *       - { in: query, name: page, schema: { type: integer } }
+ *       - { in: query, name: limit, schema: { type: integer } }
+ *     responses:
+ *       200: { description: Brand orders list }
+ */
+ordersRouter.get(
+  '/brand',
+  requireAuth,
+  requireMarketplaceSeller,
+  validate(brandOrderListQuerySchema, 'query'),
+  asyncHandler(ordersController.listBrand),
+);
+
+/**
+ * @openapi
+ * /orders/brand/{id}:
+ *   get:
+ *     summary: Get one of my brand's orders (marketplace SELLER, own orders only)
+ *     tags: [Orders]
+ *     responses:
+ *       200: { description: Brand order detail }
+ *       403: { description: Order belongs to another brand }
+ */
+ordersRouter.get(
+  '/brand/:id',
+  requireAuth,
+  requireMarketplaceSeller,
+  validate(idParamSchema, 'params'),
+  asyncHandler(ordersController.getBrand),
+);
+
+/**
+ * @openapi
+ * /orders/brand/{id}/confirm:
+ *   post:
+ *     summary: Confirm a paid order, PAYMENT_RECEIVED to CONFIRMED (marketplace SELLER)
+ *     tags: [Orders]
+ *     responses:
+ *       200: { description: Order confirmed }
+ */
+ordersRouter.post(
+  '/brand/:id/confirm',
+  requireAuth,
+  requireMarketplaceSeller,
+  validate(idParamSchema, 'params'),
+  asyncHandler(ordersController.brandConfirm),
+);
+
+/**
+ * @openapi
+ * /orders/brand/{id}/ship:
+ *   post:
+ *     summary: Ship a confirmed order with a tracking number, CONFIRMED to IN_TRANSIT (marketplace SELLER)
+ *     tags: [Orders]
+ *     requestBody: { required: true }
+ *     responses:
+ *       200: { description: Order shipped }
+ */
+ordersRouter.post(
+  '/brand/:id/ship',
+  requireAuth,
+  requireMarketplaceSeller,
+  validate(idParamSchema, 'params'),
+  validate(brandShipSchema),
+  asyncHandler(ordersController.brandShip),
+);
+
+/**
+ * @openapi
+ * /orders/brand/{id}/deliver:
+ *   post:
+ *     summary: Mark an in-transit order delivered, IN_TRANSIT to DELIVERED; creates the brand payout (marketplace SELLER)
+ *     tags: [Orders]
+ *     responses:
+ *       200: { description: Order delivered }
+ */
+ordersRouter.post(
+  '/brand/:id/deliver',
+  requireAuth,
+  requireMarketplaceSeller,
+  validate(idParamSchema, 'params'),
+  asyncHandler(ordersController.brandDeliver),
 );
 
 // ── Admin ────────────────────────────────────────────────────────────

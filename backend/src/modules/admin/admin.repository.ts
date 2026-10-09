@@ -86,6 +86,55 @@ export class AdminRepository {
     };
   }
 
+  /** Brand (marketplace) orders only: their adminMargin is the commission once the order is paid. */
+  async brandRevenueTotals(range: DateRangeFilter): Promise<{ brandGmv: number; commissionEarned: number }> {
+    const result = await this.db.order.aggregate({
+      where: {
+        status: { in: REVENUE_COUNTING_STATUSES },
+        deletedAt: null,
+        sellerProfileId: { not: null },
+        ...createdAtRange(range),
+      },
+      _sum: { adminPriceTotal: true, adminMargin: true },
+    });
+    return {
+      brandGmv: Number(result._sum.adminPriceTotal ?? 0),
+      commissionEarned: Number(result._sum.adminMargin ?? 0),
+    };
+  }
+
+  async brandRevenueBreakdown(
+    range: DateRangeFilter,
+  ): Promise<{ sellerProfileId: string; brandName: string; ordersCount: number; gmv: number; commission: number }[]> {
+    const rows = await this.db.order.groupBy({
+      by: ['sellerProfileId'],
+      where: {
+        status: { in: REVENUE_COUNTING_STATUSES },
+        deletedAt: null,
+        sellerProfileId: { not: null },
+        ...createdAtRange(range),
+      },
+      _count: { _all: true },
+      _sum: { adminPriceTotal: true, adminMargin: true },
+    });
+    const ids = rows.map((r) => r.sellerProfileId).filter((id): id is string => id !== null);
+    if (ids.length === 0) return [];
+    const sellers = await this.db.sellerProfile.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, businessName: true, brand: { select: { name: true } } },
+    });
+    const nameById = new Map(sellers.map((s) => [s.id, s.brand?.name ?? s.businessName]));
+    return rows
+      .filter((r): r is typeof r & { sellerProfileId: string } => r.sellerProfileId !== null)
+      .map((r) => ({
+        sellerProfileId: r.sellerProfileId,
+        brandName: nameById.get(r.sellerProfileId) ?? 'Unknown brand',
+        ordersCount: r._count._all,
+        gmv: Number(r._sum.adminPriceTotal ?? 0),
+        commission: Number(r._sum.adminMargin ?? 0),
+      }));
+  }
+
   async sellerPayoutsTotal(range: DateRangeFilter): Promise<number> {
     const where = range.from || range.to
       ? { status: PayoutStatus.PAID, paidAt: { ...(range.from ? { gte: range.from } : {}), ...(range.to ? { lte: range.to } : {}) } }

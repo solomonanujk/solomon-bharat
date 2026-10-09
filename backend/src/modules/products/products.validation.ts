@@ -298,6 +298,8 @@ export const publicProductListQuerySchema = paginationQuerySchema.extend({
   moqMax: z.coerce.number().int().min(1).optional(),
   placeOfOrigin: z.string().max(200).optional(),
   leadTime: z.string().max(200).optional(),
+  // Brand slug — a valid scope on its own (brand storefront / "Buy more from this brand").
+  brand: z.string().min(1).max(100).optional(),
 });
 export type PublicProductListQueryDto = z.infer<typeof publicProductListQuerySchema>;
 

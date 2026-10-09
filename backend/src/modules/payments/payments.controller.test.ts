@@ -19,6 +19,7 @@ vi.mock('./payments.service', () => ({
     capture: vi.fn(),
     getPaymentStatus: vi.fn(),
     getInvoice: vi.fn(),
+    handlePayPalWebhook: vi.fn(),
   },
 }));
 
@@ -27,6 +28,7 @@ vi.mock('../buyers/buyers.service', () => ({
 }));
 
 import { createApp } from '../../app';
+import { AppError } from '../../utils/errors';
 import { authHeader } from '../../test-utils/authToken';
 import { paymentsService } from './payments.service';
 import { buyersService } from '../buyers/buyers.service';
@@ -120,6 +122,39 @@ describe('payments controller', () => {
     it('requires auth', async () => {
       const res = await request(app).get(`/api/v1/payments/orders/${ORDER_ID}/invoice`);
       expect(res.status).toBe(401);
+    });
+  });
+
+  describe('POST /api/v1/payments/webhooks/paypal', () => {
+    it('is public and hands the RAW body string + headers to the service (no JSON re-serialisation)', async () => {
+      vi.mocked(paymentsService.handlePayPalWebhook).mockResolvedValue({ handled: true });
+      const raw = '{"event_type":"PAYMENT.CAPTURE.COMPLETED",  "spaced":true}';
+      const res = await request(app)
+        .post('/api/v1/payments/webhooks/paypal')
+        .set('Content-Type', 'application/json')
+        .set('paypal-transmission-id', 'tid-1')
+        .send(raw);
+      expect(res.status).toBe(200);
+      expect(paymentsService.handlePayPalWebhook).toHaveBeenCalledWith(
+        raw,
+        expect.objectContaining({ 'paypal-transmission-id': 'tid-1' }),
+      );
+    });
+
+    it('is exempt from CSRF even if a stale csrf cookie is present', async () => {
+      vi.mocked(paymentsService.handlePayPalWebhook).mockResolvedValue({ handled: false });
+      const res = await request(app)
+        .post('/api/v1/payments/webhooks/paypal')
+        .set('Cookie', 'csrf_token=abc')
+        .set('Content-Type', 'application/json')
+        .send('{}');
+      expect(res.status).toBe(200);
+    });
+
+    it('surfaces a signature failure as 400', async () => {
+      vi.mocked(paymentsService.handlePayPalWebhook).mockRejectedValue(AppError.badRequest('Invalid webhook signature'));
+      const res = await request(app).post('/api/v1/payments/webhooks/paypal').set('Content-Type', 'application/json').send('{}');
+      expect(res.status).toBe(400);
     });
   });
 });

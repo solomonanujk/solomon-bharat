@@ -18,7 +18,14 @@ import {
   updateProductSchema,
 } from './products.validation';
 import { validate } from '../../middleware/validate';
-import { requireAdmin, requireAuth, requireBuyerOrAgent, requireSeller, optionalAuth } from '../../middleware/auth';
+import {
+  requireAdmin,
+  requireAuth,
+  requireBuyerOrAgent,
+  requireMarketplaceSeller,
+  requireSeller,
+  optionalAuth,
+} from '../../middleware/auth';
 import { uploadProductMedia } from '../../middleware/upload';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { paginationQuerySchema } from '../../utils/pagination';
@@ -113,6 +120,40 @@ productsRouter.post(
   requireSeller,
   validate(idParamSchema, 'params'),
   asyncHandler(productsController.resubmit),
+);
+
+/**
+ * @openapi
+ * /products/me/{id}/publish:
+ *   post:
+ *     summary: Re-publish one of my own approved products (marketplace brand SELLER only)
+ *     tags: [Products]
+ *     responses:
+ *       200: { description: Product published }
+ */
+productsRouter.post(
+  '/me/:id/publish',
+  requireAuth,
+  requireMarketplaceSeller,
+  validate(idParamSchema, 'params'),
+  asyncHandler(productsController.publishMine),
+);
+
+/**
+ * @openapi
+ * /products/me/{id}/unpublish:
+ *   post:
+ *     summary: Take one of my own products off the marketplace (marketplace brand SELLER only)
+ *     tags: [Products]
+ *     responses:
+ *       200: { description: Product unpublished }
+ */
+productsRouter.post(
+  '/me/:id/unpublish',
+  requireAuth,
+  requireMarketplaceSeller,
+  validate(idParamSchema, 'params'),
+  asyncHandler(productsController.unpublishMine),
 );
 
 /**
@@ -467,7 +508,11 @@ productsRouter.post(
  *       - in: query
  *         name: search
  *         schema: { type: string }
- *         description: Global search (name/description/materials) — doesn't need categoryId/collectionId.
+ *         description: Global search (name/description/materials/brand name) — doesn't need categoryId/collectionId.
+ *       - in: query
+ *         name: brand
+ *         schema: { type: string }
+ *         description: Brand slug — a valid scope on its own (brand storefront).
  *       - in: query
  *         name: sort
  *         schema: { type: string, enum: [newest, featured] }
@@ -526,13 +571,26 @@ productsRouter.get(
 
 /**
  * @openapi
+ * /products/facets/brands:
+ *   get:
+ *     summary: Active marketplace brands with their published product count (public) — powers the brand filter
+ *     tags: [Products]
+ *     security: []
+ *     responses:
+ *       200: { description: "List of { slug, name, count }" }
+ */
+// Registered before /:slug for the same reason as /facets/place-of-origin above.
+productsRouter.get('/facets/brands', asyncHandler(productsController.listBrandFacets));
+
+/**
+ * @openapi
  * /products/{slug}:
  *   get:
  *     summary: Get published product detail (public; all prices null for guests, agentPrice too when the viewer is an authenticated agent)
  *     tags: [Products]
  *     security: []
  *     responses:
- *       200: { description: Product detail with related products }
+ *       200: { description: Product detail with related products and, for brand products, moreFromBrand }
  *       404: { description: Product not found }
  */
 productsRouter.get(
