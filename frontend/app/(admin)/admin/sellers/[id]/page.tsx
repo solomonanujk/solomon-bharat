@@ -126,6 +126,16 @@ export default function AdminSellerDetailPage() {
           </div>
           <div>
             <h1 className="text-[24px] leading-[1.3] font-[500] font-sans text-[#20201E]">{seller.businessName}</h1>
+            <p className="mt-1 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-[600] font-sans bg-selected text-forest">
+                {seller.sellerType === 'MARKETPLACE' ? 'Marketplace brand' : 'Curated seller'}
+              </span>
+              {seller.brand?.name && (
+                <Link href="/admin/brands" className="text-[13px] font-sans text-forest underline underline-offset-2">
+                  {seller.brand.name}
+                </Link>
+              )}
+            </p>
             <p className="text-[13px] font-sans text-[#665F55] mt-0.5 flex items-center gap-1.5">
               <CalendarDays size={12} aria-hidden="true" />
               Seller since{' '}

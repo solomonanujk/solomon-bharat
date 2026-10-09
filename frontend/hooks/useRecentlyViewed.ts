@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import type { BrandSummary } from '@/types'
 
 const KEY = 'sb_recently_viewed'
 const MAX = 20
 
-// No seller/brand fields — sellers are never shown to buyers.
+// Curated products carry no seller identity. Marketplace products carry the public
+// brand tag only; entries cached before brands existed simply lack the field.
 export interface RecentProduct {
   id: string
   slug: string
@@ -16,6 +18,7 @@ export interface RecentProduct {
   avgRating: number | null
   reviewCount: number
   leadTime: string | null
+  brand?: BrandSummary | null
 }
 
 function read(): RecentProduct[] {

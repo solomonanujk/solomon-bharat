@@ -94,7 +94,7 @@ export default function AdminSellersPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-[#E5DCCB] bg-[#F5F0E5]/40">
-                    {['Business', 'Contact', 'Phone', 'Address', 'Created'].map((h) => (
+                    {['Business', 'Type', 'Contact', 'Phone', 'Address', 'Created'].map((h) => (
                       <th
                         key={h}
                         className="py-3 px-4 text-[12px] font-[600] font-sans text-[#665F55] uppercase tracking-[0.06em] text-left"
@@ -113,6 +113,19 @@ export default function AdminSellersPage() {
                     >
                       <td className="py-3.5 px-4">
                         <p className="text-[13px] font-[600] font-sans text-[#20201E]">{seller.businessName}</p>
+                        {seller.brand?.name && (
+                          <p className="text-[12px] font-sans text-[#665F55]">Brand: {seller.brand.name}</p>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={cn(
+                            'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-[600] font-sans',
+                            seller.sellerType === 'MARKETPLACE' ? 'bg-selected text-forest' : 'bg-ivory text-muted',
+                          )}
+                        >
+                          {seller.sellerType === 'MARKETPLACE' ? 'Marketplace' : 'Curated'}
+                        </span>
                       </td>
                       <td className="py-3.5 px-4 text-[13px] font-sans text-[#665F55]">{seller.contactName}</td>
                       <td className="py-3.5 px-4 text-[13px] font-sans text-[#665F55] whitespace-nowrap">{seller.phone}</td>

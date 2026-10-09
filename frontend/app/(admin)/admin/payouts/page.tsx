@@ -20,7 +20,8 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { Payout, PayoutStatus } from '@/types'
+import type { PayoutStatus } from '@/types'
+import type { AdminPayout } from '@/types/brand-admin'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,16 @@ function shortId(id: string) {
 
 function formatCurrency(amount: number) {
   return `₹${amount.toLocaleString('en-IN')}`
+}
+
+function toNum(v: string | number | null | undefined): number | null {
+  if (v == null) return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+function isBrandPayout(p: AdminPayout) {
+  return p.seller?.sellerType === 'MARKETPLACE'
 }
 
 function formatDate(value: string | null) {
@@ -48,7 +59,7 @@ function PayoutRow({
   onToggle,
   onEditNotes,
 }: {
-  payout: Payout
+  payout: AdminPayout
   showCheckbox: boolean
   selected: boolean
   onToggle: () => void
@@ -56,6 +67,10 @@ function PayoutRow({
 }) {
   const markPaid = useMarkPayoutPaid()
   const isPending = payout.status === 'PENDING'
+  const brand = isBrandPayout(payout)
+  const gross = toNum(payout.grossAmount)
+  const commissionAmount = toNum(payout.commissionAmount)
+  const commissionRate = toNum(payout.commissionRate)
 
   return (
     <tr className="border-b border-[#E5DCCB] last:border-0 hover:bg-[#F5F0E5]/30 transition-colors">
@@ -84,11 +99,32 @@ function PayoutRow({
           className="hover:text-[#20201E] hover:underline underline-offset-2 transition-colors"
           title={payout.sellerId}
         >
-          {shortId(payout.sellerId)}
+          {payout.seller?.brandName ?? payout.seller?.businessName ?? shortId(payout.sellerId)}
         </Link>
+        {payout.seller?.sellerType && (
+          <span
+            className={cn(
+              'ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-[600] font-sans align-middle',
+              brand ? 'bg-selected text-forest' : 'bg-ivory text-muted',
+            )}
+          >
+            {brand ? 'Marketplace' : 'Curated'}
+          </span>
+        )}
       </td>
-      <td className="py-3.5 px-4 text-right text-[13px] font-[600] font-sans text-[#20201E]">
-        {formatCurrency(payout.amount)}
+      <td className="py-3.5 px-4 text-right text-[13px] font-sans text-[#20201E] tabular-nums whitespace-nowrap">
+        {brand && gross != null ? formatCurrency(gross) : <span className="text-[#665F55]">—</span>}
+      </td>
+      <td className="py-3.5 px-4 text-right text-[13px] font-sans text-[#20201E] tabular-nums whitespace-nowrap">
+        {brand && commissionAmount != null ? (
+          <>
+            {formatCurrency(commissionAmount)}
+            {commissionRate != null && <span className="block text-[11px] text-[#665F55]">{commissionRate}%</span>}
+          </>
+        ) : <span className="text-[#665F55]">—</span>}
+      </td>
+      <td className="py-3.5 px-4 text-right text-[13px] font-[600] font-sans text-[#20201E] tabular-nums whitespace-nowrap">
+        {formatCurrency(Number(payout.amount))}
       </td>
       <td className="py-3.5 px-4">
         <StatusBadge status={payout.status} />
@@ -146,7 +182,7 @@ export default function AdminPayoutsPage() {
   const [tab, setTab] = useState<'PENDING' | 'ALL'>('PENDING')
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [editingPayout, setEditingPayout] = useState<Payout | null>(null)
+  const [editingPayout, setEditingPayout] = useState<AdminPayout | null>(null)
   const [noteDraft, setNoteDraft] = useState('')
 
   const status: PayoutStatus | undefined = tab === 'PENDING' ? 'PENDING' : undefined
@@ -190,7 +226,7 @@ export default function AdminPayoutsPage() {
     bulkPaid.mutate(Array.from(selected), { onSuccess: () => setSelected(new Set()) })
   }
 
-  function openNotes(payout: Payout) {
+  function openNotes(payout: AdminPayout) {
     setEditingPayout(payout)
     setNoteDraft(payout.notes ?? '')
   }
@@ -282,12 +318,12 @@ export default function AdminPayoutsPage() {
                         />
                       )}
                     </th>
-                    {['Order', 'Seller', 'Amount', 'Status', 'Paid', 'Notes', 'Created', ''].map((h) => (
+                    {['Order', 'Seller', 'Gross', 'Commission', 'Net payout', 'Status', 'Paid', 'Notes', 'Created', ''].map((h) => (
                       <th
                         key={h}
                         className={cn(
                           'py-3 px-4 text-[12px] font-[600] font-sans text-[#665F55] uppercase tracking-[0.06em]',
-                          h === 'Amount' ? 'text-right' : 'text-left'
+                          ['Gross', 'Commission', 'Net payout'].includes(h) ? 'text-right' : 'text-left'
                         )}
                       >
                         {h}

@@ -7,6 +7,7 @@ import { Check, ChevronDown, Eye, EyeOff, Film, GripVertical, Lightbulb, Search,
 import { Button } from '@/components/ui/button'
 import { useCategoryTree } from '@/hooks/queries/useCategories'
 import { useAdminSellers } from '@/hooks/queries/useSellers'
+import { useSellerType } from '@/hooks/queries/useBrandPortal'
 import {
   useSubmitProduct,
   useUpdateMyProduct,
@@ -27,6 +28,10 @@ import { getApiError } from '@/lib/getApiError'
 import { cloudinaryFill, cloudinaryFit } from '@/lib/cloudinaryImage'
 import { ECO_MATERIALS, ECO_PACKAGING, ECO_PRODUCTION } from '@/lib/ecoAttributes'
 import { INDIAN_PLACES } from '@/lib/indianPlaces'
+import { formatINR } from '@/lib/utils'
+import {
+  TierPriceEditor, cheapestTierPrice, hasTierErrors, tiersToPayload, validateTiers, type TierRow,
+} from '@/components/seller-portal/TierPriceEditor'
 import type { AdminProduct, MyProduct, VariantStatus } from '@/types'
 
 const MIN_IMAGES = 2
@@ -187,6 +192,9 @@ function hydrateVariants(product: MyProduct | AdminProduct | undefined) {
   const axisValues = new Set<string>()
   const pricing: Record<string, VariantPricing> = {}
   const colorSwatches: Record<string, string> = {}
+  const tiers: Record<string, TierRow[]> = {}
+  const toRows = (list: { moq: number; sellerPrice: number }[]): TierRow[] =>
+    [...list].sort((a, b) => a.moq - b.moq).map((t) => ({ moq: String(t.moq), price: String(t.sellerPrice) }))
 
   for (const v of variants) {
     const attrs = v.attributes?.length ? v.attributes : [{ name: v.type, value: v.value }]
@@ -200,6 +208,7 @@ function hydrateVariants(product: MyProduct | AdminProduct | undefined) {
       }
     }
     const tier = v.priceTiers?.[0]
+    if (v.priceTiers?.length) tiers[key] = toRows(v.priceTiers)
     pricing[key] = {
       sku: v.sku ?? '',
       price: tier ? String(tier.sellerPrice) : '',
@@ -216,6 +225,11 @@ function hydrateVariants(product: MyProduct | AdminProduct | undefined) {
   }
 
   const hasOptions: '' | 'yes' | 'no' = variants.length > 0 ? 'yes' : product ? 'no' : ''
+  if (variants.length === 0 && product) {
+    tiers.single = product.priceTiers?.length
+      ? toRows(product.priceTiers)
+      : [{ moq: String(Math.max(1, product.moq || 1)), price: String(product.sellerPrice) }]
+  }
   const dims = parseDimensions(product?.dimensions)
   const singlePricing: Record<string, VariantPricing> | null =
     variants.length === 0 && product
@@ -232,6 +246,7 @@ function hydrateVariants(product: MyProduct | AdminProduct | undefined) {
   return {
     size: Array.from(size), axisType, axisValues: Array.from(axisValues),
     pricing: singlePricing ?? pricing, colorSwatches, hasOptions, optionsSaved: hasOptions !== '',
+    tiers, moq: product ? Math.max(1, product.moq || 1) : 1,
   }
 }
 
@@ -241,6 +256,9 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const isAdminMode = mode !== 'seller'
   const isAdminCreate = mode === 'admin-create'
   const isEdit = !!product
+  const { isMarketplace: sellerIsMarketplace } = useSellerType()
+  /** Marketplace brand: sets the buyer price directly; publishes immediately, no admin review. */
+  const isBrand = !isAdminMode && sellerIsMarketplace
 
   const submitMutation = useSubmitProduct()
   const sellerUpdateMutation = useUpdateMyProduct()
@@ -413,6 +431,11 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const [axisValues, setAxisValues] = useState<string[]>(hydrated.axisValues)
   const [variantPricing, setVariantPricing] = useState<Record<string, VariantPricing>>(hydrated.pricing)
   const [colorSwatches, setColorSwatches] = useState<Record<string, string>>(hydrated.colorSwatches)
+  // Marketplace brands only: quantity-tier price ladders per option (keyed like variantPricing)
+  // and the product MOQ that pins every ladder's first tier.
+  const [brandMoq, setBrandMoq] = useState(String(hydrated.moq))
+  const [brandTiers, setBrandTiers] = useState<Record<string, TierRow[]>>(hydrated.tiers)
+  const [showTierErrors, setShowTierErrors] = useState(false)
   // Where each color's swatch is cropped (0-100%) — lifted up here (not local to
   // the modal) so it survives closing/reopening the modal and also drives the
   // table's own Photo column thumbnail, not just the modal's nav dots.
@@ -476,6 +499,32 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   function setVPField(key: string, field: keyof VariantPricing, value: string) {
     setVariantPricing((p) => ({ ...p, [key]: { ...(p[key] ?? defaultVP()), [field]: value } }))
   }
+  const brandMoqValid = Number.isInteger(Number(brandMoq)) && Number(brandMoq) >= 1 && brandMoq.trim() !== ''
+  const minQty = brandMoqValid ? Number(brandMoq) : 1
+  function getTiers(key: string): TierRow[] {
+    const rows = brandTiers[key]
+    return rows && rows.length > 0 ? rows : [{ moq: String(minQty), price: getVP(key).price }]
+  }
+  function setTiers(key: string, rows: TierRow[]) {
+    setBrandTiers((p) => ({ ...p, [key]: rows }))
+  }
+  function tiersInvalid(key: string): boolean {
+    return hasTierErrors(validateTiers(getTiers(key), minQty))
+  }
+  /** The option's headline ("from") price: its cheapest tier for a brand, the typed price otherwise. */
+  function optionPrice(key: string): number {
+    if (!isBrand) return Number(getVP(key).price)
+    return tiersInvalid(key) ? NaN : (cheapestTierPrice(getTiers(key)) ?? NaN)
+  }
+  function applyTiersToAll(fromKey: string) {
+    const source = getTiers(fromKey).map((r) => ({ ...r }))
+    setBrandTiers((p) => {
+      const next = { ...p }
+      for (const c of activeCombos) next[c.key] = source.map((r) => ({ ...r }))
+      return next
+    })
+    toast.success('Applied these tiers to every option.')
+  }
   function toggleVPStatus(key: string) {
     const current = variantPricing[key]?.status ?? 'ACTIVE'
     setVariantPricing((p) => ({ ...p, [key]: { ...(p[key] ?? defaultVP()), status: current === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE' } }))
@@ -507,7 +556,13 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
     if (!hasOptions) return 'Select whether this product comes in multiple options.'
     if (hasOptions === 'yes' && !optionsSaved) return 'Finish adding product options, or choose No.'
     if (activeCombos.length === 0) return 'Add at least one product option, or choose No.'
-    const uncosted = activeCombos.find((c) => !(Number(getVP(c.key).price) > 0))
+    if (isBrand) {
+      if (!brandMoqValid || activeCombos.some((c) => tiersInvalid(c.key))) {
+        setShowTierErrors(true)
+        return 'Fix the highlighted price tiers.'
+      }
+    }
+    const uncosted = isBrand ? undefined : activeCombos.find((c) => !(Number(getVP(c.key).price) > 0))
     if (uncosted) return `Set a price for "${uncosted.label === 'Default' ? 'this product' : uncosted.label}".`
     const unweighted = activeCombos.find((c) => !(Number(getVP(c.key).weight) > 0))
     if (unweighted) return `Set a weight for "${unweighted.label === 'Default' ? 'this product' : unweighted.label}".`
@@ -522,7 +577,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
 
   function computeBase(): { sellerPrice: number; weight: number } | null {
     const rows = activeCombos.map((c) => getVP(c.key))
-    const prices = rows.map((r) => Number(r.price)).filter((n) => n > 0)
+    const prices = activeCombos.map((c) => optionPrice(c.key)).filter((n) => n > 0)
     if (prices.length !== rows.length) return null
     const weightsKg = rows
       .map((r) => (Number(r.weight) > 0 ? (r.weightUnit === 'lb' ? Number(r.weight) * 0.453592 : Number(r.weight)) : null))
@@ -558,7 +613,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
         // images in this same submission are uploaded (see newImageIndex server-side).
         imageUrl: newImageIndex === undefined ? swatchValue : undefined,
         newImageIndex,
-        priceTiers: [{ moq: 1, sellerPrice: Number(vp.price) }],
+        priceTiers: isBrand ? tiersToPayload(getTiers(combo.key), minQty) : [{ moq: 1, sellerPrice: Number(vp.price) }],
         inventory: vp.inventory ? Number(vp.inventory) : undefined,
         weight: vp.weight ? Number(vp.weight) : undefined,
         weightUnit: vp.weight ? vp.weightUnit : undefined,
@@ -569,6 +624,15 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
         tariffCode: vp.tariffCode.trim() || undefined,
       }
     })
+  }
+
+  /** Brand-only pricing fields: product MOQ plus the flat (no-option) ladder. A single flat
+   *  tier needs no ladder rows — the product price + MOQ already express it — so the flat
+   *  ladder is only sent for 2+ tiers, and sent empty otherwise to clear a stale one. */
+  function brandPricingFields(): { moq: number; priceTiers: { moq: number; sellerPrice: number }[] } | null {
+    if (!isBrand) return null
+    const flat = usingSingleRow ? getTiers('single') : []
+    return { moq: minQty, priceTiers: flat.length >= 2 ? tiersToPayload(flat, minQty) : [] }
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -593,6 +657,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       declaredStock: totalInventory(),
       sellerPrice: base.sellerPrice,
       variants: buildVariantPayload(),
+      ...brandPricingFields(),
       tags: [],
       isHandmade: false,
       placeOfOrigin: placeOfOrigin.trim() || undefined,
@@ -679,6 +744,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       declaredStock: totalInventory(),
       sellerPrice: base?.sellerPrice,
       variants: base ? buildVariantPayload() : undefined,
+      ...(base && brandMoqValid ? brandPricingFields() : {}),
       placeOfOrigin: placeOfOrigin.trim() || undefined,
       howItIsMade: howItIsMade.trim() || undefined,
       artisanName: artisanName.trim() || undefined,
@@ -716,7 +782,11 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       {isEdit && (
         <div className="flex items-center gap-3 mb-6">
           <span className="text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.05em]">Status</span>
-          <ApprovalStatusBadge status={product!.approvalStatus} />
+          {isBrand && product!.approvalStatus !== 'DRAFT' ? (
+            <span className="text-[13px] font-[600] font-sans text-primary">{product!.isPublished ? 'Published' : 'Unpublished'}</span>
+          ) : (
+            <ApprovalStatusBadge status={product!.approvalStatus} />
+          )}
         </div>
       )}
 
@@ -985,6 +1055,11 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                   <p className="text-[13px] font-sans text-muted-text max-w-lg">
                     Configure variants, pricing, and shipping in one place. One price applies to every order — no separate pricing by country.
                   </p>
+                  {isBrand && (
+                    <p className="text-[13px] font-sans text-primary max-w-lg mt-2">
+                      Set the price buyers pay per quantity tier. Solomon keeps 25% on your first order and 15% after.
+                    </p>
+                  )}
                 </div>
                 {hasOptions === 'yes' && !pricingLocked && (
                   <button type="button" onClick={() => setOptionsModalOpen(true)}
@@ -1002,7 +1077,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                       {sizeValues.length > 0 && hasOptions === 'yes' && <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Size</th>}
                       {axisType && axisValues.length > 0 && hasOptions === 'yes' && <th className="text-left py-2.5 px-3 font-[600] text-muted-text">{axisType}</th>}
                       <th className="text-left py-2.5 px-3 font-[600] text-muted-text">SKU</th>
-                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Price (₹)*</th>
+                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">{isBrand ? 'Price buyers pay*' : 'Price (₹)*'}</th>
                       <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Inventory</th>
                       <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Weight</th>
                       <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Length</th>
@@ -1075,12 +1150,24 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                               placeholder={autoSku(combo)} className={INPUT_CLS + ' h-9 w-[110px]'} />
                           </td>
                           <td className="px-3 py-2">
-                            <div className="relative w-[110px]">
-                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-text text-[13px]">₹</span>
-                              <input type="number" min="0" step="0.01" value={vp.price} disabled={pricingLocked}
-                                onChange={(e) => setVPField(combo.key, 'price', e.target.value)}
-                                className={INPUT_CLS + ' h-9 pl-6'} />
-                            </div>
+                            {isBrand ? (
+                              <span className="block w-[110px] text-primary font-[600] whitespace-nowrap">
+                                {(() => {
+                                  const from = cheapestTierPrice(getTiers(combo.key))
+                                  const count = getTiers(combo.key).length
+                                  return from != null
+                                    ? <>{count > 1 ? 'from ' : ''}{formatINR(from)}</>
+                                    : <span className="font-[400] text-muted-text">Set below</span>
+                                })()}
+                              </span>
+                            ) : (
+                              <div className="relative w-[110px]">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-text text-[13px]">₹</span>
+                                <input type="number" min="0" step="0.01" value={vp.price} disabled={pricingLocked}
+                                  onChange={(e) => setVPField(combo.key, 'price', e.target.value)}
+                                  className={INPUT_CLS + ' h-9 pl-6'} />
+                              </div>
+                            )}
                           </td>
                           <td className="px-3 py-2">
                             <input type="number" min="0" value={vp.inventory} disabled={pricingLocked}
@@ -1167,6 +1254,47 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                   </tbody>
                 </table>
               </div>
+
+              {isBrand && (
+                <div className="mt-6 border-t border-border-warm pt-6">
+                  <h3 className="text-[16px] font-[700] font-sans text-primary mb-1">Quantity pricing</h3>
+                  <p className="text-[13px] font-sans text-muted-text mb-4 max-w-lg">
+                    Lower the price as order quantity grows. The first tier starts at your minimum order quantity.
+                  </p>
+
+                  <div className="max-w-[260px] mb-5">
+                    <label htmlFor="brand-moq" className="block text-[14px] font-[600] font-sans text-primary mb-1.5">
+                      Minimum order quantity (units)
+                    </label>
+                    <input id="brand-moq" type="number" inputMode="numeric" min={1} step={1} value={brandMoq}
+                      aria-invalid={showTierErrors && !brandMoqValid}
+                      aria-describedby={showTierErrors && !brandMoqValid ? 'brand-moq-err' : undefined}
+                      onChange={(e) => setBrandMoq(e.target.value)}
+                      className={`w-full h-12 px-3 rounded border bg-surface text-[14px] font-sans text-primary focus:outline-none focus:border-forest focus:ring-2 focus:ring-forest/20 ${showTierErrors && !brandMoqValid ? 'border-error' : 'border-border-warm'}`} />
+                    {showTierErrors && !brandMoqValid && (
+                      <p id="brand-moq-err" role="alert" className="text-[12px] font-sans text-error mt-1">
+                        Enter a whole number of units, 1 or more.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-5">
+                    {activeCombos.map((combo, idx) => (
+                      <div key={combo.key} className={usingSingleRow ? '' : 'rounded-lg bg-muted-bg/30 p-4'}>
+                        <TierPriceEditor
+                          label={usingSingleRow ? undefined : combo.label}
+                          rows={getTiers(combo.key)}
+                          minQty={minQty}
+                          onChange={(rows) => setTiers(combo.key, rows)}
+                          showAllErrors={showTierErrors}
+                          disabled={pricingLocked}
+                          onApplyToAll={!usingSingleRow && activeCombos.length > 1 && idx === 0 ? () => applyTiersToAll(combo.key) : undefined}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1293,9 +1421,11 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
             <div className="w-14 h-14 rounded-full bg-forest/10 text-primary flex items-center justify-center mx-auto mb-4">
               <Check size={26} />
             </div>
-            <h2 className="text-[20px] font-[600] font-display text-primary mb-3">Submitted for review</h2>
+            <h2 className="text-[20px] font-[600] font-display text-primary mb-3">{isBrand ? 'Product published' : 'Submitted for review'}</h2>
             <p className="text-[14px] font-sans text-muted-text mb-7">
-              Your product has been submitted to Solomon Bharat for review. We&apos;ll notify you once it&apos;s live.
+              {isBrand
+                ? 'Your product is live on the marketplace. You can unpublish or edit it any time from My Products.'
+                : 'Your product has been submitted to Solomon Bharat for review. We will notify you once it is live.'}
             </p>
             <Button type="button" variant="primary" size="md" className="w-full" onClick={() => router.push(backHref)}>
               Done

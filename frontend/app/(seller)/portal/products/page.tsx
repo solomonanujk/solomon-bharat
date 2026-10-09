@@ -8,9 +8,10 @@ import { Plus, Package } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useMyProducts, useResubmitProduct, useDeleteMyProduct } from '@/hooks/queries/useProducts'
+import { useSellerType, useSetMyProductPublished } from '@/hooks/queries/useBrandPortal'
 import { useCategoryTree } from '@/hooks/queries/useCategories'
 import { categoryPathLabel } from '@/components/seller-portal/CategoryCascade'
-import { ApprovalStatusBadge } from '@/components/seller-portal/StatusBadges'
+import { ApprovalStatusBadge, ProductPublishBadge } from '@/components/seller-portal/StatusBadges'
 import { useImageLightbox } from '@/components/shared/ImageLightbox'
 import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import type { ApprovalStatus } from '@/types'
@@ -45,6 +46,11 @@ function SkeletonRows() {
   )
 }
 
+const BRAND_STATUS_FILTERS: { label: string; value: FilterValue }[] = [
+  { label: 'All', value: 'All' },
+  { label: 'Drafts', value: 'DRAFT' },
+]
+
 const PAGE_LIMIT = 20
 
 export default function ProductsPage() {
@@ -62,6 +68,9 @@ export default function ProductsPage() {
   })
   const resubmit = useResubmitProduct()
   const del = useDeleteMyProduct()
+  const { isMarketplace: isBrand } = useSellerType()
+  const setPublished = useSetMyProductPublished()
+  const statusFilters = isBrand ? BRAND_STATUS_FILTERS : STATUS_FILTERS
 
   const products = data?.items ?? []
   const total = data?.total ?? 0
@@ -87,7 +96,7 @@ export default function ProductsPage() {
             My Products
           </h1>
           <p className="text-[13px] font-sans text-[#665F55] mt-0.5">
-            Submit and manage your product catalogue.
+            {isBrand ? 'Add products, set the price buyers pay, and publish or unpublish them.' : 'Submit and manage your product catalogue.'}
           </p>
         </div>
         <Link
@@ -95,13 +104,13 @@ export default function ProductsPage() {
           className={cn(buttonVariants({ variant: 'primary', size: 'sm' }), 'gap-1.5')}
         >
           <Plus size={14} aria-hidden="true" />
-          Submit Product
+          {isBrand ? 'Add Product' : 'Submit Product'}
         </Link>
       </div>
 
       {/* Status filter tabs */}
       <div className="flex items-center gap-1 mb-5 border-b border-[#E5DCCB] overflow-x-auto">
-        {STATUS_FILTERS.map(({ label, value }) => (
+        {statusFilters.map(({ label, value }) => (
           <button
             key={value}
             type="button"
@@ -134,7 +143,9 @@ export default function ProductsPage() {
           </p>
           <p className="text-[13.5px] font-sans text-[#665F55] mb-6">
             {filter === 'All'
-              ? 'Submit your first product for Solomon Bharat’s review.'
+              ? isBrand
+                ? 'Add your first product. It goes live as soon as you publish it.'
+                : 'Submit your first product for Solomon Bharat’s review.'
               : 'Try a different filter to see your other products.'}
           </p>
           {filter === 'All' && (
@@ -143,7 +154,7 @@ export default function ProductsPage() {
               className={cn(buttonVariants({ variant: 'primary', size: 'sm' }), 'gap-1.5')}
             >
               <Plus size={14} aria-hidden="true" />
-              Submit Product
+              {isBrand ? 'Add Product' : 'Submit Product'}
             </Link>
           )}
         </div>
@@ -154,7 +165,7 @@ export default function ProductsPage() {
               <table className="w-full min-w-[720px]">
                 <thead>
                   <tr className="border-b border-[#E5DCCB] bg-[#F5F0E5]">
-                    {['', 'Product', 'Category', 'Stock', 'Status', 'Submitted', 'Actions'].map((col) => (
+                    {['', 'Product', 'Category', 'Stock', 'Status', isBrand ? 'Added' : 'Submitted', 'Actions'].map((col) => (
                       <th key={col} className="px-5 py-3 text-left text-[11px] font-[700] font-sans text-[#9CA3AF] uppercase tracking-[0.07em]">
                         {col}
                       </th>
@@ -210,8 +221,12 @@ export default function ProductsPage() {
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex flex-col gap-1">
-                            <ApprovalStatusBadge status={product.approvalStatus} />
-                            {product.approvalStatus === 'REJECTED' && product.rejectionReason && (
+                            {isBrand ? (
+                              <ProductPublishBadge approvalStatus={product.approvalStatus} isPublished={product.isPublished} />
+                            ) : (
+                              <ApprovalStatusBadge status={product.approvalStatus} />
+                            )}
+                            {!isBrand && product.approvalStatus === 'REJECTED' && product.rejectionReason && (
                               <p className="text-[11px] font-sans text-red-500 max-w-[200px] leading-snug">
                                 {product.rejectionReason}
                               </p>
@@ -240,7 +255,17 @@ export default function ProductsPage() {
                             >
                               Edit
                             </Link>
-                            {canResubmit && (
+                            {isBrand && product.approvalStatus === 'APPROVED' && (
+                              <button
+                                type="button"
+                                disabled={setPublished.isPending}
+                                onClick={() => setPublished.mutate({ id: product.id, publish: !product.isPublished })}
+                                className="text-[12px] font-[600] font-sans text-[#665F55] hover:text-[#20201E] transition-colors disabled:opacity-40"
+                              >
+                                {product.isPublished ? 'Unpublish' : 'Publish'}
+                              </button>
+                            )}
+                            {!isBrand && canResubmit && (
                               <button
                                 type="button"
                                 disabled={resubmit.isPending}

@@ -11,6 +11,7 @@ import { Footer } from '@/components/shared/Footer'
 
 const PAYMENT_ID_KEY = 'sb_checkout_payment_id'
 const ORDER_ID_KEY = 'sb_checkout_order_id'
+const CHECKOUT_ID_KEY = 'sb_checkout_id'
 
 /**
  * PayPal redirects the browser here after the buyer approves (or cancels) the
@@ -50,6 +51,7 @@ function CheckoutReturnInner() {
         if (typeof window !== 'undefined') {
           sessionStorage.removeItem(PAYMENT_ID_KEY)
           sessionStorage.removeItem(ORDER_ID_KEY)
+          sessionStorage.removeItem(CHECKOUT_ID_KEY)
         }
         setStatus('success')
       },
@@ -79,7 +81,7 @@ function CheckoutReturnInner() {
               <CheckCircle2 size={32} className="text-success" aria-hidden="true" />
               <h1 className="font-display text-[20px] font-[600] text-primary">Order confirmed</h1>
               <p className="text-[14px] font-sans text-muted-text">
-                Your payment was successful and your order has been placed.
+                Your payment was successful and your order has been placed. Orders with several sellers are shown together in your order history.
               </p>
               <button
                 type="button"

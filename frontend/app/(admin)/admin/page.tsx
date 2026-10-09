@@ -6,10 +6,11 @@ import {
   Building2, Users, ShoppingBag, CreditCard,
   Clock, TrendingUp, PackageCheck,
   Package, ShoppingCart, BarChart3, FileCheck,
-  AlertCircle, ArrowRight,
+  AlertCircle, ArrowRight, Store, Percent,
 } from 'lucide-react'
 import { useAdminDashboard, useAdminReport } from '@/hooks/queries/useAdmin'
 import { cn } from '@/lib/utils'
+import type { AdminDashboardBrandFields } from '@/types/brand-admin'
 
 function formatINR(n: number | undefined | null) {
   if (n == null || isNaN(n)) return '₹0'
@@ -303,6 +304,30 @@ export default function AdminOverviewPage() {
           </>
         ) : null}
       </div>
+
+      {/* Marketplace brand metrics */}
+      {stats && (
+        <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
+          <KpiCard
+            label="Brand GMV"
+            value={formatINR(Number((stats as AdminDashboardBrandFields).brandGmv) || 0)}
+            icon={Store}
+            iconBg="bg-[#183D33]/10"
+            iconColor="text-[#183D33]"
+            sub="Marketplace brand orders (part of Total GMV)"
+            href="/admin/brands"
+          />
+          <KpiCard
+            label="Commission Earned"
+            value={formatINR(Number((stats as AdminDashboardBrandFields).commissionEarned) || 0)}
+            icon={Percent}
+            iconBg="bg-amber-50"
+            iconColor="text-amber-600"
+            sub="On marketplace brand orders"
+            href="/admin/reports"
+          />
+        </div>
+      )}
 
       {/* Revenue chart */}
       <RevenueChart />

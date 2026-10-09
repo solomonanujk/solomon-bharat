@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { CartItem } from '@/types'
+import type { CartLine as CartItem } from '@/types/brand-orders'
 
 interface CartState {
   items: CartItem[]
@@ -105,6 +105,14 @@ export const useCartStore = create<CartStore>()(
         typeof window !== 'undefined' ? localStorage : (null as never)
       ),
       partialize: (state) => ({ items: state.items }),
+      // Carts persisted before marketplace brands have no `brand` — default it to null.
+      merge: (persisted, current) => {
+        const saved = persisted as Partial<CartState> | undefined
+        return {
+          ...current,
+          items: (saved?.items ?? []).map((i) => ({ ...i, brand: i.brand ?? null })),
+        }
+      },
     }
   )
 )

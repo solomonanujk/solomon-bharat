@@ -6,6 +6,7 @@ import { useMyPayouts, useMyPayoutSummary } from '@/hooks/queries/usePayouts'
 import { useSellerOrderItems } from '@/hooks/queries/useOrders'
 import { formatINR } from '@/lib/utils'
 import { PayoutStatusBadge } from '@/components/seller-portal/StatusBadges'
+import { useSellerType } from '@/hooks/queries/useBrandPortal'
 
 function SummaryCard({
   label,
@@ -62,6 +63,7 @@ export default function PayoutsPage() {
   const [page, setPage] = useState(1)
   const { data, isLoading, error } = useMyPayouts({ page, limit: PAGE_LIMIT })
   const { data: summary, isLoading: summaryLoading } = useMyPayoutSummary()
+  const { isMarketplace: isBrand } = useSellerType()
   const { data: orderItemsData } = useSellerOrderItems({ limit: ORDER_ITEM_LOOKUP_LIMIT })
 
   const productNameByOrderItemId = useMemo(() => {
@@ -86,7 +88,9 @@ export default function PayoutsPage() {
       <div className="mb-6">
         <h1 className="text-[24px] font-[700] font-sans text-[#20201E] leading-tight">Payouts</h1>
         <p className="text-[13px] font-sans text-[#665F55] mt-0.5">
-          Payouts are processed manually by Solomon Bharat and update once marked as paid.
+          {isBrand
+            ? 'Your payout is the order total minus commission, created when you mark an order delivered. Solomon Bharat pays manually and marks each payout paid.'
+            : 'Payouts are processed manually by Solomon Bharat and update once marked as paid.'}
         </p>
       </div>
 
@@ -102,18 +106,18 @@ export default function PayoutsPage() {
           <>
             <SummaryCard
               label="Total Earned (all time)"
-              value={formatINR(summary?.totalEarned ?? 0)}
+              value={formatINR(Number(summary?.totalEarned ?? 0))}
               icon={TrendingUp}
               featured
             />
             <SummaryCard
               label="Pending Payout"
-              value={formatINR(summary?.pendingPayout ?? 0)}
+              value={formatINR(Number(summary?.pendingPayout ?? 0))}
               icon={Clock}
             />
             <SummaryCard
               label="Last Payout"
-              value={summary?.lastPayoutAmount != null ? formatINR(summary.lastPayoutAmount) : '—'}
+              value={summary?.lastPayoutAmount != null ? formatINR(Number(summary.lastPayoutAmount)) : '—'}
               sub={lastPayoutSub}
               icon={Wallet}
             />
@@ -146,10 +150,10 @@ export default function PayoutsPage() {
         <>
           <div className="bg-white border border-[#E5DCCB] rounded-xl overflow-hidden mb-4">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px]">
+              <table className={isBrand ? 'w-full min-w-[820px]' : 'w-full min-w-[560px]'}>
                 <thead>
                   <tr className="border-b border-[#E5DCCB] bg-[#F5F0E5]">
-                    {['Date', 'Order Ref', 'Product', 'Amount', 'Status'].map((col) => (
+                    {(isBrand ? ['Date', 'Order Ref', 'Gross', 'Rate', 'Commission', 'Net payout', 'Status'] : ['Date', 'Order Ref', 'Product', 'Amount', 'Status']).map((col) => (
                       <th key={col} className="px-5 py-3 text-left text-[11px] font-[700] font-sans text-[#9CA3AF] uppercase tracking-[0.07em]">
                         {col}
                       </th>
@@ -173,15 +177,29 @@ export default function PayoutsPage() {
                           #{payout.orderId.slice(0, 8).toUpperCase()}
                         </span>
                       </td>
-                      <td className="px-5 py-4">
-                        <span className="text-[14px] font-[500] font-sans text-[#20201E]">
-                          {productNameByOrderItemId.get(payout.orderItemId) ??
-                            payout.orderItemId.slice(0, 8).toUpperCase()}
-                        </span>
-                      </td>
+                      {isBrand ? (
+                        <>
+                          <td className="px-5 py-4 tabular-nums text-[13.5px] font-sans text-[#20201E]">
+                            {payout.grossAmount !== null ? formatINR(Number(payout.grossAmount)) : '—'}
+                          </td>
+                          <td className="px-5 py-4 tabular-nums text-[13.5px] font-sans text-[#20201E]">
+                            {payout.commissionRate !== null ? `${Number(payout.commissionRate)}%` : '—'}
+                          </td>
+                          <td className="px-5 py-4 tabular-nums text-[13.5px] font-sans text-[#20201E]">
+                            {payout.commissionAmount !== null ? formatINR(Number(payout.commissionAmount)) : '—'}
+                          </td>
+                        </>
+                      ) : (
+                        <td className="px-5 py-4">
+                          <span className="text-[14px] font-[500] font-sans text-[#20201E]">
+                            {productNameByOrderItemId.get(payout.orderItemId) ??
+                              payout.orderItemId.slice(0, 8).toUpperCase()}
+                          </span>
+                        </td>
+                      )}
                       <td className="px-5 py-4">
                         <span className="tabular-nums text-[14px] font-[700] font-sans text-[#20201E]">
-                          {formatINR(payout.amount)}
+                          {formatINR(Number(payout.amount))}
                         </span>
                       </td>
                       <td className="px-5 py-4">

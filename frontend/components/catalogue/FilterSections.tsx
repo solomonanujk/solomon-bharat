@@ -6,13 +6,14 @@ import { CategoryFilterDrilldown } from '@/components/catalogue/CategoryFilterDr
 import { CategorySidebarTree } from '@/components/catalogue/CategorySidebarTree'
 import { FilterCheckbox, FilterGroup } from '@/components/catalogue/filterControls'
 import { usePlaceOfOriginFacets } from '@/hooks/queries/useProducts'
+import { useBrandFacets } from '@/hooks/queries/useBrands'
 import type { ProductFilterValues } from '@/components/catalogue/catalogueParams'
 import type { CategoryNode } from '@/types'
 
 // ─── Facet options ────────────────────────────────────────────────────────────
 // Every facet maps 1:1 to a real GET /products query param:
 //   Category → categoryId, Minimum order → moqMax, Made in → placeOfOrigin,
-//   Lead time → leadTime, Wholesale price → minPrice/maxPrice (signed-in buyers/agents only).
+//   Lead time → leadTime, Brand → brand (one marketplace brand slug), Wholesale price → minPrice/maxPrice (signed-in buyers/agents only).
 // No "Craft" facet: the API has no craft/technique filter (isHandmade, isGITagged
 // and howItIsMade are not queryable), so it is omitted rather than faked.
 
@@ -44,10 +45,13 @@ interface FilterSectionsProps {
   rootCategory?: Pick<CategoryNode, 'id' | 'name' | 'children'>
   /** Only signed-in buyers may filter by price — guests never see price data. */
   showPrice?: boolean
+  /** True on a brand storefront, where the brand is already fixed by the page. */
+  hideBrand?: boolean
 }
 
-export function FilterSections({ filters, onChange: commit, rootCategory, showPrice }: FilterSectionsProps) {
+export function FilterSections({ filters, onChange: commit, rootCategory, showPrice, hideBrand }: FilterSectionsProps) {
   const { data: originOptions = [] } = usePlaceOfOriginFacets()
+  const { data: brandOptions = [] } = useBrandFacets()
   const [originSearch, setOriginSearch] = useState('')
   const filteredOrigins = originOptions.filter((v) => v.toLowerCase().includes(originSearch.trim().toLowerCase()))
 
@@ -65,6 +69,24 @@ export function FilterSections({ filters, onChange: commit, rootCategory, showPr
           <CategoryFilterDrilldown value={filters.categoryId} onChange={(categoryId) => commit({ categoryId })} />
         )}
       </FilterGroup>
+
+      {!hideBrand && brandOptions.length > 0 && (
+        <FilterGroup title="Brand">
+          <div className="max-h-[264px] overflow-y-auto">
+            {brandOptions.map((b) => {
+              const checked = filters.brand === b.slug
+              return (
+                <FilterCheckbox
+                  key={b.slug}
+                  label={`${b.name} (${b.count})`}
+                  checked={checked}
+                  onChange={() => commit({ brand: checked ? '' : b.slug })}
+                />
+              )
+            })}
+          </div>
+        </FilterGroup>
+      )}
 
       <FilterGroup title="Minimum order">
         {MOQ_OPTIONS.map((max) => {

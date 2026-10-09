@@ -12,6 +12,7 @@ const FOOTER_GROUPS: { title: string; links: { href: string; label: string }[] }
     title: 'Shop',
     links: [
       { href: '/collections', label: 'Collections' },
+      { href: '/brands', label: 'Brands' },
       { href: '/search?sort=newest', label: 'New products' },
       { href: '/search?sort=featured', label: 'Bestsellers' },
       { href: '/signup', label: 'Sign up to buy' },

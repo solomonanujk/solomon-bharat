@@ -33,6 +33,8 @@ export interface ProductFilterValues {
   placeOfOrigin: string
   /** Contains-match on the seller's lead-time text. */
   leadTime: string
+  /** Marketplace brand slug (single-select; the API takes one `brand`). Empty = any. */
+  brand: string
   /** Products whose MOQ is at most this many units. */
   moqMax: number | undefined
   /** Buyer price range (signed-in buyers/agents only — stripped for guests; the API 400s it). */
@@ -44,6 +46,7 @@ export const EMPTY_FILTERS: ProductFilterValues = {
   categoryId: null,
   placeOfOrigin: '',
   leadTime: '',
+  brand: '',
   moqMax: undefined,
   priceMin: '',
   priceMax: '',
@@ -55,6 +58,7 @@ export function activeFilterCount(filters: ProductFilterValues, rootCategoryId?:
   if (filters.categoryId && filters.categoryId !== rootCategoryId) count += 1
   if (filters.placeOfOrigin) count += 1
   if (filters.leadTime) count += 1
+  if (filters.brand) count += 1
   if (filters.moqMax) count += 1
   if (filters.priceMin || filters.priceMax) count += 1
   return count
@@ -63,7 +67,7 @@ export function activeFilterCount(filters: ProductFilterValues, rootCategoryId?:
 // ─── URL state ────────────────────────────────────────────────────────────────
 // Every piece of catalogue state lives in the URL so results are shareable and
 // survive reloads/back navigation:
-//   q, category, origin, lead, moq, minPrice, maxPrice, sort, page
+//   q, category, origin, lead, brand, moq, minPrice, maxPrice, sort, page
 
 export interface CatalogueUrlState {
   q: string
@@ -77,6 +81,7 @@ const KEYS = {
   category: 'category',
   origin: 'origin',
   lead: 'lead',
+  brand: 'brand',
   moq: 'moq',
   minPrice: 'minPrice',
   maxPrice: 'maxPrice',
@@ -109,6 +114,7 @@ export function parseCatalogueParams(params: URLSearchParams): CatalogueUrlState
       categoryId: params.get(KEYS.category) || null,
       placeOfOrigin: params.get(KEYS.origin) ?? '',
       leadTime: params.get(KEYS.lead) ?? '',
+      brand: params.get(KEYS.brand) ?? '',
       moqMax: parsePositiveInt(params.get(KEYS.moq)),
       priceMin: parseAmount(params.get(KEYS.minPrice)),
       priceMax: parseAmount(params.get(KEYS.maxPrice)),
@@ -130,6 +136,7 @@ export function serializeCatalogueParams(state: CatalogueUrlState, base?: URLSea
   setOrDelete(params, KEYS.category, state.filters.categoryId)
   setOrDelete(params, KEYS.origin, state.filters.placeOfOrigin)
   setOrDelete(params, KEYS.lead, state.filters.leadTime)
+  setOrDelete(params, KEYS.brand, state.filters.brand)
   setOrDelete(params, KEYS.moq, state.filters.moqMax)
   setOrDelete(params, KEYS.minPrice, state.filters.priceMin)
   setOrDelete(params, KEYS.maxPrice, state.filters.priceMax)

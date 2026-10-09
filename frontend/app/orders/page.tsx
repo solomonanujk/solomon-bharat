@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Download, MessageCircle, Truck, Copy, Star, ImagePlus, X } from 'lucide-react'
+import { Check, Circle, Download, MessageCircle, Store, Truck, Copy, Star, ImagePlus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { AccountPageWrapper } from '@/components/shared/AccountPageWrapper'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -27,7 +27,9 @@ import { useMyOrders, useMyOrder } from '@/hooks/queries/useOrders'
 import { useInvoice } from '@/hooks/queries/usePayments'
 import { useSubmitReview } from '@/hooks/queries/useReviews'
 import { useFormatPrice } from '@/components/ui/Price'
-import type { Order, OrderItem, OrderStatus } from '@/types'
+import type { OrderStatus } from '@/types'
+import { BRAND_ORDER_STEPS } from '@/types/brand-orders'
+import type { BuyerOrder, BuyerOrderItem } from '@/types/brand-orders'
 
 // No "Return" or "Dispute" action anywhere on this page — all sales are
 // final (AGENTS.md). Filter tabs mirror the real OrderStatus enum exactly;
@@ -71,7 +73,57 @@ function orderRef(id: string) {
   return `#${id.slice(0, 8).toUpperCase()}`
 }
 
-function orderTotalItems(order: Order) {
+function sellerLabel(order: BuyerOrder) {
+  return order.brand ? `Sold by ${order.brand.name}` : 'Solomon Bharat'
+}
+
+const BRAND_STEP_LABELS: Partial<Record<OrderStatus, string>> = {
+  PAYMENT_RECEIVED: 'Payment received',
+  CONFIRMED: 'Confirmed by brand',
+  IN_TRANSIT: 'Shipped',
+  DELIVERED: 'Delivered',
+}
+
+/** Orders sharing a checkoutId are shown together; others stand alone. Keeps list order. */
+function groupByCheckout(orders: BuyerOrder[]): { key: string; checkoutId: string | null; orders: BuyerOrder[] }[] {
+  const groups: { key: string; checkoutId: string | null; orders: BuyerOrder[] }[] = []
+  const byCheckout = new Map<string, number>()
+  for (const o of orders) {
+    if (o.checkoutId && byCheckout.has(o.checkoutId)) {
+      groups[byCheckout.get(o.checkoutId) as number].orders.push(o)
+      continue
+    }
+    if (o.checkoutId) byCheckout.set(o.checkoutId, groups.length)
+    groups.push({ key: o.checkoutId ?? o.id, checkoutId: o.checkoutId ?? null, orders: [o] })
+  }
+  return groups
+}
+
+function BrandOrderProgress({ status }: { status: OrderStatus }) {
+  const idx = BRAND_ORDER_STEPS.indexOf(status)
+  return (
+    <ol className="space-y-2" aria-label="Order progress">
+      {BRAND_ORDER_STEPS.map((step, i) => {
+        const done = idx >= i
+        return (
+          <li key={step} className="flex items-center gap-2 text-[13px] font-sans">
+            {done ? (
+              <Check size={14} className="text-forest" aria-hidden="true" />
+            ) : (
+              <Circle size={14} className="text-muted" aria-hidden="true" />
+            )}
+            <span className={done ? 'text-ink font-[600]' : 'text-muted'}>
+              {BRAND_STEP_LABELS[step]}
+              {idx === i && <span className="sr-only"> (current step)</span>}
+            </span>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+function orderTotalItems(order: BuyerOrder) {
   return order.items?.reduce((sum, i) => sum + i.quantity, 0) ?? 0
 }
 
@@ -88,6 +140,7 @@ function DownloadInvoiceButton({ orderId, size = 'sm' as const }: { orderId: str
       `Order: ${invoice.orderId}`,
       `Issued: ${formatDate(invoice.issuedAt)}`,
       `Sold by: ${invoice.soldBy}`,
+      ...(invoice.facilitatedBy ? [`Payment facilitated by: ${invoice.facilitatedBy}`] : []),
       `Billed to: ${invoice.buyerEmail}`,
       '',
       ...invoice.items.map(
@@ -290,7 +343,7 @@ function RateProductDialog({
   )
 }
 
-function RateProductButton({ item, orderStatus }: { item: OrderItem; orderStatus: OrderStatus }) {
+function RateProductButton({ item, orderStatus }: { item: BuyerOrderItem; orderStatus: OrderStatus }) {
   const [open, setOpen] = useState(false)
 
   if (orderStatus !== 'DELIVERED' || item.reviewed) return null
@@ -357,6 +410,32 @@ function OrderDetailSheet({
                 </span>
               </div>
 
+              <p className="flex items-center gap-2 text-[13px] font-sans text-ink">
+                <Store size={14} className="text-brass-deep" aria-hidden="true" />
+                {order.brand ? (
+                  <>
+                    Sold by{' '}
+                    <Link href={`/brands/${order.brand.slug}`} className="font-[600] underline underline-offset-2">
+                      {order.brand.name}
+                    </Link>
+                  </>
+                ) : (
+                  <span className="font-[600]">Solomon Bharat</span>
+                )}
+              </p>
+
+              {order.brand && order.status !== 'CANCELLED' && order.status !== 'PENDING_PAYMENT' && (
+                <section>
+                  <h3 className="text-[14px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-3">
+                    Progress
+                  </h3>
+                  <BrandOrderProgress status={order.status} />
+                  <p className="text-[12px] font-sans text-muted mt-3">
+                    {order.brand.name} ships this order directly to you.
+                  </p>
+                </section>
+              )}
+
               <section>
                 <h3 className="text-[14px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-4">
                   Items
@@ -395,7 +474,7 @@ function OrderDetailSheet({
                 </div>
               )}
 
-              {order.expectedCollectionDate && order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
+              {!order.brand && order.expectedCollectionDate && order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
                 <section>
                   <h3 className="text-[14px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-2">
                     Expected Collection
@@ -430,11 +509,19 @@ function OrderDetailSheet({
 
               <div className="flex flex-wrap gap-3 pt-2">
                 <DownloadInvoiceButton orderId={order.id} size="md" />
+                {/* No buyer-brand messaging exists: brand orders point to the brand page instead. */}
                 <Button variant="ghost" size="md" className="gap-1.5" asChild>
-                  <Link href="/messages">
-                    <MessageCircle size={13} aria-hidden="true" />
-                    Contact Solomon Bharat
-                  </Link>
+                  {order.brand ? (
+                    <Link href={`/brands/${order.brand.slug}`}>
+                      <Store size={13} aria-hidden="true" />
+                      Visit {order.brand.name}
+                    </Link>
+                  ) : (
+                    <Link href="/messages">
+                      <MessageCircle size={13} aria-hidden="true" />
+                      Contact Solomon Bharat
+                    </Link>
+                  )}
                 </Button>
               </div>
             </>
@@ -523,7 +610,7 @@ export default function OrdersPage() {
                   <td colSpan={6} className="px-4 py-0 text-center">
                     <EmptyState
                       title="No orders yet"
-                      description="Place your first wholesale order with Solomon Bharat."
+                      description="Place your first wholesale order."
                       action={{
                         label: 'Continue Browsing',
                         onClick: () => { window.location.href = '/' },
@@ -532,7 +619,24 @@ export default function OrdersPage() {
                   </td>
                 </tr>
               ) : (
-                orders.map((order) => (
+                groupByCheckout(orders).map((group) => (
+                  <Fragment key={group.key}>
+                    {group.orders.length > 1 && (
+                      <tr className="bg-ivory border-b border-border-warm">
+                        <td colSpan={6} className="px-4 py-2.5">
+                          <span className="text-[12px] font-[700] font-sans text-brass-dark uppercase tracking-[0.06em]">
+                            Placed together
+                          </span>
+                          <span className="text-[13px] font-sans text-ink ml-3">
+                            {group.orders.length} orders &middot; combined total{' '}
+                            <span className="font-[600]">
+                              {fmt(group.orders.reduce((sum, o) => sum + Number(o.adminPriceTotal), 0))}
+                            </span>
+                          </span>
+                        </td>
+                      </tr>
+                    )}
+                    {group.orders.map((order) => (
                   <tr
                     key={order.id}
                     onClick={() => openOrder(order.id)}
@@ -542,6 +646,7 @@ export default function OrdersPage() {
                       <span className="text-[13px] font-[600] font-sans text-primary">
                         {orderRef(order.id)}
                       </span>
+                      <span className="block text-[12px] font-sans text-muted">{sellerLabel(order)}</span>
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={order.status} />
@@ -568,6 +673,8 @@ export default function OrdersPage() {
                       </div>
                     </td>
                   </tr>
+                    ))}
+                  </Fragment>
                 ))
               )}
             </tbody>

@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import api from '@/lib/api'
 import { getApiError } from '@/lib/getApiError'
 import type { Order, OrderStatus, PaginatedResult, SellerOrderItem } from '@/types'
+import type { BuyerOrder } from '@/types/brand-orders'
 
 function toPaginated<T>(res: { data: { data: unknown; meta?: { total?: number; page?: number; limit?: number; totalPages?: number } } }): PaginatedResult<T> {
   const items = (res.data.data ?? []) as T[]
@@ -21,15 +22,15 @@ function toPaginated<T>(res: { data: { data: unknown; meta?: { total?: number; p
 // ─── Buyer: own orders ─────────────────────────────────────────────────────────
 
 export function useMyOrders(params?: { page?: number; limit?: number }) {
-  return useQuery<PaginatedResult<Order>>({
+  return useQuery<PaginatedResult<BuyerOrder>>({
     queryKey: ['my-orders', params],
-    queryFn: async () => toPaginated<Order>(await api.get('/orders/me', { params })),
+    queryFn: async () => toPaginated<BuyerOrder>(await api.get('/orders/me', { params })),
     staleTime: 60 * 1000,
   })
 }
 
 export function useMyOrder(id: string | null) {
-  return useQuery<Order>({
+  return useQuery<BuyerOrder>({
     queryKey: ['my-order', id],
     queryFn: async () => (await api.get(`/orders/me/${id}`)).data.data,
     enabled: !!id,

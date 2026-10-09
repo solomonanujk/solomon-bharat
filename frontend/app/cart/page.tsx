@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Heart, Lock, Minus, Plus, ShieldCheck, Timer, Trash2 } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Heart, Lock, Minus, Plus, ShieldCheck, Timer, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCartStore } from '@/lib/store/useCartStore'
 import { cloudinaryFill } from '@/lib/cloudinaryImage'
@@ -12,7 +12,10 @@ import { NavBar } from '@/components/shared/NavBar'
 import { Footer } from '@/components/shared/Footer'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Price, useFormatPrice } from '@/components/ui/Price'
-import type { CartItem } from '@/types'
+import { CartGroupHeader } from '@/components/shared/CartGroupHeader'
+import { BrandMinOrderNotice, useUnmetMessage } from '@/components/shared/BrandMinOrderNotice'
+import { groupCartLines, unmetGroups } from '@/lib/cartGroups'
+import type { CartLine as CartItem } from '@/types/brand-orders'
 
 // ─── Cart line ────────────────────────────────────────────────────────────────
 
@@ -126,7 +129,17 @@ function CartLine({ item }: { item: CartItem }) {
 
 // ─── Price details sidebar ──────────────────────────────────────────────────────
 
-function PriceDetails({ itemCount, total, onCheckout }: { itemCount: number; total: number; onCheckout: () => void }) {
+function PriceDetails({
+  itemCount,
+  total,
+  onCheckout,
+  blockedReason,
+}: {
+  itemCount: number
+  total: number
+  onCheckout: () => void
+  blockedReason: string | null
+}) {
   const fmt = useFormatPrice()
 
   return (
@@ -155,16 +168,24 @@ function PriceDetails({ itemCount, total, onCheckout }: { itemCount: number; tot
         <button
           type="button"
           onClick={onCheckout}
-          className="w-full h-12 mt-5 rounded bg-forest text-white font-[600] font-sans text-[14px] hover:bg-[#0F241D] transition-colors"
+          disabled={!!blockedReason}
+          aria-describedby={blockedReason ? 'cart-blocked-reason' : undefined}
+          className="w-full h-12 mt-5 rounded bg-forest text-white font-[600] font-sans text-[14px] hover:bg-forest-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Proceed to Checkout
         </button>
+        {blockedReason && (
+          <p id="cart-blocked-reason" className="text-[12px] font-sans text-error mt-2 flex items-start gap-1.5">
+            <AlertCircle size={13} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
+            {blockedReason}
+          </p>
+        )}
       </div>
 
       <div className="flex flex-col gap-2.5 mt-4 px-1">
         <div className="flex items-center gap-2 text-[12px] font-sans text-muted-text">
           <ShieldCheck size={14} className="text-accent flex-shrink-0" aria-hidden="true" />
-          Verified sellers, quality-checked before listing
+          {/* CONFIRM: copy covers both seller types */}Curated products reviewed by Solomon Bharat; marketplace brands ship directly
         </div>
         <div className="flex items-center gap-2 text-[12px] font-sans text-muted-text">
           <Lock size={14} className="text-accent flex-shrink-0" aria-hidden="true" />
@@ -186,6 +207,11 @@ export default function CartPage() {
   const isEmpty = items.length === 0
   const total = getTotalValueInr()
   const itemCount = getTotalItems()
+  const fmt = useFormatPrice()
+  const groups = groupCartLines(items)
+  const unmet = unmetGroups(groups)
+  const blockedReason = useUnmetMessage(unmet)
+  const showGroupHeaders = groups.some((g) => g.brand)
 
   return (
     <div className="bg-bg min-h-screen flex flex-col">
@@ -214,14 +240,30 @@ export default function CartPage() {
           />
         ) : (
           <div className="lg:grid lg:grid-cols-[1fr_340px] gap-8 items-start">
-            <div className="bg-surface border border-border-warm rounded px-5 flex flex-col">
-              {items.map((item) => (
-                <CartLine key={`${item.productId}-${item.variantId ?? ''}`} item={item} />
+            <div className="flex flex-col gap-4">
+              {groups.map((group) => (
+                <section
+                  key={group.key}
+                  aria-label={group.brand ? `Items from ${group.brand.name}` : 'Items from Solomon Bharat'}
+                  className="bg-surface border border-border-warm rounded px-5 pb-1"
+                >
+                  {showGroupHeaders && <CartGroupHeader brand={group.brand} />}
+                  {group.brand && <BrandMinOrderNotice group={group} />}
+                  {group.items.map((item) => (
+                    <CartLine key={`${item.productId}-${item.variantId ?? ''}`} item={item} />
+                  ))}
+                  {showGroupHeaders && (
+                    <p className="flex justify-between py-3 border-t border-border-warm text-[13px] font-sans text-muted">
+                      <span>Subtotal</span>
+                      <span className="font-[600] text-ink">{fmt(group.subtotalInr)}</span>
+                    </p>
+                  )}
+                </section>
               ))}
             </div>
 
             <div className="mt-6 lg:mt-0">
-              <PriceDetails itemCount={itemCount} total={total} onCheckout={() => router.push('/checkout')} />
+              <PriceDetails itemCount={itemCount} total={total} onCheckout={() => router.push('/checkout')} blockedReason={blockedReason} />
             </div>
           </div>
         )}

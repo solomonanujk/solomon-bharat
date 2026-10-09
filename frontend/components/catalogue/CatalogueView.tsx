@@ -20,6 +20,7 @@ import {
   type ProductFilterValues,
 } from '@/components/catalogue/catalogueParams'
 import { useProducts } from '@/hooks/queries/useProducts'
+import { useBrandFacets } from '@/hooks/queries/useBrands'
 import { useCategoryTree } from '@/hooks/queries/useCategories'
 import { useAuth } from '@/hooks/useAuth'
 import type { CategoryNode, ProductsParams } from '@/types'
@@ -77,7 +78,7 @@ export interface CatalogueViewProps {
   /** Rendered between the intro and the toolbar (e.g. subcategory links). */
   beforeToolbar?: React.ReactNode
   /** Fixed scope always sent to the API. */
-  scope?: { categoryId?: string; collectionId?: string }
+  scope?: { categoryId?: string; collectionId?: string; brandSlug?: string }
   /** A category page's own category — preselected and scopes the Category facet. */
   rootCategory?: RootCategory
   /** Shows the in-page context search (category/collection pages), scoped to this page. */
@@ -111,6 +112,8 @@ export function CatalogueView({
   // from the URL-derived query below (and the facet/chip are hidden).
   const showPrice = isAuthenticated && (user?.role === 'BUYER' || user?.role === 'AGENT')
   const { data: categoryTree = [] } = useCategoryTree()
+  const { data: brandFacets = [] } = useBrandFacets()
+  const hideBrand = !!scope?.brandSlug
 
   const filters: ProductFilterValues = useMemo(() => {
     if (!facets) return EMPTY_FILTERS
@@ -124,6 +127,7 @@ export function CatalogueView({
     () => ({
       categoryId: filters.categoryId ?? scope?.categoryId,
       collectionId: scope?.collectionId,
+      brand: scope?.brandSlug ?? (filters.brand || undefined),
       search: state.q || undefined,
       sort: apiSort,
       moqMax: filters.moqMax,
@@ -134,7 +138,7 @@ export function CatalogueView({
       page: state.page,
       limit: PAGE_SIZE,
     }),
-    [filters, scope?.categoryId, scope?.collectionId, state.q, state.page, apiSort, showPrice]
+    [filters, scope?.categoryId, scope?.collectionId, scope?.brandSlug, state.q, state.page, apiSort, showPrice]
   )
 
   const { data, isPending, isError, refetch, isFetching } = useProducts(params)
@@ -158,6 +162,10 @@ export function CatalogueView({
       path[path.length - 1]?.name ??
       'Selected category'
     chips.push({ key: 'category', label: name, onRemove: () => setFilters({ ...filters, categoryId: null }) })
+  }
+  if (filters.brand && !hideBrand) {
+    const name = brandFacets.find((b) => b.slug === filters.brand)?.name ?? 'Selected brand'
+    chips.push({ key: 'brand', label: `Brand: ${name}`, onRemove: () => setFilters({ ...filters, brand: '' }) })
   }
   if (filters.moqMax) {
     chips.push({ key: 'moq', label: moqChipLabel(filters.moqMax), onRemove: () => setFilters({ ...filters, moqMax: undefined }) })
@@ -280,7 +288,7 @@ export function CatalogueView({
       <div className={showSidebar ? 'mt-8 lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-8' : 'mt-8'}>
         {showSidebar && (
           <div className="hidden lg:block">
-            <InlineFilterSidebar filters={filters} onChange={setFilters} rootCategory={rootCategory} showPrice={showPrice} />
+            <InlineFilterSidebar filters={filters} onChange={setFilters} rootCategory={rootCategory} showPrice={showPrice} hideBrand={hideBrand} />
           </div>
         )}
 
@@ -419,6 +427,7 @@ export function CatalogueView({
         showFilters={facets}
         rootCategory={rootCategory}
         showPrice={showPrice}
+        hideBrand={hideBrand}
         onApply={(nextFilters, nextSort) => update({ filters: nextFilters, sort: sortable ? nextSort : state.sort })}
       />
     </div>

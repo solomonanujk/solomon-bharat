@@ -20,6 +20,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { ImageLightbox, type LightboxImage } from '@/components/shared/ImageLightbox'
 import { useProductReviews } from '@/hooks/queries/useReviews'
 import { useWishlist, useAddToWishlist, useRemoveFromWishlist } from '@/hooks/queries/useWishlist'
+import { BrandTag } from '@/components/brands/BrandTag'
+import { useBrand } from '@/hooks/queries/useBrands'
 import type { Product, Review } from '@/types'
 
 // ─── Quantity stepper ─────────────────────────────────────────────────────────
@@ -324,6 +326,9 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
     isBestseller, isHandmade, isGITagged, ecoMaterials = [], ecoPackaging = [], ecoProduction = [],
     howItIsMade, craftImageUrl, tariffCode,
   } = product
+  const brand = product.brand ?? null
+  // Lazy: only marketplace products have a brand page to fetch the display-only return policy from.
+  const { data: brandDetail } = useBrand(brand?.slug)
   const ecoTags = [...ecoMaterials, ...ecoPackaging, ...ecoProduction]
   const leadImage = images?.[0]?.url ?? null
 
@@ -474,6 +479,7 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
         variantId: activeVariantId,
         variantLabel,
         leadTime,
+        brand: brand ? { id: brand.id, name: brand.name, slug: brand.slug, minOrderValueInr: brand.minOrderValueInr, logoUrl: brand.logoUrl ?? null } : null,
       })
     }, 'add_to_cart')
   }
@@ -525,6 +531,13 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
   if (isGITagged) detailRows.push({ label: 'GI tag', value: 'Geographical Indication tagged' })
   if (ecoTags.length > 0) detailRows.push({ label: 'Sustainability', value: ecoTags.join(', ') })
   if (displayTariffCode) detailRows.push({ label: 'HS / tariff code', value: displayTariffCode })
+  if (brandDetail?.returnPolicy) {
+    // Display-only text set by the brand — Solomon Bharat does not handle returns, refunds or disputes.
+    detailRows.push({
+      label: `${brandDetail.name} return policy`,
+      value: <span className="whitespace-pre-line">{brandDetail.returnPolicy}</span>,
+    })
+  }
 
   // Craft block: only the record's own craft story/photo. The artisan name is
   // deliberately NOT rendered — a named maker is supplier identity, which
@@ -580,6 +593,8 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
       </div>
 
       <h1 className="type-h1 text-ink mt-1 break-words">{name}</h1>
+
+      {brand && <BrandTag brand={brand} prefix="by " className="mt-2 !text-[14px] !leading-[20px]" />}
 
       {product.avgRating != null && product.avgRating > 0 && product.reviewCount > 0 && (
         <a

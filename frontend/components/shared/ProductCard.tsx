@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useCartStore } from '@/lib/store/useCartStore'
 import { useCatalogueStore } from '@/lib/store/useCatalogueStore'
 import { useWishlist, useAddToWishlist, useRemoveFromWishlist } from '@/hooks/queries/useWishlist'
+import { BrandTag } from '@/components/brands/BrandTag'
 import { ShareProductButton } from '@/components/shared/ShareProductButton'
 
 /** Exactly the fields this card reads — lets callers with a narrower/cached
@@ -20,7 +21,7 @@ import { ShareProductButton } from '@/components/shared/ShareProductButton'
 export type ProductCardData = Pick<
   Product,
   'id' | 'name' | 'slug' | 'adminPrice' | 'agentPrice' | 'moq' | 'images' | 'leadTime' | 'avgRating' | 'reviewCount' | 'isBestseller'
->
+> & { brand?: Product['brand'] }
 
 interface ProductCardProps {
   product: ProductCardData
@@ -29,14 +30,14 @@ interface ProductCardProps {
 
 /**
  * Buyer-facing product card — used across category grids, collection grids,
- * related products and the homepage. No seller/brand identity, no supplier
- * reference. White, 1px line border, 6px radius, no shadow; 4:3 photo on
+ * related products and the homepage. Curated products carry no seller/brand
+ * identity; marketplace products show a brand tag linking to the brand page. White, 1px line border, 6px radius, no shadow; 4:3 photo on
  * desktop, square on mobile (object-contain, so the whole product shows).
  * Guests see name + MOQ + a locked-price helper — never a numeric (or blurred)
  * wholesale price. Signed-in buyers see the price plus wishlist/cart controls.
  */
 export function ProductCard({ product, className }: ProductCardProps) {
-  const { id, name, slug, adminPrice, agentPrice, moq, images, leadTime, isBestseller } = product
+  const { id, name, slug, adminPrice, agentPrice, moq, images, leadTime, isBestseller, brand } = product
   const imageSrc = images?.[0]?.url ?? null
 
   const { user, requireAuth, isAuthenticated } = useAuth()
@@ -85,6 +86,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
         unitAdminPriceInr: price,
         moq,
         leadTime,
+        brand: brand ? { id: brand.id, name: brand.name, slug: brand.slug, minOrderValueInr: brand.minOrderValueInr, logoUrl: brand.logoUrl ?? null } : null,
       })
     }, 'add_to_cart')
   }
@@ -228,6 +230,8 @@ export function ProductCard({ product, className }: ProductCardProps) {
             {name}
           </Link>
         </h3>
+
+        {brand && <BrandTag brand={brand} />}
 
         <span className="moq-tag self-start">MOQ {moq} units</span>
 

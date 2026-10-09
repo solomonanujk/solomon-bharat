@@ -179,6 +179,8 @@ export interface Product extends ProductListingDetails {
   related?: Product[]
   avgRating: number | null
   reviewCount: number
+  /** Marketplace brand tag; null/absent for Solomon-curated products. */
+  brand?: BrandSummary | null
 }
 
 /** Seller-safe projection — never includes adminPrice/margin. */
@@ -257,8 +259,35 @@ export interface ProductsParams {
   moqMax?: number
   placeOfOrigin?: string
   leadTime?: string
+  /** Brand slug — a valid scope on its own (brand storefront, "Buy more from this brand"). */
+  brand?: string
   page?: number
   limit?: number
+}
+
+/** Public brand card used in brand lists (GET /brands, GET /brands/following). */
+export interface BrandListItem {
+  id: string
+  name: string
+  slug: string
+  logoUrl: string | null
+  isVerified: boolean
+  country: string | null
+  productCount: number
+}
+
+/** One entry of GET /products/facets/brands. */
+export interface BrandFacet {
+  slug: string
+  name: string
+  count: number
+}
+
+/** GET /products/:slug unwrapped: the product plus related and same-brand products. */
+export interface ProductDetail extends Product {
+  related: Product[]
+  /** Up to 8 other published products of the same brand; empty for curated products. */
+  moreFromBrand: Product[]
 }
 
 export interface PaginatedResult<T> {
@@ -287,8 +316,49 @@ export interface Collection {
 
 // ─── Sellers ──────────────────────────────────────────────────────────────────
 
+export type SellerType = 'CURATED' | 'MARKETPLACE'
+
+/** Buyer-safe brand tag shown on marketplace products (null/absent for curated). */
+export interface BrandSummary {
+  id: string
+  name: string
+  slug: string
+  logoUrl: string | null
+  isVerified: boolean
+  minOrderValueInr: number
+}
+
+/** Public brand storefront payload (whitelist only — no private seller data). */
+export interface PublicBrand {
+  id: string
+  name: string
+  slug: string
+  logoUrl: string | null
+  bannerUrl: string | null
+  story: string | null
+  country: string | null
+  website: string | null
+  instagram: string | null
+  returnPolicy: string | null
+  isVerified: boolean
+  minOrderValueInr: number
+  productCount: number
+  followerCount: number
+  isFollowing: boolean
+}
+
 export interface SellerApplication {
   id: string
+  sellerType: SellerType
+  brandName: string | null
+  brandLogoUrl: string | null
+  brandBannerUrl: string | null
+  brandStory: string | null
+  brandWebsite: string | null
+  /** Decimal columns may arrive as strings. */
+  minOrderValueInr: number | string | null
+  commissionTermsVersion: string | null
+  commissionAgreedAt: string | null
   businessName: string
   contactName: string
   email: string
@@ -327,6 +397,14 @@ export interface SellerApplication {
 /** businessAddress is deliberately absent — the wizard only collects city +
  *  country; the backend synthesizes businessAddress from those. */
 export interface SellerApplyInput {
+  sellerType?: SellerType
+  brandName?: string
+  brandLogoUrl?: string
+  brandBannerUrl?: string
+  brandStory?: string
+  brandWebsite?: string
+  minOrderValueInr?: number
+  commissionTermsVersion?: string
   businessName: string
   contactName: string
   email: string
@@ -334,8 +412,9 @@ export interface SellerApplyInput {
   message?: string
   city: string
   country: string
-  instagramHandle: string
-  instagramFollowers: number
+  /** Required for CURATED, not collected for MARKETPLACE. */
+  instagramHandle?: string
+  instagramFollowers?: number
   websiteOrSocialLink?: string
   craftCategories?: string[]
   productDescription?: string
@@ -357,6 +436,8 @@ export interface SellerApplyInput {
 export interface SellerProfile {
   id: string
   userId: string
+  sellerType?: SellerType
+  brand?: (BrandSummary & { status: 'ACTIVE' | 'SUSPENDED' }) | null
   businessName: string
   contactName: string
   phone: string
@@ -444,6 +525,8 @@ export interface WishlistEntry {
     imageUrl: string | null
     avgRating: number | null
     reviewCount: number
+    /** Marketplace brand tag; null/absent for curated products. */
+    brand?: BrandSummary | null
   }
 }
 
@@ -640,4 +723,6 @@ export interface CartItem {
   variantId?: string
   variantLabel?: string
   leadTime?: string | null
+  /** Marketplace brand this line belongs to (min order value is enforced per brand); null/absent for curated items. */
+  brand?: { id: string; name: string; slug: string; minOrderValueInr: number } | null
 }

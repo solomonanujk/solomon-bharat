@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useProduct } from '@/hooks/queries/useProducts'
 import { useCategoryTree } from '@/hooks/queries/useCategories'
 import { useRecentlyViewed } from '@/hooks/useRecentlyViewed'
-import type { CategoryNode, Product } from '@/types'
+import type { BrandSummary, CategoryNode, Product } from '@/types'
 
 // ─── Category path ────────────────────────────────────────────────────────────
 // The product record only carries its Level-3 categoryId, so the breadcrumb and
@@ -41,6 +41,35 @@ function RelatedProducts({ products, currentId }: { products: Product[]; current
     <section aria-labelledby="pdp-related-heading" className="sb-section bg-white border-t border-line">
       <div className="sb-container">
         <h2 id="pdp-related-heading" className="type-h2 text-ink mb-6 lg:mb-8">Related products</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5 lg:gap-6">
+          {items.map((p) => (
+            <ProductCard key={p.id} product={p} />
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ─── Buy more from this brand ────────────────────────────────────────────────
+// Marketplace products only — the API returns an empty list for curated products.
+
+function MoreFromBrand({ products, currentId, brand }: { products: Product[]; currentId: string; brand: BrandSummary | null | undefined }) {
+  const items = products.filter((p) => p.id !== currentId).slice(0, 8)
+  if (!brand || items.length === 0) return null
+
+  return (
+    <section aria-labelledby="pdp-brand-heading" className="sb-section bg-white border-t border-line">
+      <div className="sb-container">
+        <div className="mb-6 lg:mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+          <h2 id="pdp-brand-heading" className="type-h2 text-ink">Buy more from {brand.name}</h2>
+          <Link
+            href={`/brands/${brand.slug}`}
+            className="inline-flex items-center min-h-11 text-[14px] leading-[20px] font-[600] text-forest underline underline-offset-4 hover:text-forest-hover"
+          >
+            View all from {brand.name}
+          </Link>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5 lg:gap-6">
           {items.map((p) => (
             <ProductCard key={p.id} product={p} />
@@ -100,6 +129,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       avgRating: product.avgRating,
       reviewCount: product.reviewCount,
       leadTime: product.leadTime,
+      brand: product.brand ?? null,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id])
@@ -196,6 +226,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           </div>
         </div>
 
+        <MoreFromBrand products={product.moreFromBrand ?? []} currentId={product.id} brand={product.brand} />
         <RelatedProducts products={product.related ?? []} currentId={product.id} />
       </main>
 

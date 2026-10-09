@@ -5,6 +5,8 @@ import { toast } from 'sonner'
 import api from '@/lib/api'
 import { getApiError } from '@/lib/getApiError'
 import type { PaginatedResult, Payout, PayoutStatus, PayoutSummary } from '@/types'
+import type { BrandPayout } from '@/types/brand-portal'
+import type { AdminPayout } from '@/types/brand-admin'
 
 function toPaginated<T>(res: { data: { data: unknown; meta?: { total?: number; page?: number; limit?: number; totalPages?: number } } }): PaginatedResult<T> {
   const items = (res.data.data ?? []) as T[]
@@ -21,9 +23,9 @@ function toPaginated<T>(res: { data: { data: unknown; meta?: { total?: number; p
 // ─── Seller: own payouts ───────────────────────────────────────────────────────
 
 export function useMyPayouts(params?: { status?: PayoutStatus; page?: number; limit?: number }) {
-  return useQuery<PaginatedResult<Payout>>({
+  return useQuery<PaginatedResult<BrandPayout>>({
     queryKey: ['my-payouts', params],
-    queryFn: async () => toPaginated<Payout>(await api.get('/payouts/me', { params })),
+    queryFn: async () => toPaginated<BrandPayout>(await api.get('/payouts/me', { params })),
   })
 }
 
@@ -38,9 +40,9 @@ export function useMyPayoutSummary() {
 // ─── Admin: all payouts ────────────────────────────────────────────────────────
 
 export function useAdminPayouts(params?: { status?: PayoutStatus; sellerId?: string; page?: number; limit?: number }) {
-  return useQuery<PaginatedResult<Payout>>({
+  return useQuery<PaginatedResult<AdminPayout>>({
     queryKey: ['admin-payouts', params],
-    queryFn: async () => toPaginated<Payout>(await api.get('/payouts/admin', { params })),
+    queryFn: async () => toPaginated<AdminPayout>(await api.get('/payouts/admin', { params })),
   })
 }
 
