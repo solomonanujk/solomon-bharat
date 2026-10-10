@@ -8,6 +8,27 @@ export interface ImportCandidateVariant {
   sku: string | null;
   /** The seller's own store price from the file — becomes sellerPrice (never adminPrice). */
   sellerPrice: number | null;
+  /** Declared stock for this variant (WooCommerce Stock). Absent/null = not stated in the file. */
+  stock?: number | null;
+  weightKg?: number | null;
+  /** Per-variant size. `unit` is 'in' only when the file said inches; everything else is converted to cm. */
+  dimensions?: ImportDimensions | null;
+}
+
+export interface ImportDimensions {
+  length: number;
+  width: number;
+  height: number;
+  unit: 'cm' | 'in';
+}
+
+export type ImportPublishedState = 'published' | 'private' | 'draft';
+
+export interface SuggestedCategory {
+  id: string;
+  name: string;
+  /** e.g. "Textiles > Bathrobes > Baby" */
+  path: string;
 }
 
 /** One product parsed from an uploaded export. Nothing is persisted at preview time. */
@@ -26,6 +47,21 @@ export interface ImportCandidate {
   materials: string | null;
   /** Human-readable, non-blocking per-product problems. */
   issues: string[];
+  /** WooCommerce Published: 1 = published, 0 = private, -1 = draft. */
+  published?: ImportPublishedState | null;
+  /** Kilograms. For products with variations: the first variation that has a weight. */
+  weightKg?: number | null;
+  /** "L x W x H cm" or "L x W x H in". */
+  dimensions?: string | null;
+  /** Declared stock (sum of variation stocks for products with variations). */
+  stock?: number | null;
+  tags?: string[];
+  /** Each WooCommerce Categories entry split on ">" and trimmed. */
+  categoryPath?: string[][];
+  /** Filled by the preview from the active category tree. */
+  suggestedCategory?: SuggestedCategory | null;
+  /** Client-chosen level-3 category for this product (validated on import). */
+  categoryId?: string | null;
 }
 
 export interface ProductImportPreview {
@@ -35,7 +71,8 @@ export interface ProductImportPreview {
 }
 
 export interface ImportProductsInput {
-  categoryId: string;
+  /** Fallback for products without their own categoryId. */
+  categoryId?: string;
   products: ImportCandidate[];
 }
 

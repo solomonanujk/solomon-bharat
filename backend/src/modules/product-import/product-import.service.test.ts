@@ -41,7 +41,10 @@ function setup() {
       Promise.resolve({ id: input.id, name: input.name, slug: input.slug }),
     ),
   } as unknown as ProductsRepository;
-  const categories = { assertValidLeafCategory: vi.fn().mockResolvedValue({ id: CATEGORY_ID, level: 3 }) } as unknown as CategoriesService;
+  const categories = {
+    assertValidLeafCategory: vi.fn().mockResolvedValue({ id: CATEGORY_ID, level: 3 }),
+    getPublicTree: vi.fn().mockResolvedValue([]),
+  } as unknown as CategoriesService;
   const sellers = {
     getMyProfile: vi.fn().mockResolvedValue({ id: SELLER_ID }),
     getSellerDetailForAdmin: vi.fn().mockResolvedValue({ id: SELLER_ID }),
@@ -94,6 +97,45 @@ describe('ProductImportService', () => {
         mimetype: 'text/csv',
       });
       expect(result.products[0].name).toBe('Mug');
+    });
+
+    describe('category suggestions', () => {
+      const wooCsv =
+        'ID,Type,Name,Regular price,Categories\n1,simple,Robe,10,Textiles > Bathrobes > Baby\n2,simple,Misc,10,Unknown\n3,simple,Bare,10,\n';
+      const tree = [
+        {
+          id: 't', name: 'Textiles', slug: 'textiles', level: 1, status: 'ACTIVE',
+          children: [
+            {
+              id: 'b', name: 'Bathrobes', slug: 'bathrobes', level: 2, status: 'ACTIVE',
+              children: [{ id: 'baby', name: 'Baby', slug: 'baby', level: 3, status: 'ACTIVE', children: [] }],
+            },
+          ],
+        },
+      ];
+
+      it('fills suggestedCategory from the category tree', async () => {
+        const { service, categories } = setup();
+        vi.mocked(categories.getPublicTree).mockResolvedValue(tree as never);
+        const { products } = await service.preview({ buffer: Buffer.from(wooCsv), originalname: 'w.csv', mimetype: 'text/csv' });
+        expect(products[0].suggestedCategory).toEqual({ id: 'baby', name: 'Baby', path: 'Textiles > Bathrobes > Baby' });
+        expect(products[1].suggestedCategory).toBeNull();
+        expect(products[2].suggestedCategory).toBeUndefined();
+      });
+
+      it('still returns the preview when the category tree cannot be loaded', async () => {
+        const { service, categories } = setup();
+        vi.mocked(categories.getPublicTree).mockRejectedValue(new Error('redis down'));
+        const { products } = await service.preview({ buffer: Buffer.from(wooCsv), originalname: 'w.csv', mimetype: 'text/csv' });
+        expect(products).toHaveLength(3);
+        expect(products[0].suggestedCategory).toBeUndefined();
+      });
+
+      it('does not load categories for files without category paths', async () => {
+        const { service, categories } = setup();
+        await service.preview({ buffer: Buffer.from(csv), originalname: 'a.csv', mimetype: 'text/csv' });
+        expect(categories.getPublicTree).not.toHaveBeenCalled();
+      });
     });
 
     it('rejects unsupported extensions and empty files with 400', async () => {
@@ -339,6 +381,144 @@ describe('ProductImportService', () => {
         service.importProducts(SELLER_ID, { categoryId: CATEGORY_ID, products: [candidate()] }),
       ).rejects.toMatchObject({ statusCode: 400 });
       expect(productsRepo.create).not.toHaveBeenCalled();
+    });
+
+    describe('categories per product', () => {
+      const OTHER = '44444444-4444-4444-4444-444444444444';
+
+      it('a product category wins over the batch fallback; each distinct id is validated once', async () => {
+        const { service, categories, productsRepo } = setup();
+        await service.importProducts(SELLER_ID, {
+          categoryId: CATEGORY_ID,
+          products: [
+            candidate({ key: 'a', name: 'A', categoryId: OTHER }),
+            candidate({ key: 'b', name: 'B' }),
+            candidate({ key: 'c', name: 'C', categoryId: OTHER }),
+          ],
+        });
+        expect(vi.mocked(categories.assertValidLeafCategory).mock.calls.map((c) => c[0])).toEqual([CATEGORY_ID, OTHER]);
+        expect(vi.mocked(productsRepo.create).mock.calls.map((c) => c[1].categoryId)).toEqual([OTHER, CATEGORY_ID, OTHER]);
+      });
+
+      it('works without a batch category when every product has its own', async () => {
+        const { service, categories, productsRepo } = setup();
+        const result = await service.importProducts(SELLER_ID, { products: [candidate({ categoryId: OTHER })] });
+        expect(result.created).toHaveLength(1);
+        expect(categories.assertValidLeafCategory).toHaveBeenCalledTimes(1);
+        expect(vi.mocked(productsRepo.create).mock.calls[0][1].categoryId).toBe(OTHER);
+      });
+
+      it('a product with neither fails with a clear message and does not stop the others', async () => {
+        const { service } = setup();
+        const result = await service.importProducts(SELLER_ID, {
+          products: [candidate({ key: 'x', name: 'No Cat' }), candidate({ key: 'y', name: 'Has Cat', categoryId: OTHER })],
+        });
+        expect(result.failed).toEqual([{ key: 'x', name: 'No Cat', error: 'Choose a category for this product' }]);
+        expect(result.created.map((c) => c.name)).toEqual(['Has Cat']);
+      });
+
+      it('rejects the request when a per-product category is not a valid leaf', async () => {
+        const { service, categories, productsRepo } = setup();
+        vi.mocked(categories.assertValidLeafCategory).mockImplementation((id: string) =>
+          id === OTHER ? Promise.reject(AppError.badRequest('Products must be assigned to a level 3 sub-subcategory')) : Promise.resolve({} as never),
+        );
+        await expect(
+          service.importProducts(SELLER_ID, { categoryId: CATEGORY_ID, products: [candidate({ categoryId: OTHER })] }),
+        ).rejects.toMatchObject({ statusCode: 400 });
+        expect(productsRepo.create).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('weight, dimensions, stock and tags', () => {
+      it('passes product-level values to the create call', async () => {
+        const { service, productsRepo } = setup();
+        await service.importProducts(SELLER_ID, {
+          categoryId: CATEGORY_ID,
+          products: [candidate({ weightKg: 0.75, dimensions: '30 x 20 x 5 cm', stock: 25, tags: ['baby', 'cotton'] })],
+        });
+        expect(vi.mocked(productsRepo.create).mock.calls[0][1]).toMatchObject({
+          weight: '0.75',
+          dimensions: '30 x 20 x 5 cm',
+          declaredStock: 25,
+          tags: ['baby', 'cotton'],
+        });
+      });
+
+      it('omits weight, dimensions and tags when absent, and defaults stock to 0', async () => {
+        const { service, productsRepo } = setup();
+        await service.importProducts(SELLER_ID, { categoryId: CATEGORY_ID, products: [candidate()] });
+        const input = vi.mocked(productsRepo.create).mock.calls[0][1];
+        expect(input).not.toHaveProperty('weight');
+        expect(input).not.toHaveProperty('dimensions');
+        expect(input).not.toHaveProperty('tags');
+        expect(input.declaredStock).toBe(0);
+      });
+
+      it('maps per-variant inventory, weight and dimensions; declaredStock is the sum; product weight is the first variant weight', async () => {
+        const { service, productsRepo } = setup();
+        await service.importProducts(SELLER_ID, {
+          categoryId: CATEGORY_ID,
+          products: [
+            candidate({
+              stock: 999,
+              weightKg: 9,
+              variants: [
+                { name: 'S', options: { Size: 'S' }, sku: null, sellerPrice: 10, stock: 5 },
+                {
+                  name: 'M', options: { Size: 'M' }, sku: null, sellerPrice: 12, stock: 0, weightKg: 0.3,
+                  dimensions: { length: 10, width: 8, height: 2, unit: 'in' },
+                },
+                { name: 'L', options: { Size: 'L' }, sku: null, sellerPrice: 14 },
+              ],
+            }),
+          ],
+        });
+        const input = vi.mocked(productsRepo.create).mock.calls[0][1];
+        expect(input.declaredStock).toBe(5);
+        expect(input.weight).toBe('0.3');
+        expect(input.variants?.map((v) => v.inventory)).toEqual([5, 0, undefined]);
+        expect(input.variants?.[1]).toMatchObject({
+          weight: 0.3,
+          weightUnit: 'kg',
+          length: 10,
+          width: 8,
+          height: 2,
+          dimensionUnit: 'in',
+        });
+        expect(input.variants?.[0]).not.toHaveProperty('weight');
+      });
+
+      it('uses the candidate stock when no variant states inventory, and a lone variant stock for a single variant', async () => {
+        const { service, productsRepo } = setup();
+        await service.importProducts(SELLER_ID, {
+          categoryId: CATEGORY_ID,
+          products: [
+            candidate({
+              stock: 8,
+              variants: [
+                { name: 'A', options: {}, sku: null, sellerPrice: 1 },
+                { name: 'B', options: {}, sku: null, sellerPrice: 2 },
+              ],
+            }),
+            candidate({ key: 'solo', name: 'Solo', stock: 3, weightKg: 2, variants: [{ name: 'Only', options: {}, sku: null, sellerPrice: 5, stock: 11, weightKg: 1.5 }] }),
+          ],
+        });
+        const [a, b] = vi.mocked(productsRepo.create).mock.calls.map((c) => c[1]);
+        expect(a.declaredStock).toBe(8);
+        expect(b).toMatchObject({ declaredStock: 11, weight: '1.5', variants: undefined });
+      });
+
+      it('brand drafts keep brand pricing and also carry the new fields', async () => {
+        const { service, productsRepo } = setup();
+        vi.mocked(productsRepo.findSellerContext).mockResolvedValue({ sellerType: 'MARKETPLACE', brand: { id: 'b1', status: 'ACTIVE' } } as never);
+        await service.importProducts(SELLER_ID, {
+          categoryId: CATEGORY_ID,
+          products: [candidate({ weightKg: 1, stock: 4 })],
+        });
+        const [, input, , , overrides] = vi.mocked(productsRepo.create).mock.calls[0];
+        expect(input).toMatchObject({ moq: 1, weight: '1', declaredStock: 4 });
+        expect(overrides).toEqual({ approvalStatus: ProductApprovalStatus.DRAFT, brandId: 'b1', adminPrice: 499 });
+      });
     });
 
     it('truncates a long list of taken SKUs in the error', async () => {

@@ -1,4 +1,10 @@
-import { ImportCandidate, ImportCandidateVariant, SheetRow } from '../product-import.types';
+import {
+  ImportCandidate,
+  ImportCandidateVariant,
+  ImportDimensions,
+  ImportPublishedState,
+  SheetRow,
+} from '../product-import.types';
 
 /**
  * Field caps. These mirror the products module's own Zod limits (products.validation.ts)
@@ -22,6 +28,19 @@ export const IMPORT_LIMITS = {
   maxRowsPerFile: 50_000,
   /** Product.sellerPrice is Decimal(12,2). */
   maxPrice: 99_999_999,
+  /** Product.weight is validated as a positive number of kg. */
+  maxWeightKg: 100_000,
+  /** One side of a package, in cm or inches. */
+  maxDimension: 100_000,
+  /** Declared stock / variant inventory is an Int column. */
+  maxStock: 10_000_000,
+  /** products.validation.ts: tags are 1–50 chars. */
+  tags: 20,
+  tagLength: 50,
+  /** Categories entries kept per product, and path depth / segment length. */
+  categoryPaths: 10,
+  categoryPathDepth: 6,
+  categorySegment: 100,
 } as const;
 
 export function normalizeHeader(header: string): string {
@@ -119,6 +138,28 @@ function roundPrice(n: number): number | null {
   return value;
 }
 
+/**
+ * Parses a plain non-negative quantity such as a weight or a dimension: "1.5", "1,5",
+ * "1,250.75", "12 kg". Returns null for blank or non-numeric text.
+ */
+export function parseQuantity(raw: string | null | undefined): number | null {
+  if (raw == null) return null;
+  let s = raw.trim().replace(/[^\d.,-]/g, '');
+  if (!s || s.startsWith('-')) return null;
+  const lastComma = s.lastIndexOf(',');
+  const lastDot = s.lastIndexOf('.');
+  if (lastComma !== -1 && lastDot !== -1) {
+    s = lastComma > lastDot ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  } else if (lastComma !== -1) {
+    // "1,5" / "0,25" → decimal comma; "1,000" / "1,29,999" → thousands separators.
+    const decimals = s.length - lastComma - 1;
+    s = s.indexOf(',') === lastComma && decimals !== 3 ? s.replace(',', '.') : s.replace(/,/g, '');
+  }
+  if (!/^\d+(\.\d+)?$/.test(s)) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
 export function isHttpUrl(value: string): boolean {
   if (value.length > IMPORT_LIMITS.imageUrl) return false;
   try {
@@ -142,11 +183,30 @@ export interface CandidateDraft {
   descriptionHtml: string;
   /** Raw, in display order — validated, deduped and capped in finalizeCandidate. */
   imageUrls: string[];
-  variants: { name: string; options: [string, string][]; sku: string; rawPrice: string }[];
+  variants: {
+    name: string;
+    options: [string, string][];
+    sku: string;
+    rawPrice: string;
+    /** Declared stock; null/absent = not stated in the file. */
+    stock?: number | null;
+    weightKg?: number | null;
+    dimensions?: ImportDimensions | null;
+  }[];
   /** Product-level price (WooCommerce simple products). */
   rawPrice: string;
   materials: string[];
   issues: string[];
+  published?: ImportPublishedState | null;
+  weightKg?: number | null;
+  dimensions?: ImportDimensions | null;
+  stock?: number | null;
+  tags?: string[];
+  categoryPath?: string[][];
+}
+
+export function formatDimensions(d: ImportDimensions): string {
+  return `${d.length} x ${d.width} x ${d.height} ${d.unit}`;
 }
 
 export function newDraft(key: string): CandidateDraft {
@@ -199,6 +259,7 @@ export function finalizeCandidate(draft: CandidateDraft): ImportCandidate {
   }
   const imageUrls = validImages.slice(0, IMPORT_LIMITS.imagesPerProduct);
   if (imageUrls.length === 0) issues.push('No images');
+  else if (imageUrls.length < 2) issues.push('Fewer than 2 images');
 
   // Variants
   let rawVariants = draft.variants;
@@ -232,7 +293,11 @@ export function finalizeCandidate(draft: CandidateDraft): ImportCandidate {
       if (sku) usedSkus.add(sku);
       const price = parsePrice(v.rawPrice);
       if (price === null) unpriced += 1;
-      return { name: truncate(label, IMPORT_LIMITS.variantName), options, sku, sellerPrice: price };
+      const out: ImportCandidateVariant = { name: truncate(label, IMPORT_LIMITS.variantName), options, sku, sellerPrice: price };
+      if (v.stock != null) out.stock = v.stock;
+      if (v.weightKg != null) out.weightKg = v.weightKg;
+      if (v.dimensions) out.dimensions = v.dimensions;
+      return out;
     });
     if (droppedSkus > 0) issues.push(`Removed ${droppedSkus} duplicate or over-long variant SKU(s)`);
     if (unpriced > 0) issues.push(`${unpriced} variant(s) have no price`);
@@ -244,7 +309,71 @@ export function finalizeCandidate(draft: CandidateDraft): ImportCandidate {
   const uniqueMaterials = [...new Set(draft.materials.map((m) => m.trim()).filter(Boolean))];
   const materials = uniqueMaterials.length ? truncate(uniqueMaterials.join(', '), IMPORT_LIMITS.materials) : null;
 
-  return { key, name, description, imageUrls, sellerPrice, variants, materials, issues };
+  // Product-level weight / size / stock. With 2+ variants (the only case that becomes
+  // real variants) weight and size come from the first variant that has one — the same
+  // rule as ProductForm.computeBase — and stock is the sum of the variants' stock, like
+  // ProductsService.deriveDeclaredStock. With 0–1 variants the lone variation's values win.
+  const firstVariant = rawVariants[0];
+  const weightKg =
+    (rawVariants.length > 1 ? rawVariants.find((v) => v.weightKg != null)?.weightKg : firstVariant?.weightKg) ??
+    draft.weightKg ??
+    null;
+  const dims =
+    (rawVariants.length > 1 ? rawVariants.find((v) => v.dimensions)?.dimensions : firstVariant?.dimensions) ??
+    draft.dimensions ??
+    null;
+  let stock: number | null;
+  if (rawVariants.length > 1) {
+    stock = rawVariants.some((v) => v.stock != null)
+      ? Math.min(
+          rawVariants.reduce((sum, v) => sum + (v.stock ?? 0), 0),
+          IMPORT_LIMITS.maxStock,
+        )
+      : (draft.stock ?? null);
+  } else {
+    stock = firstVariant?.stock ?? draft.stock ?? null;
+  }
+  if (weightKg === null) issues.push('No weight');
+
+  const out: ImportCandidate = { key, name, description, imageUrls, sellerPrice, variants, materials, issues };
+  if (weightKg !== null) out.weightKg = weightKg;
+  if (dims) out.dimensions = formatDimensions(dims);
+  if (stock !== null) out.stock = stock;
+  if (draft.published) out.published = draft.published;
+  const tags = normalizeTags(draft.tags ?? [], issues);
+  if (tags.length) out.tags = tags;
+  const categoryPath = normalizeCategoryPaths(draft.categoryPath ?? []);
+  if (categoryPath.length) out.categoryPath = categoryPath;
+  return out;
+}
+
+function normalizeTags(raw: string[], issues: string[]): string[] {
+  const seen = new Set<string>();
+  const tags: string[] = [];
+  for (const t of raw) {
+    const tag = truncate(t.trim(), IMPORT_LIMITS.tagLength);
+    const k = tag.toLowerCase();
+    if (!tag || seen.has(k)) continue;
+    seen.add(k);
+    tags.push(tag);
+  }
+  if (tags.length > IMPORT_LIMITS.tags) {
+    issues.push(`Only the first ${IMPORT_LIMITS.tags} of ${tags.length} tags will be imported`);
+    return tags.slice(0, IMPORT_LIMITS.tags);
+  }
+  return tags;
+}
+
+function normalizeCategoryPaths(raw: string[][]): string[][] {
+  const paths: string[][] = [];
+  for (const p of raw) {
+    const segments = p
+      .map((seg) => truncate(seg.trim(), IMPORT_LIMITS.categorySegment))
+      .filter(Boolean)
+      .slice(0, IMPORT_LIMITS.categoryPathDepth);
+    if (segments.length) paths.push(segments);
+  }
+  return paths.slice(0, IMPORT_LIMITS.categoryPaths);
 }
 
 /** Appends "-2", "-3"… so every candidate key in one file is unique. */
