@@ -393,6 +393,15 @@ export interface BuyerProductDetail {
 }
 
 /** Seller-safe projection — never includes adminPrice or margin. */
+/** A tier row as a seller may see it: never agentPrice; adminPrice only for marketplace
+ *  brands (it is their own buyer price) and omitted entirely for curated sellers. */
+export type SellerPriceTier<T extends { adminPrice: unknown; agentPrice: unknown }> =
+  Omit<T, 'adminPrice' | 'agentPrice'> & { adminPrice?: T['adminPrice'] };
+
+export type SellerVariant = Omit<VariantWithDetail, 'priceTiers'> & {
+  priceTiers: SellerPriceTier<VariantPriceTier>[];
+};
+
 export interface SellerProduct {
   id: string;
   name: string;
@@ -413,8 +422,8 @@ export interface SellerProduct {
   updatedAt: Date;
   images: ProductImage[];
   videos: ProductVideo[];
-  variants: VariantWithDetail[];
-  priceTiers: ProductPriceTier[];
+  variants: SellerVariant[];
+  priceTiers: SellerPriceTier<ProductPriceTier>[];
   tags: string[];
   stepQty: number;
   isHandmade: boolean;

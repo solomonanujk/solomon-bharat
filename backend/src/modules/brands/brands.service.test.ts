@@ -213,11 +213,32 @@ describe('BrandsService', () => {
   describe('own brand', () => {
     it('getMyBrand includes private fields and read-only overrides', async () => {
       vi.mocked(repo.findByUserId).mockResolvedValue(buildBrand() as never);
+      vi.mocked(repo.findById).mockResolvedValue(buildBrand() as never);
+      vi.mocked(repo.findSettingValue).mockResolvedValue(null);
       const result = await service.getMyBrand('u1');
       expect(result.legalName).toBe('Kala Kendra Pvt Ltd');
       expect(result.gstin).toBe('29ABCDE1234F1Z5');
       expect(result.commissionFirstOverride).toBe(20);
       expect(result.commissionRepeatOverride).toBeNull();
+    });
+
+    it('getMyBrand returns effectiveCommission: override ?? platform default', async () => {
+      vi.mocked(repo.findByUserId).mockResolvedValue(buildBrand() as never);
+      vi.mocked(repo.findById).mockResolvedValue(buildBrand() as never);
+      vi.mocked(repo.findSettingValue).mockImplementation((key: string) =>
+        Promise.resolve(key.endsWith('repeat') ? 12 : 30),
+      );
+      const result = await service.getMyBrand('u1');
+      // first: brand override 20 beats default 30; repeat: no override, platform default 12
+      expect(result.effectiveCommission).toEqual({ first: 20, repeat: 12 });
+    });
+
+    it('getMyBrand effectiveCommission falls back to 25/15 with no override or setting', async () => {
+      const plain = buildBrand({ commissionFirstOverride: null, commissionRepeatOverride: null });
+      vi.mocked(repo.findByUserId).mockResolvedValue(plain as never);
+      vi.mocked(repo.findById).mockResolvedValue(plain as never);
+      vi.mocked(repo.findSettingValue).mockResolvedValue(null);
+      expect((await service.getMyBrand('u1')).effectiveCommission).toEqual({ first: 25, repeat: 15 });
     });
 
     it('404s when the seller has no brand', async () => {
@@ -228,6 +249,8 @@ describe('BrandsService', () => {
     it('updateMyBrand persists and invalidates the product list cache', async () => {
       vi.mocked(repo.findByUserId).mockResolvedValue(buildBrand() as never);
       vi.mocked(repo.updateBrand).mockResolvedValue(buildBrand() as never);
+      vi.mocked(repo.findById).mockResolvedValue(buildBrand() as never);
+      vi.mocked(repo.findSettingValue).mockResolvedValue(null);
 
       await service.updateMyBrand('u1', { story: 'New story' });
 

@@ -28,6 +28,7 @@ import {
   ProductWithMedia,
   ProposedPricing,
   SaveDraftInput,
+  SellerPriceTier,
   SellerProduct,
   SellerProductListFilter,
   TierAdminPriceInput,
@@ -139,7 +140,18 @@ function toBuyerProduct(
   };
 }
 
+/** Seller-facing tier row. agentPrice is never exposed; adminPrice is kept only for
+ *  marketplace brands (it is their own buyer price) and stripped for curated sellers. */
+function toSellerTier<T extends { adminPrice: unknown; agentPrice: unknown }>(
+  tier: T,
+  isBrand: boolean,
+): SellerPriceTier<T> {
+  const { adminPrice, agentPrice: _agentPrice, ...rest } = tier;
+  return (isBrand ? { ...rest, adminPrice } : rest) as SellerPriceTier<T>;
+}
+
 function toSellerProduct(product: ProductWithMedia, pendingPricingChange: PendingPricingChange | null): SellerProduct {
+  const isBrand = !!product.brandId;
   return {
     id: product.id,
     name: product.name,
@@ -160,8 +172,11 @@ function toSellerProduct(product: ProductWithMedia, pendingPricingChange: Pendin
     updatedAt: product.updatedAt,
     images: product.images,
     videos: product.videos,
-    variants: product.variants,
-    priceTiers: product.priceTiers,
+    variants: product.variants.map((v) => ({
+      ...v,
+      priceTiers: v.priceTiers.map((t) => toSellerTier(t, isBrand)),
+    })),
+    priceTiers: product.priceTiers.map((t) => toSellerTier(t, isBrand)),
     tags: product.tags,
     stepQty: product.stepQty,
     isHandmade: product.isHandmade,

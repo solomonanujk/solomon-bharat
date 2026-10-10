@@ -9,6 +9,8 @@ export interface OwnBrand extends PublicBrand {
   gstin: string | null
   commissionFirstOverride: Numeric | null
   commissionRepeatOverride: Numeric | null
+  /** Rates (percent) that actually apply to this brand, override included. Absent on older backends. */
+  effectiveCommission?: { first: number; repeat: number }
 }
 
 export interface UpdateOwnBrandInput {

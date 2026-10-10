@@ -109,7 +109,7 @@ productImportRouter.post(
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ProductImportResult' }
- *       200: { description: No product could be created — see failed[] }
+ *       200: { description: "No product could be created - see failed[]" }
  *       400: { description: Category is not a level 3 sub-subcategory }
  *       422: { description: Validation error }
  */

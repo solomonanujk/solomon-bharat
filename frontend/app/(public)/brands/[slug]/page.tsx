@@ -11,7 +11,7 @@ import { Breadcrumbs } from '@/components/catalogue/Breadcrumbs'
 import { CatalogueView, CataloguePageSkeleton } from '@/components/catalogue/CatalogueView'
 import { BrandProfile } from '@/components/brands/BrandProfile'
 import { useBrand } from '@/hooks/queries/useBrands'
-import { useAuth } from '@/hooks/useAuth'
+import { useBrandUiVisibility } from '@/hooks/useAuth'
 
 const CRUMBS = [{ label: 'Home', href: '/' }, { label: 'Brands', href: '/brands' }]
 
@@ -73,14 +73,14 @@ function BrandDetail({ slug }: { slug: string }) {
 
 export default function BrandDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params)
-  const { user } = useAuth()
-  // Agents never see marketplace brands.
-  if (user?.role === 'AGENT') notFound()
+  const { hydrated, isAgent } = useBrandUiVisibility()
+  // Agents never see marketplace brands; until auth hydrates the role is unknown, so show the skeleton.
+  if (hydrated && isAgent) notFound()
   return (
     <PageShell>
       {/* useSearchParams (URL filter state) needs a Suspense boundary. */}
       <Suspense fallback={<CataloguePageSkeleton breadcrumbs={[...CRUMBS, { label: 'Brand' }]} />}>
-        <BrandDetail slug={slug} />
+        {hydrated ? <BrandDetail slug={slug} /> : <CataloguePageSkeleton breadcrumbs={[...CRUMBS, { label: 'Brand' }]} />}
       </Suspense>
     </PageShell>
   )

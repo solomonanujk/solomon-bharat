@@ -65,7 +65,10 @@ brandsRouter.get(
  *     summary: My brand, including private fields (marketplace SELLER only)
  *     tags: [Brands]
  *     responses:
- *       200: { description: Own brand }
+ *       200:
+ *         description: >-
+ *           Own brand. Includes effectiveCommission { first, repeat } (percent): the brand's
+ *           override if set, else the platform default.
  */
 brandsRouter.get('/me', requireAuth, requireMarketplaceSeller, asyncHandler(brandsController.getMine));
 

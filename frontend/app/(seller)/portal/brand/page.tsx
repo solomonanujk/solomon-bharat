@@ -218,19 +218,19 @@ function BrandForm({ brand }: { brand: OwnBrand }) {
   )
 }
 
-function rateLabel(override: number | string | null, fallback: number): string {
-  return `${override === null || override === undefined ? fallback : Number(override)}%`
-}
-
 function CommissionCard({ brand }: { brand: OwnBrand }) {
-  const custom = brand.commissionFirstOverride !== null || brand.commissionRepeatOverride !== null
+  // Server-computed rates win; 25/15 is only a fallback when the field is absent.
+  const first = brand.effectiveCommission?.first ?? (brand.commissionFirstOverride != null ? Number(brand.commissionFirstOverride) : 25)
+  const repeat = brand.effectiveCommission?.repeat ?? (brand.commissionRepeatOverride != null ? Number(brand.commissionRepeatOverride) : 15)
+  // "Custom" only when an override is set and actually changes the effective rate from the standard 25/15.
+  const custom =
+    (brand.commissionFirstOverride != null && first !== 25) || (brand.commissionRepeatOverride != null && repeat !== 15)
   return (
     <section className="rounded-xl border border-line bg-white p-6">
       <h2 className="type-h3 text-ink mb-2">Commission terms</h2>
       <p className="text-[14px] font-sans text-ink">
-        Solomon Bharat collects the buyer&apos;s payment and keeps{' '}
-        <strong>{rateLabel(brand.commissionFirstOverride, 25)}</strong> of your first paid order and{' '}
-        <strong>{rateLabel(brand.commissionRepeatOverride, 15)}</strong> of every later one. You are paid the rest once you
+        Solomon Bharat collects the buyer&apos;s payment and keeps <strong>{first}%</strong> of your first paid order and{' '}
+        <strong>{repeat}%</strong> of every later one. You are paid the rest once you
         mark the order delivered. Shipping is included in your prices.
       </p>
       <p className="text-[12px] font-sans text-muted mt-2">

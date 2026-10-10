@@ -12,7 +12,7 @@ import { useWishlist, useRemoveFromWishlist } from '@/hooks/queries/useWishlist'
 import { useFollowedBrands } from '@/hooks/queries/useBrands'
 import { BrandLogo, BrandTag, VerifiedBadge } from '@/components/brands/BrandTag'
 import { cn } from '@/lib/utils'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth, useBrandUiVisibility } from '@/hooks/useAuth'
 import { useCartStore } from '@/lib/store/useCartStore'
 import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import type { WishlistEntry } from '@/types'
@@ -167,7 +167,7 @@ function SavedBrands() {
 export default function WishlistPage() {
   const { data: wishlist = [], isLoading } = useWishlist()
   const { user } = useAuth()
-  const showBrands = user?.role !== 'AGENT' // agents never see marketplace brands
+  const showBrands = useBrandUiVisibility().showBrandUi // agents never see marketplace brands; unknown until hydrated
   const [tab, setTab] = useState<'products' | 'brands'>('products')
 
   const tabClass = (active: boolean) =>

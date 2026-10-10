@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { useAuth } from '@/hooks/useAuth'
+import { useBrandUiVisibility } from '@/hooks/useAuth'
 
 // Every href below is a route that exists under app/ (checked when this footer
 // was rebuilt) — don't add links to pages that haven't been built yet.
@@ -134,8 +134,7 @@ function SocialLink({ href, label, children }: { href: string; label: string; ch
 }
 
 export function Footer() {
-  const { user } = useAuth()
-  const isAgent = user?.role === 'AGENT' // agents never see marketplace brands
+  const { showBrandUi } = useBrandUiVisibility() // agents never see marketplace brands; hidden until auth hydrates
   return (
     <footer className="bg-white border-t border-line">
       <div className="sb-container pt-12 lg:pt-14 pb-6">
@@ -170,7 +169,7 @@ export function Footer() {
             <FooterColumn
               key={group.title}
               title={group.title}
-              links={group.links.filter((l) => !(isAgent && l.hideForAgents))}
+              links={group.links.filter((l) => !(!showBrandUi && l.hideForAgents))}
             />
           ))}
         </div>

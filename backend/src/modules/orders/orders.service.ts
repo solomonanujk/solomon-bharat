@@ -38,6 +38,7 @@ const brandRatesPort: CommissionRatesPort = {
 };
 
 export const MIN_ORDER_VALUE_NOT_MET = 'MIN_ORDER_VALUE_NOT_MET';
+export const ITEMS_UNAVAILABLE = 'ITEMS_UNAVAILABLE';
 
 interface FulfilmentGroup {
   /** Brand's SellerProfile id; null for the curated group. */
@@ -173,22 +174,70 @@ export class OrdersService {
     return order;
   }
 
+  /**
+   * Loads every cart product and validates availability for ALL of them before pricing, so a
+   * cart with several unavailable lines reports them together (details.productIds) instead of
+   * one per attempt. The message names the first unavailable product, as it always has.
+   */
+  private async loadAvailableProducts(
+    items: CheckoutItemInput[],
+    pricingRole: PricingRole,
+  ): Promise<Map<string, Awaited<ReturnType<ProductsService['getForCheckout']>>>> {
+    type CheckoutProduct = Awaited<ReturnType<ProductsService['getForCheckout']>>;
+    const loaded = await Promise.all(
+      items.map(async (item): Promise<{ id: string; product: CheckoutProduct | null }> => {
+        try {
+          return { id: item.productId, product: await this.products.getForCheckout(item.productId) };
+        } catch (err) {
+          if (err instanceof AppError && err.statusCode === 404) return { id: item.productId, product: null };
+          throw err;
+        }
+      }),
+    );
+
+    const brandIds = [
+      ...new Set(loaded.map((l) => l.product?.brandId).filter((id): id is string => !!id)),
+    ];
+    const brands = brandIds.length > 0 ? await this.repo.findBrandsByIds(brandIds) : [];
+    const brandById = new Map(brands.map((b) => [b.id, b]));
+
+    const unavailable: string[] = [];
+    const byId = new Map<string, CheckoutProduct>();
+    for (const { id, product } of loaded) {
+      const brand = product?.brandId ? brandById.get(product.brandId) : undefined;
+      const bad =
+        !product ||
+        product.deletedAt ||
+        !product.isPublished ||
+        product.approvalStatus !== 'APPROVED' ||
+        // Agents are limited to Solomon-curated products — marketplace brand products are
+        // never purchasable by them (owner decision; they cannot even see them).
+        (pricingRole === 'AGENT' && !!product.brandId) ||
+        (!!product.brandId && (!brand || brand.status === BrandStatus.SUSPENDED));
+      if (bad) {
+        if (!unavailable.includes(id)) unavailable.push(id);
+      } else {
+        byId.set(id, product);
+      }
+    }
+
+    if (unavailable.length > 0) {
+      throw AppError.badRequest(`Product ${unavailable[0]} is not available for purchase`, {
+        code: ITEMS_UNAVAILABLE,
+        productIds: unavailable,
+      });
+    }
+    return byId;
+  }
+
   private async priceCheckoutItems(
     items: CheckoutItemInput[],
     pricingRole: PricingRole,
   ): Promise<PricedOrderItem[]> {
+    const products = await this.loadAvailableProducts(items, pricingRole);
     return Promise.all(
       items.map(async (item) => {
-        const product = await this.products.getForCheckout(item.productId);
-
-        if (product.deletedAt || !product.isPublished || product.approvalStatus !== 'APPROVED') {
-          throw AppError.badRequest(`Product ${item.productId} is not available for purchase`);
-        }
-        // Agents are limited to Solomon-curated products — marketplace brand products are
-        // never purchasable by them (owner decision; they cannot even see them).
-        if (pricingRole === 'AGENT' && product.brandId) {
-          throw AppError.badRequest(`Product ${item.productId} is not available for purchase`);
-        }
+        const product = products.get(item.productId)!;
         if (item.quantity < product.moq) {
           throw AppError.badRequest(
             `Product "${product.name}" requires a minimum order quantity of ${product.moq}`,
@@ -218,13 +267,16 @@ export class OrdersService {
           }
         }
 
-        // A marketplace brand's flat (no-variant) product can carry its own quantity ladder.
-        if (unitAdminPrice == null && product.brandId) {
-          const tiers = product.priceTiers.filter((t) => t.adminPrice != null);
+        // A flat (no-variant) product — curated or brand — can carry its own quantity ladder;
+        // mirror the PDP: highest tier whose moq <= quantity, else the lowest tier.
+        if (unitAdminPrice == null) {
+          const tiers = product.priceTiers.filter((t) =>
+            pricingRole === 'AGENT' ? t.agentPrice != null : t.adminPrice != null,
+          );
           if (tiers.length > 0) {
             const sorted = [...tiers].sort((a, b) => b.moq - a.moq);
             const applicable = sorted.find((t) => item.quantity >= t.moq) ?? sorted[sorted.length - 1];
-            unitAdminPrice = Number(applicable.adminPrice);
+            unitAdminPrice = Number(pricingRole === 'AGENT' ? applicable.agentPrice : applicable.adminPrice);
             unitSellerPrice = Number(applicable.sellerPrice);
           }
         }

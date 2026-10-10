@@ -33,6 +33,7 @@ import {
   TierPriceEditor, cheapestTierPrice, hasTierErrors, tiersToPayload, validateTiers, type TierRow,
 } from '@/components/seller-portal/TierPriceEditor'
 import type { AdminProduct, MyProduct, VariantStatus } from '@/types'
+import type { AdminProductBrandFields } from '@/types/brand-admin'
 
 const MIN_IMAGES = 2
 const MAX_IMAGES = 10
@@ -259,6 +260,8 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const { isMarketplace: sellerIsMarketplace } = useSellerType()
   /** Marketplace brand: sets the buyer price directly; publishes immediately, no admin review. */
   const isBrand = !isAdminMode && sellerIsMarketplace
+  /** Admin editing a marketplace brand's product: the brand owns every price, so price fields are read-only and never sent. */
+  const brandLocked = isAdminMode && !!(product as (MyProduct & AdminProductBrandFields) | undefined)?.brand
 
   const submitMutation = useSubmitProduct()
   const sellerUpdateMutation = useUpdateMyProduct()
@@ -562,7 +565,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
         return 'Fix the highlighted price tiers.'
       }
     }
-    const uncosted = isBrand ? undefined : activeCombos.find((c) => !(Number(getVP(c.key).price) > 0))
+    const uncosted = isBrand || brandLocked ? undefined : activeCombos.find((c) => !(Number(getVP(c.key).price) > 0))
     if (uncosted) return `Set a price for "${uncosted.label === 'Default' ? 'this product' : uncosted.label}".`
     const unweighted = activeCombos.find((c) => !(Number(getVP(c.key).weight) > 0))
     if (unweighted) return `Set a weight for "${unweighted.label === 'Default' ? 'this product' : unweighted.label}".`
@@ -578,12 +581,12 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   function computeBase(): { sellerPrice: number; weight: number } | null {
     const rows = activeCombos.map((c) => getVP(c.key))
     const prices = activeCombos.map((c) => optionPrice(c.key)).filter((n) => n > 0)
-    if (prices.length !== rows.length) return null
+    if (!brandLocked && prices.length !== rows.length) return null
     const weightsKg = rows
       .map((r) => (Number(r.weight) > 0 ? (r.weightUnit === 'lb' ? Number(r.weight) * 0.453592 : Number(r.weight)) : null))
       .filter((n): n is number => n !== null)
     if (weightsKg.length === 0) return null
-    return { sellerPrice: Math.min(...prices), weight: weightsKg[0] }
+    return { sellerPrice: prices.length > 0 ? Math.min(...prices) : 0, weight: weightsKg[0] }
   }
 
   /** Declared Stock is derived from the table's own per-row Inventory — the flat
@@ -613,7 +616,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
         // images in this same submission are uploaded (see newImageIndex server-side).
         imageUrl: newImageIndex === undefined ? swatchValue : undefined,
         newImageIndex,
-        priceTiers: isBrand ? tiersToPayload(getTiers(combo.key), minQty) : [{ moq: 1, sellerPrice: Number(vp.price) }],
+        priceTiers: brandLocked ? undefined : isBrand ? tiersToPayload(getTiers(combo.key), minQty) : [{ moq: 1, sellerPrice: Number(vp.price) }],
         inventory: vp.inventory ? Number(vp.inventory) : undefined,
         weight: vp.weight ? Number(vp.weight) : undefined,
         weightUnit: vp.weight ? vp.weightUnit : undefined,
@@ -654,8 +657,8 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       dimensions,
       weight: base.weight,
       moq: 1,
-      declaredStock: totalInventory(),
       sellerPrice: base.sellerPrice,
+      declaredStock: totalInventory(),
       variants: buildVariantPayload(),
       ...brandPricingFields(),
       tags: [],
@@ -670,12 +673,16 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       tariffCode: single ? (single.tariffCode.trim() || undefined) : undefined,
     }
 
+    // Brand-owned products: the backend 400s on any price field, so omit them entirely.
+    const { moq: _moq, sellerPrice: _sellerPrice, ...commonNoPrice } = commonFields
+    void _moq; void _sellerPrice
+
     try {
       if (isEdit && product) {
         await updateMutation.mutateAsync({
           id: product.id,
           data: {
-            ...commonFields,
+            ...(brandLocked ? commonNoPrice : commonFields),
             // Publishing an existing draft (its only ever-false→true transition) —
             // a normal edit of a non-draft product ignores this field entirely.
             publish: product.approvalStatus === 'DRAFT',
@@ -742,7 +749,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       dimensions,
       weight: base?.weight,
       declaredStock: totalInventory(),
-      sellerPrice: base?.sellerPrice,
+      ...(brandLocked ? {} : { sellerPrice: base?.sellerPrice }),
       variants: base ? buildVariantPayload() : undefined,
       ...(base && brandMoqValid ? brandPricingFields() : {}),
       placeOfOrigin: placeOfOrigin.trim() || undefined,
@@ -807,7 +814,9 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
           {sellerMode === 'existing' && (
             <select value={selectedSellerId} onChange={(e) => setSelectedSellerId(e.target.value)} className={INPUT_CLS}>
               <option value="">Select a seller…</option>
-              {sellers.map((s) => <option key={s.id} value={s.id}>{s.businessName} — {s.contactName}</option>)}
+              {sellers.map((s) => s.sellerType === 'MARKETPLACE'
+                ? <option key={s.id} value={s.id} disabled>{s.businessName} — Marketplace brand, cannot create for</option>
+                : <option key={s.id} value={s.id}>{s.businessName} — {s.contactName}</option>)}
             </select>
           )}
         </div>
@@ -1055,6 +1064,11 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                   <p className="text-[13px] font-sans text-muted-text max-w-lg">
                     Configure variants, pricing, and shipping in one place. One price applies to every order — no separate pricing by country.
                   </p>
+                  {brandLocked && (
+                    <p role="note" className="text-[13px] font-sans text-primary max-w-lg mt-2">
+                      This price is set by the brand. Only the brand can change it.
+                    </p>
+                  )}
                   {isBrand && (
                     <p className="text-[13px] font-sans text-primary max-w-lg mt-2">
                       Set the price buyers pay per quantity tier. Solomon keeps 25% on your first order and 15% after.
@@ -1150,7 +1164,11 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                               placeholder={autoSku(combo)} className={INPUT_CLS + ' h-9 w-[110px]'} />
                           </td>
                           <td className="px-3 py-2">
-                            {isBrand ? (
+                            {brandLocked ? (
+                              <span className="block w-[110px] text-[12px] leading-[16px] text-muted-text">
+                                This price is set by the brand
+                              </span>
+                            ) : isBrand ? (
                               <span className="block w-[110px] text-primary font-[600] whitespace-nowrap">
                                 {(() => {
                                   const from = cheapestTierPrice(getTiers(combo.key))

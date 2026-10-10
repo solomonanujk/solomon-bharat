@@ -150,7 +150,8 @@ export class BrandsService {
     return brand;
   }
 
-  private toOwnBrand(brand: BrandWithCounts): OwnBrand {
+  private async toOwnBrand(brand: BrandWithCounts): Promise<OwnBrand> {
+    const effectiveCommission = await this.resolveCommissionRates(brand.id);
     return {
       ...toPublicBrand(brand, false),
       status: brand.status,
@@ -158,6 +159,7 @@ export class BrandsService {
       gstin: brand.gstin,
       commissionFirstOverride: toNumberOrNull(brand.commissionFirstOverride),
       commissionRepeatOverride: toNumberOrNull(brand.commissionRepeatOverride),
+      effectiveCommission: { first: effectiveCommission.first, repeat: effectiveCommission.repeat },
     };
   }
 

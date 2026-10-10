@@ -22,7 +22,7 @@ import {
 import { useProducts } from '@/hooks/queries/useProducts'
 import { useBrandFacets } from '@/hooks/queries/useBrands'
 import { useCategoryTree } from '@/hooks/queries/useCategories'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth, useBrandUiVisibility } from '@/hooks/useAuth'
 import type { CategoryNode, ProductsParams } from '@/types'
 
 const PAGE_SIZE = 24 // divisible by 3 and 2, so full pages never leave a ragged last row
@@ -113,11 +113,11 @@ export function CatalogueView({
   const showPrice = isAuthenticated && (user?.role === 'BUYER' || user?.role === 'AGENT')
   const { data: categoryTree = [] } = useCategoryTree()
   const { data: brandFacets = [] } = useBrandFacets()
-  const isAgent = user?.role === 'AGENT'
+  const { hydrated: authHydrated, isAgent } = useBrandUiVisibility()
   // Brand facet is hidden on a brand storefront (fixed by the page) and for agents (they never see brands).
-  const hideBrand = !!scope?.brandSlug || isAgent
+  const hideBrand = !!scope?.brandSlug || isAgent || !authHydrated
   // The Curated toggle only makes sense where marketplace products can appear.
-  const showCurated = !scope?.brandSlug && !isAgent && state.sort !== 'trending'
+  const showCurated = !scope?.brandSlug && !isAgent && authHydrated && state.sort !== 'trending'
 
   const filters: ProductFilterValues = useMemo(() => {
     // `curated` is a toolbar toggle independent of the facet sidebar, so it survives `facets={false}`.
@@ -370,6 +370,10 @@ export function CatalogueView({
               </form>
             )}
 
+            {!authHydrated && !scope?.brandSlug && !isAgent && state.sort !== 'trending' && (
+              // Reserve the toolbar button's space until auth hydrates, so nothing shifts.
+              <div aria-hidden="true" className="invisible w-full lg:w-[212px] min-h-11 lg:h-12 flex-shrink-0" />
+            )}
             {showCurated && (
               <button
                 type="button"

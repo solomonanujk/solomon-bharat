@@ -9,8 +9,8 @@ function extractHeroImageFile(req: Request) {
 }
 
 export const categoriesController = {
-  async getPublicTree(_req: Request, res: Response): Promise<void> {
-    const tree = await categoriesService.getPublicTree();
+  async getPublicTree(req: Request, res: Response): Promise<void> {
+    const tree = await categoriesService.getPublicTree(req.user?.role);
     sendSuccess(res, tree);
   },
 
@@ -21,7 +21,7 @@ export const categoriesController = {
 
   async getBySlug(req: Request, res: Response): Promise<void> {
     const includeArchived = req.user?.role === 'SUPER_ADMIN';
-    const category = await categoriesService.getCategoryDetailBySlug(req.params.slug, includeArchived);
+    const category = await categoriesService.getCategoryDetailBySlug(req.params.slug, includeArchived, req.user?.role);
     sendSuccess(res, category);
   },
 

@@ -11,7 +11,7 @@ import { Breadcrumbs } from '@/components/catalogue/Breadcrumbs'
 import { Pagination } from '@/components/catalogue/Pagination'
 import { BrandLogo, VerifiedBadge } from '@/components/brands/BrandTag'
 import { useBrands } from '@/hooks/queries/useBrands'
-import { useAuth } from '@/hooks/useAuth'
+import { useBrandUiVisibility } from '@/hooks/useAuth'
 
 const PAGE_SIZE = 24
 
@@ -152,15 +152,15 @@ function BrandsList() {
 }
 
 export default function BrandsPage() {
-  const { user } = useAuth()
-  // Agents never see marketplace brands.
-  if (user?.role === 'AGENT') notFound()
+  const { hydrated, isAgent } = useBrandUiVisibility()
+  // Agents never see marketplace brands; until auth hydrates the role is unknown, so show the skeleton.
+  if (hydrated && isAgent) notFound()
   return (
     <div className="min-h-screen bg-ivory flex flex-col">
       <NavBar />
       <main className="flex-1">
         <Suspense fallback={<div className="sb-container sb-section" aria-busy="true" />}>
-          <BrandsList />
+          {hydrated ? <BrandsList /> : <div className="sb-container sb-section" aria-busy="true" />}
         </Suspense>
       </main>
       <Footer />

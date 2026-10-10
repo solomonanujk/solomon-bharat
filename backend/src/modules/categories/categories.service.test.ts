@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Category, CategoryStatus } from '@prisma/client';
+import { Category, CategoryStatus, Role } from '@prisma/client';
 import { buildMockCache } from '../../test-utils/mockCache';
 import { storageProvider } from '../../providers/storage';
 import { CategoriesRepository } from './categories.repository';
@@ -310,6 +310,36 @@ describe('CategoriesService', () => {
       expect(tree[0].productCount).toBe(7);
       expect(tree[0].children[0].productCount).toBe(7);
       expect(tree[0].children[0].children.map((c) => c.productCount)).toEqual([2, 5]);
+    });
+
+    it('agents get curated-only counts under a separate cache key', async () => {
+      const l3 = buildCategory({ id: 'l3', level: 3, parentId: null });
+      vi.mocked(repo.findAll).mockResolvedValue([l3]);
+      vi.mocked(repo.groupProductCounts).mockImplementation(async (_p, curatedOnly) =>
+        new Map([['l3', curatedOnly ? 1 : 4]]),
+      );
+
+      const agentTree = await service.getPublicTree(Role.AGENT);
+      const buyerTree = await service.getPublicTree(Role.BUYER);
+      const guestTree = await service.getPublicTree();
+
+      expect(agentTree[0].productCount).toBe(1);
+      expect(buyerTree[0].productCount).toBe(4);
+      expect(guestTree[0].productCount).toBe(4);
+      expect(repo.groupProductCounts).toHaveBeenCalledWith(true, true);
+      expect(repo.groupProductCounts).toHaveBeenCalledWith(true, false);
+      // agent result is served from its own cache entry, not the buyer's
+      expect((await service.getPublicTree(Role.AGENT))[0].productCount).toBe(1);
+      expect((await service.getPublicTree(Role.BUYER))[0].productCount).toBe(4);
+    });
+
+    it('detail counts are curated-only for agents', async () => {
+      const cat = buildCategory({ id: 'l3', level: 3 });
+      vi.mocked(repo.findBySlug).mockResolvedValue(cat);
+      vi.mocked(repo.findChildren).mockResolvedValue([]);
+      vi.mocked(repo.countProductsInCategories).mockResolvedValue(2);
+      await service.getCategoryDetailBySlug('home-decor', false, Role.AGENT);
+      expect(repo.countProductsInCategories).toHaveBeenCalledWith(['l3'], true, true);
     });
   });
 });

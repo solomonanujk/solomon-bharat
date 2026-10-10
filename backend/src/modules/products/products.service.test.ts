@@ -1323,6 +1323,54 @@ describe('ProductsService', () => {
       expect(result).not.toHaveProperty('adminPrice');
     });
 
+    function pricedProduct(overrides: Partial<Product> = {}) {
+      const tier = { productId: 'prod-1', sellerPrice: new Decimal(5), adminPrice: new Decimal(8), agentPrice: new Decimal(6) };
+      return {
+        ...withMedia(buildProduct(overrides)),
+        priceTiers: [{ id: 'tier-1', moq: 20, ...tier }],
+        variants: [
+          {
+            id: 'var-1', productId: 'prod-1', type: 'Size', value: 'L',
+            attributes: [],
+            priceTiers: [{ id: 'vt-1', variantId: 'var-1', moq: 10, sellerPrice: new Decimal(4), adminPrice: new Decimal(9), agentPrice: new Decimal(7) }],
+          },
+        ],
+      } as never;
+    }
+
+    it('getForSeller strips adminPrice and agentPrice from flat and variant tiers for curated sellers', async () => {
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildProduct());
+      vi.mocked(repo.findByIdWithMedia).mockResolvedValue(pricedProduct());
+
+      const result = await service.getForSeller('seller-1', 'prod-1');
+
+      expect(result.priceTiers).toEqual([{ id: 'tier-1', productId: 'prod-1', moq: 20, sellerPrice: new Decimal(5) }]);
+      expect(result.variants[0].priceTiers).toEqual([
+        { id: 'vt-1', variantId: 'var-1', moq: 10, sellerPrice: new Decimal(4) },
+      ]);
+      const json = JSON.stringify(result);
+      expect(json).not.toContain('adminPrice');
+      expect(json).not.toContain('agentPrice');
+    });
+
+    it("getForSeller keeps a brand's own price (adminPrice) but never agentPrice", async () => {
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildProduct({ brandId: 'brand-1' }));
+      vi.mocked(repo.findByIdWithMedia).mockResolvedValue(pricedProduct({ brandId: 'brand-1' }));
+
+      const result = await service.getForSeller('seller-1', 'prod-1');
+
+      expect(result.priceTiers[0].adminPrice).toEqual(new Decimal(8));
+      expect(result.variants[0].priceTiers[0].adminPrice).toEqual(new Decimal(9));
+      expect(JSON.stringify(result)).not.toContain('agentPrice');
+    });
+
+    it('buyer payload never contains sellerPrice', async () => {
+      vi.mocked(repo.findBySlugWithMedia).mockResolvedValue(pricedProduct({ isPublished: true, approvalStatus: ProductApprovalStatus.APPROVED }));
+      vi.mocked(repo.findRelated).mockResolvedValue([]);
+      const { product } = await service.getBySlug('table-runner', Role.BUYER);
+      expect(JSON.stringify(product)).not.toContain('sellerPrice');
+    });
+
     it('getForAdmin throws 404 for a product that does not exist', async () => {
       vi.mocked(repo.findByIdWithMedia).mockResolvedValue(null);
 

@@ -1,4 +1,4 @@
-import { Category, CategoryStatus } from '@prisma/client';
+import { Category, CategoryStatus, Role } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { AppError } from '../../utils/errors';
 import { slugify, uniqueSlugSuffix, entityFolder } from '../../utils/helpers';
@@ -16,6 +16,8 @@ import {
 } from './categories.types';
 
 const PUBLIC_TREE_CACHE_KEY = 'categories:public-tree';
+/** Agents see curated-only counts, so they get their own cache entry. */
+const PUBLIC_TREE_CURATED_CACHE_KEY = 'categories:public-tree:curated';
 const PUBLIC_TREE_CACHE_TTL_SECONDS = 300;
 
 export class CategoriesService {
@@ -25,7 +27,7 @@ export class CategoriesService {
   ) {}
 
   private async invalidatePublicTreeCache(): Promise<void> {
-    await this.cache.del(PUBLIC_TREE_CACHE_KEY);
+    await Promise.all([this.cache.del(PUBLIC_TREE_CACHE_KEY), this.cache.del(PUBLIC_TREE_CURATED_CACHE_KEY)]);
   }
 
   private async getByIdOrThrow(id: string): Promise<Category> {
@@ -182,16 +184,18 @@ export class CategoriesService {
     return (byParent.get(null) ?? []).map(toNode);
   }
 
-  async getPublicTree(): Promise<CategoryNode[]> {
-    const cached = await this.cache.get<CategoryNode[]>(PUBLIC_TREE_CACHE_KEY);
+  async getPublicTree(viewerRole?: Role): Promise<CategoryNode[]> {
+    const curatedOnly = viewerRole === Role.AGENT;
+    const cacheKey = curatedOnly ? PUBLIC_TREE_CURATED_CACHE_KEY : PUBLIC_TREE_CACHE_KEY;
+    const cached = await this.cache.get<CategoryNode[]>(cacheKey);
     if (cached) return cached;
 
     const [categories, counts] = await Promise.all([
       this.repo.findAll(false),
-      this.repo.groupProductCounts(true),
+      this.repo.groupProductCounts(true, curatedOnly),
     ]);
     const tree = this.buildTree(categories, counts);
-    await this.cache.set(PUBLIC_TREE_CACHE_KEY, tree, PUBLIC_TREE_CACHE_TTL_SECONDS);
+    await this.cache.set(cacheKey, tree, PUBLIC_TREE_CACHE_TTL_SECONDS);
     return tree;
   }
 
@@ -217,31 +221,32 @@ export class CategoriesService {
     return trail;
   }
 
-  async getCategoryDetailBySlug(slug: string, includeArchived: boolean): Promise<CategoryDetail> {
+  async getCategoryDetailBySlug(slug: string, includeArchived: boolean, viewerRole?: Role): Promise<CategoryDetail> {
     const category = await this.repo.findBySlug(slug);
     if (!category || (!includeArchived && category.status === CategoryStatus.ARCHIVED)) {
       throw AppError.notFound('Category not found');
     }
 
+    const curatedOnly = viewerRole === Role.AGENT;
     const [breadcrumb, children, productCount] = await Promise.all([
       this.buildBreadcrumb(category),
       this.repo.findChildren(category.id, includeArchived),
-      this.getSubtreeProductCount(category, !includeArchived),
+      this.getSubtreeProductCount(category, !includeArchived, curatedOnly),
     ]);
 
     const childrenWithCounts = await Promise.all(
       children.map(async (child) => ({
         ...child,
-        productCount: await this.getSubtreeProductCount(child, !includeArchived),
+        productCount: await this.getSubtreeProductCount(child, !includeArchived, curatedOnly),
       })),
     );
 
     return { ...category, breadcrumb, children: childrenWithCounts, productCount };
   }
 
-  async getSubtreeProductCount(category: Category, publishedOnly: boolean): Promise<number> {
+  async getSubtreeProductCount(category: Category, publishedOnly: boolean, curatedOnly = false): Promise<number> {
     const leafIds = await this.getDescendantLeafIds(category);
-    return this.repo.countProductsInCategories(leafIds, publishedOnly);
+    return this.repo.countProductsInCategories(leafIds, publishedOnly, curatedOnly);
   }
 
   /**
