@@ -22,6 +22,21 @@ export function ApprovalStatusBadge({ status, className }: { status: ApprovalSta
   )
 }
 
+// ─── Marketplace brand product state (no review step: live or not) ───────────
+
+export function ProductPublishBadge({ approvalStatus, isPublished, className }: {
+  approvalStatus: ApprovalStatus
+  isPublished: boolean
+  className?: string
+}) {
+  if (approvalStatus === 'DRAFT') return <Badge variant="default" className={className}>Draft</Badge>
+  return (
+    <Badge variant={isPublished ? 'success' : 'warning'} className={className}>
+      {isPublished ? 'Published' : 'Unpublished'}
+    </Badge>
+  )
+}
+
 // ─── Payout status ─────────────────────────────────────────────────────────────
 
 const PAYOUT_CONFIG: Record<PayoutStatus, { label: string; variant: NonNullable<BadgeProps['variant']> }> = {

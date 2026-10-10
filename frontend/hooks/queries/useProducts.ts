@@ -12,6 +12,7 @@ import type {
   PaginatedResult,
   PendingPricingChange,
   Product,
+  ProductDetail,
   ProductPriceTier,
   ProductsParams,
   VariantAttribute,
@@ -38,7 +39,7 @@ function toPaginated<T>(res: { data: { data: unknown; meta?: { total?: number; p
 // There is no unscoped, unfiltered product listing.
 
 export function useProducts(params: ProductsParams) {
-  const scoped = !!(params.categoryId || params.collectionId || params.search || params.sort)
+  const scoped = !!(params.categoryId || params.collectionId || params.brand || params.search || params.sort)
   return useQuery<PaginatedResult<Product>>({
     queryKey: ['products', params],
     queryFn: async () => toPaginated<Product>(await api.get('/products', { params })),
@@ -49,7 +50,7 @@ export function useProducts(params: ProductsParams) {
 
 /** Infinite-scroll variant — same scope rule (categoryId, collectionId, search, or sort). */
 export function useInfiniteProducts(params: Omit<ProductsParams, 'page'>) {
-  const scoped = !!(params.categoryId || params.collectionId || params.search || params.sort)
+  const scoped = !!(params.categoryId || params.collectionId || params.brand || params.search || params.sort)
   return useInfiniteQuery<PaginatedResult<Product>>({
     queryKey: ['products', 'infinite', params],
     queryFn: async ({ pageParam }) =>
@@ -78,17 +79,17 @@ export function useInfiniteRecommendations(enabled: boolean) {
 }
 
 /**
- * GET /products/:slug returns { product, related } — NOT the product's fields
+ * GET /products/:slug returns { product, related, moreFromBrand } — NOT the product's fields
  * flattened at the top level (same shape pattern as GET /collections/:slug).
  * Unwrap here so callers can treat the result as a normal Product plus related items.
  */
 export function useProduct(slug: string | null) {
-  return useQuery<Product & { related: Product[] }>({
+  return useQuery<ProductDetail>({
     queryKey: ['product', slug],
     queryFn: async () => {
       const res = await api.get(`/products/${slug}`)
-      const { product, related } = res.data.data
-      return { ...product, related }
+      const { product, related, moreFromBrand } = res.data.data
+      return { ...product, related: related ?? [], moreFromBrand: moreFromBrand ?? [] }
     },
     enabled: !!slug,
     staleTime: 2 * 60 * 1000,

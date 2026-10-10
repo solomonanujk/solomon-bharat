@@ -36,3 +36,14 @@ export function useAuth() {
     requireAuth,
   }
 }
+
+/**
+ * Brand-UI gate. Agents must never see marketplace brand UI, and the auth
+ * store is not known until it has hydrated — so brand UI renders only once
+ * hydration is done and the viewer is not an agent.
+ */
+export function useBrandUiVisibility(): { hydrated: boolean; isAgent: boolean; showBrandUi: boolean } {
+  const hydrated = useAuthStore((s) => s._hasHydrated)
+  const isAgent = useAuthStore((s) => s.user?.role === 'AGENT')
+  return { hydrated, isAgent, showBrandUi: hydrated && !isAgent }
+}

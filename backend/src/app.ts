@@ -23,6 +23,9 @@ export function createApp(): Application {
       credentials: true,
     }),
   );
+  // PayPal webhook signatures are computed over the exact bytes sent, so this one route keeps
+  // the raw body. Registered before express.json(), which then skips the already-read stream.
+  app.use('/api/v1/payments/webhooks/paypal', express.raw({ type: '*/*', limit: '1mb' }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());

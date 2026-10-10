@@ -7,6 +7,7 @@ import { useAdminOrders } from '@/hooks/queries/useOrders'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { cn, formatCurrency } from '@/lib/utils'
 import type { OrderStatus } from '@/types'
+import type { AdminOrderBrandFields } from '@/types/brand-admin'
 
 const LIMIT = 20
 
@@ -132,6 +133,15 @@ export default function AdminOrdersPage() {
                     >
                       <td className="py-3.5 px-4">
                         <p className="text-[13px] font-[600] font-sans text-[#20201E]">#{shortId(order.id)}</p>
+                        {(() => {
+                          const brandFields = order as typeof order & AdminOrderBrandFields
+                          if (!brandFields.sellerProfileId) return null
+                          return (
+                            <span className="mt-1 inline-flex items-center rounded-full bg-selected px-2 py-0.5 text-[10.5px] font-[600] font-sans text-forest">
+                              Marketplace &middot; {brandFields.sellerProfile?.brand?.name ?? 'Brand'}
+                            </span>
+                          )
+                        })()}
                       </td>
                       <td className="py-3.5 px-4 text-[13px] font-sans text-[#665F55]">
                         {order.items.length} item{order.items.length !== 1 ? 's' : ''}

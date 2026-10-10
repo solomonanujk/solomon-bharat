@@ -14,8 +14,8 @@ const AUTO_DISMISS_MS = 4000
  * Global "Added to cart" popup — top-right, auto-dismissing. Triggered directly by
  * useCartStore.addItem itself (not by each call site), so every add-to-cart action
  * anywhere in the app (PDP, product cards, wishlist, agent portal) shows it for free.
- * No seller/brand name or per-seller order-minimum progress bar like Faire's reference —
- * this platform never shows seller identity to buyers, and has no per-seller minimum.
+ * Marketplace-brand products show the brand name; curated products never show seller
+ * identity. Per-brand minimum-order progress lives on the cart/checkout pages.
  */
 export function AddedToCartPopup() {
   const item = useCartStore((s) => s.lastAddedItem)
@@ -59,6 +59,14 @@ export function AddedToCartPopup() {
           <p className="font-sans text-[14px] font-[500] text-product-text leading-snug line-clamp-2">
             {item.productName}
           </p>
+          {item.brand && (
+            <p className="font-sans text-[13px] text-muted mt-0.5">
+              Sold by{' '}
+              <Link href={`/brands/${item.brand.slug}`} onClick={hide} className="underline underline-offset-2">
+                {item.brand.name}
+              </Link>
+            </p>
+          )}
           {item.variantLabel && (
             <p className="font-sans text-[13px] text-muted-text mt-0.5">{item.variantLabel}</p>
           )}

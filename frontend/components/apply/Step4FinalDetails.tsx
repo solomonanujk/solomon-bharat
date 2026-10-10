@@ -1,6 +1,7 @@
 'use client'
 
 import { BUSINESS_TYPE_OPTIONS, HEAR_ABOUT_US_OPTIONS } from '@/lib/sellerApplicationOptions'
+import { CURATED_COMMISSION } from '@/lib/sellerCommission'
 import { APPLY_SELECT_CLS, APPLY_TEXTAREA_CLS, ChoicePill, RequiredMark, StepField, StepHeader } from './shared'
 import type { StepProps } from './types'
 
@@ -43,9 +44,9 @@ export function Step4FinalDetails({ data, patch }: StepProps) {
       <div className="rounded-lg p-4 bg-muted-bg border border-border-warm">
         <p className="font-sans text-[13.5px] font-[700] text-primary mb-1.5">Commission structure — please read</p>
         <p className="font-sans text-[13px] leading-[1.6] text-muted-text">
-          Solomon Bharat charges <strong className="text-primary">23% on the FIRST order</strong> from any new
+          Solomon Bharat charges <strong className="text-primary">{CURATED_COMMISSION.first}% on the FIRST order</strong> from any new
           international buyer we introduce. Every <strong className="text-primary">REPEAT order</strong> from the
-          same buyer is <strong className="text-primary">14%</strong>. No listing fees. No monthly fees. You pay
+          same buyer is <strong className="text-primary">{CURATED_COMMISSION.repeat}%</strong>. No listing fees. No monthly fees. You pay
           only when you earn.
         </p>
       </div>

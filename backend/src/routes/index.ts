@@ -13,6 +13,7 @@ import { adminRouter } from '../modules/admin/admin.routes';
 import { reviewsRouter } from '../modules/reviews/reviews.routes';
 import { agentApplicationsRouter } from '../modules/agent-applications/agent-applications.routes';
 import { cataloguesRouter } from '../modules/catalogues/catalogues.routes';
+import { brandsRouter } from '../modules/brands/brands.routes';
 import { productImportRouter } from '../modules/product-import/product-import.routes';
 
 export const apiRouter = Router();
@@ -46,4 +47,5 @@ apiRouter.use('/admin', adminRouter);
 apiRouter.use('/reviews', reviewsRouter);
 apiRouter.use('/agents', agentApplicationsRouter);
 apiRouter.use('/agent/catalogues', cataloguesRouter);
+apiRouter.use('/brands', brandsRouter);
 apiRouter.use('/product-import', productImportRouter);

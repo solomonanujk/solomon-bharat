@@ -5,6 +5,7 @@ import { PaginationQuery } from '../../utils/pagination';
 import { prisma } from '../../config/prisma';
 import { notificationsService } from '../notifications/notifications.service';
 import { ReviewsRepository, reviewsRepository } from '../reviews/reviews.repository';
+import { toBrandSummary } from '../products/products.types';
 import { BuyersRepository, buyersRepository } from './buyers.repository';
 import {
   CreateAddressInput,
@@ -80,7 +81,8 @@ export class BuyersService {
   // ── Wishlist ───────────────────────────────────────────────────────
 
   async listWishlist(buyerId: string): Promise<WishlistEntry[]> {
-    const items = await this.repo.findWishlist(buyerId);
+    // Products of a suspended brand drop out of the buyer's wishlist view.
+    const items = (await this.repo.findWishlist(buyerId)).filter((item) => item.product.brand?.status !== 'SUSPENDED');
     const ratings = await this.reviews.getRatingSummaries(items.map((item) => item.product.id));
     return items.map((item) => {
       const rating = ratings.get(item.product.id);
@@ -97,14 +99,18 @@ export class BuyersService {
           imageUrl: item.product.images[0]?.url ?? null,
           avgRating: rating?.avgRating ?? null,
           reviewCount: rating?.reviewCount ?? 0,
+          brand: toBrandSummary(item.product.brand),
         },
       };
     });
   }
 
   async addToWishlist(buyerId: string, productId: string): Promise<void> {
-    const product = await prisma.product.findUnique({ where: { id: productId } });
-    if (!product || product.deletedAt || !product.isPublished) {
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      include: { brand: { select: { status: true } } },
+    });
+    if (!product || product.deletedAt || !product.isPublished || product.brand?.status === 'SUSPENDED') {
       throw AppError.notFound('Product not found');
     }
 

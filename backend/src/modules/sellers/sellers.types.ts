@@ -1,4 +1,4 @@
-import { SellerApplicationStatus } from '@prisma/client';
+import { SellerApplicationStatus, SellerType } from '@prisma/client';
 
 export interface SubmitApplicationInput {
   businessName: string;
@@ -11,8 +11,9 @@ export interface SubmitApplicationInput {
   message?: string;
   city: string;
   country: string;
-  instagramHandle: string;
-  instagramFollowers: number;
+  sellerType?: SellerType;
+  instagramHandle?: string;
+  instagramFollowers?: number;
   websiteOrSocialLink?: string;
   craftCategories?: string[];
   productDescription?: string;
@@ -29,6 +30,16 @@ export interface SubmitApplicationInput {
   businessType: string;
   hearAboutUs?: string;
   agreedToCommissionTerms: boolean;
+  // Marketplace brand answers (only persisted when sellerType = MARKETPLACE).
+  brandName?: string;
+  brandStory?: string;
+  brandLogoUrl?: string;
+  brandBannerUrl?: string;
+  brandWebsite?: string;
+  minOrderValueInr?: number;
+  commissionTermsVersion?: string;
+  /** Server-stamped when the applicant agrees to the commission terms. */
+  commissionAgreedAt?: Date;
 }
 
 export interface UpdateSellerProfileInput {
@@ -44,4 +55,5 @@ export interface ApplicationListFilter {
   status?: SellerApplicationStatus;
 }
 
+export type { BrandSummaryDto } from '../../utils/brandSummary';
 export { SellerApplicationStatus };

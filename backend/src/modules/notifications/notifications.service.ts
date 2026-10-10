@@ -1,6 +1,9 @@
 import { Notification, NotificationType, Role } from '@prisma/client';
 import { AppError } from '../../utils/errors';
 import { PaginationQuery } from '../../utils/pagination';
+import { env } from '../../config/env';
+import { logger } from '../../config/logger';
+import { mailProvider } from '../../providers/mail';
 import { NotificationsRepository, notificationsRepository } from './notifications.repository';
 
 export class NotificationsService {
@@ -74,7 +77,7 @@ export class NotificationsService {
       sellerUserId,
       NotificationType.PAYOUT_PAID,
       'Payout paid',
-      `A payout of $${amount} has been marked as paid.`,
+      `A payout of ₹${amount} has been marked as paid.`,
     );
   }
 
@@ -85,6 +88,56 @@ export class NotificationsService {
       'Welcome to Solomon Bharat',
       'Your seller application has been approved.',
     );
+  }
+
+  notifyBrandApplicationApproved(brandUserId: string): Promise<Notification> {
+    return this.notify(
+      brandUserId,
+      NotificationType.BRAND_APPLICATION_APPROVED,
+      'Your brand is live on Solomon Bharat',
+      'Your brand application has been approved. Complete your brand profile and publish your products.',
+      '/portal',
+    );
+  }
+
+  /**
+   * Alerts a marketplace brand about a newly paid order (in-app + email). Never throws: a
+   * failure here must not fail the payment settlement that triggered it.
+   * The email shows items, qty and gross plus the buyer's city/country only; the portal has the rest.
+   */
+  async notifyBrandNewOrder(orderId: string): Promise<void> {
+    try {
+      const order = await this.repo.findOrderForBrandAlert(orderId);
+      if (!order || !order.sellerProfile) return;
+      const { user } = order.sellerProfile;
+      const link = `/portal/orders/${orderId}`;
+
+      await this.notify(
+        user.id,
+        NotificationType.NEW_ORDER_RECEIVED,
+        'New order received',
+        `You have a new paid order with ${order.items.length} item(s). Confirm it to start fulfilment.`,
+        link,
+      );
+
+      const escape = (v: string): string => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const rows = order.items
+        .map((i) => `<li>${escape(i.product.name)} &times; ${i.quantity} &mdash; ₹${i.lineAdminTotal.toString()}</li>`)
+        .join('');
+      const dest = order.shippingAddress
+        ? `${escape(order.shippingAddress.city)}, ${escape(order.shippingAddress.country)}`
+        : null;
+      await mailProvider.sendMail({
+        to: user.email,
+        subject: 'New order on Solomon Bharat',
+        html: `<p>You have received a new paid order.</p>
+<ul>${rows}</ul>
+<p>Order total: ₹${order.adminPriceTotal.toString()}${dest ? `<br/>Shipping to: ${dest}` : ''}</p>
+<p>Open the order in your portal for full details: <a href="${env.APP_URL}${link}">${env.APP_URL}${link}</a></p>`,
+      });
+    } catch (err) {
+      logger.error({ err, orderId }, 'Failed to notify brand about new order');
+    }
   }
 
   notifyAgentApplicationApproved(agentUserId: string): Promise<Notification> {

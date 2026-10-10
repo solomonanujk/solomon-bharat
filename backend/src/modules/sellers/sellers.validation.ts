@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { SellerApplicationStatus } from '@prisma/client';
+import { SellerApplicationStatus, SellerType } from '@prisma/client';
 import { paginationQuerySchema } from '../../utils/pagination';
 import {
   AMAZON_SELLING_OPTIONS,
@@ -18,7 +18,9 @@ import {
 // businessAddress is deliberately absent — the wizard only collects city +
 // country; the service synthesizes businessAddress from those before calling
 // the repository (see SellersService.submitApplication).
-export const submitApplicationSchema = z.object({
+const submitApplicationBaseSchema = z.object({
+  // Chosen on the first onboarding step. Existing clients omit it => CURATED.
+  sellerType: z.nativeEnum(SellerType).default(SellerType.CURATED),
   businessName: z.string().min(1).max(200),
   contactName: z.string().min(1).max(200),
   email: z.string().email(),
@@ -27,8 +29,9 @@ export const submitApplicationSchema = z.object({
   // Brand step
   city: z.string().min(1).max(200),
   country: z.string().min(1).max(100),
-  instagramHandle: z.string().min(1).max(100),
-  instagramFollowers: z.coerce.number().int().min(0),
+  // Required for CURATED, optional for MARKETPLACE (enforced in superRefine below).
+  instagramHandle: z.string().min(1).max(100).optional(),
+  instagramFollowers: z.coerce.number().int().min(0).optional(),
   websiteOrSocialLink: z.string().max(500).optional(),
   // Products step — nothing here is required (no asterisk in the reference design)
   craftCategories: z.array(z.enum(CRAFT_CATEGORIES)).optional(),
@@ -48,6 +51,43 @@ export const submitApplicationSchema = z.object({
   businessType: z.enum(BUSINESS_TYPE_OPTIONS),
   hearAboutUs: z.enum(HEAR_ABOUT_US_OPTIONS).optional(),
   agreedToCommissionTerms: z.literal(true),
+  // Marketplace brand answers — required when sellerType = MARKETPLACE.
+  brandName: z.string().trim().min(2).max(60).optional(),
+  brandStory: z.string().max(1000).optional(),
+  brandLogoUrl: z.string().url().max(500).optional(),
+  brandBannerUrl: z.string().url().max(500).optional(),
+  brandWebsite: z.string().max(500).optional(),
+  minOrderValueInr: z.coerce.number().min(0).max(100000000).optional(),
+  commissionTermsVersion: z.string().min(1).max(50).optional(),
+});
+
+export const submitApplicationSchema = submitApplicationBaseSchema.superRefine((value, ctx) => {
+  if (value.sellerType === SellerType.MARKETPLACE) {
+    if (!value.brandName) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['brandName'], message: 'Brand name is required' });
+    }
+    if (value.minOrderValueInr === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['minOrderValueInr'],
+        message: 'Minimum order value is required',
+      });
+    }
+    if (!value.commissionTermsVersion) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['commissionTermsVersion'],
+        message: 'Commission terms version is required',
+      });
+    }
+    return;
+  }
+  if (!value.instagramHandle) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['instagramHandle'], message: 'Required' });
+  }
+  if (value.instagramFollowers === undefined) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['instagramFollowers'], message: 'Required' });
+  }
 });
 export type SubmitApplicationDto = z.infer<typeof submitApplicationSchema>;
 

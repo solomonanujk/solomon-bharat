@@ -1,4 +1,16 @@
+import type { SellerType } from '@/types'
+
 export interface ApplyWizardState {
+  /** Chosen on the first screen ("How do you want to sell?"); null until chosen. */
+  sellerType: SellerType | null
+  // Marketplace — Brand step
+  brandName: string
+  /** Logo URL (optional) — the public form has no upload endpoint; logos can be uploaded later in the brand portal. */
+  brandLogoUrl: string
+  brandStory: string
+  brandWebsite: string
+  /** INR, kept as a string in form state, parsed at submit time. */
+  minOrderValueInr: string
   // Step 1 — Seller
   businessName: string
   contactName: string
@@ -32,6 +44,12 @@ export interface ApplyWizardState {
 }
 
 export const INITIAL_APPLY_WIZARD_STATE: ApplyWizardState = {
+  sellerType: null,
+  brandName: '',
+  brandLogoUrl: '',
+  brandStory: '',
+  brandWebsite: '',
+  minOrderValueInr: '',
   businessName: '',
   contactName: '',
   email: '',
@@ -62,4 +80,11 @@ export const INITIAL_APPLY_WIZARD_STATE: ApplyWizardState = {
 export interface StepProps {
   data: ApplyWizardState
   patch: (fields: Partial<ApplyWizardState>) => void
+}
+
+/** Field id -> message. Ids match the DOM ids of the inputs so errors can be linked and focused. */
+export type FieldErrors = Record<string, string>
+
+export interface MarketplaceStepProps extends StepProps {
+  errors: FieldErrors
 }

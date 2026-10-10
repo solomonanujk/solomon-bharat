@@ -1,8 +1,10 @@
-import { OrderStatus, Prisma, PrismaClient, Product, ProductApprovalStatus, ProductPricingChangeRequest } from '@prisma/client';
+import { BrandStatus, OrderStatus, Prisma, PrismaClient, Product, ProductApprovalStatus, ProductPricingChangeRequest, SellerType } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { PaginationQuery, toSkipTake } from '../../utils/pagination';
 import {
   AdminProductListFilter,
+  BRAND_SUMMARY_SELECT,
+  BrandFacet,
   ApplyPricingChangeInput,
   CreateProductInput,
   ProductListFilter,
@@ -26,7 +28,25 @@ const MEDIA_INCLUDE = {
     },
   },
   priceTiers: { orderBy: { moq: 'asc' as const } },
+  // Whitelisted brand columns only — never legalName/gstin/commission overrides.
+  brand: { select: BRAND_SUMMARY_SELECT },
 };
+
+/** Marketplace brand products from a SUSPENDED brand must vanish from every public query. */
+const ACTIVE_BRAND_FILTER: Prisma.ProductWhereInput = {
+  OR: [{ brandId: null }, { brand: { status: BrandStatus.ACTIVE } }],
+};
+
+const PUBLISHED_WHERE: Prisma.ProductWhereInput = {
+  deletedAt: null,
+  isPublished: true,
+  approvalStatus: ProductApprovalStatus.APPROVED,
+};
+
+export interface SellerContext {
+  sellerType: SellerType;
+  brand: { id: string; status: BrandStatus } | null;
+}
 
 type VariantCreateData = {
   type: string;
@@ -79,6 +99,14 @@ export class ProductsRepository {
     return this.db.product.findUnique({ where: { id }, include: MEDIA_INCLUDE });
   }
 
+  /** Seller type + brand (if any) for a seller profile — resolved in the service to branch curated vs marketplace. */
+  findSellerContext(sellerProfileId: string): Promise<SellerContext | null> {
+    return this.db.sellerProfile.findUnique({
+      where: { id: sellerProfileId },
+      select: { sellerType: true, brand: { select: { id: true, status: true } } },
+    });
+  }
+
   findByIdRaw(id: string): Promise<Product | null> {
     return this.db.product.findUnique({ where: { id } });
   }
@@ -102,6 +130,7 @@ export class ProductsRepository {
     // defaults: unpublished, no adminPrice/agentPrice). The plain seller-submit path
     // leaves this undefined entirely and gets the schema defaults (PENDING/unpublished).
     overrides?: Partial<{
+      brandId: string | null;
       approvalStatus: ProductApprovalStatus;
       isPublished: boolean;
       publishedAt: Date;
@@ -420,14 +449,18 @@ export class ProductsRepository {
       deletedAt: null,
       isPublished: true,
       approvalStatus: ProductApprovalStatus.APPROVED,
+      AND: [ACTIVE_BRAND_FILTER],
       ...(categoryIds ? { categoryId: { in: categoryIds } } : {}),
       ...(filter.collectionId ? { collections: { some: { collectionId: filter.collectionId } } } : {}),
+      ...(filter.brand ? { brand: { slug: filter.brand } } : {}),
+      ...(filter.curated ? { brandId: null } : {}),
       ...(filter.search
         ? {
             OR: [
               { name: { contains: filter.search, mode: 'insensitive' } },
               { description: { contains: filter.search, mode: 'insensitive' } },
               { materials: { contains: filter.search, mode: 'insensitive' } },
+              { brand: { name: { contains: filter.search, mode: 'insensitive' } } },
             ],
           }
         : {}),
@@ -465,12 +498,14 @@ export class ProductsRepository {
    * "Made in" filter's checkbox list with actual seller-entered values instead
    * of a fabricated fixed country list.
    */
-  async findDistinctPlaceOfOrigin(): Promise<string[]> {
+  async findDistinctPlaceOfOrigin(curatedOnly = false): Promise<string[]> {
     const rows = await this.db.product.findMany({
       where: {
         deletedAt: null,
         isPublished: true,
         approvalStatus: ProductApprovalStatus.APPROVED,
+        AND: [ACTIVE_BRAND_FILTER],
+        ...(curatedOnly ? { brandId: null } : {}),
         placeOfOrigin: { not: null },
       },
       distinct: ['placeOfOrigin'],
@@ -478,6 +513,29 @@ export class ProductsRepository {
       orderBy: { placeOfOrigin: 'asc' },
     });
     return rows.map((r) => r.placeOfOrigin).filter((v): v is string => !!v && v.trim().length > 0);
+  }
+
+  /** Active brands with at least one published product, with that product count — for the brand filter. */
+  async findBrandFacets(): Promise<BrandFacet[]> {
+    const publishedProducts = { ...PUBLISHED_WHERE };
+    const brands = await this.db.brand.findMany({
+      where: { status: BrandStatus.ACTIVE, products: { some: publishedProducts } },
+      select: { slug: true, name: true, _count: { select: { products: { where: publishedProducts } } } },
+      orderBy: { name: 'asc' },
+    });
+    return brands
+      .map((b) => ({ slug: b.slug, name: b.name, count: b._count.products }))
+      .filter((b) => b.count > 0);
+  }
+
+  /** Other published products of the same brand (the brand is already known to be ACTIVE by the caller). */
+  findMoreFromBrand(brandId: string, excludeProductId: string, limit: number): Promise<ProductWithMedia[]> {
+    return this.db.product.findMany({
+      where: { ...PUBLISHED_WHERE, brandId, id: { not: excludeProductId } },
+      include: MEDIA_INCLUDE,
+      orderBy: { publishedAt: 'desc' },
+      take: limit,
+    });
   }
 
   /**
@@ -490,6 +548,7 @@ export class ProductsRepository {
    */
   async findTrending(
     pagination: PaginationQuery,
+    curatedOnly = false,
   ): Promise<{ data: ProductWithMedia[]; total: number }> {
     const since = new Date(Date.now() - TRENDING_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
@@ -502,6 +561,8 @@ export class ProductsRepository {
           deletedAt: null,
           isPublished: true,
           approvalStatus: ProductApprovalStatus.APPROVED,
+          AND: [ACTIVE_BRAND_FILTER],
+          ...(curatedOnly ? { brandId: null } : {}),
         },
       },
       _sum: { quantity: true },
@@ -518,7 +579,7 @@ export class ProductsRepository {
       include: MEDIA_INCLUDE,
     });
     const byId = new Map(products.map((p) => [p.id, p]));
-    const data = pageIds.map((id) => byId.get(id)).filter((p): p is ProductWithMedia => !!p);
+    const data = pageIds.map((id) => byId.get(id)).filter((p): p is NonNullable<typeof p> => !!p);
     return { data, total };
   }
 
@@ -532,11 +593,14 @@ export class ProductsRepository {
   async findRecommended(
     preferredCategoryIds: string[],
     pagination: PaginationQuery,
+    curatedOnly = false,
   ): Promise<{ data: ProductWithMedia[]; total: number }> {
     const baseWhere: Prisma.ProductWhereInput = {
       deletedAt: null,
       isPublished: true,
       approvalStatus: ProductApprovalStatus.APPROVED,
+      AND: [ACTIVE_BRAND_FILTER],
+      ...(curatedOnly ? { brandId: null } : {}),
     };
     const preferredWhere: Prisma.ProductWhereInput = {
       ...baseWhere,
@@ -583,7 +647,12 @@ export class ProductsRepository {
     return { data, total };
   }
 
-  findRelated(categoryId: string, excludeProductId: string, limit: number): Promise<ProductWithMedia[]> {
+  findRelated(
+    categoryId: string,
+    excludeProductId: string,
+    limit: number,
+    curatedOnly = false,
+  ): Promise<ProductWithMedia[]> {
     return this.db.product.findMany({
       where: {
         categoryId,
@@ -591,6 +660,8 @@ export class ProductsRepository {
         deletedAt: null,
         isPublished: true,
         approvalStatus: ProductApprovalStatus.APPROVED,
+        AND: [ACTIVE_BRAND_FILTER],
+        ...(curatedOnly ? { brandId: null } : {}),
       },
       include: MEDIA_INCLUDE,
       take: limit,

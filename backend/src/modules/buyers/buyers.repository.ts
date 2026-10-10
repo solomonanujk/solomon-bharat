@@ -9,6 +9,7 @@ import {
 } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { PaginationQuery, toSkipTake } from '../../utils/pagination';
+import { BRAND_SUMMARY_SELECT } from '../products/products.types';
 import { CreateAddressInput, UpdateAddressInput, UpdateBuyerProfileInput } from './buyers.types';
 
 const WISHLIST_PRODUCT_SELECT = {
@@ -19,6 +20,7 @@ const WISHLIST_PRODUCT_SELECT = {
   moq: true,
   leadTime: true,
   images: { orderBy: { sortOrder: 'asc' as const }, take: 1 },
+  brand: { select: BRAND_SUMMARY_SELECT },
 };
 
 export class BuyersRepository {

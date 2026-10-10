@@ -8,7 +8,7 @@ describe('PayoutsRepository', () => {
   let repo: PayoutsRepository;
 
   beforeEach(() => {
-    db = buildMockPrismaClient({ payout: mockModel(), orderItem: mockModel() });
+    db = buildMockPrismaClient({ payout: mockModel(), orderItem: mockModel(), order: mockModel() });
     repo = new PayoutsRepository(db as never);
   });
 
@@ -66,7 +66,65 @@ describe('PayoutsRepository', () => {
     db.payout.count.mockResolvedValue(0);
     await repo.findForAdmin({}, { page: 1, limit: 20 });
     const arg = db.payout.findMany.mock.calls[0][0];
-    expect(arg.include.seller).toEqual({ select: { businessName: true } });
+    expect(arg.include.seller).toEqual({
+      select: { businessName: true, sellerType: true, brand: { select: { name: true } } },
+    });
+  });
+
+  it('createManyForBrandOrder writes net amount plus gross/rate/commission per item, skipping duplicates', async () => {
+    db.orderItem.findMany.mockResolvedValue([
+      {
+        id: 'item-1',
+        sellerId: 'brand-1',
+        lineAdminTotal: 1000,
+        lineSellerTotal: 750,
+        commissionRate: 25,
+        commissionAmount: 250,
+      },
+    ]);
+    await repo.createManyForBrandOrder('order-1');
+    expect(db.payout.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          sellerId: 'brand-1',
+          orderId: 'order-1',
+          orderItemId: 'item-1',
+          amount: 750,
+          grossAmount: 1000,
+          commissionRate: 25,
+          commissionAmount: 250,
+          status: PayoutStatus.PENDING,
+        },
+      ],
+      skipDuplicates: true,
+    });
+  });
+
+  it('createManyForBrandOrder does nothing for an order without items', async () => {
+    db.orderItem.findMany.mockResolvedValue([]);
+    await repo.createManyForBrandOrder('order-1');
+    expect(db.payout.createMany).not.toHaveBeenCalled();
+  });
+
+  it('findPaidOrdersForBrand excludes unpaid and cancelled orders and honours the since filter', async () => {
+    db.order.findMany.mockResolvedValue([]);
+    const since = new Date('2026-01-01');
+    await repo.findPaidOrdersForBrand('brand-1', since);
+    const arg = db.order.findMany.mock.calls[0][0];
+    expect(arg.where.sellerProfileId).toBe('brand-1');
+    expect(arg.where.status).toEqual({ notIn: ['PENDING_PAYMENT', 'CANCELLED'] });
+    expect(arg.where.createdAt).toEqual({ gte: since });
+  });
+
+  it('findPaidItemsForBrand scopes through the order to the brand', async () => {
+    db.orderItem.findMany.mockResolvedValue([]);
+    await repo.findPaidItemsForBrand('brand-1');
+    expect(db.orderItem.findMany.mock.calls[0][0].where.order.sellerProfileId).toBe('brand-1');
+  });
+
+  it('findOrderForPayout selects the brand link', async () => {
+    db.order.findUnique.mockResolvedValue({ id: 'o', sellerProfileId: 'b' });
+    await expect(repo.findOrderForPayout('o')).resolves.toEqual({ id: 'o', sellerProfileId: 'b' });
   });
 
   it('sumForSeller returns 0 when there is nothing to sum', async () => {

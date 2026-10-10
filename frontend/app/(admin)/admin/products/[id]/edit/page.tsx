@@ -36,6 +36,8 @@ import {
 } from '@/components/admin/ProductAdminShared'
 import { cn } from '@/lib/utils'
 import type { AdminProduct } from '@/types'
+import { BrandPill, BrandOwnsPriceNotice } from '@/components/admin/BrandAdminBits'
+import type { AdminProductBrandFields } from '@/types/brand-admin'
 
 // ─── Approve dialog ─────────────────────────────────────────────────────────────
 
@@ -264,6 +266,7 @@ export default function AdminProductEditPage() {
 
   const needsReview = product.approvalStatus === 'PENDING' || product.approvalStatus === 'RESUBMITTED'
   const isApproved = product.approvalStatus === 'APPROVED'
+  const brand = (product as AdminProduct & AdminProductBrandFields).brand ?? null
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -276,6 +279,7 @@ export default function AdminProductEditPage() {
       <div className="mb-5">
         <div className="flex flex-wrap items-center gap-2.5 mb-2">
           <StatusBadge status={product.approvalStatus} />
+          <BrandPill brand={brand} />
           {product.isPublished ? (
             <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-emerald-600">
               <CheckCircle2 size={12} aria-hidden="true" /> Published
@@ -305,11 +309,13 @@ export default function AdminProductEditPage() {
       )}
 
       <div className="space-y-5">
-        <Section title="Seller Price Tiers">
+        {brand && <BrandOwnsPriceNotice brand={brand} />}
+
+        <Section title={brand ? 'Brand Price Tiers (set by the brand)' : 'Seller Price Tiers'}>
           <TierPriceTable tiers={allTiers} />
         </Section>
 
-        {needsReview && (
+        {needsReview && !brand && (
           <div className="bg-white border border-[#E5DCCB] rounded-xl p-5 space-y-3">
             <p className="text-[12px] font-[600] font-sans text-[#665F55] uppercase tracking-[0.06em]">Review</p>
             <div className="flex flex-col gap-2">
@@ -353,14 +359,16 @@ export default function AdminProductEditPage() {
                   </Button>
                 )}
               </div>
-              {product.adminPrice == null && !product.isPublished && (
+              {!brand && product.adminPrice == null && !product.isPublished && (
                 <p className="text-[11px] font-sans text-amber-600">Set an admin price below before publishing.</p>
               )}
             </div>
 
-            <div className="bg-white border border-[#E5DCCB] rounded-xl p-5">
-              <AdminPricingCard product={product} />
-            </div>
+            {!brand && (
+              <div className="bg-white border border-[#E5DCCB] rounded-xl p-5">
+                <AdminPricingCard product={product} />
+              </div>
+            )}
 
             <div className="bg-white border border-[#E5DCCB] rounded-xl p-5">
               <ReassignCategoryCard product={product} categories={leafCategories} />

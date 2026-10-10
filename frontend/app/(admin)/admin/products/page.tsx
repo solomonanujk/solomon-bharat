@@ -12,6 +12,8 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { buttonVariants } from '@/components/ui/button'
 import { cn, formatINR } from '@/lib/utils'
 import { cloudinaryFill } from '@/lib/cloudinaryImage'
+import { BrandPill } from '@/components/admin/BrandAdminBits'
+import type { AdminProductBrandFields } from '@/types/brand-admin'
 import type { AdminProduct, ApprovalStatus } from '@/types'
 
 // ─── Filter tabs ────────────────────────────────────────────────────────────────
@@ -45,7 +47,10 @@ function ProductRow({ product, onOpen }: { product: AdminProduct; onOpen: (id: s
               <Package size={14} className="text-[#665F55]" />
             </div>
           )}
-          <p className="text-[13px] font-[600] font-sans text-[#20201E] truncate max-w-[220px]">{product.name}</p>
+          <div className="min-w-0">
+            <p className="text-[13px] font-[600] font-sans text-[#20201E] truncate max-w-[220px]">{product.name}</p>
+            <BrandPill brand={(product as AdminProduct & AdminProductBrandFields).brand} className="mt-0.5" />
+          </div>
         </div>
       </td>
       <td className="py-3 px-4 text-[13px] font-sans text-[#20201E]">{formatINR(product.sellerPrice)}</td>

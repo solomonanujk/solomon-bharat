@@ -12,6 +12,8 @@ import { buttonVariants } from '@/components/ui/button'
 import { Section, Field, collectAllTiers, TierPriceTable, flattenLeaves } from '@/components/admin/ProductAdminShared'
 import { cn, formatINR } from '@/lib/utils'
 import { cloudinaryFill } from '@/lib/cloudinaryImage'
+import { BrandPill, BrandOwnsPriceNotice } from '@/components/admin/BrandAdminBits'
+import type { AdminProductBrandFields } from '@/types/brand-admin'
 
 export default function AdminProductDetailPage() {
   const params = useParams<{ id: string }>()
@@ -67,7 +69,9 @@ export default function AdminProductDetailPage() {
 
   const needsReview = product.approvalStatus === 'PENDING' || product.approvalStatus === 'RESUBMITTED'
   const isApproved = product.approvalStatus === 'APPROVED'
-  const showEditButton = needsReview || isApproved
+  const brand = (product as typeof product & AdminProductBrandFields).brand ?? null
+  // Brands own their price: admin pricing/approval controls are hidden (the backend rejects them with 400).
+  const showEditButton = !brand && (needsReview || isApproved)
   const categoryLabel = leafCategories.find((c) => c.id === product.categoryId)?.label
 
   return (
@@ -82,6 +86,7 @@ export default function AdminProductDetailPage() {
         <div>
           <div className="flex flex-wrap items-center gap-2.5 mb-2">
             <StatusBadge status={product.approvalStatus} />
+            <BrandPill brand={brand} />
             {product.isPublished ? (
               <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-emerald-600">
                 <CheckCircle2 size={12} aria-hidden="true" /> Published
@@ -169,11 +174,13 @@ export default function AdminProductDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
         {/* Left column */}
         <div className="space-y-5 min-w-0">
+          {brand && <BrandOwnsPriceNotice brand={brand} />}
+
           <Section title="Pricing Summary">
             <div className="grid grid-cols-3 gap-4">
-              <Field label="Seller Price (from)" value={formatINR(product.sellerPrice)} />
+              <Field label={brand ? 'Brand Price, gross (from)' : 'Seller Price (from)'} value={formatINR(product.sellerPrice)} />
               <Field
-                label="Admin Price (from)"
+                label={brand ? 'Buyer Price (from)' : 'Admin Price (from)'}
                 value={product.adminPrice != null ? formatINR(product.adminPrice) : <span className="italic text-[#665F55]">not set</span>}
               />
               <Field

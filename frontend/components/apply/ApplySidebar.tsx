@@ -1,31 +1,44 @@
 'use client'
 
 import { Check } from 'lucide-react'
+import type { SellerType } from '@/types'
 
-const STEPS = [
+const CURATED_STEPS = [
   { n: 1, label: 'Seller', hint: 'Who you are' },
   { n: 2, label: 'Products', hint: 'What you make' },
   { n: 3, label: 'Export readiness', hint: 'Compliance & history' },
   { n: 4, label: 'Final details', hint: 'About you & commission' },
 ] as const
 
-export function ApplySidebar({ step }: { step: number }) {
+const MARKETPLACE_STEPS = [
+  { n: 1, label: 'Brand', hint: 'Your public identity' },
+  { n: 2, label: 'Business', hint: 'Contact & what you sell' },
+  { n: 3, label: 'Terms', hint: 'Commission & agreement' },
+  { n: 4, label: 'Review', hint: 'Check and submit' },
+] as const
+
+export function ApplySidebar({ step, sellerType }: { step: number; sellerType: SellerType | null }) {
+  const steps = sellerType === 'MARKETPLACE' ? MARKETPLACE_STEPS : CURATED_STEPS
+
   return (
     <div className="hidden lg:flex flex-col w-[280px] flex-shrink-0 p-7 bg-forest">
       <div className="mb-10">
         <p className="font-display font-[700] text-white text-[19px] leading-none">
           Solomon <span className="text-accent">Bharat</span>
         </p>
-        <p className="font-sans text-[12px] text-white/50 mt-1.5">Seller application</p>
+        <p className="font-sans text-[12px] text-white/50 mt-1.5">
+          {sellerType === 'MARKETPLACE' ? 'Brand application' : 'Seller application'}
+        </p>
       </div>
 
-      <div className="flex flex-col gap-1.5 flex-1">
-        {STEPS.map(({ n, label, hint }) => {
+      <ol className="flex flex-col gap-1.5 flex-1">
+        {steps.map(({ n, label, hint }) => {
           const done = n < step
           const current = n === step
           return (
-            <div
+            <li
               key={n}
+              aria-current={current ? 'step' : undefined}
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors ${current ? 'bg-white/[0.06]' : ''}`}
             >
               <span
@@ -47,15 +60,17 @@ export function ApplySidebar({ step }: { step: number }) {
                   {hint}
                 </p>
               </div>
-            </div>
+            </li>
           )
         })}
-      </div>
+      </ol>
 
       <div className="rounded-lg p-3.5 flex gap-2.5 bg-white/5 border border-white/10">
         <span className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5 bg-accent" aria-hidden="true" />
         <p className="font-sans text-[12px] leading-[1.5] text-white/65">
-          Selected sellers are invited to our launch event with buyers, press and partners.
+          {sellerType === 'MARKETPLACE'
+            ? 'Every brand application is reviewed by our team before an account is created.'
+            : 'Selected sellers are invited to our launch event with buyers, press and partners.'}
         </p>
       </div>
     </div>

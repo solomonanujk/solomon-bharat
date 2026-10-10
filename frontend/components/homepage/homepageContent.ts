@@ -6,9 +6,9 @@
 // customs promise. The owner must confirm each line before launch.
 
 /** Trust bar directly under the hero: exactly four short promises. */
-// CONFIRM: owner to approve all four trust-bar promises.
+// CONFIRM: owner to approve all four trust-bar promises (the first now covers both seller types).
 export const TRUST_BAR_PROMISES: readonly string[] = [
-  'Sold and fulfilled by Solomon Bharat',
+  'Curated and marketplace brands, one checkout',
   'Every product reviewed before listing',
   'Secure checkout with PayPal',
   'Wholesale minimum order quantities',

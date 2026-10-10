@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { ProductApprovalStatus } from '@prisma/client';
 import { buildMockPrismaClient, mockModel, MockPrismaClient } from '../../test-utils/mockPrisma';
 import { ProductsRepository } from './products.repository';
+import { BRAND_SUMMARY_SELECT } from './products.types';
 
 describe('ProductsRepository', () => {
   let db: MockPrismaClient;
@@ -16,6 +17,8 @@ describe('ProductsRepository', () => {
       productPriceTier: mockModel(),
       productPricingChangeRequest: mockModel(),
       orderItem: mockModel(),
+      brand: mockModel(),
+      sellerProfile: mockModel(),
     });
     repo = new ProductsRepository(db as never);
   });
@@ -30,6 +33,7 @@ describe('ProductsRepository', () => {
       },
     },
     priceTiers: { orderBy: { moq: 'asc' } },
+    brand: { select: BRAND_SUMMARY_SELECT },
   };
 
   it('findByIdWithMedia includes ordered images, variants, and price tiers', async () => {
@@ -363,7 +367,103 @@ describe('ProductsRepository', () => {
       { name: { contains: 'tote bag', mode: 'insensitive' } },
       { description: { contains: 'tote bag', mode: 'insensitive' } },
       { materials: { contains: 'tote bag', mode: 'insensitive' } },
+      { brand: { name: { contains: 'tote bag', mode: 'insensitive' } } },
     ]);
+  });
+
+  it('findPublished excludes suspended brands (curated products have brandId null)', async () => {
+    db.product.findMany.mockResolvedValue([]);
+    db.product.count.mockResolvedValue(0);
+    await repo.findPublished({ sort: 'newest' }, { page: 1, limit: 20 }, undefined);
+    const arg = db.product.findMany.mock.calls[0][0];
+    expect(arg.where.AND).toEqual([{ OR: [{ brandId: null }, { brand: { status: 'ACTIVE' } }] }]);
+  });
+
+  it('findPublished filters by brand slug', async () => {
+    db.product.findMany.mockResolvedValue([]);
+    db.product.count.mockResolvedValue(0);
+    await repo.findPublished({ brand: 'acme' }, { page: 1, limit: 20 }, undefined);
+    expect(db.product.findMany.mock.calls[0][0].where.brand).toEqual({ slug: 'acme' });
+  });
+
+  it('curated filter / curatedOnly restrict every public query to brandId null', async () => {
+    db.product.findMany.mockResolvedValue([]);
+    db.product.count.mockResolvedValue(0);
+    await repo.findPublished({ curated: true }, { page: 1, limit: 20 }, undefined);
+    expect(db.product.findMany.mock.calls[0][0].where.brandId).toBeNull();
+    db.product.findMany.mockClear();
+    await repo.findPublished({ curated: false }, { page: 1, limit: 20 }, undefined);
+    expect(db.product.findMany.mock.calls[0][0].where).not.toHaveProperty('brandId');
+
+    db.orderItem.groupBy.mockResolvedValue([]);
+    await repo.findTrending({ page: 1, limit: 20 }, true);
+    expect(db.orderItem.groupBy.mock.calls[0][0].where.product.brandId).toBeNull();
+
+    db.product.count.mockClear();
+    await repo.findRecommended([], { page: 1, limit: 20 }, true);
+    expect(db.product.count.mock.calls[0][0].where.brandId).toBeNull();
+
+    db.product.findMany.mockClear();
+    await repo.findRelated('cat-1', 'p1', 4, true);
+    expect(db.product.findMany.mock.calls[0][0].where.brandId).toBeNull();
+
+    db.product.findMany.mockClear();
+    await repo.findDistinctPlaceOfOrigin(true);
+    expect(db.product.findMany.mock.calls[0][0].where.brandId).toBeNull();
+  });
+
+  it('findTrending and findRecommended and findRelated exclude suspended brands', async () => {
+    const active = { OR: [{ brandId: null }, { brand: { status: 'ACTIVE' } }] };
+    db.orderItem.groupBy.mockResolvedValue([]);
+    await repo.findTrending({ page: 1, limit: 20 });
+    expect(db.orderItem.groupBy.mock.calls[0][0].where.product.AND).toEqual([active]);
+
+    db.product.count.mockResolvedValue(0);
+    db.product.findMany.mockResolvedValue([]);
+    await repo.findRecommended([], { page: 1, limit: 20 });
+    expect(db.product.count.mock.calls[0][0].where.AND).toEqual([active]);
+
+    db.product.findMany.mockClear();
+    await repo.findRelated('cat-1', 'p1', 4);
+    expect(db.product.findMany.mock.calls[0][0].where.AND).toEqual([active]);
+  });
+
+  it('findMoreFromBrand lists the brand other published products', async () => {
+    db.product.findMany.mockResolvedValue([]);
+    await repo.findMoreFromBrand('b1', 'p1', 8);
+    const arg = db.product.findMany.mock.calls[0][0];
+    expect(arg.where).toMatchObject({ brandId: 'b1', id: { not: 'p1' }, isPublished: true, deletedAt: null });
+    expect(arg.take).toBe(8);
+  });
+
+  it('findBrandFacets returns active brands with published product counts, dropping empty ones', async () => {
+    db.brand.findMany.mockResolvedValue([
+      { slug: 'acme', name: 'Acme', _count: { products: 3 } },
+      { slug: 'empty', name: 'Empty', _count: { products: 0 } },
+    ]);
+    await expect(repo.findBrandFacets()).resolves.toEqual([{ slug: 'acme', name: 'Acme', count: 3 }]);
+    expect(db.brand.findMany.mock.calls[0][0].where.status).toBe('ACTIVE');
+  });
+
+  it('findSellerContext selects only sellerType and brand id/status', async () => {
+    db.sellerProfile.findUnique.mockResolvedValue({ sellerType: 'MARKETPLACE', brand: { id: 'b1', status: 'ACTIVE' } });
+    await repo.findSellerContext('sp1');
+    expect(db.sellerProfile.findUnique).toHaveBeenCalledWith({
+      where: { id: 'sp1' },
+      select: { sellerType: true, brand: { select: { id: true, status: true } } },
+    });
+  });
+
+  it('create passes the brandId override through for marketplace products', async () => {
+    db.product.create.mockResolvedValue({ id: 'p1' });
+    await repo.create(
+      'seller-1',
+      { categoryId: 'c', name: 'n', slug: 's', description: 'd', materials: 'm', moq: 1, declaredStock: 1, sellerPrice: 5 },
+      [],
+      [],
+      { brandId: 'b1', adminPrice: 5 },
+    );
+    expect(db.product.create.mock.calls[0][0].data).toMatchObject({ brandId: 'b1', adminPrice: 5 });
   });
 
   it('findPublished with sort=featured filters to isFeatured products only', async () => {
@@ -438,6 +538,7 @@ describe('ProductsRepository', () => {
         deletedAt: null,
         isPublished: true,
         approvalStatus: ProductApprovalStatus.APPROVED,
+        AND: [{ OR: [{ brandId: null }, { brand: { status: 'ACTIVE' } }] }],
       },
       include: MEDIA_INCLUDE,
       take: 4,

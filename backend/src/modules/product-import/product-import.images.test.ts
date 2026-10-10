@@ -1,16 +1,9 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-
-vi.mock('dns/promises', () => ({ lookup: vi.fn() }));
-
-import { lookup } from 'dns/promises';
-import { fetchRemoteImage, isBlockedAddress, sniffImageExtension, vetImageUrl } from './product-import.images';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { createServer, IncomingMessage, Server, ServerResponse } from 'http';
+import type { AddressInfo } from 'net';
+import { createVettedLookup, fetchRemoteImage, isBlockedAddress, parseImageUrl, sniffImageExtension } from './product-import.images';
 
 const JPEG_BYTES = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00]);
-const mockLookup = lookup as unknown as ReturnType<typeof vi.fn>;
-
-function publicDns() {
-  mockLookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }]);
-}
 
 describe('isBlockedAddress', () => {
   it.each(['127.0.0.1', '10.1.2.3', '172.16.0.1', '192.168.1.1', '169.254.169.254', '0.0.0.0', '100.64.0.1', '::1', 'fd00::1', 'fe80::1', '::ffff:10.0.0.1', 'not-an-ip'])(
@@ -20,33 +13,60 @@ describe('isBlockedAddress', () => {
   it.each(['93.184.216.34', '8.8.8.8', '2606:4700:4700::1111'])('allows %s', (ip) => expect(isBlockedAddress(ip)).toBe(false));
 });
 
-describe('vetImageUrl', () => {
-  afterEach(() => vi.clearAllMocks());
-
-  it('rejects non-http(s), credentials, localhost and private IP literals without DNS', async () => {
-    for (const url of ['ftp://x.test/a.jpg', 'https://u:p@x.test/a.jpg', 'http://localhost/a.jpg', 'http://127.0.0.1/a.jpg', 'http://[::1]/a.jpg', 'nonsense']) {
-      // eslint-disable-next-line no-await-in-loop
-      expect(await vetImageUrl(url)).toBeNull();
+describe('parseImageUrl', () => {
+  it('rejects non-http(s), credentials, localhost and private IP literals', () => {
+    for (const url of [
+      'ftp://x.test/a.jpg',
+      'https://u:p@x.test/a.jpg',
+      'http://localhost/a.jpg',
+      'http://127.0.0.1/a.jpg',
+      'http://[::1]/a.jpg',
+      'http://[::ffff:10.0.0.1]/a.jpg',
+      'nonsense',
+    ]) {
+      expect(parseImageUrl(url)).toBeNull();
     }
-    expect(mockLookup).not.toHaveBeenCalled();
+  });
+  it('allows public hosts and literals', () => {
+    expect(parseImageUrl('https://cdn.shopify.com/a.jpg')?.hostname).toBe('cdn.shopify.com');
+    expect(parseImageUrl('http://93.184.216.34/a.jpg')).not.toBeNull();
+  });
+});
+
+describe('createVettedLookup', () => {
+  const run = (resolver: () => Promise<{ address: string; family: number }[]>, opts: object = {}) =>
+    new Promise<{ err: NodeJS.ErrnoException | null; address?: unknown; family?: number }>((resolve) => {
+      createVettedLookup(resolver)('h.test', opts, (err, address, family) => resolve({ err, address, family }));
+    });
+
+  it('returns the vetted public address', async () => {
+    const r = await run(() => Promise.resolve([{ address: '93.184.216.34', family: 4 }]));
+    expect(r).toMatchObject({ err: null, address: '93.184.216.34', family: 4 });
   });
 
-  it('rejects hostnames that resolve to a private address', async () => {
-    mockLookup.mockResolvedValue([
-      { address: '93.184.216.34', family: 4 },
-      { address: '10.0.0.5', family: 4 },
-    ]);
-    expect(await vetImageUrl('https://rebind.test/a.jpg')).toBeNull();
+  it('returns the address list when all is requested', async () => {
+    const r = await run(() => Promise.resolve([{ address: '93.184.216.34', family: 4 }]), { all: true });
+    expect(r.address).toEqual([{ address: '93.184.216.34', family: 4 }]);
   });
 
-  it('rejects hostnames that fail to resolve', async () => {
-    mockLookup.mockRejectedValue(new Error('ENOTFOUND'));
-    expect(await vetImageUrl('https://nope.test/a.jpg')).toBeNull();
+  it.each(['10.0.0.5', '127.0.0.1', '169.254.169.254', 'fd00::1', '::ffff:192.168.0.1'])('rejects %s', async (ip) => {
+    const r = await run(() => Promise.resolve([{ address: ip, family: ip.includes(':') ? 6 : 4 }]));
+    expect(r.err?.code).toBe('EBLOCKED');
   });
 
-  it('allows public hosts', async () => {
-    publicDns();
-    expect((await vetImageUrl('https://cdn.shopify.com/a.jpg'))?.hostname).toBe('cdn.shopify.com');
+  it('rejects when any returned address is private', async () => {
+    const r = await run(() =>
+      Promise.resolve([
+        { address: '93.184.216.34', family: 4 },
+        { address: '10.0.0.5', family: 4 },
+      ]),
+    );
+    expect(r.err?.code).toBe('EBLOCKED');
+  });
+
+  it('propagates resolution failures', async () => {
+    const r = await run(() => Promise.reject(Object.assign(new Error('nx'), { code: 'ENOTFOUND' })));
+    expect(r.err?.code).toBe('ENOTFOUND');
   });
 });
 
@@ -61,70 +81,129 @@ describe('sniffImageExtension', () => {
 });
 
 describe('fetchRemoteImage', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.clearAllMocks();
+  let server: Server;
+  let port: number;
+  let hits: string[];
+  let handler: (req: IncomingMessage, res: ServerResponse) => void;
+
+  beforeAll(async () => {
+    server = createServer((req, res) => {
+      hits.push(req.url ?? '');
+      handler(req, res);
+    });
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    port = (server.address() as AddressInfo).port;
+  });
+  afterAll(() => new Promise<void>((r) => server.close(() => r())));
+  beforeEach(() => {
+    hits = [];
+    handler = (_req, res) => res.end(JPEG_BYTES);
   });
 
-  it('downloads a public JPEG', async () => {
-    publicDns();
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JPEG_BYTES, { status: 200 }));
-    vi.stubGlobal('fetch', fetchMock);
-    const image = await fetchRemoteImage('https://cdn.shopify.com/a.jpg');
+  // Hostnames here are fake; the lookup maps them to the local test server. The isBlocked
+  // argument lets a case declare 127.0.0.1 "public" so the server is reachable.
+  const toLocal = (isBlocked: (a: string) => boolean) =>
+    createVettedLookup(() => Promise.resolve([{ address: '127.0.0.1', family: 4 }]), isBlocked);
+  const url = (path: string) => `http://img.test:${port}${path}`;
+
+  it('downloads an image whose hostname resolves to a public address', async () => {
+    const image = await fetchRemoteImage(url('/a.jpg'), { lookup: toLocal(() => false) });
     expect(image?.extension).toBe('jpg');
     expect(image?.buffer.equals(JPEG_BYTES)).toBe(true);
-    expect(fetchMock.mock.calls[0][1]).toMatchObject({ redirect: 'manual' });
   });
 
-  it('re-vets every redirect hop and refuses a redirect to a private address', async () => {
-    publicDns();
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response(null, { status: 302, headers: { location: 'http://169.254.169.254/latest' } }));
-    vi.stubGlobal('fetch', fetchMock);
-    expect(await fetchRemoteImage('https://cdn.shopify.com/a.jpg')).toBeNull();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+  it('refuses a hostname that resolves to a private address without ever connecting', async () => {
+    expect(await fetchRemoteImage(url('/a.jpg'), { lookup: toLocal(isBlockedAddress) })).toBeNull();
+    expect(hits).toEqual([]);
   });
 
-  it('follows a relative redirect to a public host', async () => {
-    publicDns();
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response(null, { status: 301, headers: { location: '/b.jpg' } }))
-      .mockResolvedValueOnce(new Response(JPEG_BYTES, { status: 200 }));
-    vi.stubGlobal('fetch', fetchMock);
-    expect(await fetchRemoteImage('https://cdn.shopify.com/a.jpg')).not.toBeNull();
-    expect(String(fetchMock.mock.calls[1][0])).toBe('https://cdn.shopify.com/b.jpg');
+  it('closes the DNS-rebinding gap: only one resolution, and it is the one connected to', async () => {
+    // First answer is public (an unroutable documentation-free address), any later one is
+    // private. A check-then-fetch design would pass the check then connect to the private one;
+    // here the single vetted answer is what the socket uses, so the private answer is never used.
+    let calls = 0;
+    const rebinding = createVettedLookup(() => {
+      calls += 1;
+      return Promise.resolve([{ address: calls === 1 ? '127.0.0.1' : '10.0.0.1', family: 4 }]);
+    }, (a) => a === '10.0.0.1');
+    const image = await fetchRemoteImage(url('/a.jpg'), { lookup: rebinding });
+    expect(image).not.toBeNull();
+    expect(calls).toBe(1);
   });
 
-  it('gives up after too many redirects', async () => {
-    publicDns();
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockImplementation(() => Promise.resolve(new Response(null, { status: 302, headers: { location: '/loop' } }))),
+  it('rebinding simulated on connect: a lookup answering private at connect time is refused', async () => {
+    const lookup = createVettedLookup(() => Promise.resolve([{ address: '10.0.0.1', family: 4 }]));
+    expect(await fetchRemoteImage(url('/a.jpg'), { lookup })).toBeNull();
+    expect(hits).toEqual([]);
+  });
+
+  it('refuses a redirect to a private literal', async () => {
+    handler = (_req, res) => {
+      res.statusCode = 302;
+      res.setHeader('location', 'http://169.254.169.254/latest');
+      res.end();
+    };
+    expect(await fetchRemoteImage(url('/a.jpg'), { lookup: toLocal(() => false) })).toBeNull();
+    expect(hits).toHaveLength(1);
+  });
+
+  it('re-vets the hostname on every redirect hop', async () => {
+    let calls = 0;
+    const lookup = createVettedLookup(
+      () => Promise.resolve([{ address: '127.0.0.1', family: 4 }]),
+      () => {
+        calls += 1;
+        return calls > 1;
+      },
     );
-    expect(await fetchRemoteImage('https://cdn.shopify.com/a.jpg')).toBeNull();
+    handler = (_req, res) => {
+      res.statusCode = 302;
+      res.setHeader('location', `http://other.test:${port}/b.jpg`);
+      res.end();
+    };
+    expect(await fetchRemoteImage(url('/a.jpg'), { lookup })).toBeNull();
+    expect(hits).toHaveLength(1);
   });
 
-  it('skips non-OK responses, non-images, oversize bodies and network errors', async () => {
-    publicDns();
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('nope', { status: 404 })));
-    expect(await fetchRemoteImage('https://x.test/a.jpg')).toBeNull();
+  it('follows a relative redirect', async () => {
+    handler = (req, res) => {
+      if (req.url === '/a.jpg') {
+        res.statusCode = 301;
+        res.setHeader('location', '/b.jpg');
+        res.end();
+      } else res.end(JPEG_BYTES);
+    };
+    expect(await fetchRemoteImage(url('/a.jpg'), { lookup: toLocal(() => false) })).not.toBeNull();
+    expect(hits).toEqual(['/a.jpg', '/b.jpg']);
+  });
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html></html>', { status: 200 })));
-    expect(await fetchRemoteImage('https://x.test/a.jpg')).toBeNull();
+  it('gives up after 3 redirects', async () => {
+    handler = (_req, res) => {
+      res.statusCode = 302;
+      res.setHeader('location', '/loop');
+      res.end();
+    };
+    expect(await fetchRemoteImage(url('/a.jpg'), { lookup: toLocal(() => false) })).toBeNull();
+    expect(hits).toHaveLength(4);
+  });
 
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(new Response(JPEG_BYTES, { status: 200, headers: { 'content-length': String(6 * 1024 * 1024) } })),
-    );
-    expect(await fetchRemoteImage('https://x.test/a.jpg')).toBeNull();
+  it('skips non-OK responses, non-images and oversize bodies', async () => {
+    const lookup = toLocal(() => false);
+    handler = (_req, res) => {
+      res.statusCode = 404;
+      res.end('nope');
+    };
+    expect(await fetchRemoteImage(url('/a.jpg'), { lookup })).toBeNull();
 
-    const big = Buffer.concat([JPEG_BYTES, Buffer.alloc(5 * 1024 * 1024)]);
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(big, { status: 200 })));
-    expect(await fetchRemoteImage('https://x.test/a.jpg')).toBeNull();
+    handler = (_req, res) => res.end('<html></html>');
+    expect(await fetchRemoteImage(url('/a.jpg'), { lookup })).toBeNull();
 
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNRESET')));
-    expect(await fetchRemoteImage('https://x.test/a.jpg')).toBeNull();
+    handler = (_req, res) => res.end(Buffer.concat([JPEG_BYTES, Buffer.alloc(5 * 1024 * 1024)]));
+    expect(await fetchRemoteImage(url('/a.jpg'), { lookup })).toBeNull();
+  });
+
+  it('returns null when resolution fails', async () => {
+    const lookup = createVettedLookup(() => Promise.reject(new Error('ENOTFOUND')));
+    expect(await fetchRemoteImage('https://nope.test/a.jpg', { lookup })).toBeNull();
   });
 });

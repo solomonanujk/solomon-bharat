@@ -25,7 +25,7 @@ const heroImageUpload = uploadImages.single('heroImage');
  *     responses:
  *       200: { description: Category tree }
  */
-categoriesRouter.get('/', asyncHandler(categoriesController.getPublicTree));
+categoriesRouter.get('/', optionalAuth, asyncHandler(categoriesController.getPublicTree));
 
 /**
  * @openapi

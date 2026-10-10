@@ -26,6 +26,13 @@ export const paymentsController = {
     sendSuccess(res, result, result.status === 'COMPLETED' ? 'Payment captured' : 'Payment failed');
   },
 
+  /** Public PayPal webhook. `req.body` is the raw Buffer (see app.ts) so the signature can be verified. */
+  async paypalWebhook(req: Request, res: Response): Promise<void> {
+    const rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : '';
+    const result = await paymentsService.handlePayPalWebhook(rawBody, req.headers);
+    sendSuccess(res, result, 'Webhook received');
+  },
+
   async getStatus(req: Request, res: Response): Promise<void> {
     const buyerId = await resolveBuyerProfileId(req.user!.id);
     const payment = await paymentsService.getPaymentStatus(buyerId, req.params.id);

@@ -6,9 +6,10 @@ import {
   ArrowLeft, AlertTriangle, Clock, CheckCircle2, XCircle, Hammer, Leaf, Tag, Layers,
 } from 'lucide-react'
 import { useMyProduct } from '@/hooks/queries/useProducts'
+import { useSellerType, useSetMyProductPublished } from '@/hooks/queries/useBrandPortal'
 import { useCategoryTree } from '@/hooks/queries/useCategories'
 import { categoryPathLabel } from '@/components/seller-portal/CategoryCascade'
-import { ApprovalStatusBadge } from '@/components/seller-portal/StatusBadges'
+import { ApprovalStatusBadge, ProductPublishBadge } from '@/components/seller-portal/StatusBadges'
 import { PhotoGallery } from '@/components/pdp/PhotoGallery'
 import { ProductVideoStrip } from '@/components/pdp/ProductVideoStrip'
 import { Badge, type BadgeProps } from '@/components/ui/badge'
@@ -185,6 +186,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const { id } = use(params)
   const { data: product, isLoading, error } = useMyProduct(id)
   const { data: tree = [] } = useCategoryTree()
+  const { isMarketplace: isBrand } = useSellerType()
+  const setPublished = useSetMyProductPublished()
 
   const sortedImageUrls = useMemo(
     () => (product ? [...product.images].sort((a, b) => a.sortOrder - b.sortOrder).map((img) => img.url) : []),
@@ -224,6 +227,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               View live
             </Link>
           )}
+          {isBrand && product?.approvalStatus === 'APPROVED' && (
+            <button
+              type="button"
+              disabled={setPublished.isPending}
+              onClick={() => setPublished.mutate({ id, publish: !product.isPublished })}
+              className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }))}
+            >
+              {product.isPublished ? 'Unpublish' : 'Publish'}
+            </button>
+          )}
           <Link href={`/portal/products/${id}/edit`} className={cn(buttonVariants({ variant: 'primary', size: 'sm' }))}>
             Edit
           </Link>
@@ -242,7 +255,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         <div className="space-y-5">
           {/* Status row */}
           <div className="flex flex-wrap items-center gap-2">
-            <ApprovalStatusBadge status={product.approvalStatus} />
+            {isBrand ? (
+              <ProductPublishBadge approvalStatus={product.approvalStatus} isPublished={product.isPublished} />
+            ) : (
+              <ApprovalStatusBadge status={product.approvalStatus} />
+            )}
             {product.isPublished ? (
               <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-emerald-600">
                 <CheckCircle2 size={12} aria-hidden="true" /> Published
@@ -352,7 +369,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <div className="bg-white border border-[#E5DCCB] rounded-xl p-5 space-y-4">
                 <div>
                   <p className="text-[11px] font-[700] font-sans text-[#9CA3AF] uppercase tracking-[0.06em] mb-1">
-                    Price{product.variants.length > 0 ? ' (from)' : ''}
+                    {isBrand ? 'Price buyers pay' : 'Price'}{product.variants.length > 0 || product.priceTiers.length > 1 ? ' (from)' : ''}
                   </p>
                   <p className="text-[22px] font-[700] font-sans text-[#20201E]">{formatINR(product.sellerPrice)}</p>
                 </div>

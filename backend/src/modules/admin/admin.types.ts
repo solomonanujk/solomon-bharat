@@ -13,6 +13,10 @@ export interface DashboardSummary {
   totalGMV: string;
   totalBuyers: number;
   totalApprovedSellers: number;
+  /** Commission earned on marketplace brand orders (equals the brand orders' adminMargin). */
+  commissionEarned: string;
+  /** GMV from marketplace brand orders only (a subset of totalGMV). */
+  brandGmv: string;
 }
 
 export type ReportType =
@@ -24,10 +28,21 @@ export type ReportType =
   | 'categories-performance'
   | 'collections-performance';
 
+export interface BrandRevenueRow {
+  sellerProfileId: string;
+  brandName: string;
+  ordersCount: number;
+  gmv: string;
+  commission: string;
+}
+
 export interface RevenueReport {
   gmv: string;
   adminMargin: string;
   sellerPayouts: string;
+  commissionEarned: string;
+  brandGmv: string;
+  brands: BrandRevenueRow[];
 }
 
 export interface OrdersByStatusRow {

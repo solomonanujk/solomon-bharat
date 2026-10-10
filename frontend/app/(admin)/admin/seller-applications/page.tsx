@@ -174,10 +174,54 @@ function DetailGroup({ title, children }: { title: string; children: React.React
   )
 }
 
+function SellerTypeBadge({ type }: { type: SellerApplication['sellerType'] | undefined }) {
+  const marketplace = type === 'MARKETPLACE'
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-[700] font-sans',
+        marketplace ? 'bg-[#E7EDE7] border-[#183D33] text-[#183D33]' : 'bg-white border-[#E5DCCB] text-[#665F55]'
+      )}
+    >
+      {marketplace ? 'Marketplace brand' : 'Curated'}
+    </span>
+  )
+}
+
 function ApplicationDetailsPanel({ application: a }: { application: SellerApplication }) {
+  const minOrder = a.minOrderValueInr == null ? undefined : Number(a.minOrderValueInr)
   return (
     <div className="mt-4 pt-4 border-t border-[#F5F0E5] space-y-5">
-      <DetailGroup title="Brand">
+      {a.sellerType === 'MARKETPLACE' && (
+        <>
+          <DetailGroup title="Marketplace brand">
+            <DetailRow label="Brand name" value={a.brandName} />
+            <DetailRow
+              label="Minimum order value"
+              value={minOrder !== undefined && Number.isFinite(minOrder) ? `₹${minOrder.toLocaleString('en-IN')}` : undefined}
+            />
+            <DetailRow label="Website" value={a.brandWebsite} />
+            <DetailRow label="Logo link" value={a.brandLogoUrl} />
+            <DetailRow label="Terms version" value={a.commissionTermsVersion} />
+            <DetailRow
+              label="Terms agreed"
+              value={
+                a.commissionAgreedAt
+                  ? new Date(a.commissionAgreedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                  : undefined
+              }
+            />
+          </DetailGroup>
+          {a.brandStory && (
+            <div>
+              <p className="text-[10.5px] font-[700] font-sans text-[#9CA3AF] uppercase tracking-[0.06em] mb-1">Brand story</p>
+              <p className="text-[13px] font-sans text-[#20201E] whitespace-pre-wrap">{a.brandStory}</p>
+            </div>
+          )}
+        </>
+      )}
+
+      <DetailGroup title="Business">
         <DetailRow label="City" value={a.city} />
         <DetailRow label="Country" value={a.country} />
         <DetailRow label="Instagram" value={a.instagramHandle ? `@${a.instagramHandle}` : undefined} />
@@ -246,8 +290,14 @@ function ApplicationCard({
           <div className="flex items-center gap-2.5 mb-1 flex-wrap">
             <p className="text-[15px] font-[700] font-sans text-[#20201E]">{application.businessName}</p>
             <StatusBadge status={application.status} />
+            <SellerTypeBadge type={application.sellerType} />
           </div>
-          <p className="text-[13px] font-sans text-[#665F55] mb-3">{application.contactName}</p>
+          <p className="text-[13px] font-sans text-[#665F55] mb-3">
+            {application.contactName}
+            {application.sellerType === 'MARKETPLACE' && application.brandName && (
+              <> · Brand: <strong className="text-[#20201E] font-[600]">{application.brandName}</strong></>
+            )}
+          </p>
 
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px] font-sans text-[#9CA3AF]">
             <span className="flex items-center gap-1.5">

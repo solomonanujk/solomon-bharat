@@ -1,4 +1,4 @@
-import { Category, CategoryStatus, Prisma, PrismaClient } from '@prisma/client';
+import { BrandStatus, Category, CategoryStatus, Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { CreateCategoryInput, ReorderItem, UpdateCategoryInput } from './categories.types';
 
@@ -62,21 +62,33 @@ export class CategoriesRepository {
     );
   }
 
-  countProductsInCategories(categoryIds: string[], publishedOnly = false): Promise<number> {
+  /** Public (published-only) counts hide suspended brands' products for everyone; agents
+   *  additionally see curated products only. Admin/internal counts (publishedOnly=false) are untouched. */
+  private visibilityWhere(publishedOnly: boolean, curatedOnly: boolean): Prisma.ProductWhereInput {
+    if (!publishedOnly) return {};
+    return {
+      isPublished: true,
+      ...(curatedOnly
+        ? { brandId: null }
+        : { OR: [{ brandId: null }, { brand: { status: BrandStatus.ACTIVE } }] }),
+    };
+  }
+
+  countProductsInCategories(categoryIds: string[], publishedOnly = false, curatedOnly = false): Promise<number> {
     if (categoryIds.length === 0) return Promise.resolve(0);
     return this.db.product.count({
       where: {
         categoryId: { in: categoryIds },
         deletedAt: null,
-        ...(publishedOnly ? { isPublished: true } : {}),
+        ...this.visibilityWhere(publishedOnly, curatedOnly),
       },
     });
   }
 
-  async groupProductCounts(publishedOnly = false): Promise<Map<string, number>> {
+  async groupProductCounts(publishedOnly = false, curatedOnly = false): Promise<Map<string, number>> {
     const rows = await this.db.product.groupBy({
       by: ['categoryId'],
-      where: { deletedAt: null, ...(publishedOnly ? { isPublished: true } : {}) },
+      where: { deletedAt: null, ...this.visibilityWhere(publishedOnly, curatedOnly) },
       _count: { _all: true },
     });
     return new Map(rows.map((row) => [row.categoryId, row._count._all]));

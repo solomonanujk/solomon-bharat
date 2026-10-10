@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Bell, Search, LayoutDashboard, Package, ShoppingBag, Wallet, Settings } from 'lucide-react'
+import { Bell, Search, LayoutDashboard, Package, ShoppingBag, Wallet, Settings, Store } from 'lucide-react'
 import { PortalSidebar } from '@/components/seller-portal/PortalSidebar'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { useMySellerProfile } from '@/hooks/queries/useSellers'
@@ -14,6 +14,14 @@ const MOBILE_TABS = [
   { href: '/portal/orders', label: 'Orders', icon: ShoppingBag },
   { href: '/portal/payouts', label: 'Payouts', icon: Wallet },
   { href: '/portal/settings', label: 'Settings', icon: Settings },
+]
+
+const BRAND_MOBILE_TABS = [
+  { href: '/portal', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/portal/brand', label: 'Brand', icon: Store },
+  { href: '/portal/products', label: 'Products', icon: Package },
+  { href: '/portal/orders', label: 'Sales', icon: ShoppingBag },
+  { href: '/portal/payouts', label: 'Payouts', icon: Wallet },
 ]
 
 export default function SellerPortalLayout({
@@ -35,7 +43,8 @@ export default function SellerPortalLayout({
   }, [hasHydrated, isAuthenticated, user, router])
 
   const { data: profile } = useMySellerProfile()
-  const sellerName = profile?.businessName ?? 'Seller'
+  const sellerName = profile?.brand?.name ?? profile?.businessName ?? 'Seller'
+  const mobileTabs = profile?.sellerType === 'MARKETPLACE' ? BRAND_MOBILE_TABS : MOBILE_TABS
   const sellerInitials = sellerName
     .split(' ')
     .filter(Boolean)
@@ -103,7 +112,7 @@ export default function SellerPortalLayout({
 
       {/* Mobile bottom tab bar */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-[#E5DCCB] flex">
-        {MOBILE_TABS.map(({ href, label, icon: Icon }) => {
+        {mobileTabs.map(({ href, label, icon: Icon }) => {
           const isActive = pathname === href || (href !== '/portal' && pathname.startsWith(href))
           return (
             <Link

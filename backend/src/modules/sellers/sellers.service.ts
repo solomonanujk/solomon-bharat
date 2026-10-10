@@ -1,8 +1,9 @@
-import { SellerApplication, SellerApplicationStatus, SellerProfile } from '@prisma/client';
+import { SellerApplication, SellerApplicationStatus, SellerProfile, SellerType } from '@prisma/client';
 import { env } from '../../config/env';
 import { AppError } from '../../utils/errors';
 import { hashPassword } from '../../utils/bcrypt';
-import { generateTempPassword } from '../../utils/helpers';
+import { generateTempPassword, slugify, uniqueSlugSuffix } from '../../utils/helpers';
+import { BrandSummaryDto, toBrandSummary } from '../../utils/brandSummary';
 import { writeAuditLog } from '../../utils/auditLog';
 import { SafeUser, toSafeUser } from '../../utils/safeUser';
 import { mailProvider } from '../../providers/mail';
@@ -19,6 +20,9 @@ const OPEN_APPLICATION_STATUSES: SellerApplicationStatus[] = [
   SellerApplicationStatus.PENDING,
   SellerApplicationStatus.MORE_INFO_REQUESTED,
 ];
+
+// Slugs that would shadow a static /brands/* route (e.g. /brands/me).
+const RESERVED_BRAND_SLUGS = new Set(['me', 'admin', 'following']);
 
 function appendNote(existing: string | null, note: string): string {
   const stamped = `[${new Date().toISOString()}] ${note}`;
@@ -55,10 +59,37 @@ export class SellersService {
       throw AppError.conflict('An application for this email is already under review');
     }
 
+    // Brand answers only apply to marketplace applications; drop them for curated
+    // ones so a curated record never carries half a brand.
+    const isMarketplace = input.sellerType === SellerType.MARKETPLACE;
+    const sanitized: Omit<SubmitApplicationInput, 'businessAddress'> = isMarketplace
+      ? { ...input, commissionAgreedAt: new Date() }
+      : {
+          ...input,
+          sellerType: SellerType.CURATED,
+          brandName: undefined,
+          brandStory: undefined,
+          brandLogoUrl: undefined,
+          brandBannerUrl: undefined,
+          brandWebsite: undefined,
+          minOrderValueInr: undefined,
+          commissionTermsVersion: undefined,
+        };
+
     // The wizard only collects city + country, not a full street address —
     // SellerProfile.businessAddress still requires a value at approval time
     // (createSellerUserAndProfile copies it 1:1), so it's synthesized here.
-    return this.repo.createApplication({ ...input, businessAddress: `${input.city}, ${input.country}` });
+    return this.repo.createApplication({ ...sanitized, businessAddress: `${input.city}, ${input.country}` });
+  }
+
+  private async generateUniqueBrandSlug(name: string): Promise<string> {
+    const base = slugify(name) || 'brand';
+    let slug = RESERVED_BRAND_SLUGS.has(base) ? `${base}-${uniqueSlugSuffix()}` : base;
+    // eslint-disable-next-line no-await-in-loop
+    while (await this.repo.brandSlugExists(slug)) {
+      slug = `${base}-${uniqueSlugSuffix()}`;
+    }
+    return slug;
   }
 
   async listApplications(
@@ -84,9 +115,14 @@ export class SellersService {
       throw AppError.conflict('An account already exists for this email address');
     }
 
+    const isMarketplace = application.sellerType === SellerType.MARKETPLACE;
+    const brandSlug = isMarketplace
+      ? await this.generateUniqueBrandSlug(application.brandName ?? application.businessName)
+      : undefined;
+
     const tempPassword = generateTempPassword();
     const passwordHash = await hashPassword(tempPassword);
-    const { user, profile } = await this.repo.createSellerUserAndProfile(application, passwordHash);
+    const { user, profile, brand } = await this.repo.createSellerUserAndProfile(application, passwordHash, brandSlug);
 
     await this.repo.updateApplication(id, {
       status: SellerApplicationStatus.APPROVED,
@@ -96,17 +132,27 @@ export class SellersService {
 
     await writeAuditLog(adminId, 'SELLER_APPLICATION_APPROVED', 'SellerApplication', id, {
       sellerUserId: user.id,
+      sellerType: application.sellerType,
+      ...(brand ? { brandId: brand.id, brandSlug: brand.slug } : {}),
     });
 
-    await notificationsService.notifySellerApplicationApproved(user.id);
+    if (isMarketplace) {
+      await notificationsService.notifyBrandApplicationApproved(user.id);
+    } else {
+      await notificationsService.notifySellerApplicationApproved(user.id);
+    }
 
     await mailProvider.sendMail({
       to: user.email,
-      subject: 'Your Solomon Bharat seller account is ready',
-      html: `<p>Congratulations — your seller application has been approved.</p>
+      subject: isMarketplace
+        ? 'Your Solomon Bharat brand account is ready'
+        : 'Your Solomon Bharat seller account is ready',
+      html: `<p>Congratulations — your ${isMarketplace ? 'brand' : 'seller'} application has been approved.</p>
 <p>You can now sign in at <a href="${env.APP_URL}">${env.APP_URL}</a> — click "Sign In" in the top navigation — with:</p>
 <p>Email: ${user.email}<br/>Temporary password: <strong>${tempPassword}</strong></p>
-<p>Please change your password after your first login.</p>`,
+<p>Please change your password after your first login.</p>${
+        isMarketplace ? '<p>Add your products from the seller portal — they go live as soon as you publish them.</p>' : ''
+      }`,
     });
 
     return { user: toSafeUser(user), profile };
@@ -212,6 +258,16 @@ export class SellersService {
       throw AppError.notFound('Seller profile not found');
     }
     return profile;
+  }
+
+  /** Seller profile for the portal: includes `sellerType` and, for brands, a public-safe brand summary. */
+  async getMyProfileWithBrand(userId: string): Promise<SellerProfile & { brand: BrandSummaryDto | null }> {
+    const profile = await this.repo.findSellerProfileWithBrandByUserId(userId);
+    if (!profile) {
+      throw AppError.notFound('Seller profile not found');
+    }
+    const { brand, ...rest } = profile;
+    return { ...rest, brand: brand ? toBrandSummary(brand) : null };
   }
 
   async updateMyProfile(userId: string, input: UpdateSellerProfileInput): Promise<SellerProfile> {

@@ -102,6 +102,22 @@ enum NotificationType {
   NEW_MESSAGE
   PRODUCT_PRICING_CHANGE_APPROVED
   PRODUCT_PRICING_CHANGE_REJECTED
+  NEW_ORDER_RECEIVED
+  BRAND_APPLICATION_APPROVED
+}
+
+/// How a seller sells. CURATED = Solomon Bharat is the merchant (admin reviews and
+/// prices every product). MARKETPLACE = the seller is a brand that sets its own
+/// prices, publishes its own products and ships its own orders; Solomon collects
+/// payment and keeps a commission.
+enum SellerType {
+  CURATED
+  MARKETPLACE
+}
+
+enum BrandStatus {
+  ACTIVE
+  SUSPENDED
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -217,6 +233,19 @@ model SellerApplication {
   hearAboutUs             String?
   agreedToCommissionTerms Boolean  @default(false)
 
+  // Seller-type question (first onboarding step) and the marketplace-brand answers.
+  // Brand fields are only used when sellerType = MARKETPLACE; the commission terms
+  // version/timestamp record exactly which terms the applicant accepted.
+  sellerType             SellerType @default(CURATED)
+  brandName              String?
+  brandLogoUrl           String?
+  brandBannerUrl         String?
+  brandStory             String?
+  brandWebsite           String?
+  minOrderValueInr       Decimal?   @db.Decimal(12, 2)
+  commissionTermsVersion String?
+  commissionAgreedAt     DateTime?
+
   sellerProfile SellerProfile?
 
   @@index([status])
@@ -238,11 +267,16 @@ model SellerProfile {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   deletedAt         DateTime?
+  sellerType        SellerType         @default(CURATED)
 
   products Product[]
   payouts  Payout[]
+  brand    Brand?
+  /// Orders fulfilled by this seller (marketplace brands only).
+  orders   Order[]   @relation("BrandOrders")
 
   @@index([deletedAt])
+  @@index([sellerType])
   @@map("seller_profiles")
 }
 
@@ -320,6 +354,7 @@ model BuyerProfile {
 
   addresses     Address[]
   wishlistItems WishlistItem[]
+  brandFollows  BrandFollow[]
   messages      Message[]
   orders        Order[]
   reviews       Review[]
@@ -410,6 +445,9 @@ model Product {
   id              String                @id @default(uuid())
   sellerId        String
   seller          SellerProfile         @relation(fields: [sellerId], references: [id])
+  /// Set for marketplace-brand products only; null = Solomon-curated.
+  brandId         String?
+  brand           Brand?                @relation(fields: [brandId], references: [id])
   categoryId      String
   category        Category              @relation(fields: [categoryId], references: [id])
   name            String
@@ -461,6 +499,7 @@ model Product {
   pricingChangeRequests ProductPricingChangeRequest[]
 
   @@index([sellerId])
+  @@index([brandId])
   @@index([categoryId])
   @@index([approvalStatus])
   @@index([createdAt])
@@ -634,22 +673,27 @@ model ProductCollection {
 // ─────────────────────────────────────────────────────────────
 
 model Order {
-  id                     String       @id @default(uuid())
+  id                     String         @id @default(uuid())
   buyerId                String
-  buyer                  BuyerProfile @relation(fields: [buyerId], references: [id])
+  buyer                  BuyerProfile   @relation(fields: [buyerId], references: [id])
+  /// Set on a marketplace brand's order; null = Solomon-curated order (admin pipeline).
+  sellerProfileId        String?
+  sellerProfile          SellerProfile? @relation("BrandOrders", fields: [sellerProfileId], references: [id])
+  /// Groups the sibling orders created by one checkout (one PayPal payment).
+  checkoutId             String?
   shippingAddressId      String?
-  shippingAddress        Address?     @relation(fields: [shippingAddressId], references: [id])
-  status                 OrderStatus  @default(PENDING_PAYMENT)
-  adminPriceTotal        Decimal      @db.Decimal(12, 2)
-  sellerPriceTotal       Decimal      @db.Decimal(12, 2)
-  adminMargin            Decimal      @db.Decimal(12, 2)
-  placedAsAgent          Boolean      @default(false)
+  shippingAddress        Address?       @relation(fields: [shippingAddressId], references: [id])
+  status                 OrderStatus    @default(PENDING_PAYMENT)
+  adminPriceTotal        Decimal        @db.Decimal(12, 2)
+  sellerPriceTotal       Decimal        @db.Decimal(12, 2)
+  adminMargin            Decimal        @db.Decimal(12, 2)
+  placedAsAgent          Boolean        @default(false)
   trackingNumber         String?
   exportDocuments        Json?
   expectedCollectionDate DateTime?
   cancelledReason        String?
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
   deletedAt              DateTime?
 
   items    OrderItem[]
@@ -657,6 +701,8 @@ model Order {
   payouts  Payout[]
 
   @@index([buyerId])
+  @@index([sellerProfileId])
+  @@index([checkoutId])
   @@index([status])
   @@index([createdAt])
   @@index([deletedAt])
@@ -665,20 +711,24 @@ model Order {
 }
 
 model OrderItem {
-  id              String   @id @default(uuid())
-  orderId         String
-  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId       String
-  product         Product  @relation(fields: [productId], references: [id])
-  variantId       String?
-  variant         ProductVariant? @relation(fields: [variantId], references: [id])
-  sellerId        String
-  quantity        Int
-  unitAdminPrice  Decimal  @db.Decimal(12, 2)
-  unitSellerPrice Decimal  @db.Decimal(12, 2)
-  lineAdminTotal  Decimal  @db.Decimal(12, 2)
-  lineSellerTotal Decimal  @db.Decimal(12, 2)
-  createdAt       DateTime @default(now())
+  id               String          @id @default(uuid())
+  orderId          String
+  order            Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product         @relation(fields: [productId], references: [id])
+  variantId        String?
+  variant          ProductVariant? @relation(fields: [variantId], references: [id])
+  sellerId         String
+  quantity         Int
+  unitAdminPrice   Decimal         @db.Decimal(12, 2)
+  unitSellerPrice  Decimal         @db.Decimal(12, 2)
+  lineAdminTotal   Decimal         @db.Decimal(12, 2)
+  lineSellerTotal  Decimal         @db.Decimal(12, 2)
+  /// Marketplace items only: locked at the paid transition. unitSellerPrice and
+  /// lineSellerTotal above are then the NET after this commission.
+  commissionRate   Decimal?        @db.Decimal(5, 2)
+  commissionAmount Decimal?        @db.Decimal(12, 2)
+  createdAt        DateTime        @default(now())
 
   payout Payout?
   review Review?
@@ -738,10 +788,13 @@ model Payment {
   currency          String        @default("USD")
   status            PaymentStatus @default(PENDING)
   rawPayload        Json?
+  /// Same value on every Payment row written by one checkout.
+  checkoutId        String?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
   @@index([orderId])
+  @@index([checkoutId])
   @@index([status])
   @@map("payments")
 }
@@ -751,19 +804,23 @@ model Payment {
 // ─────────────────────────────────────────────────────────────
 
 model Payout {
-  id          String        @id @default(uuid())
-  sellerId    String
-  seller      SellerProfile @relation(fields: [sellerId], references: [id])
-  orderId     String
-  order       Order         @relation(fields: [orderId], references: [id])
-  orderItemId String        @unique
-  orderItem   OrderItem     @relation(fields: [orderItemId], references: [id])
-  amount      Decimal       @db.Decimal(12, 2)
-  status      PayoutStatus  @default(PENDING)
-  paidAt      DateTime?
-  notes       String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id               String        @id @default(uuid())
+  sellerId         String
+  seller           SellerProfile @relation(fields: [sellerId], references: [id])
+  orderId          String
+  order            Order         @relation(fields: [orderId], references: [id])
+  orderItemId      String        @unique
+  orderItem        OrderItem     @relation(fields: [orderItemId], references: [id])
+  amount           Decimal       @db.Decimal(12, 2)
+  /// Marketplace payouts: amount = grossAmount - commissionAmount.
+  grossAmount      Decimal?      @db.Decimal(12, 2)
+  commissionRate   Decimal?      @db.Decimal(5, 2)
+  commissionAmount Decimal?      @db.Decimal(12, 2)
+  status           PayoutStatus  @default(PENDING)
+  paidAt           DateTime?
+  notes            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   @@index([sellerId])
   @@index([orderId])
@@ -809,6 +866,58 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Marketplace brands
+// ─────────────────────────────────────────────────────────────
+
+/// Public-facing identity of a MARKETPLACE seller. Kept separate from the private
+/// SellerProfile so the buyer-facing serializer can whitelist fields. legalName and
+/// gstin are PRIVATE (invoices/admin only) — never expose them publicly.
+model Brand {
+  id                       String        @id @default(uuid())
+  sellerProfileId          String        @unique
+  sellerProfile            SellerProfile @relation(fields: [sellerProfileId], references: [id], onDelete: Cascade)
+  name                     String
+  slug                     String        @unique
+  logoUrl                  String?
+  bannerUrl                String?
+  story                    String?
+  country                  String?
+  website                  String?
+  instagram                String?
+  returnPolicy             String?
+  /// Minimum order value for this brand's items in one checkout, in INR.
+  minOrderValueInr         Decimal       @default(0) @db.Decimal(12, 2)
+  isVerified               Boolean       @default(false)
+  status                   BrandStatus   @default(ACTIVE)
+  /// Per-brand overrides of the platform default commission (percent, e.g. 25.00).
+  commissionFirstOverride  Decimal?      @db.Decimal(5, 2)
+  commissionRepeatOverride Decimal?      @db.Decimal(5, 2)
+  legalName                String?
+  gstin                    String?
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+
+  products  Product[]
+  followers BrandFollow[]
+
+  @@index([status])
+  @@map("brands")
+}
+
+model BrandFollow {
+  id        String       @id @default(uuid())
+  buyerId   String
+  buyer     BuyerProfile @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  brandId   String
+  brand     Brand        @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([buyerId, brandId])
+  @@index([brandId])
+  @@map("brand_follows")
 }
 
 model PlatformSetting {

@@ -73,6 +73,57 @@ export function StepField({
   )
 }
 
+/** 48px variants for the marketplace path. */
+export const APPLY_INPUT_LG_CLS = APPLY_INPUT_CLS.replace('h-11', 'h-12')
+export const APPLY_SELECT_LG_CLS = APPLY_SELECT_CLS.replace('h-11', 'h-12')
+
+/** aria props linking an input to its hint and error text (ids `${id}-hint` / `${id}-error`). */
+export function fieldA11y(id: string, error?: string, hint?: string) {
+  const describedBy = [hint ? `${id}-hint` : null, error ? `${id}-error` : null].filter(Boolean).join(' ')
+  return {
+    id,
+    'aria-invalid': error ? true : undefined,
+    'aria-describedby': describedBy || undefined,
+  } as const
+}
+
+export function FormField({
+  id,
+  label,
+  required,
+  error,
+  hint,
+  children,
+}: {
+  id: string
+  label: string
+  required?: boolean
+  error?: string
+  hint?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className={APPLY_LABEL_CLS}>
+        {label}
+        {required && <RequiredMark />}
+      </label>
+      {children}
+      {hint && (
+        <p id={`${id}-hint`} className="font-sans text-[12.5px] leading-[1.5] text-muted-text mt-1.5">
+          {hint}
+        </p>
+      )}
+      {error && (
+        <p id={`${id}-error`} className="font-sans text-[13px] leading-[1.4] text-error mt-1.5 flex items-start gap-1.5">
+          <span aria-hidden="true" className="font-[700]">!</span>
+          <span>{error}</span>
+        </p>
+      )}
+    </div>
+  )
+}
+
 export function StepHeader({ step, title, subtitle }: { step: number; title: string; subtitle: string }) {
   return (
     <div className="mb-7">

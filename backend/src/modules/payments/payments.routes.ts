@@ -44,6 +44,19 @@ paymentsRouter.post(
 
 /**
  * @openapi
+ * /payments/webhooks/paypal:
+ *   post:
+ *     summary: PayPal webhook (public; signature-verified against the raw body). Settles checkouts on PAYMENT.CAPTURE.COMPLETED, idempotently.
+ *     tags: [Payments]
+ *     security: []
+ *     responses:
+ *       200: { description: Event acknowledged }
+ *       400: { description: Invalid signature or payload }
+ */
+paymentsRouter.post('/webhooks/paypal', asyncHandler(paymentsController.paypalWebhook));
+
+/**
+ * @openapi
  * /payments/{id}/capture:
  *   post:
  *     summary: Capture an approved PayPal payment, marking the order PAYMENT_RECEIVED (BUYER only)

@@ -1,4 +1,5 @@
 import { MessageSender } from '@prisma/client';
+import type { BrandSummary } from '../products/products.types';
 
 export interface UpdateBuyerProfileInput {
   companyName?: string;
@@ -30,6 +31,8 @@ export interface WishlistProductSummary {
   imageUrl: string | null;
   avgRating: number | null;
   reviewCount: number;
+  /** Marketplace brand tag; null for Solomon-curated products. */
+  brand: BrandSummary | null;
 }
 
 export interface WishlistEntry {

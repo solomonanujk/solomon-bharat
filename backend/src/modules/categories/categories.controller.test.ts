@@ -45,6 +45,13 @@ describe('categories controller', () => {
       const res = await request(app).get('/api/v1/categories');
       expect(res.status).toBe(200);
       expect(res.body.data).toEqual([{ id: 'c1' }]);
+      expect(categoriesService.getPublicTree).toHaveBeenCalledWith(undefined);
+    });
+
+    it('threads the viewer role (agents get curated-only counts)', async () => {
+      vi.mocked(categoriesService.getPublicTree).mockResolvedValue([] as never);
+      await request(app).get('/api/v1/categories').set(authHeader(Role.AGENT));
+      expect(categoriesService.getPublicTree).toHaveBeenCalledWith(Role.AGENT);
     });
   });
 
@@ -71,7 +78,13 @@ describe('categories controller', () => {
       vi.mocked(categoriesService.getCategoryDetailBySlug).mockResolvedValue({ id: 'c1', slug: 'home-decor' } as never);
       const res = await request(app).get('/api/v1/categories/home-decor');
       expect(res.status).toBe(200);
-      expect(categoriesService.getCategoryDetailBySlug).toHaveBeenCalledWith('home-decor', false);
+      expect(categoriesService.getCategoryDetailBySlug).toHaveBeenCalledWith('home-decor', false, undefined);
+    });
+
+    it('passes the viewer role through for agents', async () => {
+      vi.mocked(categoriesService.getCategoryDetailBySlug).mockResolvedValue({ id: 'c1' } as never);
+      await request(app).get('/api/v1/categories/home-decor').set(authHeader(Role.AGENT));
+      expect(categoriesService.getCategoryDetailBySlug).toHaveBeenCalledWith('home-decor', false, Role.AGENT);
     });
   });
 

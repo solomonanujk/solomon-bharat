@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Order, OrderStatus, Product, ProductApprovalStatus } from '@prisma/client';
+import { BrandStatus, Order, OrderStatus, Product, ProductApprovalStatus } from '@prisma/client';
+import { AppError } from '../../utils/errors';
 import { Decimal } from '@prisma/client/runtime/library';
 import { ProductsService } from '../products/products.service';
 import { ProductWithMedia } from '../products/products.types';
@@ -29,6 +30,7 @@ function buildProduct(overrides: Partial<Product> = {}): ProductWithMedia {
   const product: Product = {
     id: 'prod-1',
     sellerId: 'seller-1',
+    brandId: null,
     categoryId: 'cat-1',
     name: 'Table Runner',
     slug: 'table-runner',
@@ -72,6 +74,8 @@ function buildOrder(overrides: Partial<Order> = {}): Order {
   return {
     id: 'order-1',
     buyerId: 'buyer-1',
+    sellerProfileId: null,
+    checkoutId: null,
     shippingAddressId: null,
     status: OrderStatus.PAYMENT_RECEIVED,
     adminPriceTotal: new Decimal(120),
@@ -104,6 +108,7 @@ function buildMockRepo(): OrdersRepository {
     listForBuyer: vi.fn(),
     listForAdmin: vi.fn(),
     listItemsForSeller: vi.fn(),
+    findBrandsByIds: vi.fn(),
   } as unknown as OrdersRepository;
 }
 
@@ -177,6 +182,129 @@ describe('OrdersService', () => {
           adminMargin: 70,
         }),
       );
+    });
+  });
+
+  describe('flat-ladder tier pricing for curated products', () => {
+    const tiers = [
+      { id: 't1', productId: 'prod-1', moq: 10, sellerPrice: new Decimal(5), adminPrice: new Decimal(12), agentPrice: new Decimal(10) },
+      { id: 't2', productId: 'prod-1', moq: 50, sellerPrice: new Decimal(4), adminPrice: new Decimal(9), agentPrice: new Decimal(7) },
+      { id: 't3', productId: 'prod-1', moq: 100, sellerPrice: new Decimal(3), adminPrice: new Decimal(8), agentPrice: null },
+    ];
+
+    async function priceFor(qty: number, role: 'BUYER' | 'AGENT', priceTiers = tiers, moq = 10) {
+      vi.mocked(products.getForCheckout).mockResolvedValue({
+        ...buildProduct({ moq, adminPrice: new Decimal(8), agentPrice: new Decimal(7) }),
+        priceTiers,
+      });
+      vi.mocked(repo.createPending).mockClear();
+      vi.mocked(repo.createPending).mockResolvedValue(withItems(buildOrder()));
+      await service.createPendingOrder('buyer-1', [{ productId: 'prod-1', quantity: qty }], undefined, role);
+      return vi.mocked(repo.createPending).mock.calls[0][0].items[0];
+    }
+
+    it('buyer below the second threshold pays the lowest-qty tier', async () => {
+      const item = await priceFor(20, 'BUYER');
+      expect(item.unitAdminPrice).toBe(12);
+      expect(item.unitSellerPrice).toBe(5);
+    });
+
+    it('buyer at/above a threshold pays that tier', async () => {
+      expect((await priceFor(50, 'BUYER')).unitAdminPrice).toBe(9);
+    });
+
+    it('buyer above the top threshold pays the top tier', async () => {
+      const item = await priceFor(120, 'BUYER');
+      expect(item.unitAdminPrice).toBe(8);
+      expect(item.lineAdminTotal).toBe(960);
+    });
+
+    it('agent uses agentPrice tiers and skips tiers without an agent price', async () => {
+      expect((await priceFor(20, 'AGENT')).unitAdminPrice).toBe(10);
+      expect((await priceFor(120, 'AGENT')).unitAdminPrice).toBe(7);
+    });
+
+    it('falls back to the lowest tier when quantity is under every tier moq', async () => {
+      expect((await priceFor(5, 'BUYER', tiers, 1)).unitAdminPrice).toBe(12);
+    });
+
+    it('is unchanged (flat product price) when there are no tiers', async () => {
+      expect((await priceFor(60, 'BUYER', [])).unitAdminPrice).toBe(8);
+      expect((await priceFor(60, 'AGENT', [])).unitAdminPrice).toBe(7);
+    });
+
+    it('ignores tiers lacking the role price and uses the flat price', async () => {
+      const noAgent = tiers.map((t) => ({ ...t, agentPrice: null }));
+      expect((await priceFor(60, 'AGENT', noAgent)).unitAdminPrice).toBe(7);
+    });
+  });
+
+  describe('unavailable items are reported together', () => {
+    it('single unavailable item: same message plus ITEMS_UNAVAILABLE details', async () => {
+      vi.mocked(products.getForCheckout).mockResolvedValue(buildProduct({ isPublished: false }));
+      await expect(
+        service.createPendingCheckout('b', [{ productId: 'prod-1', quantity: 10 }], undefined, 'BUYER'),
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        message: 'Product prod-1 is not available for purchase',
+        details: { code: 'ITEMS_UNAVAILABLE', productIds: ['prod-1'] },
+      });
+      expect(repo.createPending).not.toHaveBeenCalled();
+    });
+
+    it('lists all unavailable ids (unpublished, deleted, pending, suspended brand); message names the first', async () => {
+      const byId: Record<string, ProductWithMedia> = {
+        ok: buildProduct({ id: 'ok' }),
+        a: buildProduct({ id: 'a', isPublished: false }),
+        b: buildProduct({ id: 'b', approvalStatus: ProductApprovalStatus.PENDING }),
+        c: buildProduct({ id: 'c', brandId: 'brand-s' }),
+      };
+      vi.mocked(products.getForCheckout).mockImplementation(async (id: string) => {
+        if (id === 'gone') throw AppError.notFound('Product not found');
+        return byId[id];
+      });
+      vi.mocked(repo.findBrandsByIds).mockResolvedValue([
+        { id: 'brand-s', sellerProfileId: 'sp', name: 'S', status: BrandStatus.SUSPENDED, minOrderValueInr: new Decimal(0) },
+      ] as never);
+
+      await expect(
+        service.createPendingCheckout(
+          'b',
+          [
+            { productId: 'ok', quantity: 10 },
+            { productId: 'a', quantity: 10 },
+            { productId: 'gone', quantity: 10 },
+            { productId: 'b', quantity: 10 },
+            { productId: 'c', quantity: 10 },
+          ],
+          undefined,
+          'BUYER',
+        ),
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        message: 'Product a is not available for purchase',
+        details: { code: 'ITEMS_UNAVAILABLE', productIds: ['a', 'gone', 'b', 'c'] },
+      });
+    });
+
+    it('an agent buying brand products gets them all listed', async () => {
+      vi.mocked(products.getForCheckout).mockImplementation(async (id: string) =>
+        buildProduct({ id, brandId: 'brand-1' }),
+      );
+      vi.mocked(repo.findBrandsByIds).mockResolvedValue([
+        { id: 'brand-1', sellerProfileId: 'sp', name: 'B', status: BrandStatus.ACTIVE, minOrderValueInr: new Decimal(0) },
+      ] as never);
+      await expect(
+        service.createPendingCheckout(
+          'b',
+          [
+            { productId: 'x', quantity: 10 },
+            { productId: 'y', quantity: 10 },
+          ],
+          undefined,
+          'AGENT',
+        ),
+      ).rejects.toMatchObject({ details: { code: 'ITEMS_UNAVAILABLE', productIds: ['x', 'y'] } });
     });
   });
 

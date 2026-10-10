@@ -45,8 +45,8 @@ function SearchResults() {
           <p className="type-eyebrow text-brass-dark">Search</p>
           <h1 className="mt-2 type-h1 text-ink">Search Solomon Bharat</h1>
           <p className="mt-4 type-body text-muted">
-            Use the search bar at the top of the page to find products by name, description or material across every
-            category.
+            Use the search bar at the top of the page to find products by name, description, material or brand across
+            every category.
           </p>
         </div>
       </div>
@@ -62,7 +62,7 @@ function SearchResults() {
       breadcrumbs={[...BASE_CRUMBS, { label: q ? 'Search' : mode.title }]}
       eyebrow={q ? 'Search results' : 'Browse'}
       title={q ? `Results for “${q}”` : mode.title}
-      intro={q ? 'Matching product names, descriptions and materials across every category.' : mode.intro}
+      intro={q ? 'Matching product names, descriptions, materials and brand names across every category.' : mode.intro}
       facets={!trending}
       sortable={!trending}
       emptyBody={q ? `Nothing matched “${q}”. Try a different or shorter search term.` : mode.empty}

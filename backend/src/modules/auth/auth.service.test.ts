@@ -27,6 +27,7 @@ function buildMockRepo(): AuthRepository {
   return {
     findUserByEmail: vi.fn(),
     findUserById: vi.fn(),
+    findSellerProfileWithBrandByUserId: vi.fn(),
     createBuyerUser: vi.fn(),
     updateUserPassword: vi.fn(),
     markEmailVerified: vi.fn(),
@@ -387,6 +388,45 @@ describe('AuthService', () => {
 
       expect(result).not.toHaveProperty('passwordHash');
       expect(result.email).toBe('buyer@example.com');
+    });
+
+    it('adds sellerType and a brand summary for a marketplace seller', async () => {
+      vi.mocked(repo.findUserById).mockResolvedValue(buildUser({ role: 'SELLER' as never }));
+      vi.mocked(repo.findSellerProfileWithBrandByUserId).mockResolvedValue({
+        sellerType: 'MARKETPLACE',
+        brand: {
+          id: 'b1',
+          name: 'KK',
+          slug: 'kk',
+          logoUrl: null,
+          status: 'ACTIVE',
+          isVerified: false,
+          minOrderValueInr: 100,
+          legalName: 'secret',
+          gstin: 'secret',
+        },
+      } as never);
+
+      const result = await service.getMe('user-1');
+
+      expect(result.sellerType).toBe('MARKETPLACE');
+      expect(result.brand).toEqual({
+        id: 'b1',
+        name: 'KK',
+        slug: 'kk',
+        logoUrl: null,
+        status: 'ACTIVE',
+        isVerified: false,
+        minOrderValueInr: 100,
+      });
+    });
+
+    it('returns sellerType CURATED with brand null for a curated seller', async () => {
+      vi.mocked(repo.findUserById).mockResolvedValue(buildUser({ role: 'SELLER' as never }));
+      vi.mocked(repo.findSellerProfileWithBrandByUserId).mockResolvedValue({ sellerType: 'CURATED', brand: null } as never);
+      const result = await service.getMe('user-1');
+      expect(result.sellerType).toBe('CURATED');
+      expect(result.brand).toBeNull();
     });
   });
 });

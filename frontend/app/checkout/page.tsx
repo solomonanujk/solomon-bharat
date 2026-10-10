@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Lock, MapPin, Phone, Plus, ShieldCheck, Timer } from 'lucide-react'
 import { useCartStore } from '@/lib/store/useCartStore'
@@ -18,11 +18,17 @@ import { isValidPhoneNumber, PhoneInput } from '@/components/shared/PhoneInput'
 import { useFormatPrice } from '@/components/ui/Price'
 import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import { PHONE_COUNTRY_CODES } from '@/lib/phoneCountryCodes'
+import { CartGroupHeader } from '@/components/shared/CartGroupHeader'
+import { BrandMinOrderNotice, useUnmetMessage } from '@/components/shared/BrandMinOrderNotice'
+import { groupCartLines, unmetGroups } from '@/lib/cartGroups'
+import { getMinOrderViolations, getUnavailableProductId, isUnavailableItemError } from '@/lib/checkoutErrors'
+import { getApiError } from '@/lib/getApiError'
 import type { Address } from '@/types'
 import type { AddressInput } from '@/hooks/queries/useAddresses'
 
 const PAYMENT_ID_KEY = 'sb_checkout_payment_id'
 const ORDER_ID_KEY = 'sb_checkout_order_id'
+const CHECKOUT_ID_KEY = 'sb_checkout_id'
 
 // ─── Contact number ─────────────────────────────────────────────────────────────
 // Required before placing an order (buyers and agents both — an agent account
@@ -171,6 +177,7 @@ function PriceDetails({
   isPending,
   errorMessage,
   onPlaceOrder,
+  errorAction,
 }: {
   itemCount: number
   total: number
@@ -179,6 +186,7 @@ function PriceDetails({
   isPending: boolean
   errorMessage: string | null
   onPlaceOrder: () => void
+  errorAction?: React.ReactNode
 }) {
   const fmt = useFormatPrice()
   const currency = useCurrencyStore((s) => s.currency)
@@ -218,6 +226,7 @@ function PriceDetails({
             {errorMessage}
           </p>
         )}
+        {errorAction}
 
         <button
           type="button"
@@ -237,7 +246,7 @@ function PriceDetails({
       <div className="flex flex-col gap-2.5 mt-4 px-1">
         <div className="flex items-center gap-2 text-[12px] font-sans text-muted-text">
           <ShieldCheck size={14} className="text-accent flex-shrink-0" aria-hidden="true" />
-          Verified sellers, quality-checked before listing
+          {/* CONFIRM: copy covers both seller types */}Curated products reviewed by Solomon Bharat; marketplace brands ship directly
         </div>
         <div className="flex items-center gap-2 text-[12px] font-sans text-muted-text">
           <Lock size={14} className="text-accent flex-shrink-0" aria-hidden="true" />
@@ -265,6 +274,9 @@ export default function CheckoutPage() {
   const [phone, setPhone] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [submitAttempted, setSubmitAttempted] = useState(false)
+  const [hasUnavailable, setHasUnavailable] = useState(false)
+  const removeItems = useCartStore((s) => s.removeItems)
+  const unavailableIdRef = useRef<string | null>(null)
   const { openLightbox, lightboxNode } = useImageLightbox()
 
   useEffect(() => {
@@ -289,11 +301,25 @@ export default function CheckoutPage() {
   const isEmpty = items.length === 0
   const total = getTotalValueInr()
   const itemCount = getTotalItems()
+  const groups = groupCartLines(items)
+  const unmet = unmetGroups(groups)
+  const unmetMessage = useUnmetMessage(unmet)
+  const showGroupHeaders = groups.some((g) => g.brand)
   const trimmedPhone = phone.trim()
   const phoneValid = isValidPhoneNumber(trimmedPhone)
 
+  function handleRemoveUnavailable(productId: string | null) {
+    if (productId) removeItems([productId])
+    setHasUnavailable(false)
+    setErrorMessage(null)
+  }
+
   async function handlePlaceOrder() {
     setSubmitAttempted(true)
+    if (unmetMessage) {
+      setErrorMessage(unmetMessage)
+      return
+    }
     if (!phoneValid) {
       setErrorMessage('Enter a valid mobile number to continue.')
       return
@@ -304,6 +330,7 @@ export default function CheckoutPage() {
     }
     requireAuth(async () => {
       setErrorMessage(null)
+      setHasUnavailable(false)
 
       if (trimmedPhone !== (buyerProfile?.phone ?? '')) {
         try {
@@ -325,6 +352,7 @@ export default function CheckoutPage() {
             if (typeof window !== 'undefined') {
               sessionStorage.setItem(PAYMENT_ID_KEY, result.paymentId)
               sessionStorage.setItem(ORDER_ID_KEY, result.orderId)
+              if (result.checkoutId) sessionStorage.setItem(CHECKOUT_ID_KEY, result.checkoutId)
             }
             if (result.approveUrl) {
               window.location.href = result.approveUrl
@@ -332,7 +360,22 @@ export default function CheckoutPage() {
               setErrorMessage('Could not start the PayPal checkout. Please try again.')
             }
           },
-          onError: () => {
+          onError: (err) => {
+            const violations = getMinOrderViolations(err)
+            if (violations) {
+              setErrorMessage(
+                `Minimum order not met: ${violations
+                  .map((v) => `${v.brandName} (minimum ${fmt(v.required)}, your items ${fmt(v.current)})`)
+                  .join('; ')}.`
+              )
+              return
+            }
+            if (isUnavailableItemError(err)) {
+              setHasUnavailable(true)
+              unavailableIdRef.current = getUnavailableProductId(err)
+              setErrorMessage(getApiError(err, 'Some items in your cart are no longer available.'))
+              return
+            }
             setErrorMessage('Something went wrong starting checkout. Please try again.')
           },
         }
@@ -376,9 +419,17 @@ export default function CheckoutPage() {
                 <h2 className="text-[14px] leading-[1.4] font-[600] font-sans text-primary mb-4">
                   Review your order ({itemCount} item{itemCount === 1 ? '' : 's'})
                 </h2>
-                <div className="flex flex-col gap-4">
-                  {items.map((item) => (
-                    <div key={`${item.productId}-${item.variantId ?? ''}`} className="flex gap-3 items-start pb-4 border-b border-border-warm last:border-b-0 last:pb-0">
+                <div className="flex flex-col gap-6">
+                  {groups.map((group) => (
+                    <section
+                      key={group.key}
+                      aria-label={group.brand ? `Items from ${group.brand.name}` : 'Items from Solomon Bharat'}
+                    >
+                      {showGroupHeaders && <CartGroupHeader brand={group.brand} />}
+                      {group.brand && <BrandMinOrderNotice group={group} />}
+                      <div className="flex flex-col gap-4 mt-3">
+                        {group.items.map((item) => (
+                          <div key={`${item.productId}-${item.variantId ?? ''}`} className="flex gap-3 items-start pb-4 border-b border-border-warm last:border-b-0 last:pb-0">
                       <button
                         type="button"
                         onClick={() => openLightbox(item.image, item.productName)}
@@ -413,6 +464,15 @@ export default function CheckoutPage() {
                         {fmt(item.unitAdminPriceInr * item.quantity)}
                       </span>
                     </div>
+                        ))}
+                      </div>
+                      {showGroupHeaders && (
+                        <p className="flex justify-between pt-3 mt-3 border-t border-border-warm text-[13px] font-sans text-muted">
+                          <span>Subtotal</span>
+                          <span className="font-[600] text-ink">{fmt(group.subtotalInr)}</span>
+                        </p>
+                      )}
+                    </section>
                   ))}
                 </div>
               </div>
@@ -423,7 +483,9 @@ export default function CheckoutPage() {
                 itemCount={itemCount}
                 total={total}
                 disabledReason={
-                  !phoneValid
+                  unmetMessage
+                    ? unmetMessage
+                    : !phoneValid
                     ? 'Enter a valid mobile number to continue.'
                     : !selectedAddressId
                       ? 'Select a delivery address to continue.'
@@ -432,6 +494,17 @@ export default function CheckoutPage() {
                 isPending={checkout.isPending}
                 errorMessage={errorMessage}
                 onPlaceOrder={handlePlaceOrder}
+                errorAction={
+                  hasUnavailable ? (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveUnavailable(unavailableIdRef.current)}
+                      className="mt-2 h-11 w-full rounded border border-forest text-forest text-[13px] font-[600] font-sans hover:bg-selected transition-colors"
+                    >
+                      Remove unavailable items
+                    </button>
+                  ) : null
+                }
               />
             </div>
           </div>

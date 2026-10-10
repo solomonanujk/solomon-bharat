@@ -25,6 +25,7 @@ vi.mock('./sellers.service', () => ({
     listSellers: vi.fn(),
     getSellerDetailForAdmin: vi.fn(),
     getMyProfile: vi.fn(),
+    getMyProfileWithBrand: vi.fn(),
     updateMyProfile: vi.fn(),
   },
 }));
@@ -118,10 +119,10 @@ describe('sellers controller', () => {
     });
 
     it('returns my own profile for SELLER', async () => {
-      vi.mocked(sellersService.getMyProfile).mockResolvedValue({ id: 'sp1' } as never);
+      vi.mocked(sellersService.getMyProfileWithBrand).mockResolvedValue({ id: 'sp1' } as never);
       const res = await request(app).get('/api/v1/sellers/me').set(authHeader(Role.SELLER, 'seller-user-1'));
       expect(res.status).toBe(200);
-      expect(sellersService.getMyProfile).toHaveBeenCalledWith('seller-user-1');
+      expect(sellersService.getMyProfileWithBrand).toHaveBeenCalledWith('seller-user-1');
     });
 
     it('rejects a BUYER with 403', async () => {
