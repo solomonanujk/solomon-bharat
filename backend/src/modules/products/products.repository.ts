@@ -453,6 +453,7 @@ export class ProductsRepository {
       ...(categoryIds ? { categoryId: { in: categoryIds } } : {}),
       ...(filter.collectionId ? { collections: { some: { collectionId: filter.collectionId } } } : {}),
       ...(filter.brand ? { brand: { slug: filter.brand } } : {}),
+      ...(filter.curated ? { brandId: null } : {}),
       ...(filter.search
         ? {
             OR: [
@@ -497,13 +498,14 @@ export class ProductsRepository {
    * "Made in" filter's checkbox list with actual seller-entered values instead
    * of a fabricated fixed country list.
    */
-  async findDistinctPlaceOfOrigin(): Promise<string[]> {
+  async findDistinctPlaceOfOrigin(curatedOnly = false): Promise<string[]> {
     const rows = await this.db.product.findMany({
       where: {
         deletedAt: null,
         isPublished: true,
         approvalStatus: ProductApprovalStatus.APPROVED,
         AND: [ACTIVE_BRAND_FILTER],
+        ...(curatedOnly ? { brandId: null } : {}),
         placeOfOrigin: { not: null },
       },
       distinct: ['placeOfOrigin'],
@@ -546,6 +548,7 @@ export class ProductsRepository {
    */
   async findTrending(
     pagination: PaginationQuery,
+    curatedOnly = false,
   ): Promise<{ data: ProductWithMedia[]; total: number }> {
     const since = new Date(Date.now() - TRENDING_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
@@ -559,6 +562,7 @@ export class ProductsRepository {
           isPublished: true,
           approvalStatus: ProductApprovalStatus.APPROVED,
           AND: [ACTIVE_BRAND_FILTER],
+          ...(curatedOnly ? { brandId: null } : {}),
         },
       },
       _sum: { quantity: true },
@@ -589,12 +593,14 @@ export class ProductsRepository {
   async findRecommended(
     preferredCategoryIds: string[],
     pagination: PaginationQuery,
+    curatedOnly = false,
   ): Promise<{ data: ProductWithMedia[]; total: number }> {
     const baseWhere: Prisma.ProductWhereInput = {
       deletedAt: null,
       isPublished: true,
       approvalStatus: ProductApprovalStatus.APPROVED,
       AND: [ACTIVE_BRAND_FILTER],
+      ...(curatedOnly ? { brandId: null } : {}),
     };
     const preferredWhere: Prisma.ProductWhereInput = {
       ...baseWhere,
@@ -641,7 +647,12 @@ export class ProductsRepository {
     return { data, total };
   }
 
-  findRelated(categoryId: string, excludeProductId: string, limit: number): Promise<ProductWithMedia[]> {
+  findRelated(
+    categoryId: string,
+    excludeProductId: string,
+    limit: number,
+    curatedOnly = false,
+  ): Promise<ProductWithMedia[]> {
     return this.db.product.findMany({
       where: {
         categoryId,
@@ -650,6 +661,7 @@ export class ProductsRepository {
         isPublished: true,
         approvalStatus: ProductApprovalStatus.APPROVED,
         AND: [ACTIVE_BRAND_FILTER],
+        ...(curatedOnly ? { brandId: null } : {}),
       },
       include: MEDIA_INCLUDE,
       take: limit,

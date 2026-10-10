@@ -386,6 +386,32 @@ describe('ProductsRepository', () => {
     expect(db.product.findMany.mock.calls[0][0].where.brand).toEqual({ slug: 'acme' });
   });
 
+  it('curated filter / curatedOnly restrict every public query to brandId null', async () => {
+    db.product.findMany.mockResolvedValue([]);
+    db.product.count.mockResolvedValue(0);
+    await repo.findPublished({ curated: true }, { page: 1, limit: 20 }, undefined);
+    expect(db.product.findMany.mock.calls[0][0].where.brandId).toBeNull();
+    db.product.findMany.mockClear();
+    await repo.findPublished({ curated: false }, { page: 1, limit: 20 }, undefined);
+    expect(db.product.findMany.mock.calls[0][0].where).not.toHaveProperty('brandId');
+
+    db.orderItem.groupBy.mockResolvedValue([]);
+    await repo.findTrending({ page: 1, limit: 20 }, true);
+    expect(db.orderItem.groupBy.mock.calls[0][0].where.product.brandId).toBeNull();
+
+    db.product.count.mockClear();
+    await repo.findRecommended([], { page: 1, limit: 20 }, true);
+    expect(db.product.count.mock.calls[0][0].where.brandId).toBeNull();
+
+    db.product.findMany.mockClear();
+    await repo.findRelated('cat-1', 'p1', 4, true);
+    expect(db.product.findMany.mock.calls[0][0].where.brandId).toBeNull();
+
+    db.product.findMany.mockClear();
+    await repo.findDistinctPlaceOfOrigin(true);
+    expect(db.product.findMany.mock.calls[0][0].where.brandId).toBeNull();
+  });
+
   it('findTrending and findRecommended and findRelated exclude suspended brands', async () => {
     const active = { OR: [{ brandId: null }, { brand: { status: 'ACTIVE' } }] };
     db.orderItem.groupBy.mockResolvedValue([]);

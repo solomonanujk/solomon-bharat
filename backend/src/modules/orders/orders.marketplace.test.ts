@@ -150,36 +150,33 @@ describe('OrdersService.createPendingCheckout (order split + minimum order value
     expect(result.orders).toHaveLength(3);
   });
 
-  it('prices a brand product at the buyer price for an agent (brands have no separate agent price)', async () => {
+  it('rejects a brand product for an agent (agents buy curated products only)', async () => {
     const { repo, service } = buildCheckoutHarness(
       { a1: product('a1', { brandId: 'brand-a', sellerId: 'sp-a', admin: 500 }) },
       [brandA],
     );
 
-    // agentPrice is null on a brand product, which would normally fail an agent checkout
-    await service.createPendingCheckout('agent-1', [{ productId: 'a1', quantity: 2 }], undefined, 'AGENT');
-
-    const call = vi.mocked(repo.createPending).mock.calls[0][0];
-    expect(call.adminPriceTotal).toBe(1000);
-    expect(call.items[0].unitAdminPrice).toBe(500);
+    await expect(
+      service.createPendingCheckout('agent-1', [{ productId: 'a1', quantity: 2 }], undefined, 'AGENT'),
+    ).rejects.toThrow(/not available for purchase/);
+    expect(repo.createPending).not.toHaveBeenCalled();
   });
 
-  it('prices a brand product by its flat tier ladder for an agent, same as for a buyer', async () => {
+  it('rejects a tiered brand product for an agent', async () => {
     const tiered = product('a1', { brandId: 'brand-a', sellerId: 'sp-a', admin: 500 });
     tiered.priceTiers = [
       { moq: 1, sellerPrice: new Decimal(500), adminPrice: new Decimal(500), agentPrice: null },
       { moq: 50, sellerPrice: new Decimal(450), adminPrice: new Decimal(450), agentPrice: null },
     ];
-    const buyer = buildCheckoutHarness({ a1: tiered }, [brandA]);
     const agent = buildCheckoutHarness({ a1: tiered }, [brandA]);
+    await expect(
+      agent.service.createPendingCheckout('agent-1', [{ productId: 'a1', quantity: 60 }], undefined, 'AGENT'),
+    ).rejects.toThrow(/not available for purchase/);
 
+    // A buyer is unaffected and still gets the tier ladder.
+    const buyer = buildCheckoutHarness({ a1: tiered }, [brandA]);
     await buyer.service.createPendingCheckout('buyer-1', [{ productId: 'a1', quantity: 60 }], undefined, 'BUYER');
-    await agent.service.createPendingCheckout('agent-1', [{ productId: 'a1', quantity: 60 }], undefined, 'AGENT');
-
-    const buyerCall = vi.mocked(buyer.repo.createPending).mock.calls[0][0];
-    const agentCall = vi.mocked(agent.repo.createPending).mock.calls[0][0];
-    expect(agentCall.items[0].unitAdminPrice).toBe(450);
-    expect(agentCall.adminPriceTotal).toBe(buyerCall.adminPriceTotal);
+    expect(vi.mocked(buyer.repo.createPending).mock.calls[0][0].items[0].unitAdminPrice).toBe(450);
   });
 
   it('a curated product still needs an agent price for an agent (unchanged)', async () => {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowUpDown, ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowUpDown, Check, ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Breadcrumbs, type Crumb } from '@/components/catalogue/Breadcrumbs'
 import { FiltersDrawer } from '@/components/catalogue/FiltersDrawer'
@@ -113,21 +113,30 @@ export function CatalogueView({
   const showPrice = isAuthenticated && (user?.role === 'BUYER' || user?.role === 'AGENT')
   const { data: categoryTree = [] } = useCategoryTree()
   const { data: brandFacets = [] } = useBrandFacets()
-  const hideBrand = !!scope?.brandSlug
+  const isAgent = user?.role === 'AGENT'
+  // Brand facet is hidden on a brand storefront (fixed by the page) and for agents (they never see brands).
+  const hideBrand = !!scope?.brandSlug || isAgent
+  // The Curated toggle only makes sense where marketplace products can appear.
+  const showCurated = !scope?.brandSlug && !isAgent && state.sort !== 'trending'
 
   const filters: ProductFilterValues = useMemo(() => {
-    if (!facets) return EMPTY_FILTERS
-    return showPrice ? state.filters : { ...state.filters, priceMin: '', priceMax: '' }
-  }, [facets, showPrice, state.filters])
+    // `curated` is a toolbar toggle independent of the facet sidebar, so it survives `facets={false}`.
+    const curated = showCurated && state.filters.curated
+    if (!facets) return { ...EMPTY_FILTERS, curated }
+    const base = { ...state.filters, curated, brand: isAgent ? '' : state.filters.brand }
+    return showPrice ? base : { ...base, priceMin: '', priceMax: '' }
+  }, [facets, showPrice, showCurated, isAgent, state.filters])
   const sort: CatalogueSort = state.sort === 'featured' ? 'featured' : DEFAULT_SORT
   const apiSort: ProductsParams['sort'] = sortable ? sort : state.sort ?? undefined
-  const clearedFilters = EMPTY_FILTERS
+  // Drawer "Clear all" must not touch the toolbar toggle, which applies immediately.
+  const clearedFilters: ProductFilterValues = useMemo(() => ({ ...EMPTY_FILTERS, curated: filters.curated }), [filters.curated])
 
   const params: ProductsParams = useMemo(
     () => ({
       categoryId: filters.categoryId ?? scope?.categoryId,
       collectionId: scope?.collectionId,
       brand: scope?.brandSlug ?? (filters.brand || undefined),
+      curated: filters.curated ? true : undefined,
       search: state.q || undefined,
       sort: apiSort,
       moqMax: filters.moqMax,
@@ -167,6 +176,9 @@ export function CatalogueView({
     const name = brandFacets.find((b) => b.slug === filters.brand)?.name ?? 'Selected brand'
     chips.push({ key: 'brand', label: `Brand: ${name}`, onRemove: () => setFilters({ ...filters, brand: '' }) })
   }
+  if (filters.curated) {
+    chips.push({ key: 'curated', label: 'Curated by Solomon Bharat', onRemove: () => setFilters({ ...filters, curated: false }) })
+  }
   if (filters.moqMax) {
     chips.push({ key: 'moq', label: moqChipLabel(filters.moqMax), onRemove: () => setFilters({ ...filters, moqMax: undefined }) })
   }
@@ -193,7 +205,7 @@ export function CatalogueView({
   }
 
   function resetFilters() {
-    update({ filters: clearedFilters, q: contextSearchPlaceholder ? '' : state.q })
+    update({ filters: EMPTY_FILTERS, q: contextSearchPlaceholder ? '' : state.q })
   }
 
   const filterCount = activeFilterCount(filters, rootCategory?.id)
@@ -248,7 +260,7 @@ export function CatalogueView({
       <div className="py-12 lg:py-16 max-w-[520px]">
         <h3 className="type-h3 text-ink">{filtered ? 'No products match your filters' : 'No products here yet'}</h3>
         <p className="mt-2 type-body text-muted">
-          {filtered ? 'Try removing a filter or two, or reset them all to see everything here.' : emptyBody}
+          {filtered ? 'Try removing a filter or two (including Curated by Solomon Bharat), or reset them all to see everything here.' : emptyBody}
         </p>
         {filtered ? (
           <Button variant="primary" size="lg" className="mt-6" onClick={resetFilters}>
@@ -356,6 +368,20 @@ export function CatalogueView({
                   className="w-full h-12 pl-11 pr-4 rounded-[24px] border border-line bg-white text-[16px] leading-[24px] text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-forest"
                 />
               </form>
+            )}
+
+            {showCurated && (
+              <button
+                type="button"
+                aria-pressed={filters.curated}
+                onClick={() => update({ filters: { ...filters, curated: !filters.curated, brand: '' } })}
+                className={`inline-flex items-center justify-center gap-2 w-full lg:w-auto min-h-11 lg:h-12 px-5 rounded-[4px] border border-forest text-[14px] leading-[20px] font-[600] flex-shrink-0 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-forest ${
+                  filters.curated ? 'bg-forest text-white hover:bg-forest-hover' : 'bg-transparent text-forest hover:bg-selected'
+                }`}
+              >
+                {filters.curated && <Check size={16} aria-hidden="true" />}
+                Curated by Solomon Bharat
+              </button>
             )}
 
             <p className="lg:order-first lg:mr-auto text-[14px] leading-[20px] text-ink" aria-live="polite">

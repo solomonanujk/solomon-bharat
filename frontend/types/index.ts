@@ -261,6 +261,8 @@ export interface ProductsParams {
   leadTime?: string
   /** Brand slug — a valid scope on its own (brand storefront, "Buy more from this brand"). */
   brand?: string
+  /** `true` = Solomon-curated products only (excludes marketplace brands). A refinement, not a scope. Mutually exclusive with `brand`. */
+  curated?: boolean
   page?: number
   limit?: number
 }

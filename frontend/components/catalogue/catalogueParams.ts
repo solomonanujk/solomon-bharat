@@ -35,6 +35,8 @@ export interface ProductFilterValues {
   leadTime: string
   /** Marketplace brand slug (single-select; the API takes one `brand`). Empty = any. */
   brand: string
+  /** Solomon-curated products only (hides marketplace brands). Mutually exclusive with `brand`. */
+  curated: boolean
   /** Products whose MOQ is at most this many units. */
   moqMax: number | undefined
   /** Buyer price range (signed-in buyers/agents only — stripped for guests; the API 400s it). */
@@ -47,6 +49,7 @@ export const EMPTY_FILTERS: ProductFilterValues = {
   placeOfOrigin: '',
   leadTime: '',
   brand: '',
+  curated: false,
   moqMax: undefined,
   priceMin: '',
   priceMax: '',
@@ -59,6 +62,7 @@ export function activeFilterCount(filters: ProductFilterValues, rootCategoryId?:
   if (filters.placeOfOrigin) count += 1
   if (filters.leadTime) count += 1
   if (filters.brand) count += 1
+  if (filters.curated) count += 1
   if (filters.moqMax) count += 1
   if (filters.priceMin || filters.priceMax) count += 1
   return count
@@ -67,7 +71,7 @@ export function activeFilterCount(filters: ProductFilterValues, rootCategoryId?:
 // ─── URL state ────────────────────────────────────────────────────────────────
 // Every piece of catalogue state lives in the URL so results are shareable and
 // survive reloads/back navigation:
-//   q, category, origin, lead, brand, moq, minPrice, maxPrice, sort, page
+//   q, category, origin, lead, brand, curated, moq, minPrice, maxPrice, sort, page
 
 export interface CatalogueUrlState {
   q: string
@@ -82,6 +86,7 @@ const KEYS = {
   origin: 'origin',
   lead: 'lead',
   brand: 'brand',
+  curated: 'curated',
   moq: 'moq',
   minPrice: 'minPrice',
   maxPrice: 'maxPrice',
@@ -115,6 +120,8 @@ export function parseCatalogueParams(params: URLSearchParams): CatalogueUrlState
       placeOfOrigin: params.get(KEYS.origin) ?? '',
       leadTime: params.get(KEYS.lead) ?? '',
       brand: params.get(KEYS.brand) ?? '',
+      // Curated and Brand are mutually exclusive; a brand in the URL wins.
+      curated: params.get(KEYS.curated) === '1' && !params.get(KEYS.brand),
       moqMax: parsePositiveInt(params.get(KEYS.moq)),
       priceMin: parseAmount(params.get(KEYS.minPrice)),
       priceMax: parseAmount(params.get(KEYS.maxPrice)),
@@ -137,6 +144,7 @@ export function serializeCatalogueParams(state: CatalogueUrlState, base?: URLSea
   setOrDelete(params, KEYS.origin, state.filters.placeOfOrigin)
   setOrDelete(params, KEYS.lead, state.filters.leadTime)
   setOrDelete(params, KEYS.brand, state.filters.brand)
+  setOrDelete(params, KEYS.curated, state.filters.curated && !state.filters.brand ? '1' : null)
   setOrDelete(params, KEYS.moq, state.filters.moqMax)
   setOrDelete(params, KEYS.minPrice, state.filters.priceMin)
   setOrDelete(params, KEYS.maxPrice, state.filters.priceMax)

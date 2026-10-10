@@ -52,7 +52,7 @@ describe('brands controller', () => {
     const res = await request(app).get('/api/v1/brands?search=kala');
     expect(res.status).toBe(200);
     expect(res.body.meta).toMatchObject({ total: 0, page: 1 });
-    expect(brandsService.listPublic).toHaveBeenCalledWith('kala', { page: 1, limit: 20 });
+    expect(brandsService.listPublic).toHaveBeenCalledWith('kala', { page: 1, limit: 20 }, undefined);
   });
 
   it('GET /brands/:slug is public', async () => {

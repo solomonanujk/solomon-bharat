@@ -63,6 +63,11 @@ export function canViewWholesalePrice(viewerRole?: Role): boolean {
   return viewerRole === Role.BUYER || viewerRole === Role.AGENT || viewerRole === Role.SUPER_ADMIN;
 }
 
+/** Agents see and buy Solomon-curated products only — never marketplace brands' (owner rule). */
+export function isCuratedOnlyViewer(viewerRole?: Role): boolean {
+  return viewerRole === Role.AGENT;
+}
+
 interface PricedTierRow {
   id: string;
   moq: number;
@@ -1142,6 +1147,20 @@ export class ProductsService {
       throw AppError.badRequest('Sign in as a buyer to filter by price');
     }
 
+    if (filter.curated && filter.brand) {
+      throw AppError.badRequest('Choose either curated or a brand');
+    }
+
+    // Agents never see marketplace brands: a brand filter yields nothing (not an error),
+    // and everything else is restricted to curated products (brandId = null).
+    const curatedOnly = isCuratedOnlyViewer(viewerRole);
+    if (curatedOnly && filter.brand) {
+      return { data: [], total: 0 };
+    }
+    if (curatedOnly) {
+      filter = { ...filter, curated: true };
+    }
+
     // viewerRole is folded into the cache key — an AGENT viewer's response carries
     // agentPrice, a buyer/guest's doesn't, so the two must never share a cache entry.
     const key = await versionedListKey(this.cache, PUBLISHED_LIST_CACHE_NAMESPACE, {
@@ -1156,7 +1175,7 @@ export class ProductsService {
     // aggregation query rather than findPublished's where-clause path.
     const { data, total } =
       filter.sort === 'trending'
-        ? await this.repo.findTrending(pagination)
+        ? await this.repo.findTrending(pagination, !!filter.curated)
         : await this.repo.findPublished(
             filter,
             pagination,
@@ -1169,12 +1188,13 @@ export class ProductsService {
   }
 
   /** Real, distinct placeOfOrigin values among published products — for the "Made in" filter's checkbox list. */
-  async listPlaceOfOriginFacets(): Promise<string[]> {
-    return this.repo.findDistinctPlaceOfOrigin();
+  async listPlaceOfOriginFacets(viewerRole?: Role): Promise<string[]> {
+    return this.repo.findDistinctPlaceOfOrigin(isCuratedOnlyViewer(viewerRole));
   }
 
   /** Active brands with published products + counts — powers the brand filter. */
-  async listBrandFacets(): Promise<BrandFacet[]> {
+  async listBrandFacets(viewerRole?: Role): Promise<BrandFacet[]> {
+    if (isCuratedOnlyViewer(viewerRole)) return [];
     return this.repo.findBrandFacets();
   }
 
@@ -1205,7 +1225,11 @@ export class ProductsService {
    */
   async getRecommendationsForBuyer(buyerId: string, pagination: PaginationQuery, viewerRole?: Role) {
     const preferredCategoryIds = await this.getPreferredCategoryIds(buyerId);
-    const { data, total } = await this.repo.findRecommended(preferredCategoryIds, pagination);
+    const { data, total } = await this.repo.findRecommended(
+      preferredCategoryIds,
+      pagination,
+      isCuratedOnlyViewer(viewerRole),
+    );
     const ratings = await this.reviews.getRatingSummaries(data.map((p) => p.id));
     return { data: data.map((p) => toBuyerProduct(p, ratings.get(p.id), viewerRole)), total };
   }
@@ -1219,8 +1243,12 @@ export class ProductsService {
     if (product.brand?.status === BrandStatus.SUSPENDED) {
       throw AppError.notFound('Product not found');
     }
+    // A brand product is invisible to agents, including by direct link.
+    if (product.brandId && isCuratedOnlyViewer(viewerRole)) {
+      throw AppError.notFound('Product not found');
+    }
 
-    const related = await this.repo.findRelated(product.categoryId, product.id, 4);
+    const related = await this.repo.findRelated(product.categoryId, product.id, 4, isCuratedOnlyViewer(viewerRole));
     const moreFromBrand = product.brandId
       ? await this.repo.findMoreFromBrand(product.brandId, product.id, MORE_FROM_BRAND_LIMIT)
       : [];

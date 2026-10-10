@@ -107,6 +107,21 @@ describe('BrandsService', () => {
       expect(result.minOrderValueInr).toBe(5000);
     });
 
+    it('404s a brand page for an agent without touching the repository', async () => {
+      await expect(
+        service.getPublicBySlug('kala-kendra', { id: 'u3', role: Role.AGENT }),
+      ).rejects.toMatchObject({ statusCode: 404 });
+      expect(repo.findActiveBySlug).not.toHaveBeenCalled();
+    });
+
+    it('returns an empty brand list for an agent without querying', async () => {
+      await expect(service.listPublic(undefined, { page: 1, limit: 20 }, Role.AGENT)).resolves.toEqual({
+        data: [],
+        total: 0,
+      });
+      expect(repo.findActive).not.toHaveBeenCalled();
+    });
+
     it('404s for a suspended or unknown brand (repo only returns ACTIVE)', async () => {
       vi.mocked(repo.findActiveBySlug).mockResolvedValue(null);
       await expect(service.getPublicBySlug('gone')).rejects.toMatchObject({ statusCode: 404 });

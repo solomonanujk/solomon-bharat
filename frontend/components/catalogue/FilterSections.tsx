@@ -45,13 +45,16 @@ interface FilterSectionsProps {
   rootCategory?: Pick<CategoryNode, 'id' | 'name' | 'children'>
   /** Only signed-in buyers may filter by price — guests never see price data. */
   showPrice?: boolean
-  /** True on a brand storefront, where the brand is already fixed by the page. */
+  /** True on a brand storefront, where the brand is already fixed by the page, and for agents (who never see marketplace brands). */
   hideBrand?: boolean
 }
 
-export function FilterSections({ filters, onChange: commit, rootCategory, showPrice, hideBrand }: FilterSectionsProps) {
+export function FilterSections({ filters, onChange: emit, rootCategory, showPrice, hideBrand }: FilterSectionsProps) {
   const { data: originOptions = [] } = usePlaceOfOriginFacets()
   const { data: brandOptions = [] } = useBrandFacets()
+  // Picking a brand turns the Curated toggle off (they are mutually exclusive).
+  const commit = (overrides: Partial<ProductFilterValues>) =>
+    emit(overrides.brand ? { ...overrides, curated: false } : overrides)
   const [originSearch, setOriginSearch] = useState('')
   const filteredOrigins = originOptions.filter((v) => v.toLowerCase().includes(originSearch.trim().toLowerCase()))
 

@@ -12,6 +12,7 @@ import { useWishlist, useRemoveFromWishlist } from '@/hooks/queries/useWishlist'
 import { useFollowedBrands } from '@/hooks/queries/useBrands'
 import { BrandLogo, BrandTag, VerifiedBadge } from '@/components/brands/BrandTag'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/hooks/useAuth'
 import { useCartStore } from '@/lib/store/useCartStore'
 import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import type { WishlistEntry } from '@/types'
@@ -165,6 +166,8 @@ function SavedBrands() {
 
 export default function WishlistPage() {
   const { data: wishlist = [], isLoading } = useWishlist()
+  const { user } = useAuth()
+  const showBrands = user?.role !== 'AGENT' // agents never see marketplace brands
   const [tab, setTab] = useState<'products' | 'brands'>('products')
 
   const tabClass = (active: boolean) =>
@@ -177,7 +180,7 @@ export default function WishlistPage() {
     <AccountPageWrapper
       title="Wishlist"
       description={
-        tab === 'brands'
+        showBrands && tab === 'brands'
           ? 'Marketplace brands you follow'
           : isLoading
             ? 'Loading…'
@@ -188,12 +191,14 @@ export default function WishlistPage() {
         <button type="button" role="tab" aria-selected={tab === 'products'} onClick={() => setTab('products')} className={tabClass(tab === 'products')}>
           Saved products
         </button>
-        <button type="button" role="tab" aria-selected={tab === 'brands'} onClick={() => setTab('brands')} className={tabClass(tab === 'brands')}>
-          Saved brands
-        </button>
+        {showBrands && (
+          <button type="button" role="tab" aria-selected={tab === 'brands'} onClick={() => setTab('brands')} className={tabClass(tab === 'brands')}>
+            Saved brands
+          </button>
+        )}
       </div>
 
-      {tab === 'brands' ? (
+      {showBrands && tab === 'brands' ? (
         <SavedBrands />
       ) : isLoading ? (
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">

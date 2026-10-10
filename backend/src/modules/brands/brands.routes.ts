@@ -15,7 +15,7 @@ import {
   optionalAuth,
   requireAdmin,
   requireAuth,
-  requireBuyerOrAgent,
+  requireBuyer,
   requireMarketplaceSeller,
 } from '../../middleware/auth';
 import { uploadImages } from '../../middleware/upload';
@@ -29,7 +29,7 @@ export const brandsRouter = Router();
  * @openapi
  * /brands:
  *   get:
- *     summary: List active marketplace brands (public)
+ *     summary: List active marketplace brands (public; always empty for agents)
  *     tags: [Brands]
  *     security: []
  *     parameters:
@@ -39,13 +39,13 @@ export const brandsRouter = Router();
  *     responses:
  *       200: { description: Paginated brand cards }
  */
-brandsRouter.get('/', validate(brandListQuerySchema, 'query'), asyncHandler(brandsController.list));
+brandsRouter.get('/', optionalAuth, validate(brandListQuerySchema, 'query'), asyncHandler(brandsController.list));
 
 /**
  * @openapi
  * /brands/following:
  *   get:
- *     summary: Brands I follow (BUYER/AGENT)
+ *     summary: Brands I follow (BUYER only; agents get 403)
  *     tags: [Brands]
  *     responses:
  *       200: { description: Paginated brand cards }
@@ -53,7 +53,7 @@ brandsRouter.get('/', validate(brandListQuerySchema, 'query'), asyncHandler(bran
 brandsRouter.get(
   '/following',
   requireAuth,
-  requireBuyerOrAgent,
+  requireBuyer,
   validate(paginationQuerySchema, 'query'),
   asyncHandler(brandsController.following),
 );
@@ -226,7 +226,7 @@ brandsRouter.get(
  * @openapi
  * /brands/{slug}/follow:
  *   post:
- *     summary: Follow a brand (BUYER/AGENT, idempotent)
+ *     summary: Follow a brand (BUYER only, idempotent; agents get 403)
  *     tags: [Brands]
  *     responses:
  *       200: { description: Followed }
@@ -234,7 +234,7 @@ brandsRouter.get(
 brandsRouter.post(
   '/:slug/follow',
   requireAuth,
-  requireBuyerOrAgent,
+  requireBuyer,
   validate(slugParamSchema, 'params'),
   asyncHandler(brandsController.follow),
 );
@@ -243,7 +243,7 @@ brandsRouter.post(
  * @openapi
  * /brands/{slug}/follow:
  *   delete:
- *     summary: Unfollow a brand (BUYER/AGENT, idempotent)
+ *     summary: Unfollow a brand (BUYER only, idempotent; agents get 403)
  *     tags: [Brands]
  *     responses:
  *       200: { description: Unfollowed }
@@ -251,7 +251,7 @@ brandsRouter.post(
 brandsRouter.delete(
   '/:slug/follow',
   requireAuth,
-  requireBuyerOrAgent,
+  requireBuyer,
   validate(slugParamSchema, 'params'),
   asyncHandler(brandsController.unfollow),
 );

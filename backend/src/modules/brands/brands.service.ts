@@ -78,18 +78,25 @@ export class BrandsService {
 
   // ── Public ───────────────────────────────────────────────────────────────
 
-  async listPublic(search: string | undefined, pagination: PaginationQuery) {
+  async listPublic(search: string | undefined, pagination: PaginationQuery, viewerRole?: Role) {
+    // Agents only deal with Solomon-curated products — brands are hidden from them.
+    if (viewerRole === Role.AGENT) {
+      return { data: [], total: 0 };
+    }
     const { data, total } = await this.repo.findActive(search, pagination);
     return { data: data.map(toBrandListItem), total };
   }
 
   async getPublicBySlug(slug: string, viewer?: ViewerContext): Promise<PublicBrand> {
+    if (viewer?.role === Role.AGENT) {
+      throw AppError.notFound('Brand not found');
+    }
     const brand = await this.repo.findActiveBySlug(slug);
     if (!brand) {
       throw AppError.notFound('Brand not found');
     }
     let isFollowing = false;
-    if (viewer && (viewer.role === Role.BUYER || viewer.role === Role.AGENT)) {
+    if (viewer && viewer.role === Role.BUYER) {
       const buyerId = await this.repo.findBuyerProfileId(viewer.id);
       isFollowing = buyerId ? await this.repo.isFollowing(buyerId, brand.id) : false;
     }

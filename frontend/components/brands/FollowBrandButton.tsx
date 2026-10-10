@@ -5,13 +5,14 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
 import { useFollowBrand, useUnfollowBrand } from '@/hooks/queries/useBrands'
 
-/** Follow / Unfollow for BUYER and AGENT accounts; guests get the signup gate. Hidden for sellers/admins. */
+/** Follow / Unfollow for BUYER accounts; guests get the signup gate. Hidden for sellers/admins. */
 export function FollowBrandButton({ slug, name, isFollowing }: { slug: string; name: string; isFollowing: boolean }) {
   const { user, isAuthenticated, requireAuth } = useAuth()
   const follow = useFollowBrand()
   const unfollow = useUnfollowBrand()
 
-  if (isAuthenticated && user?.role !== 'BUYER' && user?.role !== 'AGENT') return null
+  // Buyers only: agents never see marketplace brands; sellers/admins can't follow.
+  if (isAuthenticated && user?.role !== 'BUYER') return null
 
   const pending = follow.isPending || unfollow.isPending
   const following = isAuthenticated && isFollowing

@@ -221,10 +221,10 @@ export const productsController = {
   async listPublic(req: Request, res: Response): Promise<void> {
     const {
       categoryId, collectionId, search, sort, material, minPrice, maxPrice, moqMax,
-      placeOfOrigin, leadTime, brand, ...pagination
+      placeOfOrigin, leadTime, brand, curated, ...pagination
     } = req.query as unknown as PublicProductListQueryDto;
     const { data, total } = await productsService.listPublished(
-      { categoryId, collectionId, search, sort, material, minPrice, maxPrice, moqMax, placeOfOrigin, leadTime, brand },
+      { categoryId, collectionId, search, sort, material, minPrice, maxPrice, moqMax, placeOfOrigin, leadTime, brand, curated },
       pagination,
       req.user?.role,
     );
@@ -236,13 +236,13 @@ export const productsController = {
     sendSuccess(res, result);
   },
 
-  async listPlaceOfOriginFacets(_req: Request, res: Response): Promise<void> {
-    const values = await productsService.listPlaceOfOriginFacets();
+  async listPlaceOfOriginFacets(req: Request, res: Response): Promise<void> {
+    const values = await productsService.listPlaceOfOriginFacets(req.user?.role);
     sendSuccess(res, values);
   },
 
-  async listBrandFacets(_req: Request, res: Response): Promise<void> {
-    const facets = await productsService.listBrandFacets();
+  async listBrandFacets(req: Request, res: Response): Promise<void> {
+    const facets = await productsService.listBrandFacets(req.user?.role);
     sendSuccess(res, facets);
   },
 

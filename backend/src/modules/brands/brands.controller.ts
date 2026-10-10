@@ -17,7 +17,7 @@ function toViewer(req: Request) {
 export const brandsController = {
   async list(req: Request, res: Response): Promise<void> {
     const { search, ...pagination } = req.query as unknown as BrandListQueryDto;
-    const { data, total } = await brandsService.listPublic(search, pagination);
+    const { data, total } = await brandsService.listPublic(search, pagination, req.user?.role);
     sendSuccess(res, data, 'Brands retrieved', 200, buildPaginationMeta(total, pagination));
   },
 

@@ -679,7 +679,7 @@ describe('ProductsService', () => {
 
       await service.listPublished({ sort: 'trending' }, { page: 1, limit: 20 });
 
-      expect(repo.findTrending).toHaveBeenCalledWith({ page: 1, limit: 20 });
+      expect(repo.findTrending).toHaveBeenCalledWith({ page: 1, limit: 20 }, false);
       expect(repo.findPublished).not.toHaveBeenCalled();
     });
 
@@ -828,9 +828,11 @@ describe('ProductsService', () => {
       expect(repo.findRecommended).toHaveBeenCalledWith(
         expect.arrayContaining(['cat-wishlisted', 'cat-ordered']),
         { page: 1, limit: 20 },
+        false,
       );
       expect(repo.findRecommended).toHaveBeenCalledWith(
         expect.arrayContaining([]),
+        expect.anything(),
         expect.anything(),
       );
       expect((repo.findRecommended as ReturnType<typeof vi.fn>).mock.calls[0][0]).toHaveLength(2);
@@ -845,7 +847,7 @@ describe('ProductsService', () => {
 
       await service.getRecommendationsForBuyer('buyer-2', { page: 1, limit: 20 });
 
-      expect(repo.findRecommended).toHaveBeenCalledWith([], { page: 1, limit: 20 });
+      expect(repo.findRecommended).toHaveBeenCalledWith([], { page: 1, limit: 20 }, false);
     });
   });
 
@@ -1229,7 +1231,7 @@ describe('ProductsService', () => {
 
       expect(product.slug).toBe('table-runner');
       expect(related).toEqual([]);
-      expect(repo.findRelated).toHaveBeenCalledWith('cat-l3-1', 'prod-1', 4);
+      expect(repo.findRelated).toHaveBeenCalledWith('cat-l3-1', 'prod-1', 4, false);
     });
 
     it('exposes only admin-priced flat tiers, never the seller price', async () => {

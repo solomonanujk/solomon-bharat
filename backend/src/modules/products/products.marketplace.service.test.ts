@@ -114,6 +114,8 @@ function buildRepo(): ProductsRepository {
     findPublished: vi.fn(),
     findTrending: vi.fn(),
     findRelated: vi.fn().mockResolvedValue([]),
+    findRecommended: vi.fn().mockResolvedValue({ data: [], total: 0 }),
+    findDistinctPlaceOfOrigin: vi.fn().mockResolvedValue([]),
     findMoreFromBrand: vi.fn().mockResolvedValue([]),
     findBrandFacets: vi.fn(),
     findSellerContext: vi.fn().mockResolvedValue({ sellerType: SellerType.CURATED, brand: null }),
@@ -252,6 +254,142 @@ describe('ProductsService - marketplace brands', () => {
       expect(detail.moreFromBrand).toEqual([]);
       expect(detail.product.brand).toBeNull();
       expect(repo.findMoreFromBrand).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('agents are curated-only', () => {
+    const page = { page: 1, limit: 20 };
+
+    it('list: forces curated=true for an agent, leaves buyers and guests untouched', async () => {
+      vi.mocked(repo.findPublished).mockResolvedValue({ data: [], total: 0 });
+      await service.listPublished({ categoryId: 'c' }, page, Role.AGENT);
+      expect(vi.mocked(repo.findPublished).mock.calls[0][0]).toEqual({ categoryId: 'c', curated: true });
+      await service.listPublished({ categoryId: 'c' }, page, Role.BUYER);
+      expect(vi.mocked(repo.findPublished).mock.calls[1][0]).toEqual({ categoryId: 'c' });
+      await service.listPublished({ categoryId: 'c' }, page);
+      expect(vi.mocked(repo.findPublished).mock.calls[2][0]).toEqual({ categoryId: 'c' });
+    });
+
+    it('list: brand filter for an agent is an empty result, not an error, and hits no query', async () => {
+      await expect(service.listPublished({ brand: 'acme-crafts' }, page, Role.AGENT)).resolves.toEqual({
+        data: [],
+        total: 0,
+      });
+      expect(repo.findPublished).not.toHaveBeenCalled();
+      expect(repo.findTrending).not.toHaveBeenCalled();
+    });
+
+    it('list: agent and buyer never share a cache entry for the same filter', async () => {
+      const store = new Map<string, unknown>();
+      const cache2 = {
+        get: vi.fn(async (k: string) => (store.has(k) ? store.get(k) : null)),
+        set: vi.fn(async (k: string, v: unknown) => {
+          store.set(k, v);
+        }),
+        del: vi.fn(),
+        incr: vi.fn().mockResolvedValue(1),
+      };
+      const svc = new ProductsService(
+        repo,
+        { getLeafDescendantIds: vi.fn().mockResolvedValue(['cat-l3-1']) } as unknown as CategoriesService,
+        cache2 as never,
+        { getRatingSummaries: vi.fn().mockResolvedValue(new Map()) } as unknown as ReviewsRepository,
+      );
+      vi.mocked(repo.findPublished)
+        .mockResolvedValueOnce({ data: [], total: 0 })
+        .mockResolvedValueOnce({ data: [brandProduct()], total: 1 });
+
+      const agent = await svc.listPublished({ categoryId: 'c' }, page, Role.AGENT);
+      const buyer = await svc.listPublished({ categoryId: 'c' }, page, Role.BUYER);
+      expect(agent.total).toBe(0);
+      expect(buyer.total).toBe(1);
+      expect(repo.findPublished).toHaveBeenCalledTimes(2);
+      expect(new Set(vi.mocked(cache2.set).mock.calls.map((c) => c[0])).size).toBe(2);
+    });
+
+    it('trending: curated is honoured for everyone, forced for agents', async () => {
+      vi.mocked(repo.findTrending).mockResolvedValue({ data: [], total: 0 });
+      await service.listPublished({ sort: 'trending', curated: true }, page, Role.BUYER);
+      expect(repo.findTrending).toHaveBeenLastCalledWith(page, true);
+      await service.listPublished({ sort: 'trending' }, page, Role.AGENT);
+      expect(repo.findTrending).toHaveBeenLastCalledWith(page, true);
+      await service.listPublished({ sort: 'trending' }, page, Role.BUYER);
+      expect(repo.findTrending).toHaveBeenLastCalledWith(page, false);
+    });
+
+    it('detail: a brand product is 404 for an agent, visible to a buyer', async () => {
+      vi.mocked(repo.findBySlugWithMedia).mockResolvedValue(brandProduct());
+      await expect(service.getBySlug('table-runner', Role.AGENT)).rejects.toMatchObject({ statusCode: 404 });
+      await expect(service.getBySlug('table-runner', Role.BUYER)).resolves.toBeDefined();
+      expect(repo.findMoreFromBrand).toHaveBeenCalledTimes(1);
+    });
+
+    it('detail: a curated product works for an agent and related is curated-only', async () => {
+      vi.mocked(repo.findBySlugWithMedia).mockResolvedValue(
+        withMedia(buildProduct({ isPublished: true, approvalStatus: ProductApprovalStatus.APPROVED })),
+      );
+      await service.getBySlug('table-runner', Role.AGENT);
+      expect(repo.findRelated).toHaveBeenLastCalledWith('cat-l3-1', 'prod-1', 4, true);
+      await service.getBySlug('table-runner', Role.BUYER);
+      expect(repo.findRelated).toHaveBeenLastCalledWith('cat-l3-1', 'prod-1', 4, false);
+    });
+
+    it('recommendations: curated-only for agents only', async () => {
+      await service.getRecommendationsForBuyer('b1', page, Role.AGENT);
+      expect(repo.findRecommended).toHaveBeenLastCalledWith([], page, true);
+      await service.getRecommendationsForBuyer('b1', page, Role.BUYER);
+      expect(repo.findRecommended).toHaveBeenLastCalledWith([], page, false);
+    });
+
+    it('facets: brands are [] for agents without querying; place-of-origin is curated-only', async () => {
+      await expect(service.listBrandFacets(Role.AGENT)).resolves.toEqual([]);
+      expect(repo.findBrandFacets).not.toHaveBeenCalled();
+      await service.listPlaceOfOriginFacets(Role.AGENT);
+      expect(repo.findDistinctPlaceOfOrigin).toHaveBeenLastCalledWith(true);
+      await service.listPlaceOfOriginFacets(Role.BUYER);
+      expect(repo.findDistinctPlaceOfOrigin).toHaveBeenLastCalledWith(false);
+    });
+  });
+
+  describe('curated filter', () => {
+    const page = { page: 1, limit: 20 };
+
+    it('passes curated=true through to the repository for a buyer (needs another scope)', async () => {
+      vi.mocked(repo.findPublished).mockResolvedValue({ data: [], total: 0 });
+      await service.listPublished({ sort: 'newest', curated: true }, page, Role.BUYER);
+      expect(vi.mocked(repo.findPublished).mock.calls[0][0]).toEqual({ sort: 'newest', curated: true });
+    });
+
+    it('is not a scope on its own', async () => {
+      await expect(service.listPublished({ curated: true }, page)).rejects.toMatchObject({ statusCode: 400 });
+    });
+
+    it('rejects curated together with a brand', async () => {
+      await expect(
+        service.listPublished({ curated: true, brand: 'acme-crafts' }, page, Role.BUYER),
+      ).rejects.toMatchObject({ statusCode: 400, message: 'Choose either curated or a brand' });
+    });
+
+    it('curated=true and no filter use different cache keys', async () => {
+      const keys: string[] = [];
+      const cache2 = {
+        get: vi.fn().mockResolvedValue(null),
+        set: vi.fn(async (k: string) => {
+          keys.push(k);
+        }),
+        del: vi.fn(),
+        incr: vi.fn().mockResolvedValue(1),
+      };
+      const svc = new ProductsService(
+        repo,
+        { getLeafDescendantIds: vi.fn() } as unknown as CategoriesService,
+        cache2 as never,
+        { getRatingSummaries: vi.fn().mockResolvedValue(new Map()) } as unknown as ReviewsRepository,
+      );
+      vi.mocked(repo.findPublished).mockResolvedValue({ data: [], total: 0 });
+      await svc.listPublished({ sort: 'newest' }, page, Role.BUYER);
+      await svc.listPublished({ sort: 'newest', curated: true }, page, Role.BUYER);
+      expect(keys[0]).not.toBe(keys[1]);
     });
   });
 

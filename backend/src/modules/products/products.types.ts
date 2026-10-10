@@ -301,6 +301,8 @@ export interface ProductListFilter {
   leadTime?: string;
   /** Brand slug — a valid scope on its own (brand storefront, "Buy more from this brand"). */
   brand?: string;
+  /** true = only Solomon-curated products (brandId null). NOT a scope on its own. */
+  curated?: boolean;
 }
 
 /** One entry of GET /products/facets/brands. */

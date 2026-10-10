@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { notFound, usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Search } from 'lucide-react'
 import { NavBar } from '@/components/shared/NavBar'
 import { Footer } from '@/components/shared/Footer'
@@ -11,6 +11,7 @@ import { Breadcrumbs } from '@/components/catalogue/Breadcrumbs'
 import { Pagination } from '@/components/catalogue/Pagination'
 import { BrandLogo, VerifiedBadge } from '@/components/brands/BrandTag'
 import { useBrands } from '@/hooks/queries/useBrands'
+import { useAuth } from '@/hooks/useAuth'
 
 const PAGE_SIZE = 24
 
@@ -151,6 +152,9 @@ function BrandsList() {
 }
 
 export default function BrandsPage() {
+  const { user } = useAuth()
+  // Agents never see marketplace brands.
+  if (user?.role === 'AGENT') notFound()
   return (
     <div className="min-h-screen bg-ivory flex flex-col">
       <NavBar />

@@ -181,12 +181,12 @@ export class OrdersService {
       items.map(async (item) => {
         const product = await this.products.getForCheckout(item.productId);
 
-        // Marketplace brands set a single price for everyone: an agent pays (and sees)
-        // exactly the buyer price for a brand's product. Only curated products have a
-        // separate admin-set agent price, so price brand products as a plain buyer.
-        const itemRole: PricingRole = product.brandId ? 'BUYER' : pricingRole;
-
         if (product.deletedAt || !product.isPublished || product.approvalStatus !== 'APPROVED') {
+          throw AppError.badRequest(`Product ${item.productId} is not available for purchase`);
+        }
+        // Agents are limited to Solomon-curated products — marketplace brand products are
+        // never purchasable by them (owner decision; they cannot even see them).
+        if (pricingRole === 'AGENT' && product.brandId) {
           throw AppError.badRequest(`Product ${item.productId} is not available for purchase`);
         }
         if (item.quantity < product.moq) {
@@ -208,12 +208,12 @@ export class OrdersService {
             throw AppError.badRequest(`Variant ${item.variantId} does not belong to product ${item.productId}`);
           }
           const tiers = variant.priceTiers.filter((t) =>
-            itemRole === 'AGENT' ? t.agentPrice != null : t.adminPrice != null,
+            pricingRole === 'AGENT' ? t.agentPrice != null : t.adminPrice != null,
           );
           if (tiers.length > 0) {
             const sorted = [...tiers].sort((a, b) => b.moq - a.moq);
             const applicable = sorted.find((t) => item.quantity >= t.moq) ?? sorted[sorted.length - 1];
-            unitAdminPrice = Number(itemRole === 'AGENT' ? applicable.agentPrice : applicable.adminPrice);
+            unitAdminPrice = Number(pricingRole === 'AGENT' ? applicable.agentPrice : applicable.adminPrice);
             unitSellerPrice = Number(applicable.sellerPrice);
           }
         }
@@ -230,10 +230,10 @@ export class OrdersService {
         }
 
         if (unitAdminPrice == null) {
-          const chargePrice = itemRole === 'AGENT' ? product.agentPrice : product.adminPrice;
+          const chargePrice = pricingRole === 'AGENT' ? product.agentPrice : product.adminPrice;
           if (!chargePrice) {
             throw AppError.badRequest(
-              itemRole === 'AGENT'
+              pricingRole === 'AGENT'
                 ? `Product ${item.productId} has no agent price set`
                 : `Product ${item.productId} has no selling price set`,
             );
