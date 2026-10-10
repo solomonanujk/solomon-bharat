@@ -6,6 +6,8 @@ import Link from 'next/link'
 import {
   AlertTriangle,
   CheckCircle2,
+  Download,
+  ExternalLink,
   FileSpreadsheet,
   Loader2,
   Package,
@@ -23,7 +25,7 @@ import {
 } from '@/hooks/queries/useProductImport'
 import { getApiError } from '@/lib/getApiError'
 import { cn, formatINR } from '@/lib/utils'
-import type { ImportCandidate, ProductImportSource } from '@/types'
+import type { CategoryNode, ImportCandidate, ProductImportSource } from '@/types'
 
 const INPUT_CLS =
   'w-full h-10 px-3 rounded border border-border-warm bg-surface text-[14px] font-sans text-primary placeholder:text-muted-text/60 focus:outline-none focus:border-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
@@ -66,6 +68,119 @@ function priceLabel(product: ImportCandidate): string | null {
   const min = Math.min(...prices)
   const max = Math.max(...prices)
   return min === max ? formatINR(min) : `${formatINR(min)} – ${formatINR(max)}`
+}
+
+const PUBLISHED_BADGE: Record<'private' | 'draft', string> = {
+  private: 'Private in WooCommerce',
+  draft: 'Draft in WooCommerce',
+}
+
+function isHiddenInSource(p: ImportCandidate): boolean {
+  return p.published === 'private' || p.published === 'draft'
+}
+
+/** Weight / stock summary for a candidate (own value, else its variants'). */
+function detailLabels(p: ImportCandidate): string[] {
+  const out: string[] = []
+  const weights = [p.weightKg, ...p.variants.map((v) => v.weightKg)].filter((w): w is number => typeof w === 'number')
+  if (weights.length > 0) {
+    const min = Math.min(...weights)
+    const max = Math.max(...weights)
+    out.push(min === max ? `${min} kg` : `${min}–${max} kg`)
+  }
+  const variantStock = p.variants.map((v) => v.stock).filter((n): n is number => typeof n === 'number')
+  if (typeof p.stock === 'number') out.push(`Stock ${p.stock}`)
+  else if (variantStock.length > 0) out.push(`Stock ${variantStock.reduce((a, b) => a + b, 0)}`)
+  return out
+}
+
+// ─── Per-product category control ────────────────────────────────────────────
+
+function ProductCategory({
+  tree,
+  value,
+  defaultCategoryId,
+  suggestedPath,
+  productName,
+  disabled,
+  missing,
+  onChange,
+}: {
+  tree: CategoryNode[]
+  value: string
+  defaultCategoryId: string
+  suggestedPath: string | null
+  productName: string
+  disabled: boolean
+  missing: boolean
+  onChange: (id: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const inputId = useId()
+  const changeRef = useRef<HTMLButtonElement>(null)
+
+  let text: string
+  if (value) text = categoryPathLabel(tree, value) || suggestedPath || 'Selected category'
+  else if (defaultCategoryId) text = `Default category: ${categoryPathLabel(tree, defaultCategoryId)}`
+  else text = 'No category chosen'
+
+  return (
+    <div className="mt-2">
+      {editing ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor={inputId} className="sr-only">
+            Category for {productName}
+          </label>
+          <div className="w-full sm:w-80">
+            <CategoryTypeahead
+              id={inputId}
+              tree={tree}
+              value={value}
+              onChange={onChange}
+              disabled={disabled}
+              className={INPUT_CLS}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="min-h-[44px]"
+            onClick={() => {
+              setEditing(false)
+              requestAnimationFrame(() => changeRef.current?.focus())
+            }}
+          >
+            Done
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <p
+            className={cn(
+              'flex items-center gap-1.5 text-[12.5px] font-sans',
+              missing ? 'text-error font-[600]' : 'text-muted-text',
+            )}
+          >
+            {missing && <XCircle size={13} className="shrink-0" aria-hidden="true" />}
+            <span>
+              <span className="font-[600] text-primary">Category: </span>
+              {missing ? 'Choose a category for this product' : text}
+            </span>
+          </p>
+          <button
+            ref={changeRef}
+            type="button"
+            disabled={disabled}
+            onClick={() => setEditing(true)}
+            className="inline-flex items-center min-h-[44px] px-2 text-[12.5px] font-[600] font-sans text-primary underline underline-offset-2 hover:no-underline disabled:opacity-50"
+          >
+            Change<span className="sr-only"> category for {productName}</span>
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ─── Thumbnail ────────────────────────────────────────────────────────────────
@@ -226,8 +341,33 @@ function UploadStep({
           <h3 className="text-[13px] font-[700] font-sans text-primary mb-1.5">Exporting from WooCommerce</h3>
           <p className="text-[12.5px] font-sans text-muted-text leading-relaxed">
             In WordPress admin go to <strong className="text-primary">Products → Export</strong>, keep all columns,
-            and click <strong className="text-primary">Generate CSV</strong>.
+            and click <strong className="text-primary">Generate CSV</strong>. We follow the{' '}
+            <a
+              href="https://github.com/woocommerce/woocommerce/wiki/Product-CSV-Import-Schema"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 font-[600] text-primary underline underline-offset-2 hover:no-underline"
+            >
+              official WooCommerce product CSV schema
+              <ExternalLink size={12} aria-hidden="true" />
+              <span className="sr-only"> (opens in a new tab)</span>
+            </a>
+            .
           </p>
+          <p className="text-[12.5px] font-sans text-muted-text leading-relaxed mt-2">
+            <strong className="text-primary">Used:</strong> name, description, price, variations, images, weight,
+            dimensions, stock, categories and tags. <strong className="text-primary">Ignored:</strong> sale price and
+            dates, tax, reviews, shipping class, downloads, upsells and cross-sells, and grouped, external, virtual and
+            downloadable products.
+          </p>
+          <a
+            href="/templates/woocommerce-product-import-template.csv"
+            download
+            className="inline-flex items-center gap-1.5 min-h-[44px] mt-1 text-[13px] font-[600] font-sans text-primary underline underline-offset-2 hover:no-underline"
+          >
+            <Download size={14} aria-hidden="true" />
+            Download WooCommerce template
+          </a>
         </div>
       </div>
 
@@ -258,6 +398,8 @@ function ReviewStep({
   onSelectAll,
   categoryId,
   onCategoryChange,
+  productCategory,
+  onProductCategory,
   importing,
   progress,
   error,
@@ -273,6 +415,8 @@ function ReviewStep({
   onSelectAll: (all: boolean) => void
   categoryId: string
   onCategoryChange: (id: string) => void
+  productCategory: Record<string, string>
+  onProductCategory: (key: string, id: string) => void
   importing: boolean
   progress: { processed: number; total: number } | null
   error: string | null
@@ -290,6 +434,8 @@ function ReviewStep({
   }, [someSelected])
 
   const withIssues = products.filter((p) => p.issues.length > 0).length
+  const missingCategory = products.filter((p) => selected.has(p.key) && !productCategory[p.key] && !categoryId)
+  const missingKeys = new Set(missingCategory.map((p) => p.key))
 
   return (
     <section aria-labelledby="import-review-heading" className="flex flex-col gap-5">
@@ -359,6 +505,7 @@ function ReviewStep({
             {products.map((p) => {
               const checkboxId = `import-${p.key}`
               const price = priceLabel(p)
+              const details = detailLabels(p)
               return (
                 <li key={p.key} className={cn('px-5 py-3.5', selected.has(p.key) && 'bg-muted-bg/40')}>
                   <div className="flex items-start gap-4">
@@ -382,7 +529,24 @@ function ReviewStep({
                         {p.variants.length > 0 ? plural(p.variants.length, 'variant') : 'No variants'}
                         {' · '}
                         {plural(p.imageUrls.length, 'image')}
+                        {details.map((d) => ` · ${d}`).join('')}
                       </p>
+                      {(p.published === 'private' || p.published === 'draft') && (
+                        <span className="inline-flex items-center gap-1 mt-1 rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-[11.5px] font-[600] font-sans text-primary">
+                          <AlertTriangle size={11} aria-hidden="true" />
+                          {PUBLISHED_BADGE[p.published]}
+                        </span>
+                      )}
+                      <ProductCategory
+                        tree={tree}
+                        value={productCategory[p.key] ?? ''}
+                        defaultCategoryId={categoryId}
+                        suggestedPath={p.suggestedCategory?.path ?? null}
+                        productName={p.name}
+                        disabled={importing}
+                        missing={missingKeys.has(p.key)}
+                        onChange={(id) => onProductCategory(p.key, id)}
+                      />
                       <IssueList issues={p.issues} />
                     </div>
                     <div className="text-right shrink-0">
@@ -411,7 +575,7 @@ function ReviewStep({
                 htmlFor={categoryInputId}
                 className="block text-[12px] font-[600] font-sans text-muted-text mb-1.5"
               >
-                Product type (category) for all selected products
+                Default category (used for products without their own)
               </label>
               <CategoryTypeahead
                 id={categoryInputId}
@@ -424,14 +588,14 @@ function ReviewStep({
               <p className="text-[11.5px] font-sans text-muted-text mt-1.5">
                 {categoryId
                   ? categoryPathLabel(tree, categoryId)
-                  : 'You can change the category of each draft afterwards.'}
+                  : 'Optional if every selected product has its own category.'}
               </p>
             </div>
             <Button
               type="button"
               variant="primary"
               size="md"
-              disabled={selected.size === 0 || !categoryId || importing}
+              disabled={selected.size === 0 || missingCategory.length > 0 || importing}
               aria-busy={importing}
               onClick={onImport}
               className="gap-2"
@@ -462,6 +626,21 @@ function ReviewStep({
                   style={{ width: `${Math.round((progress.processed / progress.total) * 100)}%` }}
                 />
               </div>
+            </div>
+          )}
+
+          {missingCategory.length > 0 && (
+            <div
+              role="alert"
+              className="mt-4 flex items-start gap-2 rounded-lg border border-error/30 bg-error/5 px-3.5 py-3 text-[13px] font-sans text-error"
+            >
+              <XCircle size={15} className="shrink-0 mt-[1px]" aria-hidden="true" />
+              <span>
+                {plural(missingCategory.length, 'selected product')} need
+                {missingCategory.length === 1 ? 's' : ''} a category: choose a default category above or set one per
+                product ({missingCategory.slice(0, 3).map((p) => p.name).join(', ')}
+                {missingCategory.length > 3 ? ', …' : ''}).
+              </span>
             </div>
           )}
 
@@ -581,6 +760,7 @@ export function SpreadsheetProductImport({ sellerProfileId }: { sellerProfileId?
   const [fileError, setFileError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [categoryId, setCategoryId] = useState('')
+  const [productCategory, setProductCategory] = useState<Record<string, string>>({})
   const [progress, setProgress] = useState<{ processed: number; total: number } | null>(null)
 
   const step: Step = importer.data ? 'result' : preview.data ? 'review' : 'upload'
@@ -603,7 +783,13 @@ export function SpreadsheetProductImport({ sellerProfileId }: { sellerProfileId?
     if (problem) return
     preview.mutate(file, {
       onSuccess: (data) => {
-        setSelected(new Set(data.products.map((p) => p.key)))
+        // Private / draft WooCommerce products start unticked (still tickable).
+        setSelected(new Set(data.products.filter((p) => !isHiddenInSource(p)).map((p) => p.key)))
+        const suggested: Record<string, string> = {}
+        for (const p of data.products) {
+          if (p.suggestedCategory?.id) suggested[p.key] = p.suggestedCategory.id
+        }
+        setProductCategory(suggested)
       },
     })
   }
@@ -619,10 +805,12 @@ export function SpreadsheetProductImport({ sellerProfileId }: { sellerProfileId?
 
   function handleImport() {
     const chosen = products.filter((p) => selected.has(p.key))
-    if (chosen.length === 0 || !categoryId) return
+    if (chosen.length === 0) return
+    const withCategory = chosen.map((p) => ({ ...p, categoryId: productCategory[p.key] || null }))
+    if (withCategory.some((p) => !p.categoryId) && !categoryId) return
     importer.mutate({
-      categoryId,
-      products: chosen,
+      categoryId: categoryId || undefined,
+      products: withCategory,
       onProgress: (processed, total) => setProgress({ processed, total }),
     })
   }
@@ -632,6 +820,7 @@ export function SpreadsheetProductImport({ sellerProfileId }: { sellerProfileId?
     importer.reset()
     setFileError(null)
     setSelected(new Set())
+    setProductCategory({})
     setProgress(null)
     // Keep the chosen category — sellers often import several files into the same one.
   }
@@ -662,6 +851,15 @@ export function SpreadsheetProductImport({ sellerProfileId }: { sellerProfileId?
         onSelectAll={(all) => setSelected(all ? new Set(products.map((p) => p.key)) : new Set())}
         categoryId={categoryId}
         onCategoryChange={setCategoryId}
+        productCategory={productCategory}
+        onProductCategory={(key, id) =>
+          setProductCategory((prev) => {
+            const next = { ...prev }
+            if (id) next[key] = id
+            else delete next[key]
+            return next
+          })
+        }
         importing={importer.isPending}
         progress={progress}
         error={importer.error ? getApiError(importer.error, 'Import failed. Please try again.') : null}

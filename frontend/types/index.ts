@@ -739,6 +739,17 @@ export interface ImportCandidateVariant {
   sku: string | null
   /** Price from the file, treated as the seller's price to Solomon Bharat (INR). */
   sellerPrice: number | null
+  stock?: number | null
+  weightKg?: number | null
+  dimensions?: { length: number; width: number; height: number; unit: 'cm' | 'in' } | null
+}
+
+export type ImportPublishedState = 'published' | 'private' | 'draft'
+
+export interface ImportSuggestedCategory {
+  id: string
+  name: string
+  path: string
 }
 
 /** One product parsed from an uploaded export — nothing is persisted yet. */
@@ -753,6 +764,19 @@ export interface ImportCandidate {
   materials: string | null
   /** Non-blocking problems detected while parsing (missing price, no images…). */
   issues: string[]
+  /** WooCommerce Published column: 1 = published, 0 = private, -1 = draft. */
+  published?: ImportPublishedState | null
+  weightKg?: number | null
+  /** Free-form "L x W x H cm|in" string. */
+  dimensions?: string | null
+  stock?: number | null
+  tags?: string[]
+  /** Category paths from the file, e.g. [['Textiles','Bathrobes','Baby']]. */
+  categoryPath?: string[][]
+  /** Server-matched level-3 category, if the file's path matched unambiguously. */
+  suggestedCategory?: ImportSuggestedCategory | null
+  /** Sent by the client: the category chosen for this product. */
+  categoryId?: string | null
 }
 
 export interface ProductImportPreview {

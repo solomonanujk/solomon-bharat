@@ -46,7 +46,7 @@ describe('Shopify parser', () => {
     ]);
     expect(p.sellerPrice).toBe(499);
     expect(p.materials).toBeNull();
-    expect(p.issues).toEqual([]);
+    expect(p.issues).toEqual(['No weight']);
   });
 
   it('collapses a single "Default Title" variant into a simple product', () => {

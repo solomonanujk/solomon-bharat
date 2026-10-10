@@ -38,7 +38,8 @@ export function usePreviewProductImport(sellerProfileId?: string) {
 }
 
 export interface ImportProductsInput {
-  categoryId: string
+  /** Optional batch fallback; each product's own `categoryId` wins. */
+  categoryId?: string
   products: ImportCandidate[]
   /** Called after each chunk with the number of products processed so far. */
   onProgress?: (processed: number, total: number) => void
@@ -47,7 +48,9 @@ export interface ImportProductsInput {
 export function useImportProducts(sellerProfileId?: string) {
   const qc = useQueryClient()
   return useMutation<ProductImportResult, Error, ImportProductsInput>({
-    mutationFn: async ({ categoryId, products, onProgress }) => {
+    mutationFn: async ({ categoryId, products: rawProducts, onProgress }) => {
+      // Each product carries its own chosen `categoryId` (omitted when unset).
+      const products = rawProducts.map((p) => ({ ...p, categoryId: p.categoryId || undefined }))
       const merged: ProductImportResult = { created: [], failed: [] }
       let processed = 0
       onProgress?.(0, products.length)
@@ -56,7 +59,7 @@ export function useImportProducts(sellerProfileId?: string) {
       for (let i = 0; i < products.length; i += IMPORT_CHUNK_SIZE) {
         const chunk = products.slice(i, i + IMPORT_CHUNK_SIZE)
         try {
-          const res = await api.post(`${basePath(sellerProfileId)}/import`, { categoryId, products: chunk })
+          const res = await api.post(`${basePath(sellerProfileId)}/import`, { ...(categoryId ? { categoryId } : {}), products: chunk })
           const data = res.data.data as ProductImportResult
           merged.created.push(...data.created)
           merged.failed.push(...data.failed)

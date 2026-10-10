@@ -11,6 +11,7 @@ import { productsRepository, ProductsRepository } from '../products/products.rep
 import { CreateProductInput, VariantInputWithAdminPricing } from '../products/products.types';
 import { sellersService, SellersService } from '../sellers/sellers.service';
 import { parseProductSpreadsheet, stripHtml } from './parsers';
+import { createCategoryMatcher } from './product-import.categoryMatcher';
 import { fetchRemoteImage, FetchedImage } from './product-import.images';
 import { productImportRepository, ProductImportRepository } from './product-import.repository';
 import {
@@ -57,7 +58,24 @@ export class ProductImportService {
     const kind = spreadsheetKindFromFilename(file.originalname);
     if (!kind) throw AppError.badRequest('Upload a .csv or .xlsx spreadsheet');
     if (file.buffer.length === 0) throw AppError.badRequest('The uploaded file is empty');
-    return parseProductSpreadsheet(file.buffer, kind);
+    const preview = await parseProductSpreadsheet(file.buffer, kind);
+    return this.withSuggestedCategories(preview);
+  }
+
+  /** Fills suggestedCategory from the active category tree. A failure to load the tree
+   *  only costs the suggestions, never the preview. */
+  private async withSuggestedCategories(preview: ProductImportPreview): Promise<ProductImportPreview> {
+    if (!preview.products.some((p) => p.categoryPath?.length)) return preview;
+    try {
+      const match = createCategoryMatcher(await this.categories.getPublicTree());
+      return {
+        ...preview,
+        products: preview.products.map((p) => (p.categoryPath?.length ? { ...p, suggestedCategory: match(p.categoryPath) } : p)),
+      };
+    } catch (err) {
+      logger.warn({ err }, 'Product import: could not load categories for suggestions');
+      return preview;
+    }
   }
 
   async previewForSeller(userId: string, file: SpreadsheetFile): Promise<ProductImportPreview> {
@@ -81,7 +99,7 @@ export class ProductImportService {
     await this.assertSellerExists(sellerProfileId);
     const result = await this.importProducts(sellerProfileId, input);
     await this.audit(adminId, 'PRODUCTS_IMPORTED_BY_ADMIN', 'SellerProfile', sellerProfileId, {
-      categoryId: input.categoryId,
+      categoryId: input.categoryId ?? null,
       requested: input.products.length,
       createdProductIds: result.created.map((p) => p.id),
       failedKeys: result.failed.map((f) => f.key),
@@ -95,14 +113,23 @@ export class ProductImportService {
    * race); one product failing never aborts the rest.
    */
   async importProducts(sellerProfileId: string, input: ImportProductsInput): Promise<ProductImportResult> {
-    await this.categories.assertValidLeafCategory(input.categoryId);
+    // Validate each distinct category once: the batch fallback and every per-product choice.
+    const categoryIds = new Set<string>();
+    if (input.categoryId) categoryIds.add(input.categoryId);
+    for (const p of input.products) if (p.categoryId) categoryIds.add(p.categoryId);
+    for (const id of categoryIds) {
+      // eslint-disable-next-line no-await-in-loop
+      await this.categories.assertValidLeafCategory(id);
+    }
     const brandId = await this.resolveBrandId(sellerProfileId);
 
     const result: ProductImportResult = { created: [], failed: [] };
     for (const candidate of input.products) {
       try {
+        const categoryId = candidate.categoryId || input.categoryId;
+        if (!categoryId) throw new ImportProductError('Choose a category for this product');
         // eslint-disable-next-line no-await-in-loop
-        const created = await this.importOne(sellerProfileId, input.categoryId, candidate, brandId);
+        const created = await this.importOne(sellerProfileId, categoryId, candidate, brandId);
         result.created.push(created);
       } catch (err) {
         logger.warn({ err, key: candidate.key, sellerProfileId }, 'Product import: product failed');
@@ -155,6 +182,7 @@ export class ProductImportService {
     const uploads = await this.importImages(candidate.imageUrls, folder);
 
     const sellerPrice = this.cheapestPrice(candidate);
+    const weight = this.productWeight(candidate);
     const createInput: CreateProductInput = {
       name,
       // Already plain text from the preview — re-stripped since the body is client-sent.
@@ -165,9 +193,12 @@ export class ProductImportService {
       // tiers start at moq 1, and a brand's first tier must equal the product MOQ, so brand
       // drafts start at moq 1 too.
       moq: brandId ? 1 : 0,
-      declaredStock: 0,
+      declaredStock: this.declaredStock(candidate, variants),
       sellerPrice,
       variants,
+      ...(weight ? { weight } : {}),
+      ...(candidate.dimensions ? { dimensions: candidate.dimensions } : {}),
+      ...(candidate.tags?.length ? { tags: candidate.tags } : {}),
     };
 
     try {
@@ -189,6 +220,22 @@ export class ProductImportService {
       await Promise.all(uploads.map((u) => this.storage.deleteImage(u.publicId).catch(() => undefined)));
       throw err;
     }
+  }
+
+  /** Product.weight is a string of kilograms. With real variants the first variant's weight wins
+   *  (as ProductForm.computeBase does), else the product's own. */
+  private productWeight(candidate: ImportCandidate): string | undefined {
+    const kg =
+      (candidate.variants.length > 1 ? candidate.variants.find((v) => v.weightKg)?.weightKg : candidate.variants[0]?.weightKg) ??
+      candidate.weightKg;
+    return kg && kg > 0 ? String(kg) : undefined;
+  }
+
+  /** Mirrors ProductsService.deriveDeclaredStock: variant inventory sums when any variant
+   *  states one, otherwise the product's own stock (0 when unknown — the seller fills it in). */
+  private declaredStock(candidate: ImportCandidate, variants: VariantInputWithAdminPricing[] | undefined): number {
+    if (variants?.some((v) => v.inventory != null)) return variants.reduce((sum, v) => sum + (v.inventory ?? 0), 0);
+    return candidate.variants.length === 1 ? (candidate.variants[0].stock ?? candidate.stock ?? 0) : (candidate.stock ?? 0);
   }
 
   /** sellerPrice = cheapest variant price, else the product's own price, else 0
@@ -213,6 +260,7 @@ export class ProductImportService {
       if (sku && seenSkus.has(sku)) sku = undefined;
       if (sku) seenSkus.add(sku);
       return {
+        ...this.variantShipping(v),
         type: primary.name,
         value: primary.value,
         sku,
@@ -223,6 +271,16 @@ export class ProductImportService {
             : undefined,
       };
     });
+  }
+
+  private variantShipping(v: ImportCandidateVariant): Partial<VariantInputWithAdminPricing> {
+    return {
+      ...(v.stock != null ? { inventory: v.stock } : {}),
+      ...(v.weightKg ? { weight: v.weightKg, weightUnit: 'kg' as const } : {}),
+      ...(v.dimensions
+        ? { length: v.dimensions.length, width: v.dimensions.width, height: v.dimensions.height, dimensionUnit: v.dimensions.unit }
+        : {}),
+    };
   }
 
   private async generateUniqueSlug(name: string): Promise<string> {
