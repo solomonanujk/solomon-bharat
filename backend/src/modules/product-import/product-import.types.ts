@@ -8,7 +8,7 @@ export interface ImportCandidateVariant {
   sku: string | null;
   /** The seller's own store price from the file — becomes sellerPrice (never adminPrice). */
   sellerPrice: number | null;
-  /** Declared stock for this variant (WooCommerce Stock). Absent/null = not stated in the file. */
+  /** Declared stock for this variant (WooCommerce Stock / Shopify inventory quantity). Absent/null = not stated in the file. */
   stock?: number | null;
   weightKg?: number | null;
   /** Per-variant size. `unit` is 'in' only when the file said inches; everything else is converted to cm. */
@@ -47,7 +47,7 @@ export interface ImportCandidate {
   materials: string | null;
   /** Human-readable, non-blocking per-product problems. */
   issues: string[];
-  /** WooCommerce Published: 1 = published, 0 = private, -1 = draft. */
+  /** WooCommerce Published (1 = published, 0 = private, -1 = draft) or Shopify Status / Published (active, draft, archived). */
   published?: ImportPublishedState | null;
   /** Kilograms. For products with variations: the first variation that has a weight. */
   weightKg?: number | null;
@@ -56,7 +56,7 @@ export interface ImportCandidate {
   /** Declared stock (sum of variation stocks for products with variations). */
   stock?: number | null;
   tags?: string[];
-  /** Each WooCommerce Categories entry split on ">" and trimmed. */
+  /** WooCommerce Categories entries, or Shopify Product Category (then Type), each split on ">" and trimmed. */
   categoryPath?: string[][];
   /** Filled by the preview from the active category tree. */
   suggestedCategory?: SuggestedCategory | null;

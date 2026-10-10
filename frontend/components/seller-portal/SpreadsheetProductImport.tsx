@@ -70,9 +70,15 @@ function priceLabel(product: ImportCandidate): string | null {
   return min === max ? formatINR(min) : `${formatINR(min)} – ${formatINR(max)}`
 }
 
-const PUBLISHED_BADGE: Record<'private' | 'draft', string> = {
-  private: 'Private in WooCommerce',
-  draft: 'Draft in WooCommerce',
+const PUBLISHED_BADGE: Record<ProductImportSource, Record<'private' | 'draft', string>> = {
+  woocommerce: {
+    private: 'Private in WooCommerce',
+    draft: 'Draft in WooCommerce',
+  },
+  shopify: {
+    private: 'Archived in Shopify',
+    draft: 'Draft in Shopify',
+  },
 }
 
 function isHiddenInSource(p: ImportCandidate): boolean {
@@ -334,8 +340,33 @@ function UploadStep({
           <p className="text-[12.5px] font-sans text-muted-text leading-relaxed">
             In Shopify admin go to <strong className="text-primary">Products → Export</strong>, choose the products
             to export, and pick <strong className="text-primary">CSV for Excel</strong> or{' '}
-            <strong className="text-primary">Plain CSV file</strong>.
+            <strong className="text-primary">Plain CSV file</strong>. We follow{' '}
+            <a
+              href="https://help.shopify.com/en/manual/products/import-export/using-csv"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 font-[600] text-primary underline underline-offset-2 hover:no-underline"
+            >
+              Shopify’s product CSV guide
+              <ExternalLink size={12} aria-hidden="true" />
+              <span className="sr-only"> (opens in a new tab)</span>
+            </a>
+            ; both the older and the current Shopify column names are accepted.
           </p>
+          <p className="text-[12.5px] font-sans text-muted-text leading-relaxed mt-2">
+            <strong className="text-primary">Used:</strong> title, description, price, variants and options, SKU,
+            images, weight (grams), inventory quantity, packed dimensions, product category, type, tags and
+            status/published. <strong className="text-primary">Ignored:</strong> vendor, cost per item, compare-at
+            price, SEO and Google Shopping columns, barcodes, collections and market-specific prices.
+          </p>
+          <a
+            href="/templates/shopify-product-import-template.csv"
+            download
+            className="inline-flex items-center gap-1.5 min-h-[44px] mt-1 text-[13px] font-[600] font-sans text-primary underline underline-offset-2 hover:no-underline"
+          >
+            <Download size={14} aria-hidden="true" />
+            Download Shopify template
+          </a>
         </div>
         <div className="rounded-lg border border-border-warm p-4">
           <h3 className="text-[13px] font-[700] font-sans text-primary mb-1.5">Exporting from WooCommerce</h3>
@@ -534,7 +565,7 @@ function ReviewStep({
                       {(p.published === 'private' || p.published === 'draft') && (
                         <span className="inline-flex items-center gap-1 mt-1 rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-[11.5px] font-[600] font-sans text-primary">
                           <AlertTriangle size={11} aria-hidden="true" />
-                          {PUBLISHED_BADGE[p.published]}
+                          {PUBLISHED_BADGE[source][p.published]}
                         </span>
                       )}
                       <ProductCategory
@@ -783,7 +814,7 @@ export function SpreadsheetProductImport({ sellerProfileId }: { sellerProfileId?
     if (problem) return
     preview.mutate(file, {
       onSuccess: (data) => {
-        // Private / draft WooCommerce products start unticked (still tickable).
+        // Private / archived / draft products start unticked (still tickable).
         setSelected(new Set(data.products.filter((p) => !isHiddenInSource(p)).map((p) => p.key)))
         const suggested: Record<string, string> = {}
         for (const p of data.products) {
