@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Plus, Package } from 'lucide-react'
+import { Plus, Package, Upload } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useMyProducts, useResubmitProduct, useDeleteMyProduct } from '@/hooks/queries/useProducts'
@@ -99,13 +99,22 @@ export default function ProductsPage() {
             {isBrand ? 'Add products, set the price buyers pay, and publish or unpublish them.' : 'Submit and manage your product catalogue.'}
           </p>
         </div>
-        <Link
-          href="/portal/products/new"
-          className={cn(buttonVariants({ variant: 'primary', size: 'sm' }), 'gap-1.5')}
-        >
-          <Plus size={14} aria-hidden="true" />
-          {isBrand ? 'Add Product' : 'Submit Product'}
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/portal/products/import"
+            className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'gap-1.5')}
+          >
+            <Upload size={14} aria-hidden="true" />
+            Import products
+          </Link>
+          <Link
+            href="/portal/products/new"
+            className={cn(buttonVariants({ variant: 'primary', size: 'sm' }), 'gap-1.5')}
+          >
+            <Plus size={14} aria-hidden="true" />
+            {isBrand ? 'Add Product' : 'Submit Product'}
+          </Link>
+        </div>
       </div>
 
       {/* Status filter tabs */}

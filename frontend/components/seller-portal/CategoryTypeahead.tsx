@@ -32,11 +32,13 @@ interface CategoryTypeaheadProps {
   onChange: (id: string) => void
   disabled?: boolean
   className: string
+  /** Lets a caller's <label htmlFor> point at the search input. */
+  id?: string
 }
 
 /** Search-as-you-type product-type picker — matches results by name, shows each
  *  result's full category path, and only commits a value when a result is picked. */
-export function CategoryTypeahead({ tree, value, onChange, disabled, className }: CategoryTypeaheadProps) {
+export function CategoryTypeahead({ tree, value, onChange, disabled, className, id }: CategoryTypeaheadProps) {
   const leaves = useMemo(() => flattenLeaves(tree), [tree])
   const selected = leaves.find((l) => l.id === value)
   // `query` is the only source of truth for the search text — every place that
@@ -67,6 +69,7 @@ export function CategoryTypeahead({ tree, value, onChange, disabled, className }
   return (
     <div ref={containerRef} className="relative">
       <input
+        id={id}
         type="text"
         disabled={disabled}
         value={query}
