@@ -1,9 +1,31 @@
 import { describe, it, expect } from 'vitest';
-import { finalizeCandidate, isHttpUrl, isMaterialLabel, newDraft, parsePrice, stripHtml } from './shared';
+import { finalizeCandidate, isHttpUrl, isMaterialLabel, newDraft, parsePrice, parseQuantity, stripHtml } from './shared';
+
+describe('parseQuantity', () => {
+  it.each([
+    ['1.5', 1.5],
+    ['1,5', 1.5],
+    ['1,250.75', 1250.75],
+    ['12 kg', 12],
+    // WooCommerce writes sub-1 values without a leading zero (e.g. Weight ".8", Height ".5")
+    ['.8', 0.8],
+    ['.5', 0.5],
+    ['.25', 0.25],
+    ['0.6', 0.6],
+  ])('%s → %s', (raw, expected) => {
+    expect(parseQuantity(raw)).toBe(expected);
+  });
+
+  it.each(['', '  ', 'abc', '-1', '.', '..5', '1.2.3'])('%s → null', (raw) => {
+    expect(parseQuantity(raw)).toBeNull();
+  });
+});
 
 describe('parsePrice', () => {
   it.each([
     ['499', 499],
+    ['.99', 0.99],
+    ['.5', 0.5],
     ['499.00', 499],
     ['₹1,299.00', 1299],
     ['$ 12', 12],

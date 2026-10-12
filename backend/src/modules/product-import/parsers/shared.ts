@@ -128,7 +128,8 @@ export function parsePrice(raw: string | null | undefined): number | null {
     const decimals = s.length - lastComma - 1;
     s = decimals === 2 && s.indexOf(',') === lastComma ? s.replace(',', '.') : s.replace(/,/g, '');
   }
-  if (!/^\d+(\.\d+)?$/.test(s)) return null;
+  // A leading-dot decimal (".99") is valid: WooCommerce exports write values that way.
+  if (!/^(\d+(\.\d+)?|\.\d+)$/.test(s)) return null;
   return roundPrice(Number(s));
 }
 
@@ -155,7 +156,8 @@ export function parseQuantity(raw: string | null | undefined): number | null {
     const decimals = s.length - lastComma - 1;
     s = s.indexOf(',') === lastComma && decimals !== 3 ? s.replace(',', '.') : s.replace(/,/g, '');
   }
-  if (!/^\d+(\.\d+)?$/.test(s)) return null;
+  // Accept a leading-dot decimal (".8"): WooCommerce writes weights/sizes like ".5" and ".2".
+  if (!/^(\d+(\.\d+)?|\.\d+)$/.test(s)) return null;
   const n = Number(s);
   return Number.isFinite(n) ? n : null;
 }
