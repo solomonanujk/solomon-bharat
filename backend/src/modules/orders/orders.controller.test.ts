@@ -15,6 +15,7 @@ vi.mock('../../config/redis', () => ({
 
 vi.mock('./orders.service', () => ({
   ordersService: {
+    quoteItems: vi.fn(),
     listMyOrders: vi.fn(),
     getMyOrder: vi.fn(),
     listItemsForSeller: vi.fn(),
@@ -59,6 +60,38 @@ describe('orders controller', () => {
     vi.clearAllMocks();
     vi.mocked(buyersService.getMyProfile).mockResolvedValue({ id: 'buyer-profile-1' } as never);
     vi.mocked(sellersService.getMyProfile).mockResolvedValue({ id: 'seller-profile-1' } as never);
+  });
+
+  describe('POST /api/v1/orders/quote', () => {
+    const body = { items: [{ productId: ORDER_ID, quantity: 2 }] };
+
+    it('requires auth and a buyer or agent role', async () => {
+      expect((await request(app).post('/api/v1/orders/quote').send(body)).status).toBe(401);
+      const res = await request(app).post('/api/v1/orders/quote').set(authHeader(Role.SELLER)).send(body);
+      expect(res.status).toBe(403);
+    });
+
+    it('quotes for a BUYER with the BUYER pricing role', async () => {
+      vi.mocked(ordersService.quoteItems).mockResolvedValue({ lines: [], subtotalInr: 0 } as never);
+      const res = await request(app).post('/api/v1/orders/quote').set(authHeader(Role.BUYER)).send(body);
+      expect(res.status).toBe(200);
+      expect(ordersService.quoteItems).toHaveBeenCalledWith(body.items, 'BUYER');
+    });
+
+    it('uses the AGENT pricing role for an agent', async () => {
+      vi.mocked(ordersService.quoteItems).mockResolvedValue({ lines: [], subtotalInr: 0 } as never);
+      await request(app).post('/api/v1/orders/quote').set(authHeader(Role.AGENT)).send(body);
+      expect(ordersService.quoteItems).toHaveBeenCalledWith(body.items, 'AGENT');
+    });
+
+    it('rejects 101 items', async () => {
+      const res = await request(app)
+        .post('/api/v1/orders/quote')
+        .set(authHeader(Role.BUYER))
+        .send({ items: Array(101).fill(body.items[0]) });
+      expect([400, 422]).toContain(res.status);
+      expect(ordersService.quoteItems).not.toHaveBeenCalled();
+    });
   });
 
   describe('GET /api/v1/orders/me', () => {

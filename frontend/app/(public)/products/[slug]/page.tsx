@@ -130,6 +130,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       reviewCount: product.reviewCount,
       leadTime: product.leadTime,
       brand: product.brand ?? null,
+      hasOptions: product.hasOptions ?? product.variants.length > 0,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id])

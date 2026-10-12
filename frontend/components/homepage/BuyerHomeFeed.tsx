@@ -37,6 +37,8 @@ function toProductCardData(product: RecentProduct): ProductCardData {
     isBestseller: false,
     // Older cache entries predate brand tags and have no `brand` key.
     brand: product.brand ?? null,
+    // Cached entries that predate options are unknown -> safest is "choose options".
+    hasOptions: product.hasOptions ?? true,
   }
 }
 

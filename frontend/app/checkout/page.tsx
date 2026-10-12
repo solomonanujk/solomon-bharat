@@ -21,6 +21,9 @@ import { PHONE_COUNTRY_CODES } from '@/lib/phoneCountryCodes'
 import { CartGroupHeader } from '@/components/shared/CartGroupHeader'
 import { BrandMinOrderNotice, useUnmetMessage } from '@/components/shared/BrandMinOrderNotice'
 import { groupCartLines, unmetGroups } from '@/lib/cartGroups'
+import { useCartQuote } from '@/hooks/queries/useCartQuote'
+import { CartLineNotice } from '@/components/shared/CartLineNotice'
+import { findQuoteLine, resolveLine } from '@/lib/cartQuote'
 import { getMinOrderViolations, getUnavailableProductId, isUnavailableItemError } from '@/lib/checkoutErrors'
 import { getApiError } from '@/lib/getApiError'
 import type { Address } from '@/types'
@@ -237,7 +240,7 @@ function PriceDetails({
           {isPending ? 'Redirecting to PayPal…' : 'Pay with PayPal'}
         </button>
         {disabledReason && !isPending && (
-          <p className="text-[11px] font-sans text-muted-text mt-2 text-center">
+          <p className="text-[11px] font-sans text-muted-text mt-2 text-center" aria-live="polite">
             {disabledReason}
           </p>
         )}
@@ -264,7 +267,6 @@ export default function CheckoutPage() {
   const { requireAuth } = useAuth()
   const currency = useCurrencyStore((s) => s.currency)
   const items = useCartStore((s) => s.items)
-  const getTotalValueInr = useCartStore((s) => s.getTotalValueInr)
   const getTotalItems = useCartStore((s) => s.getTotalItems)
   const checkout = useCheckout()
   const { data: addresses = [] } = useAddresses()
@@ -299,9 +301,13 @@ export default function CheckoutPage() {
   }, [buyerProfile])
 
   const isEmpty = items.length === 0
-  const total = getTotalValueInr()
   const itemCount = getTotalItems()
-  const groups = groupCartLines(items)
+  const { quote, isActive, isFetching, isInitialLoading, isError } = useCartQuote(items)
+  const groups = groupCartLines(items, quote)
+  const resolvedLines = items.map((i) => resolveLine(i, findQuoteLine(quote, i.productId, i.variantId)))
+  const total = resolvedLines.reduce((sum, r) => sum + r.lineTotalInr, 0)
+  const hasBadLine = resolvedLines.some((r) => r.status !== 'OK' && r.status !== 'PENDING')
+  const pricesUpdating = isActive && !isError && (isFetching || isInitialLoading)
   const unmet = unmetGroups(groups)
   const unmetMessage = useUnmetMessage(unmet)
   const showGroupHeaders = groups.some((g) => g.brand)
@@ -316,6 +322,7 @@ export default function CheckoutPage() {
 
   async function handlePlaceOrder() {
     setSubmitAttempted(true)
+    if (hasBadLine || pricesUpdating) return
     if (unmetMessage) {
       setErrorMessage(unmetMessage)
       return
@@ -428,8 +435,11 @@ export default function CheckoutPage() {
                       {showGroupHeaders && <CartGroupHeader brand={group.brand} />}
                       {group.brand && <BrandMinOrderNotice group={group} />}
                       <div className="flex flex-col gap-4 mt-3">
-                        {group.items.map((item) => (
-                          <div key={`${item.productId}-${item.variantId ?? ''}`} className="flex gap-3 items-start pb-4 border-b border-border-warm last:border-b-0 last:pb-0">
+                        {group.items.map((item) => {
+                          const resolved = resolveLine(item, findQuoteLine(quote, item.productId, item.variantId))
+                          const notOk = resolved.status !== 'OK' && resolved.status !== 'PENDING'
+                          return (
+                          <div key={`${item.productId}-${item.variantId ?? ''}`} className="flex flex-wrap gap-3 items-start pb-4 border-b border-border-warm last:border-b-0 last:pb-0">
                       <button
                         type="button"
                         onClick={() => openLightbox(item.image, item.productName)}
@@ -451,7 +461,7 @@ export default function CheckoutPage() {
                           <p className="text-[11px] font-sans text-muted-text mt-0.5">{item.variantLabel}</p>
                         )}
                         <p className="text-[11.5px] font-sans text-muted-text mt-0.5">
-                          Qty {item.quantity} &middot; {fmt(item.unitAdminPriceInr)} / unit
+                          Qty {item.quantity}{!notOk && <> &middot; {fmt(resolved.unitPriceInr)} / unit</>}
                         </p>
                         {item.leadTime && (
                           <p className="inline-flex items-center gap-1 text-[11px] font-sans text-muted-text mt-0.5">
@@ -460,11 +470,19 @@ export default function CheckoutPage() {
                           </p>
                         )}
                       </div>
-                      <span className="text-[13.5px] font-[700] font-sans text-primary flex-shrink-0 ml-2">
-                        {fmt(item.unitAdminPriceInr * item.quantity)}
-                      </span>
+                      {!notOk && (
+                        <span className="text-[13.5px] font-[700] font-sans text-primary flex-shrink-0 ml-2">
+                          {fmt(resolved.lineTotalInr)}
+                        </span>
+                      )}
+                      {notOk && (
+                        <div className="basis-full">
+                          <CartLineNotice resolved={resolved} productSlug={item.productSlug} />
+                        </div>
+                      )}
                     </div>
-                        ))}
+                          )
+                        })}
                       </div>
                       {showGroupHeaders && (
                         <p className="flex justify-between pt-3 mt-3 border-t border-border-warm text-[13px] font-sans text-muted">
@@ -483,7 +501,11 @@ export default function CheckoutPage() {
                 itemCount={itemCount}
                 total={total}
                 disabledReason={
-                  unmetMessage
+                  hasBadLine
+                    ? 'Fix or remove the highlighted items to continue.'
+                    : pricesUpdating
+                    ? 'Updating prices…'
+                    : unmetMessage
                     ? unmetMessage
                     : !phoneValid
                     ? 'Enter a valid mobile number to continue.'

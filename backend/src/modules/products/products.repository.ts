@@ -236,7 +236,76 @@ export class ProductsRepository {
     // removeCraftImage is a client-sent control flag, never a Prisma column — the
     // service already resolves it into a real craftImageUrl value before calling
     // this method, so it's stripped here purely so it never leaks into `data`.
-    const { variants, removeImageIds, removeVideoIds, removeCraftImage: _removeCraftImage, priceTiers, ...scalarFields } = input;
+    // `publish` is likewise a control flag (seller draft publish) that the service
+    // strips; it is dropped here too so it can never reach Prisma as an unknown column.
+    const {
+      variants: incomingVariants,
+      removeImageIds,
+      removeVideoIds,
+      removeCraftImage: _removeCraftImage,
+      publish: _publish,
+      priceTiers: incomingTiers,
+      ...scalarFields
+    } = input;
+
+    // Replacing variants / flat tiers must not lose the buyer (admin) and agent prices
+    // already set on matching tiers: carry them over unless the incoming tier sets them.
+    const needsCarryOver = incomingVariants !== undefined || incomingTiers !== undefined;
+    const existing = needsCarryOver ? await this.findByIdWithMedia(id) : null;
+    const num = (d: { toString(): string } | null | undefined): number | undefined =>
+      d == null ? undefined : Number(d.toString());
+
+    let variants = incomingVariants;
+    if (variants !== undefined && existing) {
+      const variantKey = (v: { sku?: string | null; type: string; value: string }) => v.sku ?? `${v.type}::${v.value}`;
+      const oldByKey = new Map((existing.variants ?? []).map((v) => [variantKey(v), v]));
+      variants = variants.map((v) => {
+        const old = oldByKey.get(variantKey(v));
+        if (!old || !v.priceTiers) return v;
+        const oldTierByMoq = new Map((old.priceTiers ?? []).map((t) => [t.moq, t]));
+        return {
+          ...v,
+          priceTiers: v.priceTiers.map((t) => {
+            const o = oldTierByMoq.get(t.moq);
+            return {
+              ...t,
+              adminPrice: t.adminPrice ?? num(o?.adminPrice),
+              agentPrice: t.agentPrice ?? num(o?.agentPrice),
+            };
+          }),
+        };
+      });
+    }
+
+    let priceTiers = incomingTiers;
+    if (priceTiers !== undefined && existing) {
+      const oldByMoq = new Map((existing.priceTiers ?? []).map((t) => [t.moq, t]));
+      priceTiers = priceTiers.map((t) => {
+        const o = oldByMoq.get(t.moq);
+        return { ...t, adminPrice: t.adminPrice ?? num(o?.adminPrice), agentPrice: t.agentPrice ?? num(o?.agentPrice) };
+      });
+    }
+
+    // Keep the product-level headline buyer/agent prices in step with the (carried-over)
+    // tiers, as applyTierAdminPrices does — but never for brand products (the service
+    // owns their adminPrice) and only when a tier actually carries a value.
+    if (existing && !existing.brandId && (variants !== undefined || priceTiers !== undefined)) {
+      type P = { adminPrice?: number | { toString(): string } | null; agentPrice?: number | { toString(): string } | null };
+      const flat: P[] = priceTiers ?? existing.priceTiers ?? [];
+      const varTiers: P[] = (variants ?? existing.variants ?? []).flatMap((v): P[] => v.priceTiers ?? []);
+      const merged = [...flat, ...varTiers].map((t) => ({
+        adminPrice: typeof t.adminPrice === 'number' ? t.adminPrice : num(t.adminPrice),
+        agentPrice: typeof t.agentPrice === 'number' ? t.agentPrice : num(t.agentPrice),
+      }));
+      const cheapest = (f: 'adminPrice' | 'agentPrice'): number | undefined => {
+        const xs = merged.map((t) => t[f]).filter((x): x is number => typeof x === 'number');
+        return xs.length ? Math.min(...xs) : undefined;
+      };
+      const a = cheapest('adminPrice');
+      const g = cheapest('agentPrice');
+      if (a !== undefined && scalarFields.adminPrice === undefined) scalarFields.adminPrice = a;
+      if (g !== undefined) scalarFields.agentPrice = g;
+    }
 
     const operations: Prisma.PrismaPromise<unknown>[] = [];
 

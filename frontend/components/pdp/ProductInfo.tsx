@@ -463,6 +463,8 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
   }
 
   function handleAddToCart() {
+    // A product with options must never enter the cart without a chosen variant.
+    if (variants.length > 0 && !activeVariantId) return
     requireAuth(() => {
       const variantLabel = axes.length
         ? axes.map((a) => `${a.type}: ${selectedAttrs[a.type]}`).join(' / ')

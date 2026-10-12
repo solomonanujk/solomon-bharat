@@ -9,6 +9,24 @@ export interface CheckoutItemInput {
   variantId?: string;
 }
 
+export type QuoteLineStatus = 'OK' | 'UNAVAILABLE' | 'OPTION_CHANGED' | 'CHOOSE_OPTION' | 'BELOW_MOQ';
+
+export interface QuoteLine {
+  productId: string;
+  variantId: string | null;
+  quantity: number;
+  status: QuoteLineStatus;
+  message?: string;
+  unitPriceInr?: number;
+  lineTotalInr?: number;
+  moq: number;
+}
+
+export interface QuoteResult {
+  lines: QuoteLine[];
+  subtotalInr: number;
+}
+
 export interface PricedOrderItem {
   productId: string;
   variantId?: string;

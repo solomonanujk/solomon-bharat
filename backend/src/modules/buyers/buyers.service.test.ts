@@ -257,6 +257,7 @@ describe('BuyersService', () => {
         moq: 10,
         leadTime: null,
         images: [],
+        variants: [],
         brand,
       },
     });
@@ -296,6 +297,7 @@ describe('BuyersService', () => {
             adminPrice: { toString: () => '20' } as never,
             moq: 10,
             images: [{ url: 'https://cdn.example.com/img.jpg' }],
+            variants: [],
           },
         },
       ] as never);
@@ -323,6 +325,7 @@ describe('BuyersService', () => {
             adminPrice: { toString: () => '20' } as never,
             moq: 10,
             images: [{ url: 'https://cdn.example.com/img.jpg' }],
+            variants: [],
           },
         },
       ] as never);
@@ -348,6 +351,7 @@ describe('BuyersService', () => {
             adminPrice: null,
             moq: 10,
             images: [],
+        variants: [],
           },
         },
       ] as never);

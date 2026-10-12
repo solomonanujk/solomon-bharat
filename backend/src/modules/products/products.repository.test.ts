@@ -241,6 +241,50 @@ describe('ProductsRepository', () => {
     expect(db.$transaction).toHaveBeenCalled();
   });
 
+  it('update never forwards the publish control flag to prisma', async () => {
+    await repo.update('p1', { name: 'Updated', publish: false, removeCraftImage: false }, [], 0);
+    expect(db.product.update).toHaveBeenCalledWith({ where: { id: 'p1' }, data: { name: 'Updated' } });
+  });
+
+  it('update without tags/isHandmade/isGITagged leaves those columns out of the data', async () => {
+    await repo.update('p1', { name: 'Updated', publish: false }, [], 0);
+    const data = db.product.update.mock.calls[0][0].data as Record<string, unknown>;
+    expect(data).not.toHaveProperty('tags');
+    expect(data).not.toHaveProperty('isHandmade');
+    expect(data).not.toHaveProperty('isGITagged');
+  });
+
+  it('update carries over admin/agent prices of matching variant tiers and flat tiers on replace', async () => {
+    db.product.findUnique.mockResolvedValue({
+      id: 'p1',
+      brandId: null,
+      priceTiers: [{ moq: 10, adminPrice: '9', agentPrice: '8' }],
+      variants: [{ sku: 'S-1', type: 'Size', value: 'S', priceTiers: [{ moq: 5, adminPrice: '12', agentPrice: null }] }],
+    });
+
+    await repo.update(
+      'p1',
+      {
+        variants: [{ type: 'Size', value: 'S', sku: 'S-1', priceTiers: [{ moq: 5, sellerPrice: 6 }] }],
+        priceTiers: [
+          { moq: 10, sellerPrice: 7 },
+          { moq: 20, sellerPrice: 6, adminPrice: 11 },
+        ],
+      },
+      [],
+      0,
+    );
+
+    const variantData = db.productVariant.create.mock.calls[0][0].data;
+    expect(variantData.priceTiers).toEqual({ create: [{ moq: 5, sellerPrice: 6, adminPrice: 12, agentPrice: undefined }] });
+    expect(db.productPriceTier.createMany).toHaveBeenCalledWith({
+      data: [
+        { productId: 'p1', moq: 10, sellerPrice: 7, adminPrice: 9, agentPrice: 8 },
+        { productId: 'p1', moq: 20, sellerPrice: 6, adminPrice: 11, agentPrice: undefined },
+      ],
+    });
+  });
+
   it('update batches video removal and video addition alongside images', async () => {
     db.product.findUnique.mockResolvedValue({ id: 'p1' });
 

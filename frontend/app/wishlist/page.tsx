@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Heart, ShoppingCart } from 'lucide-react'
+import { ChevronRight, Heart, ShoppingCart } from 'lucide-react'
 import { AccountPageWrapper } from '@/components/shared/AccountPageWrapper'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -40,6 +40,7 @@ function WishlistCard({ entry }: { entry: WishlistEntry }) {
   const removeFromWishlist = useRemoveFromWishlist()
 
   function handleAddToCart() {
+    if (product.hasOptions) return
     addItem({
       productId: product.id,
       productSlug: product.slug,
@@ -100,15 +101,25 @@ function WishlistCard({ entry }: { entry: WishlistEntry }) {
           MOQ {product.moq}
         </p>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mt-3 gap-1.5 w-full"
-          onClick={handleAddToCart}
-        >
-          <ShoppingCart size={13} aria-hidden="true" />
-          Add to Cart
-        </Button>
+        {product.hasOptions ? (
+          <Link
+            href={`/products/${product.slug}`}
+            className="mt-3 inline-flex items-center justify-center gap-1.5 w-full min-h-[44px] rounded border border-line text-forest text-[13px] font-[600] font-sans hover:bg-ivory transition-colors"
+          >
+            Choose options
+            <ChevronRight size={14} aria-hidden="true" />
+          </Link>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-3 gap-1.5 w-full"
+            onClick={handleAddToCart}
+          >
+            <ShoppingCart size={13} aria-hidden="true" />
+            Add to Cart
+          </Button>
+        )}
       </div>
     </div>
   )

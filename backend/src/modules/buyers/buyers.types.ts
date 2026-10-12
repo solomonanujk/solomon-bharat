@@ -33,6 +33,8 @@ export interface WishlistProductSummary {
   reviewCount: number;
   /** Marketplace brand tag; null for Solomon-curated products. */
   brand: BrandSummary | null;
+  /** True when the product has at least one ACTIVE variant (an option must be chosen to buy). */
+  hasOptions: boolean;
 }
 
 export interface WishlistEntry {

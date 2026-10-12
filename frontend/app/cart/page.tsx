@@ -15,17 +15,21 @@ import { Price, useFormatPrice } from '@/components/ui/Price'
 import { CartGroupHeader } from '@/components/shared/CartGroupHeader'
 import { BrandMinOrderNotice, useUnmetMessage } from '@/components/shared/BrandMinOrderNotice'
 import { groupCartLines, unmetGroups } from '@/lib/cartGroups'
+import { useCartQuote } from '@/hooks/queries/useCartQuote'
+import { CartLineNotice } from '@/components/shared/CartLineNotice'
+import { findQuoteLine, resolveLine, type ResolvedLine } from '@/lib/cartQuote'
 import type { CartLine as CartItem } from '@/types/brand-orders'
 
 // ─── Cart line ────────────────────────────────────────────────────────────────
 
-function CartLine({ item }: { item: CartItem }) {
+function CartLine({ item, resolved }: { item: CartItem; resolved: ResolvedLine }) {
   const updateQuantity = useCartStore((s) => s.updateQuantity)
   const removeItem = useCartStore((s) => s.removeItem)
   const { requireAuth } = useAuth()
   const addToWishlist = useAddToWishlist()
   const fmt = useFormatPrice()
-  const lineTotal = item.unitAdminPriceInr * item.quantity
+  const lineTotal = resolved.lineTotalInr
+  const notOk = resolved.status !== 'OK' && resolved.status !== 'PENDING'
 
   function handleMoveToWishlist() {
     requireAuth(() => {
@@ -60,7 +64,13 @@ function CartLine({ item }: { item: CartItem }) {
               MOQ: <span className="text-primary font-[600]">{item.moq} units</span>
             </span>
             <span className="text-[12px] font-sans text-muted-text">
-              <Price amountInr={item.unitAdminPriceInr} size="sm" className="inline text-product-text font-[600]" />/unit
+              {notOk ? (
+                <span>Price unavailable</span>
+              ) : (
+                <>
+                  <Price amountInr={resolved.unitPriceInr} size="sm" className="inline text-product-text font-[600]" />/unit
+                </>
+              )}
             </span>
             {item.leadTime && (
               <span className="inline-flex items-center gap-1 text-[12px] font-sans text-muted-text">
@@ -118,10 +128,22 @@ function CartLine({ item }: { item: CartItem }) {
             </button>
           </div>
 
-          <span className="text-[16px] font-[700] font-sans text-product-text">
-            {fmt(lineTotal)}
-          </span>
+          {!notOk && (
+            <span className="text-[16px] font-[700] font-sans text-product-text">
+              {fmt(lineTotal)}
+            </span>
+          )}
         </div>
+
+        <CartLineNotice
+          resolved={resolved}
+          productSlug={item.productSlug}
+          onRemove={() => {
+            removeItem(item.productId, item.variantId)
+            toast.success('Removed from cart')
+          }}
+          onSetQuantity={(qty) => updateQuantity(item.productId, qty, item.variantId)}
+        />
       </div>
     </div>
   )
@@ -134,11 +156,13 @@ function PriceDetails({
   total,
   onCheckout,
   blockedReason,
+  updating,
 }: {
   itemCount: number
   total: number
   onCheckout: () => void
   blockedReason: string | null
+  updating: boolean
 }) {
   const fmt = useFormatPrice()
 
@@ -165,10 +189,14 @@ function PriceDetails({
           <span className="text-[18px] font-[700] font-sans text-primary">{fmt(total)}</span>
         </div>
 
+        <p role="status" aria-live="polite" className="text-[12px] font-sans text-muted mt-3 min-h-[18px]">
+          {updating ? 'Updating prices…' : ''}
+        </p>
+
         <button
           type="button"
           onClick={onCheckout}
-          disabled={!!blockedReason}
+          disabled={!!blockedReason || updating}
           aria-describedby={blockedReason ? 'cart-blocked-reason' : undefined}
           className="w-full h-12 mt-5 rounded bg-forest text-white font-[600] font-sans text-[14px] hover:bg-forest-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -201,16 +229,21 @@ function PriceDetails({
 export default function CartPage() {
   const router = useRouter()
   const items = useCartStore((s) => s.items)
-  const getTotalValueInr = useCartStore((s) => s.getTotalValueInr)
   const getTotalItems = useCartStore((s) => s.getTotalItems)
 
   const isEmpty = items.length === 0
-  const total = getTotalValueInr()
   const itemCount = getTotalItems()
   const fmt = useFormatPrice()
-  const groups = groupCartLines(items)
+  const { quote, isActive, isFetching, isInitialLoading, isError } = useCartQuote(items)
+  const groups = groupCartLines(items, quote)
+  const resolvedLines = items.map((i) => resolveLine(i, findQuoteLine(quote, i.productId, i.variantId)))
+  const total = resolvedLines.reduce((sum, r) => sum + r.lineTotalInr, 0)
+  const hasBadLine = resolvedLines.some((r) => r.status !== 'OK' && r.status !== 'PENDING')
+  // Prices are only trusted once the server has quoted them (unless quoting is unavailable).
+  const updating = isActive && !isError && (isFetching || isInitialLoading)
   const unmet = unmetGroups(groups)
-  const blockedReason = useUnmetMessage(unmet)
+  const unmetMessage = useUnmetMessage(unmet)
+  const blockedReason = hasBadLine ? 'Fix or remove the highlighted items to continue.' : unmetMessage
   const showGroupHeaders = groups.some((g) => g.brand)
 
   return (
@@ -250,7 +283,11 @@ export default function CartPage() {
                   {showGroupHeaders && <CartGroupHeader brand={group.brand} />}
                   {group.brand && <BrandMinOrderNotice group={group} />}
                   {group.items.map((item) => (
-                    <CartLine key={`${item.productId}-${item.variantId ?? ''}`} item={item} />
+                    <CartLine
+                      key={`${item.productId}-${item.variantId ?? ''}`}
+                      item={item}
+                      resolved={resolveLine(item, findQuoteLine(quote, item.productId, item.variantId))}
+                    />
                   ))}
                   {showGroupHeaders && (
                     <p className="flex justify-between py-3 border-t border-border-warm text-[13px] font-sans text-muted">
@@ -263,7 +300,7 @@ export default function CartPage() {
             </div>
 
             <div className="mt-6 lg:mt-0">
-              <PriceDetails itemCount={itemCount} total={total} onCheckout={() => router.push('/checkout')} blockedReason={blockedReason} />
+              <PriceDetails itemCount={itemCount} total={total} onCheckout={() => router.push('/checkout')} blockedReason={blockedReason} updating={updating} />
             </div>
           </div>
         )}

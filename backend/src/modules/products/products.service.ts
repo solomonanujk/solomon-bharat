@@ -64,6 +64,13 @@ export function canViewWholesalePrice(viewerRole?: Role): boolean {
   return viewerRole === Role.BUYER || viewerRole === Role.AGENT || viewerRole === Role.SUPER_ADMIN;
 }
 
+/** Admin approval rule: every tier must carry a buyer price (> 0). Agent price stays optional. */
+function assertEveryTierHasBuyerPrice(unpricedCount: number): void {
+  if (unpricedCount > 0) {
+    throw AppError.badRequest(`Set a buyer price for every tier (${unpricedCount} missing)`);
+  }
+}
+
 /** Agents see and buy Solomon-curated products only — never marketplace brands' (owner rule). */
 export function isCuratedOnlyViewer(viewerRole?: Role): boolean {
   return viewerRole === Role.AGENT;
@@ -82,9 +89,17 @@ function toBuyerPriceTier(t: PricedTierRow, canSeePrice: boolean, isAgent: boole
   return {
     id: t.id,
     moq: t.moq,
-    adminPrice: canSeePrice ? (t.adminPrice ? t.adminPrice.toString() : '0') : null,
+    // A tier with no buyer price is null (never '0') - the client falls back / hides it.
+    adminPrice: canSeePrice && t.adminPrice && Number(t.adminPrice.toString()) > 0 ? t.adminPrice.toString() : null,
     agentPrice: isAgent && t.agentPrice ? t.agentPrice.toString() : null,
   };
+}
+
+/** A tier is shown to a viewer only when it carries a price they can pay: a buyer price for
+ *  everyone, or (agents only) an agent price. Prevents phantom / Rs 0 tiers. */
+function isTierPricedForViewer(t: PricedTierRow, isAgent: boolean): boolean {
+  const positive = (v: { toString(): string } | null): boolean => v != null && Number(v.toString()) > 0;
+  return positive(t.adminPrice) || (isAgent && positive(t.agentPrice));
 }
 
 function toBuyerProduct(
@@ -107,8 +122,9 @@ function toBuyerProduct(
     // Only populated for an authenticated AGENT viewer — never sent to buyers.
     agentPrice: isAgent && product.agentPrice ? product.agentPrice.toString() : null,
     priceTiers: product.priceTiers
-      .filter((t) => t.adminPrice != null || t.agentPrice != null)
+      .filter((t) => isTierPricedForViewer(t, isAgent))
       .map((t) => toBuyerPriceTier(t, canSeePrice, isAgent)),
+    hasOptions: product.variants.some((v) => v.status === 'ACTIVE'),
     leadTime: product.leadTime,
     categoryId: product.categoryId,
     isFeatured: product.isFeatured,
@@ -119,7 +135,9 @@ function toBuyerProduct(
     // seller's own cost (sellerPrice) and the agent-only agentPrice.
     variants: product.variants.map((v) => ({
       ...v,
-      priceTiers: v.priceTiers.map((t) => toBuyerPriceTier(t, canSeePrice, isAgent)),
+      priceTiers: v.priceTiers
+        .filter((t) => isTierPricedForViewer(t, isAgent))
+        .map((t) => toBuyerPriceTier(t, canSeePrice, isAgent)),
     })),
     avgRating: rating?.avgRating ?? null,
     reviewCount: rating?.reviewCount ?? 0,
@@ -443,6 +461,39 @@ export class ProductsService {
     return product;
   }
 
+  /**
+   * A marketplace brand's prices are the brand's own — admin may edit descriptive data
+   * but never price/MOQ/tiers. Any price field is a 400; `variants` (non-price edits)
+   * are accepted only when every incoming variant matches an existing one, and the
+   * existing tiers are carried over verbatim so the repository's variant replace can
+   * never drop them.
+   */
+  private lockBrandPricing(input: UpdateProductInput, current: ProductWithMedia | null): UpdateProductInput {
+    const locked = () => AppError.badRequest('This price is set by the brand');
+    if (input.sellerPrice !== undefined || input.moq !== undefined) throw locked();
+    if (input.priceTiers !== undefined) throw locked();
+    if (input.variants === undefined) return input;
+
+    const existing = current?.variants ?? [];
+    const key = (v: { sku?: string | null; type: string; value: string }) => v.sku ?? `${v.type}::${v.value}`;
+    const byKey = new Map(existing.map((v) => [key(v), v]));
+    const variants = input.variants.map((v) => {
+      if (v.priceTiers !== undefined) throw locked();
+      const match = byKey.get(key(v));
+      if (!match) throw locked(); // a brand-new variant would need a price the brand has not set
+      return {
+        ...v,
+        priceTiers: match.priceTiers.map((t) => ({
+          moq: t.moq,
+          sellerPrice: Number(t.sellerPrice.toString()),
+          ...(t.adminPrice != null ? { adminPrice: Number(t.adminPrice.toString()) } : {}),
+          ...(t.agentPrice != null ? { agentPrice: Number(t.agentPrice.toString()) } : {}),
+        })),
+      };
+    });
+    return { ...input, variants };
+  }
+
   private async getProductOrThrow(productId: string): Promise<Product> {
     const product = await this.repo.findByIdRaw(productId);
     if (!product || product.deletedAt) {
@@ -692,8 +743,9 @@ export class ProductsService {
     const adminPrice = cheapestOf('adminPrice');
     const agentPrice = cheapestOf('agentPrice');
 
+    assertEveryTierHasBuyerPrice(allTiers.filter((t) => !(t.adminPrice != null && t.adminPrice > 0)).length);
     if (adminPrice == null) {
-      throw AppError.badRequest('Set a buyer price for at least one tier to publish this product');
+      throw AppError.badRequest('Set a buyer price for every tier to publish this product');
     }
 
     const product = await this.repo.create(
@@ -876,7 +928,7 @@ export class ProductsService {
    */
   async updateProductAsAdmin(
     productId: string,
-    input: UpdateProductInput,
+    rawInput: UpdateProductInput,
     files: UploadedImageFile[],
     adminId: string,
     videoFiles: UploadedImageFile[] = [],
@@ -884,7 +936,14 @@ export class ProductsService {
   ) {
     const product = await this.getProductOrThrow(productId);
 
+    // `publish` is a seller-draft control flag the shared form always sends; it is not a
+    // column and means nothing to an admin edit — strip it before it can reach Prisma.
+    const { publish: _publish, ...inputWithoutFlags } = rawInput;
     const withMedia = await this.repo.findByIdWithMedia(productId);
+    const input = product.brandId
+      ? this.lockBrandPricing(inputWithoutFlags, withMedia)
+      : inputWithoutFlags;
+
     const currentImageCount = withMedia?.images.length ?? 0;
     const removedCount = input.removeImageIds?.length ?? 0;
     const finalImageCount = currentImageCount - removedCount + files.length;
@@ -960,6 +1019,7 @@ export class ProductsService {
     productId: string,
     priceTiers: TierAdminPriceInput[] = [],
     variantPriceTiers: TierAdminPriceInput[] = [],
+    requireEveryTierPriced = false,
   ): Promise<{ adminPrice: number | null; agentPrice: number | null }> {
     const product = await this.repo.findByIdWithMedia(productId);
     if (!product) throw AppError.notFound('Product not found');
@@ -976,14 +1036,25 @@ export class ProductsService {
       }
     }
 
-    await this.repo.updateProductTierAdminPrices(priceTiers);
-    await this.repo.updateVariantTierAdminPrices(variantPriceTiers);
-
     const updateById = new Map([...priceTiers, ...variantPriceTiers].map((t) => [t.id, t]));
     const allTiers = [
       ...product.priceTiers,
       ...product.variants.flatMap((v) => v.priceTiers),
     ];
+
+    // Validate BEFORE writing so a rejected approval leaves no half-priced tiers behind.
+    // Brand products mirror their own price onto their tiers and are not admin-priced.
+    if (requireEveryTierPriced && !product.brandId) {
+      const unpriced = allTiers.filter((t) => {
+        const update = updateById.get(t.id)?.adminPrice;
+        const effective = update !== undefined ? update : t.adminPrice != null ? Number(t.adminPrice) : null;
+        return !(effective != null && effective > 0);
+      }).length;
+      assertEveryTierHasBuyerPrice(unpriced);
+    }
+
+    await this.repo.updateProductTierAdminPrices(priceTiers);
+    await this.repo.updateVariantTierAdminPrices(variantPriceTiers);
 
     const cheapestOf = (field: 'adminPrice' | 'agentPrice'): number | null => {
       const prices = allTiers
@@ -1017,7 +1088,7 @@ export class ProductsService {
       throw AppError.badRequest('Only a pending or resubmitted product can be approved');
     }
 
-    const { adminPrice, agentPrice } = await this.applyTierAdminPrices(productId, priceTiers, variantPriceTiers);
+    const { adminPrice, agentPrice } = await this.applyTierAdminPrices(productId, priceTiers, variantPriceTiers, true);
 
     // Approval/publish gating depends only on adminPrice resolving — a product can be
     // approved and published for buyers before an agent price is ever set.
@@ -1412,8 +1483,12 @@ export class ProductsService {
     const adminPrice = cheapestOf('adminPrice');
     const agentPrice = cheapestOf('agentPrice');
 
+    const unpricedCount = [...priceTiers, ...variants.flatMap((v) => v.priceTiers)].filter(
+      (t) => !(t.adminPrice != null && t.adminPrice > 0),
+    ).length;
+    assertEveryTierHasBuyerPrice(unpricedCount);
     if (adminPrice == null) {
-      throw AppError.badRequest('Set an admin price for at least one tier to approve this pricing change');
+      throw AppError.badRequest('Set a buyer price for every tier to approve this pricing change');
     }
 
     // Mirrors ProductsService.deriveDeclaredStock — the same variant-inventory-derived

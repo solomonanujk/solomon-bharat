@@ -61,7 +61,7 @@ function RejectDialog({ change, onClose }: { change: PendingPricingChangeListIte
 
 function PendingChangeCard({ change, onReject }: { change: PendingPricingChangeListItem; onReject: (c: PendingPricingChangeListItem) => void }) {
   const approveChange = useApprovePricingChange()
-  const { allTiers, values, setValue, agentValues, setAgentValue, buildPayload, hasAnyPriced } =
+  const { allTiers, values, setValue, agentValues, setAgentValue, buildPayload, allPriced, missingCount } =
     useChangeRequestPriceForm(change)
 
   return (
@@ -83,7 +83,8 @@ function PendingChangeCard({ change, onReject }: { change: PendingPricingChangeL
           <Button
             variant="accent"
             size="sm"
-            disabled={!hasAnyPriced || approveChange.isPending}
+            disabled={!allPriced || approveChange.isPending}
+            title={!allPriced && missingCount > 0 ? `${missingCount} tier${missingCount === 1 ? '' : 's'} still need a buyer price` : undefined}
             onClick={() => approveChange.mutate({ id: change.id, ...buildPayload() })}
           >
             {approveChange.isPending ? 'Approving…' : 'Approve & apply'}

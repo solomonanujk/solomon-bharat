@@ -181,6 +181,8 @@ export interface Product extends ProductListingDetails {
   reviewCount: number
   /** Marketplace brand tag; null/absent for Solomon-curated products. */
   brand?: BrandSummary | null
+  /** True when the product has at least one ACTIVE variant — it can't be added to the cart without choosing one. */
+  hasOptions?: boolean
 }
 
 /** Seller-safe projection — never includes adminPrice/margin. */
@@ -529,6 +531,8 @@ export interface WishlistEntry {
     reviewCount: number
     /** Marketplace brand tag; null/absent for curated products. */
     brand?: BrandSummary | null
+    /** True when the product needs an option chosen before it can be added to the cart. */
+    hasOptions?: boolean
   }
 }
 
@@ -727,6 +731,27 @@ export interface CartItem {
   leadTime?: string | null
   /** Marketplace brand this line belongs to (min order value is enforced per brand); null/absent for curated items. */
   brand?: { id: string; name: string; slug: string; minOrderValueInr: number } | null
+}
+
+// ─── Cart quote (POST /orders/quote) ─────────────────────────────────────────
+
+export type QuoteLineStatus = 'OK' | 'UNAVAILABLE' | 'OPTION_CHANGED' | 'CHOOSE_OPTION' | 'BELOW_MOQ'
+
+/** Server-priced cart line — OK lines carry exactly what checkout will charge (INR). */
+export interface QuoteLine {
+  productId: string
+  variantId: string | null
+  quantity: number
+  status: QuoteLineStatus
+  message?: string
+  unitPriceInr?: number
+  lineTotalInr?: number
+  moq: number
+}
+
+export interface CartQuote {
+  lines: QuoteLine[]
+  subtotalInr: number
 }
 
 // ─── Spreadsheet product import (Shopify / WooCommerce CSV or .xlsx) ─────────
