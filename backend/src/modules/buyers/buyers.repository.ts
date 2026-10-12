@@ -21,6 +21,8 @@ const WISHLIST_PRODUCT_SELECT = {
   leadTime: true,
   images: { orderBy: { sortOrder: 'asc' as const }, take: 1 },
   brand: { select: BRAND_SUMMARY_SELECT },
+  // Only existence matters: hasOptions = at least one ACTIVE variant.
+  variants: { where: { status: 'ACTIVE' as const }, select: { id: true }, take: 1 },
 };
 
 export class BuyersRepository {

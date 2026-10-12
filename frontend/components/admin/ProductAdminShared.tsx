@@ -86,6 +86,10 @@ export function useTierPriceForm(product: AdminProduct) {
 
   const priced = allTiers.filter(({ key }) => values[key] && Number(values[key]) > 0)
   const hasAnyPriced = priced.length > 0
+  // Approving needs a buyer price on EVERY tier (the server rejects anything less);
+  // "Update Prices" can still fix a single tier, so it keeps using hasAnyPriced.
+  const missingCount = allTiers.length - priced.length
+  const allPriced = allTiers.length > 0 && missingCount === 0
 
   function buildPayload() {
     const tierInputs = priced.map(({ key }) => {
@@ -100,7 +104,7 @@ export function useTierPriceForm(product: AdminProduct) {
       : { variantPriceTiers: tierInputs }
   }
 
-  return { allTiers, values, setValue, agentValues, setAgentValue, buildPayload, hasAnyPriced }
+  return { allTiers, values, setValue, agentValues, setAgentValue, buildPayload, hasAnyPriced, allPriced, missingCount }
 }
 
 /**
@@ -150,6 +154,9 @@ export function useChangeRequestPriceForm(change: {
 
   const priced = allTiers.filter(({ key }) => values[key] && Number(values[key]) > 0)
   const hasAnyPriced = priced.length > 0
+  // Approving a pricing change needs a buyer price on every proposed tier.
+  const missingCount = allTiers.length - priced.length
+  const allPriced = allTiers.length > 0 && missingCount === 0
 
   function buildPayload() {
     const tierInputs = priced.map(({ key }) => {
@@ -164,7 +171,7 @@ export function useChangeRequestPriceForm(change: {
       : { variantPriceTiers: tierInputs }
   }
 
-  return { allTiers, values, setValue, agentValues, setAgentValue, buildPayload, hasAnyPriced }
+  return { allTiers, values, setValue, agentValues, setAgentValue, buildPayload, hasAnyPriced, allPriced, missingCount }
 }
 
 export function TierPriceTable({ tiers, values, onChange, agentValues, onAgentChange, editable, disabled }: {

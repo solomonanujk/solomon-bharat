@@ -19,6 +19,8 @@ export interface RecentProduct {
   reviewCount: number
   leadTime: string | null
   brand?: BrandSummary | null
+  /** Absent on entries cached before options existed — treat as unknown ("choose options"). */
+  hasOptions?: boolean
 }
 
 function read(): RecentProduct[] {

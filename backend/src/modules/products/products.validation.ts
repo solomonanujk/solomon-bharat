@@ -3,6 +3,12 @@ import { ProductApprovalStatus } from '@prisma/client';
 import { paginationQuerySchema } from '../../utils/pagination';
 import { ECO_MATERIALS, ECO_PACKAGING, ECO_PRODUCTION } from './ecoAttributes.constants';
 
+// JSON bodies (e.g. the draft save) send numbers where multipart sends strings; accept
+// both for free-text-numeric columns such as weight, while keeping the length cap.
+function numberishString(max: number) {
+  return z.preprocess((val) => (typeof val === 'number' ? String(val) : val), z.string().max(max)).optional();
+}
+
 function jsonArrayField<T extends z.ZodTypeAny>(schema: T) {
   return z.preprocess((val) => {
     if (val === undefined || val === null || val === '') return undefined;
@@ -154,7 +160,7 @@ export const saveDraftSchema = z.object({
   description: z.string().max(1000).optional(),
   materials: z.string().max(500).optional(),
   dimensions: z.string().max(200).optional(),
-  weight: z.string().max(100).optional(),
+  weight: numberishString(100),
   moq: z.coerce.number().int().min(0).optional(),
   declaredStock: z.coerce.number().int().min(0).optional(),
   sellerPrice: z.coerce.number().min(0).optional(),
@@ -217,6 +223,14 @@ export const updateProductSchema = z.object({
   tariffCode: z.string().max(50).optional(),
 });
 export type UpdateProductDto = z.infer<typeof updateProductSchema>;
+
+// Admin edit keeps each tier's adminPrice/agentPrice (the seller schema strips them),
+// so a variant/tier replace never silently erases buyer or agent pricing.
+export const updateProductAsAdminSchema = updateProductSchema.extend({
+  variants: jsonArrayField(variantWithAdminPricingSchema),
+  priceTiers: jsonArrayField(priceTierWithAdminPricingSchema),
+});
+export type UpdateProductAsAdminDto = z.infer<typeof updateProductAsAdminSchema>;
 
 export const polishFieldSchema = z.object({
   field: z.enum(['name', 'description', 'tags']),

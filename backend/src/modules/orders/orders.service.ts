@@ -26,6 +26,8 @@ import {
   PendingCheckout,
   PricedOrderItem,
   PricingRole,
+  QuoteLine,
+  QuoteResult,
   SellerOrderItem,
 } from './orders.types';
 
@@ -39,6 +41,12 @@ const brandRatesPort: CommissionRatesPort = {
 
 export const MIN_ORDER_VALUE_NOT_MET = 'MIN_ORDER_VALUE_NOT_MET';
 export const ITEMS_UNAVAILABLE = 'ITEMS_UNAVAILABLE';
+
+type CheckoutProduct = Awaited<ReturnType<ProductsService['getForCheckout']>>;
+
+type LinePricing =
+  | { ok: true; priced: PricedOrderItem }
+  | { ok: false; kind: 'BELOW_MOQ' | 'OPTION_CHANGED' | 'CHOOSE_OPTION' | 'NO_PRICE'; message: string };
 
 interface FulfilmentGroup {
   /** Brand's SellerProfile id; null for the curated group. */
@@ -175,15 +183,14 @@ export class OrdersService {
   }
 
   /**
-   * Loads every cart product and validates availability for ALL of them before pricing, so a
-   * cart with several unavailable lines reports them together (details.productIds) instead of
-   * one per attempt. The message names the first unavailable product, as it always has.
+   * Loads every cart product and classifies its availability (deleted / unpublished / unapproved /
+   * suspended brand / brand product asked for by an agent). Shared by checkout (which throws on any
+   * unavailable line) and quote (which reports a per-line status).
    */
-  private async loadAvailableProducts(
+  private async loadProductsWithAvailability(
     items: CheckoutItemInput[],
     pricingRole: PricingRole,
-  ): Promise<Map<string, Awaited<ReturnType<ProductsService['getForCheckout']>>>> {
-    type CheckoutProduct = Awaited<ReturnType<ProductsService['getForCheckout']>>;
+  ): Promise<Map<string, { product: CheckoutProduct | null; available: boolean }>> {
     const loaded = await Promise.all(
       items.map(async (item): Promise<{ id: string; product: CheckoutProduct | null }> => {
         try {
@@ -201,8 +208,7 @@ export class OrdersService {
     const brands = brandIds.length > 0 ? await this.repo.findBrandsByIds(brandIds) : [];
     const brandById = new Map(brands.map((b) => [b.id, b]));
 
-    const unavailable: string[] = [];
-    const byId = new Map<string, CheckoutProduct>();
+    const result = new Map<string, { product: CheckoutProduct | null; available: boolean }>();
     for (const { id, product } of loaded) {
       const brand = product?.brandId ? brandById.get(product.brandId) : undefined;
       const bad =
@@ -210,14 +216,33 @@ export class OrdersService {
         product.deletedAt ||
         !product.isPublished ||
         product.approvalStatus !== 'APPROVED' ||
-        // Agents are limited to Solomon-curated products — marketplace brand products are
+        // Agents are limited to Solomon-curated products - marketplace brand products are
         // never purchasable by them (owner decision; they cannot even see them).
         (pricingRole === 'AGENT' && !!product.brandId) ||
         (!!product.brandId && (!brand || brand.status === BrandStatus.SUSPENDED));
-      if (bad) {
-        if (!unavailable.includes(id)) unavailable.push(id);
+      result.set(id, { product, available: !bad });
+    }
+    return result;
+  }
+
+  /**
+   * Loads every cart product and validates availability for ALL of them before pricing, so a
+   * cart with several unavailable lines reports them together (details.productIds) instead of
+   * one per attempt. The message names the first unavailable product, as it always has.
+   */
+  private async loadAvailableProducts(
+    items: CheckoutItemInput[],
+    pricingRole: PricingRole,
+  ): Promise<Map<string, CheckoutProduct>> {
+    const loaded = await this.loadProductsWithAvailability(items, pricingRole);
+    const unavailable: string[] = [];
+    const byId = new Map<string, CheckoutProduct>();
+    for (const item of items) {
+      const entry = loaded.get(item.productId)!;
+      if (!entry.available) {
+        if (!unavailable.includes(item.productId)) unavailable.push(item.productId);
       } else {
-        byId.set(id, product);
+        byId.set(item.productId, entry.product!);
       }
     }
 
@@ -230,83 +255,152 @@ export class OrdersService {
     return byId;
   }
 
+  /**
+   * THE pricing core, shared by checkout and quote so what is displayed can never diverge from
+   * what is charged. Pure: reports a failure kind instead of throwing; callers decide how to
+   * surface it. Never trusts client prices.
+   */
+  private resolveLinePrice(
+    product: CheckoutProduct,
+    item: CheckoutItemInput,
+    pricingRole: PricingRole,
+  ): LinePricing {
+    if (item.quantity < product.moq) {
+      return {
+        ok: false,
+        kind: 'BELOW_MOQ',
+        message: `Product "${product.name}" requires a minimum order quantity of ${product.moq}`,
+      };
+    }
+
+    // Price a tier the way the PDP does: an agent pays agentPrice, falling back to the buyer
+    // price when the tier has no agent price. Tiers with no usable price are skipped.
+    const chargeOf = (t: { adminPrice: unknown; agentPrice: unknown }): number | null => {
+      const raw = pricingRole === 'AGENT' && t.agentPrice != null ? t.agentPrice : t.adminPrice;
+      if (raw == null) return null;
+      const n = Number(raw);
+      return n > 0 ? n : null;
+    };
+    const pickTier = <T extends { moq: number; adminPrice: unknown; agentPrice: unknown }>(
+      tiers: T[],
+    ): { unitAdminPrice: number; tier: T } | null => {
+      const priced = tiers.filter((t) => chargeOf(t) != null);
+      if (priced.length === 0) return null;
+      const sorted = [...priced].sort((a, b) => b.moq - a.moq);
+      const applicable = sorted.find((t) => item.quantity >= t.moq) ?? sorted[sorted.length - 1];
+      return { unitAdminPrice: chargeOf(applicable)!, tier: applicable };
+    };
+
+    // Variants are priced independently of the flat product price (a Size L isn't the same
+    // price as a Size S), so a variantId resolves to that variant's own MOQ-tiered price.
+    const activeVariants = product.variants.filter((v) => v.status === 'ACTIVE');
+    let unitAdminPrice: number | null = null;
+    let unitSellerPrice: number | null = null;
+
+    if (item.variantId) {
+      const variant = product.variants.find((v) => v.id === item.variantId);
+      if (!variant) {
+        return {
+          ok: false,
+          kind: 'OPTION_CHANGED',
+          message: `Variant ${item.variantId} does not belong to product ${item.productId}`,
+        };
+      }
+      if (variant.status !== 'ACTIVE') {
+        return { ok: false, kind: 'OPTION_CHANGED', message: 'This option is no longer available' };
+      }
+      const hit = pickTier(variant.priceTiers);
+      if (hit) {
+        unitAdminPrice = hit.unitAdminPrice;
+        unitSellerPrice = Number(hit.tier.sellerPrice);
+      }
+    } else if (activeVariants.length > 0) {
+      return { ok: false, kind: 'CHOOSE_OPTION', message: `Choose an option for "${product.name}"` };
+    }
+
+    // A flat (no-variant) product - curated or brand - can carry its own quantity ladder;
+    // mirror the PDP: highest tier whose moq <= quantity, else the lowest tier.
+    if (unitAdminPrice == null) {
+      const hit = pickTier(product.priceTiers);
+      if (hit) {
+        unitAdminPrice = hit.unitAdminPrice;
+        unitSellerPrice = Number(hit.tier.sellerPrice);
+      }
+    }
+
+    if (unitAdminPrice == null) {
+      const raw = pricingRole === 'AGENT' ? (product.agentPrice ?? product.adminPrice) : product.adminPrice;
+      if (!raw || Number(raw) <= 0) {
+        return {
+          ok: false,
+          kind: 'NO_PRICE',
+          message: `Product ${item.productId} has no selling price set`,
+        };
+      }
+      unitAdminPrice = Number(raw);
+      unitSellerPrice = Number(product.sellerPrice);
+    }
+
+    const sellerUnit = unitSellerPrice!;
+    return {
+      ok: true,
+      priced: {
+        productId: product.id,
+        variantId: item.variantId,
+        sellerId: product.sellerId,
+        brandId: product.brandId ?? null,
+        quantity: item.quantity,
+        unitAdminPrice,
+        unitSellerPrice: sellerUnit,
+        lineAdminTotal: Math.round(unitAdminPrice * item.quantity * 100) / 100,
+        lineSellerTotal: Math.round(sellerUnit * item.quantity * 100) / 100,
+      },
+    };
+  }
+
   private async priceCheckoutItems(
     items: CheckoutItemInput[],
     pricingRole: PricingRole,
   ): Promise<PricedOrderItem[]> {
     const products = await this.loadAvailableProducts(items, pricingRole);
-    return Promise.all(
-      items.map(async (item) => {
-        const product = products.get(item.productId)!;
-        if (item.quantity < product.moq) {
-          throw AppError.badRequest(
-            `Product "${product.name}" requires a minimum order quantity of ${product.moq}`,
-          );
-        }
+    return items.map((item) => {
+      const result = this.resolveLinePrice(products.get(item.productId)!, item, pricingRole);
+      if (!result.ok) throw AppError.badRequest(result.message);
+      return result.priced;
+    });
+  }
 
-        // Never trust a client-supplied price — always recompute server-side. Variants
-        // are priced independently of the flat product price (a Size L isn't the same
-        // price as a Size S), so a variantId resolves to that variant's own MOQ-tiered
-        // price; only fall back to the flat product mirror when no variant applies.
-        let unitAdminPrice: number | null = null;
-        let unitSellerPrice: number | null = null;
-
-        if (item.variantId) {
-          const variant = product.variants.find((v) => v.id === item.variantId);
-          if (!variant) {
-            throw AppError.badRequest(`Variant ${item.variantId} does not belong to product ${item.productId}`);
-          }
-          const tiers = variant.priceTiers.filter((t) =>
-            pricingRole === 'AGENT' ? t.agentPrice != null : t.adminPrice != null,
-          );
-          if (tiers.length > 0) {
-            const sorted = [...tiers].sort((a, b) => b.moq - a.moq);
-            const applicable = sorted.find((t) => item.quantity >= t.moq) ?? sorted[sorted.length - 1];
-            unitAdminPrice = Number(pricingRole === 'AGENT' ? applicable.agentPrice : applicable.adminPrice);
-            unitSellerPrice = Number(applicable.sellerPrice);
-          }
-        }
-
-        // A flat (no-variant) product — curated or brand — can carry its own quantity ladder;
-        // mirror the PDP: highest tier whose moq <= quantity, else the lowest tier.
-        if (unitAdminPrice == null) {
-          const tiers = product.priceTiers.filter((t) =>
-            pricingRole === 'AGENT' ? t.agentPrice != null : t.adminPrice != null,
-          );
-          if (tiers.length > 0) {
-            const sorted = [...tiers].sort((a, b) => b.moq - a.moq);
-            const applicable = sorted.find((t) => item.quantity >= t.moq) ?? sorted[sorted.length - 1];
-            unitAdminPrice = Number(pricingRole === 'AGENT' ? applicable.agentPrice : applicable.adminPrice);
-            unitSellerPrice = Number(applicable.sellerPrice);
-          }
-        }
-
-        if (unitAdminPrice == null) {
-          const chargePrice = pricingRole === 'AGENT' ? product.agentPrice : product.adminPrice;
-          if (!chargePrice) {
-            throw AppError.badRequest(
-              pricingRole === 'AGENT'
-                ? `Product ${item.productId} has no agent price set`
-                : `Product ${item.productId} has no selling price set`,
-            );
-          }
-          unitAdminPrice = Number(chargePrice);
-          unitSellerPrice = Number(product.sellerPrice);
-        }
-
+  /**
+   * Server-quoted prices for a cart (buyer or agent). Always returns a status per line instead
+   * of throwing, priced by the exact same core as checkout.
+   */
+  async quoteItems(items: CheckoutItemInput[], pricingRole: PricingRole): Promise<QuoteResult> {
+    const loaded = await this.loadProductsWithAvailability(items, pricingRole);
+    const lines: QuoteLine[] = items.map((item) => {
+      const entry = loaded.get(item.productId);
+      const base = {
+        productId: item.productId,
+        variantId: item.variantId ?? null,
+        quantity: item.quantity,
+        moq: entry?.product?.moq ?? 1,
+      };
+      if (!entry || !entry.available || !entry.product) {
+        return { ...base, status: 'UNAVAILABLE' as const, message: 'This product is no longer available' };
+      }
+      const result = this.resolveLinePrice(entry.product, item, pricingRole);
+      if (result.ok) {
         return {
-          productId: product.id,
-          variantId: item.variantId,
-          sellerId: product.sellerId,
-          brandId: product.brandId ?? null,
-          quantity: item.quantity,
-          unitAdminPrice,
-          unitSellerPrice: unitSellerPrice!,
-          lineAdminTotal: Math.round(unitAdminPrice * item.quantity * 100) / 100,
-          lineSellerTotal: Math.round(unitSellerPrice! * item.quantity * 100) / 100,
+          ...base,
+          status: 'OK' as const,
+          unitPriceInr: result.priced.unitAdminPrice,
+          lineTotalInr: result.priced.lineAdminTotal,
         };
-      }),
-    );
+      }
+      const status = result.kind === 'NO_PRICE' ? 'UNAVAILABLE' : result.kind;
+      return { ...base, status, message: result.message };
+    });
+    const subtotalPaise = lines.reduce((sum, l) => sum + (l.status === 'OK' ? toPaise(l.lineTotalInr!) : 0), 0);
+    return { lines, subtotalInr: fromPaise(subtotalPaise) };
   }
 
   /** Splits priced items into one group per fulfiller: each active brand, plus at most one curated group. */

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { CartLine as CartItem } from '@/types/brand-orders'
+import type { QuotedSync } from '@/lib/cartQuote'
 
 interface CartState {
   items: CartItem[]
@@ -15,6 +16,8 @@ interface CartActions {
   removeItem: (productId: string, variantId?: string) => void
   removeItems: (productIds: string[]) => void
   updateQuantity: (productId: string, qty: number, variantId?: string) => void
+  /** Stores server-quoted unit price / MOQ on matching lines (no-op when nothing changed). */
+  applyQuotedPrices: (updates: QuotedSync[]) => void
   clearCart: () => void
   hideAddedPopup: () => void
   getTotalItems: () => number
@@ -84,6 +87,21 @@ export const useCartStore = create<CartStore>()(
           return {
             items: state.items.map((i) => (i === item ? { ...i, quantity: safeQty } : i)),
           }
+        })
+      },
+
+      applyQuotedPrices: (updates: QuotedSync[]) => {
+        set((state) => {
+          let changed = false
+          const items = state.items.map((i) => {
+            const u = updates.find((x) => x.productId === i.productId && x.variantId === i.variantId)
+            if (!u) return i
+            const unit = u.unitPriceInr ?? i.unitAdminPriceInr
+            if (unit === i.unitAdminPriceInr && u.moq === i.moq) return i
+            changed = true
+            return { ...i, unitAdminPriceInr: unit, moq: u.moq }
+          })
+          return changed ? { items } : state
         })
       },
 

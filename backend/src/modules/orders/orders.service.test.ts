@@ -219,9 +219,11 @@ describe('OrdersService', () => {
       expect(item.lineAdminTotal).toBe(960);
     });
 
-    it('agent uses agentPrice tiers and skips tiers without an agent price', async () => {
+    it('agent uses agentPrice per tier and falls back to the buyer price for a tier without one', async () => {
       expect((await priceFor(20, 'AGENT')).unitAdminPrice).toBe(10);
-      expect((await priceFor(120, 'AGENT')).unitAdminPrice).toBe(7);
+      expect((await priceFor(50, 'AGENT')).unitAdminPrice).toBe(7);
+      // tier t3 (moq 100) has no agentPrice -> agent pays that tier's buyer price (8)
+      expect((await priceFor(120, 'AGENT')).unitAdminPrice).toBe(8);
     });
 
     it('falls back to the lowest tier when quantity is under every tier moq', async () => {
@@ -233,9 +235,14 @@ describe('OrdersService', () => {
       expect((await priceFor(60, 'AGENT', [])).unitAdminPrice).toBe(7);
     });
 
-    it('ignores tiers lacking the role price and uses the flat price', async () => {
+    it('an agent with no agent price on any tier pays the buyer tier prices', async () => {
       const noAgent = tiers.map((t) => ({ ...t, agentPrice: null }));
-      expect((await priceFor(60, 'AGENT', noAgent)).unitAdminPrice).toBe(7);
+      expect((await priceFor(60, 'AGENT', noAgent)).unitAdminPrice).toBe(9);
+    });
+
+    it('skips tiers with no buyer price (never charges 0)', async () => {
+      const unpriced = tiers.map((t) => ({ ...t, adminPrice: t.moq === 50 ? null : t.adminPrice, agentPrice: t.moq === 50 ? null : t.agentPrice })) as unknown as typeof tiers;
+      expect((await priceFor(60, 'BUYER', unpriced)).unitAdminPrice).toBe(12);
     });
   });
 

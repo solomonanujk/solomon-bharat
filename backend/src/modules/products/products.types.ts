@@ -251,6 +251,8 @@ export interface UpdateProductInput {
   // brand path, where the brand's own price IS the buyer price and the product
   // publishes without admin review.
   adminPrice?: number;
+  // Set internally by the repository when a tier replace changes the cheapest agent tier.
+  agentPrice?: number;
   isPublished?: boolean;
   publishedAt?: Date;
   removeImageIds?: string[];
@@ -344,6 +346,8 @@ export type BuyerVariant = ProductVariant & {
 /** Buyer-safe projection — never includes sellerId, sellerPrice, or declaredStock. */
 export interface BuyerProduct {
   id: string;
+  /** True when the product has at least one ACTIVE variant (an option must be chosen to buy). */
+  hasOptions: boolean;
   name: string;
   slug: string;
   description: string;

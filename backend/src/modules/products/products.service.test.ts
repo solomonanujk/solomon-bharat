@@ -11,6 +11,7 @@ import { ReviewsRepository } from '../reviews/reviews.repository';
 import { ProductsRepository } from './products.repository';
 import { ProductsService } from './products.service';
 import { ProductWithMedia } from './products.types';
+import { updateProductAsAdminSchema, updateProductSchema } from './products.validation';
 
 vi.mock('../../providers/storage', () => ({
   storageProvider: {
@@ -619,6 +620,163 @@ describe('ProductsService', () => {
     });
   });
 
+  describe('every tier must be priced (approval, pricing change, admin create)', () => {
+    const flatTier = (id: string, moq: number, adminPrice: number | null) => ({
+      id, productId: 'prod-1', moq, sellerPrice: new Decimal(5), adminPrice: adminPrice == null ? null : new Decimal(adminPrice), agentPrice: null,
+    });
+    const variantWith = (id: string, tiers: ReturnType<typeof flatTier>[]) => ({
+      id, productId: 'prod-1', type: 'Size', value: id, sku: null, status: 'ACTIVE', imageUrl: null, createdAt: new Date(),
+      weight: null, weightUnit: 'kg', length: null, width: null, height: null, dimensionUnit: 'cm', tariffCode: null, inventory: null,
+      attributes: [], priceTiers: tiers.map((t) => ({ ...t, variantId: id })),
+    });
+
+    it('approval is rejected, with a count, when a flat tier is left unpriced - and nothing is written', async () => {
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildProduct());
+      vi.mocked(repo.findByIdWithMedia).mockResolvedValue({
+        ...withMedia(buildProduct()),
+        priceTiers: [flatTier('tier-1', 10, null), flatTier('tier-2', 50, null)],
+      } as never);
+
+      await expect(
+        service.approveProduct('prod-1', [{ id: 'tier-1', adminPrice: 42 }], undefined, 'admin-1'),
+      ).rejects.toMatchObject({ statusCode: 400, message: 'Set a buyer price for every tier (1 missing)' });
+      expect(repo.updateProductTierAdminPrices).not.toHaveBeenCalled();
+      expect(repo.setApproval).not.toHaveBeenCalled();
+    });
+
+    it('an agent-only price does not count as a buyer price', async () => {
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildProduct());
+      vi.mocked(repo.findByIdWithMedia).mockResolvedValue({
+        ...withMedia(buildProduct()),
+        priceTiers: [flatTier('tier-1', 10, null)],
+      } as never);
+
+      await expect(
+        service.approveProduct('prod-1', [{ id: 'tier-1', agentPrice: 5 }], undefined, 'admin-1'),
+      ).rejects.toMatchObject({ statusCode: 400, message: 'Set a buyer price for every tier (1 missing)' });
+    });
+
+    it('approval counts unpriced tiers across every variant', async () => {
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildProduct());
+      vi.mocked(repo.findByIdWithMedia).mockResolvedValue({
+        ...withMedia(buildProduct()),
+        priceTiers: [],
+        variants: [
+          variantWith('v1', [flatTier('vt-1', 1, null), flatTier('vt-2', 10, null)]),
+          variantWith('v2', [flatTier('vt-3', 1, null)]),
+        ],
+      } as never);
+
+      await expect(
+        service.approveProduct('prod-1', undefined, [{ id: 'vt-1', adminPrice: 9 }], 'admin-1'),
+      ).rejects.toMatchObject({ statusCode: 400, message: 'Set a buyer price for every tier (2 missing)' });
+    });
+
+    it('approval succeeds when every tier (including already-priced ones) has a buyer price; agentPrice stays optional', async () => {
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildProduct());
+      vi.mocked(repo.findByIdWithMedia).mockResolvedValue({
+        ...withMedia(buildProduct()),
+        priceTiers: [flatTier('tier-1', 10, 20), flatTier('tier-2', 50, null)],
+      } as never);
+      vi.mocked(repo.setApproval).mockResolvedValue(buildProduct({ approvalStatus: ProductApprovalStatus.APPROVED }));
+
+      await service.approveProduct('prod-1', [{ id: 'tier-2', adminPrice: 15 }], undefined, 'admin-1');
+
+      expect(repo.setApproval).toHaveBeenCalledWith('prod-1', expect.objectContaining({ adminPrice: 15, isPublished: true }));
+    });
+
+    it('approving a pricing change requires every proposed tier priced', async () => {
+      vi.mocked(repo.findPricingChangeById).mockResolvedValue(
+        buildChangeRequest({
+          proposedPriceTiers: [{ moq: 20, sellerPrice: 6 }, { moq: 50, sellerPrice: 5 }],
+        }),
+      );
+
+      await expect(
+        service.approvePricingChange('change-1', [{ id: 'flat-0', adminPrice: 10 }], [], 'admin-1'),
+      ).rejects.toMatchObject({ statusCode: 400, message: 'Set a buyer price for every tier (1 missing)' });
+      expect(repo.applyPricingChange).not.toHaveBeenCalled();
+    });
+
+    it('createProductAsAdmin requires every tier (flat and variant) priced', async () => {
+      vi.mocked(sellersService.getOrCreateHouseSellerProfile).mockResolvedValue('house-profile-1');
+      const base = {
+        name: 'X', description: 'Y', categoryId: 'cat-l3-1', materials: 'Cotton', moq: 10, declaredStock: 100, sellerPrice: 5,
+      };
+
+      await expect(
+        service.createProductAsAdmin(
+          'house', undefined,
+          { ...base, priceTiers: [{ moq: 10, sellerPrice: 5, adminPrice: 9 }, { moq: 50, sellerPrice: 4 }] },
+          twoFiles, 'admin-1',
+        ),
+      ).rejects.toMatchObject({ statusCode: 400, message: 'Set a buyer price for every tier (1 missing)' });
+
+      await expect(
+        service.createProductAsAdmin(
+          'house', undefined,
+          {
+            ...base,
+            variants: [{ type: 'Size', value: 'S', priceTiers: [{ moq: 1, sellerPrice: 5, adminPrice: 9 }, { moq: 10, sellerPrice: 4, agentPrice: 3 }] }],
+          } as never,
+          twoFiles, 'admin-1',
+        ),
+      ).rejects.toMatchObject({ statusCode: 400, message: 'Set a buyer price for every tier (1 missing)' });
+      expect(repo.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('buyer payload: unpriced tiers and hasOptions', () => {
+    const tier = (id: string, moq: number, adminPrice: number | null, agentPrice: number | null = null) => ({
+      id, productId: 'prod-1', moq, sellerPrice: new Decimal(5),
+      adminPrice: adminPrice == null ? null : new Decimal(adminPrice),
+      agentPrice: agentPrice == null ? null : new Decimal(agentPrice),
+    });
+    const variant = (status: 'ACTIVE' | 'INACTIVE', tiers: ReturnType<typeof tier>[]) => ({
+      id: 'var-1', productId: 'prod-1', type: 'Size', value: 'S', sku: null, status, imageUrl: null, createdAt: new Date(),
+      weight: null, weightUnit: 'kg', length: null, width: null, height: null, dimensionUnit: 'cm', tariffCode: null, inventory: null,
+      attributes: [], priceTiers: tiers.map((t) => ({ ...t, variantId: 'var-1' })),
+    });
+    const list = async (product: unknown, role?: Role) => {
+      vi.mocked(repo.findPublished).mockResolvedValue({ data: [product as ProductWithMedia], total: 1 });
+      return (await service.listPublished({ categoryId: 'cat-l1' }, { page: 1, limit: 20 }, role)).data[0];
+    };
+
+    it('drops flat and variant tiers with no buyer price, for guests and buyers', async () => {
+      const product = {
+        ...withMedia(buildProduct({ adminPrice: new Decimal(20) })),
+        priceTiers: [tier('t1', 10, 12), tier('t2', 50, null, 6)],
+        variants: [variant('ACTIVE', [tier('vt1', 1, 9), tier('vt2', 10, null)])],
+      };
+      for (const role of [undefined, Role.BUYER]) {
+        const p = await list(product, role);
+        expect(p.priceTiers.map((t) => t.id)).toEqual(['t1']);
+        expect(p.variants[0].priceTiers.map((t) => t.id)).toEqual(['vt1']);
+      }
+    });
+
+    it('keeps agent-only-priced tiers for an agent, with adminPrice null (never "0")', async () => {
+      const product = {
+        ...withMedia(buildProduct({ adminPrice: new Decimal(20) })),
+        priceTiers: [tier('t1', 10, 12), tier('t2', 50, null, 6)],
+        variants: [variant('ACTIVE', [tier('vt2', 10, null, 4)])],
+      };
+      const p = await list(product, Role.AGENT);
+      expect(p.priceTiers).toEqual([
+        { id: 't1', moq: 10, adminPrice: '12', agentPrice: null },
+        { id: 't2', moq: 50, adminPrice: null, agentPrice: '6' },
+      ]);
+      expect(p.variants[0].priceTiers).toEqual([{ id: 'vt2', moq: 10, adminPrice: null, agentPrice: '4' }]);
+    });
+
+    it('hasOptions is true only with at least one ACTIVE variant', async () => {
+      const base = withMedia(buildProduct({ adminPrice: new Decimal(20) }));
+      expect((await list(base, Role.BUYER)).hasOptions).toBe(false);
+      expect((await list({ ...base, variants: [variant('INACTIVE', [tier('vt1', 1, 9)])] }, Role.BUYER)).hasOptions).toBe(false);
+      expect((await list({ ...base, variants: [variant('ACTIVE', [tier('vt1', 1, 9)])] }, Role.BUYER)).hasOptions).toBe(true);
+    });
+  });
+
   describe('updatePrice', () => {
     it('rejects updating price on a product that was never approved', async () => {
       vi.mocked(repo.findByIdRaw).mockResolvedValue(buildProduct());
@@ -1043,6 +1201,100 @@ describe('ProductsService', () => {
       ).resolves.toMatchObject({ name: 'Updated Name' });
 
       expect(repo.update).toHaveBeenCalledWith('prod-1', { name: 'Updated Name' }, [], 2, [], 0);
+    });
+
+    const twoImages = [
+      { id: 'img-1', productId: 'prod-1', url: 'x', sortOrder: 0 },
+      { id: 'img-2', productId: 'prod-1', url: 'y', sortOrder: 1 },
+    ];
+
+    it('strips the publish flag and leaves tags/isHandmade/isGITagged alone (real Zod schema -> service)', async () => {
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildProduct({ approvalStatus: ProductApprovalStatus.APPROVED }));
+      vi.mocked(repo.findByIdWithMedia).mockResolvedValue({ ...withMedia(buildProduct()), images: twoImages });
+
+      // Exactly what the shared form sends on an edit (multipart => strings).
+      const parsed = updateProductAsAdminSchema.parse({
+        name: 'Table Runner',
+        description: 'Nice',
+        materials: 'Cotton',
+        weight: '1.5',
+        moq: '10',
+        sellerPrice: '100',
+        declaredStock: '40',
+        publish: 'false',
+        removeCraftImage: 'false',
+        priceTiers: JSON.stringify([{ moq: 10, sellerPrice: 100, adminPrice: 150 }]),
+        variants: '[]',
+      });
+      expect(parsed.publish).toBe(false);
+
+      await service.updateProductAsAdmin('prod-1', parsed, [], 'admin-1');
+
+      const passed = vi.mocked(repo.update).mock.calls[0][1] as Record<string, unknown>;
+      expect(passed).not.toHaveProperty('publish');
+      expect(passed).not.toHaveProperty('tags');
+      expect(passed).not.toHaveProperty('isHandmade');
+      expect(passed).not.toHaveProperty('isGITagged');
+      expect(passed.priceTiers).toEqual([{ moq: 10, sellerPrice: 100, adminPrice: 150 }]);
+    });
+
+    it('strips publish from the seller-schema output too', async () => {
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildProduct());
+      vi.mocked(repo.findByIdWithMedia).mockResolvedValue({ ...withMedia(buildProduct()), images: twoImages });
+      await service.updateProductAsAdmin('prod-1', updateProductSchema.parse({ name: 'X' }), [], 'admin-1');
+      expect(vi.mocked(repo.update).mock.calls[0][1]).not.toHaveProperty('publish');
+    });
+
+    describe('brand-owned product', () => {
+      const brandProduct = () => buildProduct({ brandId: 'brand-1' });
+      const brandWithVariant = (): ProductWithMedia => ({
+        ...withMedia(brandProduct()),
+        images: twoImages,
+        variants: [
+          {
+            id: 'v1', productId: 'prod-1', type: 'Size', value: 'S', sku: 'S-1',
+            attributes: [],
+            priceTiers: [{ id: 't1', variantId: 'v1', moq: 5, sellerPrice: new Decimal(6), adminPrice: new Decimal(6), agentPrice: null }],
+          },
+        ] as unknown as ProductWithMedia['variants'],
+      });
+
+      it.each([
+        ['sellerPrice', { sellerPrice: 10 }],
+        ['moq', { moq: 3 }],
+        ['priceTiers', { priceTiers: [{ moq: 1, sellerPrice: 1 }] }],
+        ['variant priceTiers', { variants: [{ type: 'Size', value: 'S', sku: 'S-1', status: 'ACTIVE' as const, priceTiers: [{ moq: 5, sellerPrice: 1 }] }] }],
+        ['a new variant', { variants: [{ type: 'Size', value: 'XL', sku: 'XL-1', status: 'ACTIVE' as const }] }],
+      ])('rejects a price change (%s) with 400', async (_label, body) => {
+        vi.mocked(repo.findByIdRaw).mockResolvedValue(brandProduct());
+        vi.mocked(repo.findByIdWithMedia).mockResolvedValue(brandWithVariant());
+        await expect(service.updateProductAsAdmin('prod-1', body, [], 'admin-1')).rejects.toMatchObject({
+          statusCode: 400,
+          message: 'This price is set by the brand',
+        });
+        expect(repo.update).not.toHaveBeenCalled();
+      });
+
+      it('accepts non-price fields and does not touch tiers when variants are omitted', async () => {
+        vi.mocked(repo.findByIdRaw).mockResolvedValue(brandProduct());
+        vi.mocked(repo.findByIdWithMedia).mockResolvedValue(brandWithVariant());
+        await service.updateProductAsAdmin('prod-1', { name: 'Better name', publish: false }, [], 'admin-1');
+        const passed = vi.mocked(repo.update).mock.calls[0][1] as Record<string, unknown>;
+        expect(passed).toEqual({ name: 'Better name' });
+      });
+
+      it('carries the existing variant tiers over when only non-price variant data changes', async () => {
+        vi.mocked(repo.findByIdRaw).mockResolvedValue(brandProduct());
+        vi.mocked(repo.findByIdWithMedia).mockResolvedValue(brandWithVariant());
+        await service.updateProductAsAdmin(
+          'prod-1',
+          { variants: [{ type: 'Size', value: 'S', sku: 'S-1', status: 'ACTIVE', inventory: 99 }] },
+          [],
+          'admin-1',
+        );
+        const passed = vi.mocked(repo.update).mock.calls[0][1];
+        expect(passed.variants?.[0].priceTiers).toEqual([{ moq: 5, sellerPrice: 6, adminPrice: 6 }]);
+      });
     });
 
     it('rejects an image count outside 2-10 after applying add/remove', async () => {

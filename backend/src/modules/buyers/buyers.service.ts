@@ -100,6 +100,7 @@ export class BuyersService {
           avgRating: rating?.avgRating ?? null,
           reviewCount: rating?.reviewCount ?? 0,
           brand: toBrandSummary(item.product.brand),
+          hasOptions: item.product.variants.length > 0,
         },
       };
     });

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { Role } from '@prisma/client';
 import { sendSuccess } from '../../utils/response';
 import { buildPaginationMeta, PaginationQuery } from '../../utils/pagination';
 import { sellersService } from '../sellers/sellers.service';
@@ -11,6 +12,7 @@ import {
   CancelOrderDto,
   ExportDocumentsDto,
   ProcureDto,
+  QuoteDto,
   ShipDto,
   TrackingDto,
 } from './orders.validation';
@@ -26,6 +28,12 @@ async function resolveBuyerProfileId(userId: string): Promise<string> {
 }
 
 export const ordersController = {
+  async quote(req: Request, res: Response): Promise<void> {
+    const dto = req.body as QuoteDto;
+    const pricingRole = req.user!.role === Role.AGENT ? 'AGENT' : 'BUYER';
+    sendSuccess(res, await ordersService.quoteItems(dto.items, pricingRole), 'Quote calculated');
+  },
+
   async listMine(req: Request, res: Response): Promise<void> {
     const buyerId = await resolveBuyerProfileId(req.user!.id);
     const pagination = req.query as unknown as PaginationQuery;

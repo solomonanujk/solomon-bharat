@@ -43,10 +43,10 @@ import type { AdminProductBrandFields } from '@/types/brand-admin'
 
 function ApproveDialog({ product, onClose }: { product: AdminProduct; onClose: () => void }) {
   const approveProduct = useApproveProduct()
-  const { allTiers, values, setValue, agentValues, setAgentValue, buildPayload, hasAnyPriced } = useTierPriceForm(product)
+  const { allTiers, values, setValue, agentValues, setAgentValue, buildPayload, allPriced, missingCount } = useTierPriceForm(product)
 
   function handleSubmit() {
-    if (!hasAnyPriced) return
+    if (!allPriced) return
     approveProduct.mutate({ id: product.id, ...buildPayload() }, { onSuccess: onClose })
   }
 
@@ -56,7 +56,8 @@ function ApproveDialog({ product, onClose }: { product: AdminProduct; onClose: (
         <DialogHeader>
           <DialogTitle>Approve &quot;{product.name}&quot;</DialogTitle>
           <DialogDescription>
-            Set your selling price for at least one MOQ tier to approve and publish this product.
+            Set the buyer price for every MOQ tier to approve and publish this product. The agent price is optional;
+            where it is blank, agents pay the buyer price.
           </DialogDescription>
         </DialogHeader>
         <div className="px-6 pb-2 max-h-[50vh] overflow-y-auto">
@@ -71,8 +72,13 @@ function ApproveDialog({ product, onClose }: { product: AdminProduct; onClose: (
           />
         </div>
         <DialogFooter>
+          {!allPriced && missingCount > 0 && (
+            <p role="status" className="mr-auto text-[12.5px] font-sans text-[#665F55] self-center">
+              {missingCount} {missingCount === 1 ? 'tier still needs' : 'tiers still need'} a buyer price.
+            </p>
+          )}
           <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" size="sm" disabled={!hasAnyPriced || approveProduct.isPending} onClick={handleSubmit}>
+          <Button variant="primary" size="sm" disabled={!allPriced || approveProduct.isPending} onClick={handleSubmit}>
             {approveProduct.isPending ? 'Approving…' : 'Approve & Publish'}
           </Button>
         </DialogFooter>

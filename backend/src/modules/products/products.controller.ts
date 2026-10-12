@@ -18,6 +18,7 @@ import {
   SellerProductListQueryDto,
   UpdatePriceDto,
   UpdateProductDto,
+  UpdateProductAsAdminDto,
 } from './products.validation';
 
 function toFileInput(f: Express.Multer.File) {
@@ -142,7 +143,7 @@ export const productsController = {
   },
 
   async updateAdmin(req: Request, res: Response): Promise<void> {
-    const dto = req.body as UpdateProductDto;
+    const dto = req.body as UpdateProductAsAdminDto;
     const { images, videos, craftImage } = extractFiles(req);
     const product = await productsService.updateProductAsAdmin(req.params.id, dto, images, req.user!.id, videos, craftImage);
     sendSuccess(res, product, 'Product updated');

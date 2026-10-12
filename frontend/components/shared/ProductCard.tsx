@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { Heart, Plus, Trash2, BookmarkPlus, BookmarkCheck, Lock } from 'lucide-react'
+import { Heart, Plus, Trash2, BookmarkPlus, BookmarkCheck, Lock, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import { displayUnitPrice } from '@/lib/pricing'
@@ -21,7 +21,7 @@ import { ShareProductButton } from '@/components/shared/ShareProductButton'
 export type ProductCardData = Pick<
   Product,
   'id' | 'name' | 'slug' | 'adminPrice' | 'agentPrice' | 'moq' | 'images' | 'leadTime' | 'avgRating' | 'reviewCount' | 'isBestseller'
-> & { brand?: Product['brand'] }
+> & { brand?: Product['brand']; hasOptions?: boolean }
 
 interface ProductCardProps {
   product: ProductCardData
@@ -37,7 +37,7 @@ interface ProductCardProps {
  * wholesale price. Signed-in buyers see the price plus wishlist/cart controls.
  */
 export function ProductCard({ product, className }: ProductCardProps) {
-  const { id, name, slug, adminPrice, agentPrice, moq, images, leadTime, isBestseller, brand } = product
+  const { id, name, slug, adminPrice, agentPrice, moq, images, leadTime, isBestseller, brand, hasOptions } = product
   const imageSrc = images?.[0]?.url ?? null
 
   const { user, requireAuth, isAuthenticated } = useAuth()
@@ -180,7 +180,19 @@ export function ProductCard({ product, className }: ProductCardProps) {
           </div>
         )}
 
+        {isAuthenticated && hasOptions && (
+          <Link
+            href={`/products/${slug}`}
+            aria-label={`Choose options for ${name}`}
+            className="absolute bottom-1 right-1 z-10 min-h-[44px] px-3 inline-flex items-center gap-1 rounded-full bg-white border border-line text-forest text-[12px] font-[600] font-sans hover:bg-ivory transition-colors"
+          >
+            Choose options
+            <ChevronRight size={14} aria-hidden="true" />
+          </Link>
+        )}
+
         {isAuthenticated &&
+          !hasOptions &&
           (cartItem ? (
             <div className="absolute bottom-2 right-2 z-10 flex items-center h-9 px-1 rounded-full bg-white border border-line">
               <button

@@ -179,11 +179,10 @@ describe('OrdersService.createPendingCheckout (order split + minimum order value
     expect(vi.mocked(buyer.repo.createPending).mock.calls[0][0].items[0].unitAdminPrice).toBe(450);
   });
 
-  it('a curated product still needs an agent price for an agent (unchanged)', async () => {
-    const { service } = buildCheckoutHarness({ c1: product('c1', { admin: 100 }) }, []);
-    await expect(
-      service.createPendingCheckout('agent-1', [{ productId: 'c1', quantity: 1 }], undefined, 'AGENT'),
-    ).rejects.toThrow(/no agent price/);
+  it('a curated product with no agent price charges an agent the buyer price', async () => {
+    const { repo, service } = buildCheckoutHarness({ c1: product('c1', { admin: 100 }) }, []);
+    await service.createPendingCheckout('agent-1', [{ productId: 'c1', quantity: 1 }], undefined, 'AGENT');
+    expect(vi.mocked(repo.createPending).mock.calls[0][0].items[0].unitAdminPrice).toBe(100);
   });
 
   it('a curated-only cart creates a single order with no seller profile', async () => {

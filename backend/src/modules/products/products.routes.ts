@@ -16,6 +16,7 @@ import {
   slugParamSchema,
   updatePriceSchema,
   updateProductSchema,
+  updateProductAsAdminSchema,
 } from './products.validation';
 import { validate } from '../../middleware/validate';
 import {
@@ -281,7 +282,7 @@ productsRouter.patch(
   requireAdmin,
   uploadProductMedia,
   validate(idParamSchema, 'params'),
-  validate(updateProductSchema),
+  validate(updateProductAsAdminSchema),
   asyncHandler(productsController.updateAdmin),
 );
 

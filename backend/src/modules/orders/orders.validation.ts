@@ -15,6 +15,20 @@ export const checkoutSchema = z.object({
 });
 export type CheckoutDto = z.infer<typeof checkoutSchema>;
 
+export const quoteSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        productId: z.string().uuid(),
+        variantId: z.string().uuid().optional(),
+        quantity: z.coerce.number().int().min(1),
+      }),
+    )
+    .min(1)
+    .max(100),
+});
+export type QuoteDto = z.infer<typeof quoteSchema>;
+
 export const procureSchema = z.object({
   expectedCollectionDate: z.coerce.date().optional(),
 });

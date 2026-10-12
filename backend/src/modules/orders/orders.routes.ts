@@ -8,6 +8,7 @@ import {
   exportDocumentsSchema,
   idParamSchema,
   procureSchema,
+  quoteSchema,
   shipSchema,
   trackingSchema,
 } from './orders.validation';
@@ -58,6 +59,44 @@ ordersRouter.get(
   requireBuyerOrAgent,
   validate(idParamSchema, 'params'),
   asyncHandler(ordersController.getMine),
+);
+
+/**
+ * @openapi
+ * /orders/quote:
+ *   post:
+ *     summary: "Quote server-side prices for a cart (BUYER or AGENT). Always 200 with a per-line status."
+ *     description: "Prices each line exactly as checkout would. Line status is one of OK, UNAVAILABLE, OPTION_CHANGED, CHOOSE_OPTION or BELOW_MOQ. subtotalInr sums the OK lines."
+ *     tags: [Orders]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [items]
+ *             properties:
+ *               items:
+ *                 type: array
+ *                 minItems: 1
+ *                 maxItems: 100
+ *                 items:
+ *                   type: object
+ *                   required: [productId, quantity]
+ *                   properties:
+ *                     productId: { type: string, format: uuid }
+ *                     variantId: { type: string, format: uuid }
+ *                     quantity: { type: integer, minimum: 1 }
+ *     responses:
+ *       200: { description: "Quote with lines and subtotalInr" }
+ *       400: { description: Validation error }
+ */
+ordersRouter.post(
+  '/quote',
+  requireAuth,
+  requireBuyerOrAgent,
+  validate(quoteSchema),
+  asyncHandler(ordersController.quote),
 );
 
 // ── Seller ───────────────────────────────────────────────────────────

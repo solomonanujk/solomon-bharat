@@ -215,7 +215,7 @@ export function usePolishField() {
   })
 }
 
-export function useSubmitProduct() {
+export function useSubmitProduct(successMessage = 'Product submitted for review.') {
   const qc = useQueryClient()
   return useMutation<MyProduct, Error, SubmitProductInput>({
     mutationFn: async (input) => {
@@ -226,7 +226,7 @@ export function useSubmitProduct() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['my-products'] })
-      toast.success('Product submitted for review.')
+      toast.success(successMessage)
     },
     onError: (err) => toast.error(getApiError(err)),
   })
