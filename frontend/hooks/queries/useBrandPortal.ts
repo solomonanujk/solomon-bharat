@@ -68,6 +68,15 @@ export function useUploadBrandImage(kind: 'logo' | 'banner') {
   })
 }
 
+/** The brand's personal invite link: buyers who join through it are the brand's own (0% commission). */
+export function useMyBrandInvite(enabled = true) {
+  return useQuery<{ code: string; ownBuyerCount: number }>({
+    queryKey: ['my-brand-invite'],
+    queryFn: async () => (await api.get('/brands/me/invite')).data.data,
+    enabled,
+  })
+}
+
 export function useMyBrandStats(enabled = true) {
   return useQuery<BrandSalesStats>({
     queryKey: ['my-brand-stats'],

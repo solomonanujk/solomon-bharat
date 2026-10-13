@@ -206,6 +206,12 @@ export class OrdersRepository {
     });
   }
 
+  /** True when the buyer joined through this brand's invite link (the brand's own buyer). */
+  async isBrandOwnBuyer(tx: DbTx, brandId: string, buyerId: string): Promise<boolean> {
+    const row = await tx.brandOwnBuyer.findUnique({ where: { buyerId_brandId: { buyerId, brandId } } });
+    return row !== null;
+  }
+
   findItemsInTx(tx: DbTx, orderId: string): Promise<OrderItem[]> {
     return tx.orderItem.findMany({ where: { orderId } });
   }
@@ -221,7 +227,7 @@ export class OrdersRepository {
   updateOrderTotals(
     tx: DbTx,
     orderId: string,
-    data: { sellerPriceTotal: number; adminMargin: number },
+    data: { sellerPriceTotal: number; adminMargin: number; brandOwnBuyer?: boolean },
   ): Promise<Order> {
     return tx.order.update({ where: { id: orderId }, data });
   }

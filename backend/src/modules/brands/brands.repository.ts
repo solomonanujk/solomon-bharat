@@ -93,6 +93,42 @@ export class BrandsRepository {
     });
   }
 
+  // ── Invite links (the brand's own buyers) ────────────────────────────────
+
+  findActiveByInviteCode(inviteCode: string): Promise<Brand | null> {
+    return this.db.brand.findFirst({ where: { inviteCode, status: BrandStatus.ACTIVE } });
+  }
+
+  /** Sets the code only if the brand has none yet; returns the brand's code either way. */
+  async ensureInviteCode(brandId: string, candidate: string): Promise<string> {
+    await this.db.brand.updateMany({ where: { id: brandId, inviteCode: null }, data: { inviteCode: candidate } });
+    const brand = await this.db.brand.findUniqueOrThrow({ where: { id: brandId }, select: { inviteCode: true } });
+    return brand.inviteCode!;
+  }
+
+  countOwnBuyers(brandId: string): Promise<number> {
+    return this.db.brandOwnBuyer.count({ where: { brandId } });
+  }
+
+  /** Paid (non-cancelled) orders this buyer already placed with the brand's seller profile. */
+  countPaidOrdersWithBrand(buyerId: string, sellerProfileId: string): Promise<number> {
+    return this.db.order.count({
+      where: {
+        buyerId,
+        sellerProfileId,
+        status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED, OrderStatus.REFUNDED] },
+      },
+    });
+  }
+
+  addOwnBuyer(buyerId: string, brandId: string): Promise<unknown> {
+    return this.db.brandOwnBuyer.upsert({
+      where: { buyerId_brandId: { buyerId, brandId } },
+      update: {},
+      create: { buyerId, brandId },
+    });
+  }
+
   unfollowBrand(buyerId: string, brandId: string): Promise<unknown> {
     return this.db.brandFollow.deleteMany({ where: { buyerId, brandId } });
   }

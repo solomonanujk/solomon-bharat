@@ -89,6 +89,7 @@ function buildOrder(overrides: Partial<Order> = {}): Order {
     dispatchPhotos: null,
     refundedAt: null,
     refundReference: null,
+    brandOwnBuyer: false,
     placedAsAgent: false,
     createdAt: new Date(),
     updatedAt: new Date(),

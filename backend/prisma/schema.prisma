@@ -359,6 +359,7 @@ model BuyerProfile {
   addresses     Address[]
   wishlistItems WishlistItem[]
   brandFollows  BrandFollow[]
+  ownBrands     BrandOwnBuyer[]
   messages      Message[]
   orders        Order[]
   reviews       Review[]
@@ -692,6 +693,8 @@ model Order {
   sellerPriceTotal       Decimal        @db.Decimal(12, 2)
   adminMargin            Decimal        @db.Decimal(12, 2)
   placedAsAgent          Boolean        @default(false)
+  /// Marketplace only: the buyer is the brand's own (joined via its invite link). Locked at payment.
+  brandOwnBuyer          Boolean        @default(false)
   trackingNumber         String?
   exportDocuments        Json?
   expectedCollectionDate DateTime?
@@ -906,6 +909,9 @@ model Brand {
   /// Per-brand overrides of the platform default commission (percent, e.g. 25.00).
   commissionFirstOverride  Decimal?      @db.Decimal(5, 2)
   commissionRepeatOverride Decimal?      @db.Decimal(5, 2)
+  /// Shareable code for the brand's personal invite link (/invite/<code>). Buyers who join
+  /// through it are the brand's own buyers: 0% commission and payout on payment.
+  inviteCode               String?       @unique
   legalName                String?
   gstin                    String?
   createdAt                DateTime      @default(now())
@@ -913,9 +919,24 @@ model Brand {
 
   products  Product[]
   followers BrandFollow[]
+  ownBuyers BrandOwnBuyer[]
 
   @@index([status])
   @@map("brands")
+}
+
+/// A buyer the brand brought to the platform through its invite link.
+model BrandOwnBuyer {
+  id        String       @id @default(uuid())
+  buyerId   String
+  buyer     BuyerProfile @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  brandId   String
+  brand     Brand        @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([buyerId, brandId])
+  @@index([brandId])
+  @@map("brand_own_buyers")
 }
 
 model BrandFollow {

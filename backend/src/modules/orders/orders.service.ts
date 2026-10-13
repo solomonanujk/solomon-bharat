@@ -148,6 +148,7 @@ export function toBrandOrderView(order: BrandOrderRecord): BrandOrderView {
     cancelledReason: order.cancelledReason,
     paidAt: order.paidAt,
     dispatchPhotos: (order.dispatchPhotos as string[] | null) ?? [],
+    brandOwnBuyer: order.brandOwnBuyer,
     refundedAt: order.refundedAt,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
@@ -553,6 +554,7 @@ export class OrdersService {
     const sortedIds = [...new Set(orderIds)].sort();
     const settledOrderIds: string[] = [];
     const brandOrderIds: string[] = [];
+    const ownBuyerOrderIds: string[] = [];
 
     await this.repo.runInTransaction(async (tx) => {
       if (inTx) await inTx(tx);
@@ -564,11 +566,21 @@ export class OrdersService {
         const order = await this.repo.findOrderInTx(tx, id);
         if (order?.sellerProfileId) {
           // eslint-disable-next-line no-await-in-loop
-          await this.lockCommission(tx, order);
+          if (await this.lockCommission(tx, order)) ownBuyerOrderIds.push(id);
           brandOrderIds.push(id);
         }
       }
     });
+
+    // The brand's own buyers are paid out instantly, on payment rather than on dispatch.
+    for (const id of ownBuyerOrderIds) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await this.payouts.createForDeliveredBrandOrder(id);
+      } catch (err) {
+        logger.error({ err, orderId: id }, 'Failed to create instant payout for own-buyer order — reconcile manually');
+      }
+    }
 
     // After commit: a notification failure must never undo or fail a settled payment.
     for (const id of brandOrderIds) {
@@ -590,7 +602,7 @@ export class OrdersService {
    * The 'first' rate applies once per buyer per brand; every later order from that buyer is 'repeat'.
    * Isolated on purpose — this is the piece that would move if commission is locked at checkout.
    */
-  private async lockCommission(tx: DbTx, order: Order): Promise<void> {
+  private async lockCommission(tx: DbTx, order: Order): Promise<boolean> {
     const sellerProfileId = order.sellerProfileId!;
     const brand = await this.repo.findBrandBySellerProfileId(tx, sellerProfileId);
     if (!brand) {
@@ -598,8 +610,12 @@ export class OrdersService {
     }
 
     await this.repo.lockBrand(tx, brand.id);
-    const otherPaid = await this.repo.countOtherPaidBrandOrders(tx, sellerProfileId, order.buyerId, order.id);
-    const rate = pickRate(await this.rates.resolveCommissionRates(brand.id), otherPaid === 0);
+    // The brand's own buyers (joined via its invite link) carry no commission.
+    const ownBuyer = await this.repo.isBrandOwnBuyer(tx, brand.id, order.buyerId);
+    const otherPaid = ownBuyer
+      ? 0
+      : await this.repo.countOtherPaidBrandOrders(tx, sellerProfileId, order.buyerId, order.id);
+    const rate = ownBuyer ? 0 : pickRate(await this.rates.resolveCommissionRates(brand.id), otherPaid === 0);
 
     const items = await this.repo.findItemsInTx(tx, order.id);
     let netPaise = 0;
@@ -618,8 +634,10 @@ export class OrdersService {
     await this.repo.updateOrderTotals(tx, order.id, {
       sellerPriceTotal: fromPaise(netPaise),
       adminMargin: fromPaise(adminPaise - netPaise),
+      brandOwnBuyer: ownBuyer,
     });
-    logger.info({ orderId: order.id, brandId: brand.id, rate, firstOrder: otherPaid === 0 }, 'Commission locked');
+    logger.info({ orderId: order.id, brandId: brand.id, rate, ownBuyer, firstOrder: otherPaid === 0 }, 'Commission locked');
+    return ownBuyer;
   }
 
   private assertOwnedByBuyer(order: Order, buyerId: string): void {

@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { Brand, BrandStatus, Prisma, Role } from '@prisma/client';
 import { AppError } from '../../utils/errors';
 import { writeAuditLog } from '../../utils/auditLog';
@@ -138,6 +139,45 @@ export class BrandsService {
     const buyerId = await this.getBuyerIdOrThrow(userId);
     const { data, total } = await this.repo.findFollowedBrands(buyerId, pagination);
     return { data: data.map(toBrandListItem), total };
+  }
+
+  // ── Invite links: the brand's own buyers (0% commission) ─────────────────
+
+  /** The brand's personal invite code (created on first request) and how many buyers joined through it. */
+  async getMyInvite(userId: string): Promise<{ code: string; ownBuyerCount: number }> {
+    const brand = await this.getOwnBrandRowOrThrow(userId);
+    const code = brand.inviteCode ?? (await this.repo.ensureInviteCode(brand.id, randomBytes(6).toString('base64url')));
+    return { code, ownBuyerCount: await this.repo.countOwnBuyers(brand.id) };
+  }
+
+  async getInvitePreview(code: string): Promise<{ name: string; slug: string; logoUrl: string | null }> {
+    const brand = await this.repo.findActiveByInviteCode(code);
+    if (!brand) {
+      throw AppError.notFound('This invite link is not valid');
+    }
+    return { name: brand.name, slug: brand.slug, logoUrl: brand.logoUrl };
+  }
+
+  /**
+   * Records the buyer as the brand's own. Only a buyer who has not already bought from the brand
+   * through the platform can be claimed, so a brand cannot move Solomon's existing buyers to 0%.
+   */
+  async acceptInvite(
+    userId: string,
+    code: string,
+  ): Promise<{ brand: { name: string; slug: string }; linked: boolean; reason?: string }> {
+    const buyerId = await this.getBuyerIdOrThrow(userId);
+    const brand = await this.repo.findActiveByInviteCode(code);
+    if (!brand) {
+      throw AppError.notFound('This invite link is not valid');
+    }
+    const result = { brand: { name: brand.name, slug: brand.slug } };
+    if ((await this.repo.countPaidOrdersWithBrand(buyerId, brand.sellerProfileId)) > 0) {
+      return { ...result, linked: false, reason: 'You have already ordered from this brand on Solomon Bharat' };
+    }
+    await this.repo.addOwnBuyer(buyerId, brand.id);
+    await this.repo.followBrand(buyerId, brand.id);
+    return { ...result, linked: true };
   }
 
   // ── Brand owner ──────────────────────────────────────────────────────────

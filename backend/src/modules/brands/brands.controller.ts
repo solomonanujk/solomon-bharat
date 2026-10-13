@@ -26,6 +26,18 @@ export const brandsController = {
     sendSuccess(res, brand);
   },
 
+  async myInvite(req: Request, res: Response): Promise<void> {
+    sendSuccess(res, await brandsService.getMyInvite(req.user!.id));
+  },
+
+  async invitePreview(req: Request, res: Response): Promise<void> {
+    sendSuccess(res, await brandsService.getInvitePreview(req.params.code));
+  },
+
+  async acceptInvite(req: Request, res: Response): Promise<void> {
+    sendSuccess(res, await brandsService.acceptInvite(req.user!.id, req.params.code), 'Invite accepted');
+  },
+
   async follow(req: Request, res: Response): Promise<void> {
     sendSuccess(res, await brandsService.follow(req.user!.id, req.params.slug), 'Brand followed');
   },

@@ -77,6 +77,7 @@ function order(overrides: Partial<Order> = {}): Order {
     dispatchPhotos: null,
     refundedAt: null,
     refundReference: null,
+    brandOwnBuyer: false,
     placedAsAgent: false,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -311,7 +312,7 @@ type OrderRow = Order & { _committedStatus: OrderStatus };
  * visibility (a transaction's own status writes are invisible to others until commit) and a
  * brand row lock that is held until the transaction ends.
  */
-function buildFakeDb(initial: Order[], items: OrderItem[]) {
+function buildFakeDb(initial: Order[], items: OrderItem[], ownBuyerIds: string[] = []) {
   const rows = new Map<string, OrderRow>(initial.map((o) => [o.id, { ...o, _committedStatus: o.status }]));
   const itemRows = new Map(items.map((i) => [i.id, { ...i }]));
   const lockQueue: Array<() => void> = [];
@@ -361,6 +362,7 @@ function buildFakeDb(initial: Order[], items: OrderItem[]) {
       await acquire();
       (tx as unknown as { markLocked: () => void }).markLocked();
     }),
+    isBrandOwnBuyer: vi.fn(async (_tx: DbTx, _brandId: string, buyerId: string) => ownBuyerIds.includes(buyerId)),
     countOtherPaidBrandOrders: vi.fn(async (_tx: DbTx, sellerProfileId: string, buyerId: string, excludeId: string) => {
       events.push('count');
       return [...rows.values()].filter(
@@ -449,6 +451,29 @@ describe('OrdersService.markCheckoutPaid (settle + commission lock)', () => {
     );
     await service(db).markCheckoutPaid(['o3']);
     expect(Number(db.itemRows.get('i3')!.commissionRate)).toBe(25);
+  });
+
+  it('the brand\'s own buyer (joined via invite link) pays 0% commission and is paid out instantly', async () => {
+    const db = buildFakeDb([brandOrder('o1')], [item({ id: 'i1', orderId: 'o1' })], [brandOrder('x').buyerId]);
+    const payouts = { createForDeliveredBrandOrder: vi.fn() } as unknown as PayoutsService;
+    const svc = new OrdersService(db.repo, {} as ProductsService, {} as BuyersService, payouts, rates());
+    await svc.markCheckoutPaid(['o1']);
+
+    const i = db.itemRows.get('i1')!;
+    expect(Number(i.commissionRate)).toBe(0);
+    expect(Number(i.commissionAmount)).toBe(0);
+    expect(Number(i.lineSellerTotal)).toBe(Number(i.lineAdminTotal));
+    expect(db.rawRepo.updateOrderTotals).toHaveBeenCalledWith(expect.anything(), 'o1', expect.objectContaining({ brandOwnBuyer: true }));
+    expect(payouts.createForDeliveredBrandOrder).toHaveBeenCalledWith('o1');
+  });
+
+  it('a platform buyer gets normal commission and no instant payout', async () => {
+    const db = buildFakeDb([brandOrder('o1')], [item({ id: 'i1', orderId: 'o1' })]);
+    const payouts = { createForDeliveredBrandOrder: vi.fn() } as unknown as PayoutsService;
+    const svc = new OrdersService(db.repo, {} as ProductsService, {} as BuyersService, payouts, rates());
+    await svc.markCheckoutPaid(['o1']);
+    expect(db.rawRepo.updateOrderTotals).toHaveBeenCalledWith(expect.anything(), 'o1', expect.objectContaining({ brandOwnBuyer: false }));
+    expect(payouts.createForDeliveredBrandOrder).not.toHaveBeenCalled();
   });
 
   it('honours override rates from the rates port', async () => {

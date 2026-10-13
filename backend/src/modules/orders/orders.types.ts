@@ -163,6 +163,8 @@ export interface BrandOrderView {
   cancelledReason: string | null;
   paidAt: Date | null;
   dispatchPhotos: string[];
+  /** The buyer joined via the brand's invite link: 0% commission. */
+  brandOwnBuyer: boolean;
   refundedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;

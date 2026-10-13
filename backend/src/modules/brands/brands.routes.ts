@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { Router } from 'express';
 import { brandsController } from './brands.controller';
 import {
@@ -56,6 +57,41 @@ brandsRouter.get(
   requireBuyer,
   validate(paginationQuerySchema, 'query'),
   asyncHandler(brandsController.following),
+);
+
+const inviteCodeParamSchema = z.object({ code: z.string().trim().min(4).max(64) });
+
+/**
+ * @openapi
+ * /brands/me/invite:
+ *   get:
+ *     summary: My personal invite link code and how many buyers joined through it (marketplace SELLER only)
+ *     tags: [Brands]
+ */
+brandsRouter.get('/me/invite', requireAuth, requireMarketplaceSeller, asyncHandler(brandsController.myInvite));
+
+/**
+ * @openapi
+ * /brands/invites/{code}:
+ *   get:
+ *     summary: Public preview of the brand behind an invite link
+ *     tags: [Brands]
+ */
+brandsRouter.get('/invites/:code', validate(inviteCodeParamSchema, 'params'), asyncHandler(brandsController.invitePreview));
+
+/**
+ * @openapi
+ * /brands/invites/{code}/accept:
+ *   post:
+ *     summary: Join as the brand's own buyer (0% commission for the brand). BUYER only
+ *     tags: [Brands]
+ */
+brandsRouter.post(
+  '/invites/:code/accept',
+  requireAuth,
+  requireBuyer,
+  validate(inviteCodeParamSchema, 'params'),
+  asyncHandler(brandsController.acceptInvite),
 );
 
 /**

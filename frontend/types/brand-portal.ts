@@ -59,6 +59,8 @@ export interface BrandOrderView {
   /** When payment was confirmed; the brand must accept within 24h of this. */
   paidAt: string | null
   dispatchPhotos: string[]
+  /** The buyer joined via this brand's invite link: no commission on this order. */
+  brandOwnBuyer: boolean
   createdAt: string
   updatedAt: string
   grossTotal: string

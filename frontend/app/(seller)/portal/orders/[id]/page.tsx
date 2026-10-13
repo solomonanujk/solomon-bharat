@@ -161,6 +161,11 @@ function OrderDetail({ order }: { order: BrandOrderView }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <OrderItemStatusBadge status={order.status} />
+        {order.brandOwnBuyer && (
+          <span className="inline-flex items-center rounded-full bg-selected px-2.5 py-1 text-[12px] font-[600] font-sans text-forest">
+            Your buyer &middot; 0% commission
+          </span>
+        )}
         <span className="text-[13px] font-sans text-muted">
           Placed {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
         </span>
