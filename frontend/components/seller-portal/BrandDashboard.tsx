@@ -100,9 +100,9 @@ export function BrandDashboard() {
             <div className="h-[220px]" aria-hidden="true">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={days} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                  <CartesianGrid stroke="#E5DCCB" vertical={false} />
-                  <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fontSize: 11, fill: '#665F55' }} interval="preserveStartEnd" />
-                  <YAxis tick={{ fontSize: 11, fill: '#665F55' }} width={48} allowDecimals={false} />
+                  <CartesianGrid stroke="#D9E2DA" vertical={false} />
+                  <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fontSize: 11, fill: '#183D33B3' }} interval="preserveStartEnd" />
+                  <YAxis tick={{ fontSize: 11, fill: '#183D33B3' }} width={48} allowDecimals={false} />
                   <Tooltip
                     formatter={(v) => [formatINR(Number(v)), 'Sales']}
                     labelFormatter={(l) => shortDate(String(l))}

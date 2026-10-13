@@ -13,7 +13,7 @@ const OPTIONS: { value: SellerType; title: string; body: string; points: string[
       'Set your own prices and minimum order value',
       'Your brand name and storefront are shown to buyers',
       'You ship your orders yourself',
-      `Solomon charges ${MARKETPLACE_COMMISSION.first}% on your first order and ${MARKETPLACE_COMMISSION.repeat}% on every order after`, // CONFIRM
+      `Solomon charges ${MARKETPLACE_COMMISSION.first}% on each buyer's first order with you and ${MARKETPLACE_COMMISSION.repeat}% on that buyer's later orders`, // CONFIRM
     ],
   },
   {

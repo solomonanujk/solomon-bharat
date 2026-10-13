@@ -21,9 +21,9 @@ export interface LineCommission {
 export const toPaise = (inr: number): number => Math.round(inr * 100);
 export const fromPaise = (paise: number): number => paise / 100;
 
-/** First paid order of the brand gets `first`, every later one `repeat`. */
-export function pickRate(rates: CommissionRates, isFirstPaidOrder: boolean): number {
-  return isFirstPaidOrder ? rates.first : rates.repeat;
+/** A buyer's first paid order with a brand gets `first`, every later one from that buyer `repeat`. */
+export function pickRate(rates: CommissionRates, isFirstPaidOrderOfBuyer: boolean): number {
+  return isFirstPaidOrderOfBuyer ? rates.first : rates.repeat;
 }
 
 /** `ratePercent` is a percent with up to 2dp (25 = 25%). Invariant: lineNet + commissionAmount == lineAdminTotal. */

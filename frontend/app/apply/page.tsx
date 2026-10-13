@@ -273,8 +273,8 @@ export default function ApplyPage() {
           <div className="flex-1 flex flex-col min-w-0">
             {applyAsSeller.isSuccess ? (
               <div className="flex flex-col items-center text-center gap-4 py-16 px-6 sm:px-8" role="status">
-                <div className="w-14 h-14 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center">
-                  <Check size={24} className="text-emerald-600" aria-hidden="true" />
+                <div className="w-14 h-14 rounded-full bg-[#E7EDE7] border border-[#D9E2DA] flex items-center justify-center">
+                  <Check size={24} className="text-[#183D33]" aria-hidden="true" />
                 </div>
                 <div>
                   <p className="text-[20px] font-[700] font-sans text-primary leading-tight">Application received</p>

@@ -171,7 +171,7 @@ export function ProductOptionsModal({ sizeValues, axisType, axisValues, disabled
                 placeholder={row.type ? `Add a new "${row.type}" value` : 'Add a variant of the existing products'}
                 disabled={disabled || !row.type} />
               <button type="button" disabled={disabled} onClick={() => removeRow(row.id)} aria-label="Remove option"
-                className="text-muted-text hover:text-red-600 transition-colors self-start mt-2 disabled:opacity-40">
+                className="text-muted-text hover:text-[#183D33] transition-colors self-start mt-2 disabled:opacity-40">
                 <Trash2 size={15} />
               </button>
             </div>

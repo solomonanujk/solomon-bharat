@@ -36,11 +36,11 @@ function KpiCard({ label, value, icon: Icon, iconBg, iconColor, sub, href, featu
     <div className={cn(
       'rounded-xl border p-5 flex flex-col gap-3 transition-all',
       featured
-        ? 'bg-[#1C1A18] border-[#2E2A24]'
-        : 'bg-white border-[#E5DCCB] hover:border-[#C4BDB4] hover:shadow-sm',
+        ? 'bg-[#0F241D] border-[#183D33]'
+        : 'bg-white border-[#D9E2DA] hover:border-[#6B7E6B] hover:shadow-sm',
     )}>
       <div className="flex items-center justify-between">
-        <span className={cn('text-[12px] font-[500] font-sans', featured ? 'text-[#9A9189]' : 'text-[#665F55]')}>
+        <span className={cn('text-[12px] font-[500] font-sans', featured ? 'text-[#D9E2DA]' : 'text-[#183D33B3]')}>
           {label}
         </span>
         <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', iconBg)}>
@@ -48,11 +48,11 @@ function KpiCard({ label, value, icon: Icon, iconBg, iconColor, sub, href, featu
         </div>
       </div>
       <div>
-        <p className={cn('text-[30px] font-[700] font-sans leading-none tabular-nums', featured ? 'text-white' : 'text-[#20201E]')}>
+        <p className={cn('text-[30px] font-[700] font-sans leading-none tabular-nums', featured ? 'text-white' : 'text-[#0F241D]')}>
           {value}
         </p>
         {sub && (
-          <p className={cn('text-[11.5px] font-sans mt-1.5', featured ? 'text-[#665F55]' : 'text-[#9CA3AF]')}>
+          <p className={cn('text-[11.5px] font-sans mt-1.5', featured ? 'text-[#D9E2DA]' : 'text-[#6B7E6B]')}>
             {sub}
           </p>
         )}
@@ -68,12 +68,12 @@ function KpiCard({ label, value, icon: Icon, iconBg, iconColor, sub, href, featu
 
 function KpiCardSkeleton() {
   return (
-    <div className="bg-white border border-[#E5DCCB] rounded-xl p-5 space-y-3 animate-pulse">
+    <div className="bg-white border border-[#D9E2DA] rounded-xl p-5 space-y-3 animate-pulse">
       <div className="flex justify-between">
-        <div className="h-3 bg-[#F5F0E5] rounded w-28" />
-        <div className="w-8 h-8 bg-[#F5F0E5] rounded-lg" />
+        <div className="h-3 bg-[#E7EDE7] rounded w-28" />
+        <div className="w-8 h-8 bg-[#E7EDE7] rounded-lg" />
       </div>
-      <div className="h-8 bg-[#F5F0E5] rounded w-20" />
+      <div className="h-8 bg-[#E7EDE7] rounded w-20" />
     </div>
   )
 }
@@ -86,18 +86,18 @@ function ActionCard({ label, count, href, urgency }: {
   return (
     <Link
       href={href}
-      className="flex items-center justify-between p-4 bg-white border border-[#E5DCCB] rounded-xl hover:border-[#C4BDB4] hover:shadow-sm transition-all"
+      className="flex items-center justify-between p-4 bg-white border border-[#D9E2DA] rounded-xl hover:border-[#6B7E6B] hover:shadow-sm transition-all"
     >
       <div className="flex items-center gap-3">
         <div className={cn(
           'w-8 h-8 rounded-lg flex items-center justify-center text-[13px] font-[700]',
-          urgency === 'high' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'
+          urgency === 'high' ? 'bg-[#E7EDE7] text-[#183D33]' : 'bg-[#E7EDE7] text-[#183D33]'
         )}>
           {count > 99 ? '99+' : count}
         </div>
-        <span className="text-[13.5px] font-[500] font-sans text-[#20201E]">{label}</span>
+        <span className="text-[13.5px] font-[500] font-sans text-[#0F241D]">{label}</span>
       </div>
-      <ArrowRight size={14} className="text-[#C4BDB4]" aria-hidden="true" />
+      <ArrowRight size={14} className="text-[#6B7E6B]" aria-hidden="true" />
     </Link>
   )
 }
@@ -123,15 +123,15 @@ function RevenueChart() {
   const total = values.reduce((s, v) => s + v, 0)
 
   return (
-    <div className="bg-white border border-[#E5DCCB] rounded-xl p-5">
+    <div className="bg-white border border-[#D9E2DA] rounded-xl p-5">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-[15px] font-[600] font-sans text-[#20201E]">Revenue Over Time</h2>
-          <p className="text-[12px] font-sans text-[#9CA3AF] mt-0.5">Gross Merchandise Value (INR)</p>
+          <h2 className="text-[15px] font-[600] font-sans text-[#0F241D]">Revenue Over Time</h2>
+          <p className="text-[12px] font-sans text-[#6B7E6B] mt-0.5">Gross Merchandise Value (INR)</p>
         </div>
         <Link
           href="/admin/reports"
-          className="flex items-center gap-1.5 text-[12px] font-[600] font-sans text-[#183D33] hover:text-[#8A7357] transition-colors"
+          className="flex items-center gap-1.5 text-[12px] font-[600] font-sans text-[#183D33] hover:text-[#0F241D] transition-colors"
         >
           <BarChart3 size={13} aria-hidden="true" />
           Full reports
@@ -139,10 +139,10 @@ function RevenueChart() {
       </div>
 
       {isLoading ? (
-        <div className="h-[160px] bg-[#F5F0E5]/40 rounded-lg animate-pulse" />
+        <div className="h-[160px] bg-[#E7EDE7]/40 rounded-lg animate-pulse" />
       ) : !usable || data.length === 0 ? (
         <div className="py-12 text-center">
-          <p className="text-[13px] font-sans text-[#9CA3AF]">
+          <p className="text-[13px] font-sans text-[#6B7E6B]">
             {data.length === 0 ? 'No revenue data yet.' : 'View full breakdown on the Reports page.'}
           </p>
         </div>
@@ -163,20 +163,20 @@ function RevenueChart() {
                     className="w-full bg-[#183D33]/20 group-hover:bg-[#183D33] rounded-t-md transition-colors"
                     style={{ height: `${pct}%` }}
                   />
-                  <span className="text-[9px] font-sans text-[#C4BDB4] group-hover:text-[#183D33] transition-colors truncate w-full text-center">
+                  <span className="text-[9px] font-sans text-[#6B7E6B] group-hover:text-[#183D33] transition-colors truncate w-full text-center">
                     {label.length > 6 ? label.slice(0, 6) : label}
                   </span>
                 </div>
               )
             })}
           </div>
-          <div className="mt-3 pt-3 border-t border-[#F5F0E5] flex items-center gap-6">
-            <p className="text-[12px] font-sans text-[#9CA3AF]">
-              Total <span className="font-[600] text-[#20201E] ml-1">{formatINR(total)}</span>
+          <div className="mt-3 pt-3 border-t border-[#FFFFFF] flex items-center gap-6">
+            <p className="text-[12px] font-sans text-[#6B7E6B]">
+              Total <span className="font-[600] text-[#0F241D] ml-1">{formatINR(total)}</span>
             </p>
             {values.length > 1 && (
-              <p className="text-[12px] font-sans text-[#9CA3AF]">
-                Avg <span className="font-[600] text-[#20201E] ml-1">{formatINR(Math.round(total / values.length))}</span>
+              <p className="text-[12px] font-sans text-[#6B7E6B]">
+                Avg <span className="font-[600] text-[#0F241D] ml-1">{formatINR(Math.round(total / values.length))}</span>
               </p>
             )}
           </div>
@@ -203,16 +203,16 @@ export default function AdminOverviewPage() {
 
       {/* Page header */}
       <div>
-        <h1 className="text-[26px] font-[700] font-sans text-[#20201E] leading-tight">Admin Overview</h1>
-        <p className="text-[13.5px] font-sans text-[#9CA3AF] mt-1">Platform health at a glance</p>
+        <h1 className="text-[26px] font-[700] font-sans text-[#0F241D] leading-tight">Admin Overview</h1>
+        <p className="text-[13.5px] font-sans text-[#6B7E6B] mt-1">Platform health at a glance</p>
       </div>
 
       {/* Attention banner */}
       {!isLoading && pendingActions.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 flex gap-3">
-          <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
+        <div className="bg-[#E7EDE7] border border-[#D9E2DA] rounded-xl px-5 py-4 flex gap-3">
+          <AlertCircle size={16} className="text-[#183D33] shrink-0 mt-0.5" aria-hidden="true" />
           <div className="flex-1">
-            <p className="text-[13px] font-[600] font-sans text-amber-900 mb-3">
+            <p className="text-[13px] font-[600] font-sans text-[#183D33] mb-3">
               {pendingActions.length} item{pendingActions.length !== 1 ? 's' : ''} need{pendingActions.length === 1 ? 's' : ''} your attention
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -245,16 +245,16 @@ export default function AdminOverviewPage() {
                 label="Active Orders"
                 value={stats.activeOrders.toLocaleString()}
                 icon={ShoppingBag}
-                iconBg="bg-blue-50"
-                iconColor="text-blue-600"
+                iconBg="bg-[#E7EDE7]"
+                iconColor="text-[#183D33]"
                 href="/admin/orders"
               />
               <KpiCard
                 label="Pending Payout Value"
                 value={formatINR(stats.pendingPayoutsAmount)}
                 icon={CreditCard}
-                iconBg="bg-amber-50"
-                iconColor="text-amber-600"
+                iconBg="bg-[#E7EDE7]"
+                iconColor="text-[#183D33]"
                 sub="Awaiting disbursement"
                 href="/admin/payouts"
               />
@@ -262,8 +262,8 @@ export default function AdminOverviewPage() {
                 label="Total Buyers"
                 value={stats.totalBuyers.toLocaleString()}
                 icon={Users}
-                iconBg="bg-emerald-50"
-                iconColor="text-emerald-600"
+                iconBg="bg-[#E7EDE7]"
+                iconColor="text-[#183D33]"
                 href="/admin/buyers"
               />
             </>
@@ -281,24 +281,24 @@ export default function AdminOverviewPage() {
               label="Total Approved Sellers"
               value={stats.totalApprovedSellers.toLocaleString()}
               icon={Building2}
-              iconBg="bg-purple-50"
-              iconColor="text-purple-600"
+              iconBg="bg-[#E7EDE7]"
+              iconColor="text-[#183D33]"
               href="/admin/sellers"
             />
             <KpiCard
               label="Orders Awaiting Collection"
               value={stats.ordersAwaitingCollection}
               icon={PackageCheck}
-              iconBg="bg-orange-50"
-              iconColor="text-orange-600"
+              iconBg="bg-[#E7EDE7]"
+              iconColor="text-[#183D33]"
               href="/admin/orders"
             />
             <KpiCard
               label="Pending Payouts Count"
               value={stats.pendingPayoutsCount}
               icon={Package}
-              iconBg="bg-pink-50"
-              iconColor="text-pink-600"
+              iconBg="bg-[#E7EDE7]"
+              iconColor="text-[#183D33]"
               href="/admin/payouts"
             />
           </>
@@ -321,8 +321,8 @@ export default function AdminOverviewPage() {
             label="Commission Earned"
             value={formatINR(Number((stats as AdminDashboardBrandFields).commissionEarned) || 0)}
             icon={Percent}
-            iconBg="bg-amber-50"
-            iconColor="text-amber-600"
+            iconBg="bg-[#E7EDE7]"
+            iconColor="text-[#183D33]"
             sub="On marketplace brand orders"
             href="/admin/reports"
           />
@@ -337,20 +337,20 @@ export default function AdminOverviewPage() {
         <p className="text-[11px] font-[700] font-sans text-[#183D33] tracking-[0.1em] uppercase mb-3">Quick actions</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { href: '/admin/products?approvalStatus=PENDING', label: 'Review Pending Products', icon: FileCheck, color: 'text-blue-600', bg: 'bg-blue-50' },
-            { href: '/admin/orders', label: 'View New Orders', icon: ShoppingCart, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-            { href: '/admin/payouts', label: 'Process Payouts', icon: CreditCard, color: 'text-amber-600', bg: 'bg-amber-50' },
-            { href: '/admin/seller-applications', label: 'Seller Applications', icon: Clock, color: 'text-red-600', bg: 'bg-red-50' },
+            { href: '/admin/products?approvalStatus=PENDING', label: 'Review Pending Products', icon: FileCheck, color: 'text-[#183D33]', bg: 'bg-[#E7EDE7]' },
+            { href: '/admin/orders', label: 'View New Orders', icon: ShoppingCart, color: 'text-[#183D33]', bg: 'bg-[#E7EDE7]' },
+            { href: '/admin/payouts', label: 'Process Payouts', icon: CreditCard, color: 'text-[#183D33]', bg: 'bg-[#E7EDE7]' },
+            { href: '/admin/seller-applications', label: 'Seller Applications', icon: Clock, color: 'text-[#183D33]', bg: 'bg-[#E7EDE7]' },
           ].map(({ href, label, icon: Icon, color, bg }) => (
             <Link
               key={href}
               href={href}
-              className="flex items-center gap-3 p-4 bg-white border border-[#E5DCCB] rounded-xl hover:border-[#C4BDB4] hover:shadow-sm transition-all"
+              className="flex items-center gap-3 p-4 bg-white border border-[#D9E2DA] rounded-xl hover:border-[#6B7E6B] hover:shadow-sm transition-all"
             >
               <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', bg)}>
                 <Icon size={15} className={cn('', color)} aria-hidden="true" />
               </div>
-              <span className="text-[13px] font-[600] font-sans text-[#20201E] leading-snug">{label}</span>
+              <span className="text-[13px] font-[600] font-sans text-[#0F241D] leading-snug">{label}</span>
             </Link>
           ))}
         </div>

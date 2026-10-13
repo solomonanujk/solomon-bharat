@@ -12,16 +12,16 @@ export default function NewProductPage() {
       <div className="flex items-center gap-3 mb-8">
         <Link
           href="/portal/products"
-          className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[#E5DCCB] text-[#C4BDB4] hover:text-[#20201E] hover:bg-[#F5F0E5] transition-colors"
+          className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[#D9E2DA] text-[#6B7E6B] hover:text-[#0F241D] hover:bg-[#E7EDE7] transition-colors"
           aria-label="Back to products"
         >
           <ArrowLeft size={15} />
         </Link>
         <div>
-          <h1 className="text-[24px] font-[700] font-sans text-[#20201E] leading-tight">{isBrand ? 'Add Product' : 'Submit Product'}</h1>
-          <p className="text-[13px] font-sans text-[#665F55] mt-0.5">
+          <h1 className="text-[24px] font-[700] font-sans text-[#0F241D] leading-tight">{isBrand ? 'Add Product' : 'Submit Product'}</h1>
+          <p className="text-[13px] font-sans text-[#183D33B3] mt-0.5">
             {isBrand
-              ? 'Set the price buyers pay. Your product goes live as soon as you publish it. Solomon keeps 25% on your first order and 15% after.'
+              ? 'Set the price buyers pay. Your product goes live as soon as you publish it. Solomon keeps 25% on each buyer’s first order with you and 15% on that buyer’s later orders.'
               : 'Fill in the details below to submit for review.'}
           </p>
         </div>

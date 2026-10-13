@@ -15,7 +15,7 @@ export function BrandPill({ brand, className }: { brand: BrandRef | null | undef
     <span
       className={cn(
         'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-[600] font-sans whitespace-nowrap',
-        suspended ? 'bg-red-50 text-error' : 'bg-selected text-forest',
+        suspended ? 'bg-[#E7EDE7] text-error' : 'bg-selected text-forest',
         className,
       )}
     >

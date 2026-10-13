@@ -253,9 +253,9 @@ export function MarketplaceStepTerms({ data, patch, errors }: MarketplaceStepPro
         <p className="font-sans text-[13.5px] font-[700] text-primary mb-1.5">Commission: please read</p>
         <p className="font-sans text-[13px] leading-[1.6] text-muted-text">
           Solomon Bharat collects the buyer&apos;s payment and keeps a commission of{' '}
-          <strong className="text-primary">{first}% on your first paid order</strong> and{' '}
-          <strong className="text-primary">{repeat}% on every paid order after that</strong>. We pay you the
-          remainder. There are no listing fees or monthly fees. Unpaid or cancelled orders never count as your first
+          <strong className="text-primary">{first}% on each buyer&apos;s first paid order with you</strong> and{' '}
+          <strong className="text-primary">{repeat}% on that buyer&apos;s later paid orders</strong>. We pay you the
+          remainder. There are no listing fees or monthly fees. Unpaid or cancelled orders never count as a buyer&apos;s first
           order. All sales are final: Solomon does not run returns, refunds or disputes, but you can publish your own
           return policy on your brand page.
         </p>
@@ -265,7 +265,7 @@ export function MarketplaceStepTerms({ data, patch, errors }: MarketplaceStepPro
         <p className="font-sans text-[13.5px] font-[700] text-primary mb-2">Worked example: a {inr(order)} order</p>
         <ul className="font-sans text-[13px] leading-[1.6] text-muted-text flex flex-col gap-1.5">
           <li>
-            First paid order: commission {first}% = {inr(firstFee)}. You receive{' '}
+            A buyer&apos;s first paid order: commission {first}% = {inr(firstFee)}. You receive{' '}
             <strong className="text-primary">{inr(order - firstFee)}</strong>.
           </li>
           <li>
@@ -356,7 +356,7 @@ export function MarketplaceStepReview({ data, onEdit }: StepProps & { onEdit: (s
 
       <p className="font-sans text-[13px] text-muted-text">
         Commission terms version {MARKETPLACE_COMMISSION_TERMS_VERSION} accepted: {MARKETPLACE_COMMISSION.first}% on
-        your first paid order, {MARKETPLACE_COMMISSION.repeat}% after.
+        each buyer&apos;s first paid order, {MARKETPLACE_COMMISSION.repeat}% on that buyer&apos;s later orders.
       </p>
     </div>
   )

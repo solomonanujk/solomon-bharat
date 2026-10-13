@@ -35,15 +35,15 @@ export default function AdminProductDetailPage() {
   if (isLoading) {
     return (
       <div className="max-w-5xl mx-auto animate-pulse space-y-5">
-        <div className="h-5 bg-[#F5F0E5] rounded w-24" />
-        <div className="h-64 bg-[#F5F0E5] rounded" />
+        <div className="h-5 bg-[#E7EDE7] rounded w-24" />
+        <div className="h-64 bg-[#E7EDE7] rounded" />
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
           <div className="space-y-5">
-            <div className="h-40 bg-[#F5F0E5] rounded" />
-            <div className="h-40 bg-[#F5F0E5] rounded" />
+            <div className="h-40 bg-[#E7EDE7] rounded" />
+            <div className="h-40 bg-[#E7EDE7] rounded" />
           </div>
           <div className="space-y-5">
-            <div className="h-40 bg-[#F5F0E5] rounded" />
+            <div className="h-40 bg-[#E7EDE7] rounded" />
           </div>
         </div>
       </div>
@@ -53,15 +53,15 @@ export default function AdminProductDetailPage() {
   if (!product) {
     return (
       <div className="max-w-5xl mx-auto">
-        <Link href="/admin/products" className="flex items-center gap-1.5 text-[13px] font-sans text-[#665F55] hover:text-[#20201E] transition-colors mb-6">
+        <Link href="/admin/products" className="flex items-center gap-1.5 text-[13px] font-sans text-[#183D33B3] hover:text-[#0F241D] transition-colors mb-6">
           <ArrowLeft size={14} aria-hidden="true" /> Back to Products
         </Link>
-        <div className="bg-white border border-[#E5DCCB] rounded-xl py-20 flex flex-col items-center gap-3">
-          <Package size={32} className="text-[#E5DCCB]" aria-hidden="true" />
-          <p className="text-[15px] font-[600] font-sans text-[#20201E]">
+        <div className="bg-white border border-[#D9E2DA] rounded-xl py-20 flex flex-col items-center gap-3">
+          <Package size={32} className="text-[#D9E2DA]" aria-hidden="true" />
+          <p className="text-[15px] font-[600] font-sans text-[#0F241D]">
             {isError ? 'Failed to load product — check that the backend is running' : 'Product not found'}
           </p>
-          {isError && <p className="text-[12px] font-sans text-[#665F55]">ID: {params.id}</p>}
+          {isError && <p className="text-[12px] font-sans text-[#183D33B3]">ID: {params.id}</p>}
         </div>
       </div>
     )
@@ -77,7 +77,7 @@ export default function AdminProductDetailPage() {
   return (
     <div className="max-w-5xl mx-auto">
       {/* Back */}
-      <Link href="/admin/products" className="flex items-center gap-1.5 text-[13px] font-sans text-[#665F55] hover:text-[#20201E] transition-colors mb-6">
+      <Link href="/admin/products" className="flex items-center gap-1.5 text-[13px] font-sans text-[#183D33B3] hover:text-[#0F241D] transition-colors mb-6">
         <ArrowLeft size={14} aria-hidden="true" /> Back to Products
       </Link>
 
@@ -88,11 +88,11 @@ export default function AdminProductDetailPage() {
             <StatusBadge status={product.approvalStatus} />
             <BrandPill brand={brand} />
             {product.isPublished ? (
-              <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-emerald-600">
+              <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-[#183D33]">
                 <CheckCircle2 size={12} aria-hidden="true" /> Published
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-[#665F55]">
+              <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-[#183D33B3]">
                 <XCircle size={12} aria-hidden="true" /> Unpublished
               </span>
             )}
@@ -104,14 +104,14 @@ export default function AdminProductDetailPage() {
             {product.pendingPricingChange && (
               <Link
                 href="/admin/pricing-changes"
-                className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-amber-600 hover:underline"
+                className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-[#183D33] hover:underline"
               >
                 <Clock size={12} aria-hidden="true" /> Pricing change pending
               </Link>
             )}
           </div>
-          <h1 className="text-[28px] leading-[1.3] font-[500] font-sans text-[#20201E]">{product.name}</h1>
-          <p className="text-[13px] font-sans text-[#665F55] mt-1">/{product.slug}</p>
+          <h1 className="text-[28px] leading-[1.3] font-[500] font-sans text-[#0F241D]">{product.name}</h1>
+          <p className="text-[13px] font-sans text-[#183D33B3] mt-1">/{product.slug}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Link href={`/admin/products/${product.id}/edit-product`} className={cn(buttonVariants({ variant: 'primary', size: 'sm' }))}>
@@ -127,11 +127,11 @@ export default function AdminProductDetailPage() {
 
       {/* Rejection reason */}
       {product.approvalStatus === 'REJECTED' && product.rejectionReason && (
-        <div className="mb-5 flex items-start gap-3 bg-red-50 border border-red-200 rounded p-4">
-          <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" aria-hidden="true" />
+        <div className="mb-5 flex items-start gap-3 bg-[#E7EDE7] border border-[#D9E2DA] rounded p-4">
+          <AlertTriangle size={16} className="text-[#183D33] shrink-0 mt-0.5" aria-hidden="true" />
           <div>
-            <p className="text-[13px] font-[600] font-sans text-red-500">Rejection reason</p>
-            <p className="text-[13px] font-sans text-[#20201E] mt-1 whitespace-pre-wrap">{product.rejectionReason}</p>
+            <p className="text-[13px] font-[600] font-sans text-[#183D33]">Rejection reason</p>
+            <p className="text-[13px] font-sans text-[#0F241D] mt-1 whitespace-pre-wrap">{product.rejectionReason}</p>
           </div>
         </div>
       )}
@@ -142,7 +142,7 @@ export default function AdminProductDetailPage() {
           <button
             type="button"
             onClick={() => openLightbox(sortedImages[Math.min(activeImage, sortedImages.length - 1)].url, product.name)}
-            className="w-full bg-white border border-[#E5DCCB] rounded-xl overflow-hidden aspect-[16/9] flex items-center justify-center cursor-zoom-in"
+            className="w-full bg-white border border-[#D9E2DA] rounded-xl overflow-hidden aspect-[16/9] flex items-center justify-center cursor-zoom-in"
             aria-label={`View ${product.name} full size`}
           >
             <img
@@ -159,8 +159,8 @@ export default function AdminProductDetailPage() {
                   type="button"
                   onClick={() => setActiveImage(i)}
                   className={cn(
-                    'w-16 h-16 rounded overflow-hidden border-2 shrink-0 bg-[#F5F0E5] transition-colors',
-                    i === activeImage ? 'border-accent' : 'border-[#E5DCCB] opacity-70 hover:opacity-100'
+                    'w-16 h-16 rounded overflow-hidden border-2 shrink-0 bg-[#E7EDE7] transition-colors',
+                    i === activeImage ? 'border-accent' : 'border-[#D9E2DA] opacity-70 hover:opacity-100'
                   )}
                 >
                   <img src={cloudinaryFill(img.url, 160, 160)} alt="" className="w-full h-full object-contain" />
@@ -181,11 +181,11 @@ export default function AdminProductDetailPage() {
               <Field label={brand ? 'Brand Price, gross (from)' : 'Seller Price (from)'} value={formatINR(product.sellerPrice)} />
               <Field
                 label={brand ? 'Buyer Price (from)' : 'Admin Price (from)'}
-                value={product.adminPrice != null ? formatINR(product.adminPrice) : <span className="italic text-[#665F55]">not set</span>}
+                value={product.adminPrice != null ? formatINR(product.adminPrice) : <span className="italic text-[#183D33B3]">not set</span>}
               />
               <Field
                 label="Agent Price (from)"
-                value={product.agentPrice != null ? formatINR(product.agentPrice) : <span className="italic text-[#665F55]">not set</span>}
+                value={product.agentPrice != null ? formatINR(product.agentPrice) : <span className="italic text-[#183D33B3]">not set</span>}
               />
             </div>
           </Section>
@@ -195,7 +195,7 @@ export default function AdminProductDetailPage() {
           </Section>
 
           <Section title="Description">
-            <p className="text-[13.5px] font-sans text-[#20201E] leading-[1.7] whitespace-pre-wrap break-words">
+            <p className="text-[13.5px] font-sans text-[#0F241D] leading-[1.7] whitespace-pre-wrap break-words">
               {product.description}
             </p>
           </Section>
@@ -222,7 +222,7 @@ export default function AdminProductDetailPage() {
               {product.craftImageUrl && (
                 <div className="mb-4">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={cloudinaryFill(product.craftImageUrl, 320, 240)} alt="" className="w-full max-w-[280px] rounded-lg border border-[#E5DCCB] object-cover" />
+                  <img src={cloudinaryFill(product.craftImageUrl, 320, 240)} alt="" className="w-full max-w-[280px] rounded-lg border border-[#D9E2DA] object-cover" />
                 </div>
               )}
               <Field label="How It's Made" value={product.howItIsMade ?? '—'} />
@@ -232,19 +232,19 @@ export default function AdminProductDetailPage() {
 
           <Section title="Variants">
             {product.variants.length === 0 ? (
-              <p className="text-[13px] font-sans text-[#665F55]">No variants.</p>
+              <p className="text-[13px] font-sans text-[#183D33B3]">No variants.</p>
             ) : (
               <div className="space-y-3">
                 {product.variants.map((v) => (
                   <div key={v.id} className="flex flex-wrap items-center gap-2">
-                    <span className="text-[12.5px] font-[600] font-sans text-[#20201E] bg-[#F5F0E5] border border-[#E5DCCB] px-3 py-1.5 rounded">
+                    <span className="text-[12.5px] font-[600] font-sans text-[#0F241D] bg-[#E7EDE7] border border-[#D9E2DA] px-3 py-1.5 rounded">
                       {v.type}: {v.value}
                     </span>
                     {v.sku && (
-                      <span className="text-[11.5px] font-sans text-[#665F55]">SKU: {v.sku}</span>
+                      <span className="text-[11.5px] font-sans text-[#183D33B3]">SKU: {v.sku}</span>
                     )}
                     {(v.attributes ?? []).length > 1 && (
-                      <span className="text-[11.5px] font-sans text-[#665F55]">
+                      <span className="text-[11.5px] font-sans text-[#183D33B3]">
                         {v.attributes!.map((a) => `${a.name}: ${a.value}`).join(', ')}
                       </span>
                     )}
@@ -257,12 +257,12 @@ export default function AdminProductDetailPage() {
 
         {/* Right column */}
         <div className="space-y-5">
-          <div className="bg-white border border-[#E5DCCB] rounded-xl p-5 space-y-2">
-            <p className="text-[11px] font-[600] font-sans text-[#665F55] uppercase tracking-[0.06em]">Timeline</p>
-            <p className="text-[13px] font-sans text-[#20201E]">
+          <div className="bg-white border border-[#D9E2DA] rounded-xl p-5 space-y-2">
+            <p className="text-[11px] font-[600] font-sans text-[#183D33B3] uppercase tracking-[0.06em]">Timeline</p>
+            <p className="text-[13px] font-sans text-[#0F241D]">
               Created {new Date(product.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
             </p>
-            <p className="text-[13px] font-sans text-[#665F55]">
+            <p className="text-[13px] font-sans text-[#183D33B3]">
               Updated {new Date(product.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
             </p>
           </div>

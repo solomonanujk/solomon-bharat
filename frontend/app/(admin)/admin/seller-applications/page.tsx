@@ -38,7 +38,7 @@ function RejectDialog({ application, onClose }: { application: SellerApplication
         <DialogHeader>
           <DialogTitle>Reject application</DialogTitle>
           <DialogDescription>
-            Rejecting <strong className="text-[#20201E]">{application.businessName}</strong>. A reason is required and
+            Rejecting <strong className="text-[#0F241D]">{application.businessName}</strong>. A reason is required and
             will be shared with the applicant.
           </DialogDescription>
         </DialogHeader>
@@ -48,7 +48,7 @@ function RejectDialog({ application, onClose }: { application: SellerApplication
             onChange={(e) => setReason(e.target.value)}
             placeholder="Reason for rejection (required)…"
             rows={4}
-            className="w-full px-3 py-2.5 rounded-lg border border-[#E5DCCB] bg-[#F5F0E5] text-[13.5px] font-sans text-[#20201E] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#183D33] transition-colors resize-none"
+            className="w-full px-3 py-2.5 rounded-lg border border-[#D9E2DA] bg-[#E7EDE7] text-[13.5px] font-sans text-[#0F241D] placeholder:text-[#6B7E6B] focus:outline-none focus:border-[#183D33] transition-colors resize-none"
           />
         </div>
         <DialogFooter>
@@ -81,7 +81,7 @@ function RequestInfoDialog({ application, onClose }: { application: SellerApplic
         <DialogHeader>
           <DialogTitle>Request more information</DialogTitle>
           <DialogDescription>
-            Send <strong className="text-[#20201E]">{application.businessName}</strong> a message describing what
+            Send <strong className="text-[#0F241D]">{application.businessName}</strong> a message describing what
             additional information is needed.
           </DialogDescription>
         </DialogHeader>
@@ -91,7 +91,7 @@ function RequestInfoDialog({ application, onClose }: { application: SellerApplic
             onChange={(e) => setMessage(e.target.value)}
             placeholder="What information do you need from the applicant?"
             rows={4}
-            className="w-full px-3 py-2.5 rounded-lg border border-[#E5DCCB] bg-[#F5F0E5] text-[13.5px] font-sans text-[#20201E] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#183D33] transition-colors resize-none"
+            className="w-full px-3 py-2.5 rounded-lg border border-[#D9E2DA] bg-[#E7EDE7] text-[13.5px] font-sans text-[#0F241D] placeholder:text-[#6B7E6B] focus:outline-none focus:border-[#183D33] transition-colors resize-none"
           />
         </div>
         <DialogFooter>
@@ -119,16 +119,16 @@ function NotesPanel({ application }: { application: SellerApplication }) {
   const trimmed = note.trim()
 
   return (
-    <div className="mt-4 pt-4 border-t border-[#F5F0E5] space-y-3">
+    <div className="mt-4 pt-4 border-t border-[#FFFFFF] space-y-3">
       <p className="text-[11px] font-[700] font-sans text-[#183D33] uppercase tracking-[0.08em]">
         Internal notes
       </p>
       {application.internalNotes ? (
-        <p className="text-[13px] font-sans text-[#20201E] whitespace-pre-wrap bg-[#F5F0E5] rounded-lg px-3 py-2.5">
+        <p className="text-[13px] font-sans text-[#0F241D] whitespace-pre-wrap bg-[#E7EDE7] rounded-lg px-3 py-2.5">
           {application.internalNotes}
         </p>
       ) : (
-        <p className="text-[12.5px] font-sans text-[#9CA3AF]">No internal notes yet.</p>
+        <p className="text-[12.5px] font-sans text-[#6B7E6B]">No internal notes yet.</p>
       )}
       <div className="flex gap-2">
         <input
@@ -136,7 +136,7 @@ function NotesPanel({ application }: { application: SellerApplication }) {
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Add a note (not visible to applicant)…"
-          className="flex-1 h-9 px-3 rounded-lg border border-[#E5DCCB] bg-white text-[13px] font-sans text-[#20201E] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#183D33] transition-colors"
+          className="flex-1 h-9 px-3 rounded-lg border border-[#D9E2DA] bg-white text-[13px] font-sans text-[#0F241D] placeholder:text-[#6B7E6B] focus:outline-none focus:border-[#183D33] transition-colors"
         />
         <Button
           variant="ghost"
@@ -159,8 +159,8 @@ function DetailRow({ label, value }: { label: string; value?: React.ReactNode })
   if (value === undefined || value === null || value === '') return null
   return (
     <div>
-      <p className="text-[10.5px] font-[700] font-sans text-[#9CA3AF] uppercase tracking-[0.06em] mb-0.5">{label}</p>
-      <p className="text-[13px] font-sans text-[#20201E] leading-[1.4]">{value}</p>
+      <p className="text-[10.5px] font-[700] font-sans text-[#6B7E6B] uppercase tracking-[0.06em] mb-0.5">{label}</p>
+      <p className="text-[13px] font-sans text-[#0F241D] leading-[1.4]">{value}</p>
     </div>
   )
 }
@@ -180,7 +180,7 @@ function SellerTypeBadge({ type }: { type: SellerApplication['sellerType'] | und
     <span
       className={cn(
         'inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-[700] font-sans',
-        marketplace ? 'bg-[#E7EDE7] border-[#183D33] text-[#183D33]' : 'bg-white border-[#E5DCCB] text-[#665F55]'
+        marketplace ? 'bg-[#E7EDE7] border-[#183D33] text-[#183D33]' : 'bg-white border-[#D9E2DA] text-[#183D33B3]'
       )}
     >
       {marketplace ? 'Marketplace brand' : 'Curated'}
@@ -191,7 +191,7 @@ function SellerTypeBadge({ type }: { type: SellerApplication['sellerType'] | und
 function ApplicationDetailsPanel({ application: a }: { application: SellerApplication }) {
   const minOrder = a.minOrderValueInr == null ? undefined : Number(a.minOrderValueInr)
   return (
-    <div className="mt-4 pt-4 border-t border-[#F5F0E5] space-y-5">
+    <div className="mt-4 pt-4 border-t border-[#FFFFFF] space-y-5">
       {a.sellerType === 'MARKETPLACE' && (
         <>
           <DetailGroup title="Marketplace brand">
@@ -214,8 +214,8 @@ function ApplicationDetailsPanel({ application: a }: { application: SellerApplic
           </DetailGroup>
           {a.brandStory && (
             <div>
-              <p className="text-[10.5px] font-[700] font-sans text-[#9CA3AF] uppercase tracking-[0.06em] mb-1">Brand story</p>
-              <p className="text-[13px] font-sans text-[#20201E] whitespace-pre-wrap">{a.brandStory}</p>
+              <p className="text-[10.5px] font-[700] font-sans text-[#6B7E6B] uppercase tracking-[0.06em] mb-1">Brand story</p>
+              <p className="text-[13px] font-sans text-[#0F241D] whitespace-pre-wrap">{a.brandStory}</p>
             </div>
           )}
         </>
@@ -236,8 +236,8 @@ function ApplicationDetailsPanel({ application: a }: { application: SellerApplic
       </DetailGroup>
       {a.productDescription && (
         <div>
-          <p className="text-[10.5px] font-[700] font-sans text-[#9CA3AF] uppercase tracking-[0.06em] mb-1">Product description</p>
-          <p className="text-[13px] font-sans text-[#20201E] whitespace-pre-wrap">{a.productDescription}</p>
+          <p className="text-[10.5px] font-[700] font-sans text-[#6B7E6B] uppercase tracking-[0.06em] mb-1">Product description</p>
+          <p className="text-[13px] font-sans text-[#0F241D] whitespace-pre-wrap">{a.productDescription}</p>
         </div>
       )}
 
@@ -282,51 +282,51 @@ function ApplicationCard({
   const canAct = application.status === 'PENDING' || application.status === 'MORE_INFO_REQUESTED'
 
   return (
-    <div className="bg-white border border-[#E5DCCB] rounded-xl p-5 hover:border-[#C4BDB4] transition-colors">
+    <div className="bg-white border border-[#D9E2DA] rounded-xl p-5 hover:border-[#6B7E6B] transition-colors">
       <div className="flex items-start justify-between gap-4 flex-wrap">
 
         {/* Left: application info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2.5 mb-1 flex-wrap">
-            <p className="text-[15px] font-[700] font-sans text-[#20201E]">{application.businessName}</p>
+            <p className="text-[15px] font-[700] font-sans text-[#0F241D]">{application.businessName}</p>
             <StatusBadge status={application.status} />
             <SellerTypeBadge type={application.sellerType} />
           </div>
-          <p className="text-[13px] font-sans text-[#665F55] mb-3">
+          <p className="text-[13px] font-sans text-[#183D33B3] mb-3">
             {application.contactName}
             {application.sellerType === 'MARKETPLACE' && application.brandName && (
-              <> · Brand: <strong className="text-[#20201E] font-[600]">{application.brandName}</strong></>
+              <> · Brand: <strong className="text-[#0F241D] font-[600]">{application.brandName}</strong></>
             )}
           </p>
 
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px] font-sans text-[#9CA3AF]">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px] font-sans text-[#6B7E6B]">
             <span className="flex items-center gap-1.5">
-              <Mail size={11} aria-hidden="true" className="text-[#C4BDB4]" />
+              <Mail size={11} aria-hidden="true" className="text-[#6B7E6B]" />
               {application.email}
             </span>
             <span className="flex items-center gap-1.5">
-              <Phone size={11} aria-hidden="true" className="text-[#C4BDB4]" />
+              <Phone size={11} aria-hidden="true" className="text-[#6B7E6B]" />
               {application.phone}
             </span>
             <span className="flex items-center gap-1.5">
-              <MapPin size={11} aria-hidden="true" className="text-[#C4BDB4]" />
+              <MapPin size={11} aria-hidden="true" className="text-[#6B7E6B]" />
               {application.businessAddress}
             </span>
             <span className="flex items-center gap-1.5">
-              <CalendarDays size={11} aria-hidden="true" className="text-[#C4BDB4]" />
+              <CalendarDays size={11} aria-hidden="true" className="text-[#6B7E6B]" />
               Applied {new Date(application.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
             </span>
           </div>
 
           {application.message && (
-            <div className="mt-3 flex gap-2.5 bg-[#F5F0E5] rounded-lg px-3 py-2.5">
-              <MessageSquare size={13} className="text-[#C4BDB4] mt-0.5 shrink-0" aria-hidden="true" />
-              <p className="text-[13px] font-sans text-[#20201E] whitespace-pre-wrap">{application.message}</p>
+            <div className="mt-3 flex gap-2.5 bg-[#E7EDE7] rounded-lg px-3 py-2.5">
+              <MessageSquare size={13} className="text-[#6B7E6B] mt-0.5 shrink-0" aria-hidden="true" />
+              <p className="text-[13px] font-sans text-[#0F241D] whitespace-pre-wrap">{application.message}</p>
             </div>
           )}
 
           {application.status === 'REJECTED' && application.rejectionReason && (
-            <p className="mt-3 text-[13px] font-sans text-red-700 bg-red-50 rounded-lg px-3 py-2.5 border border-red-100">
+            <p className="mt-3 text-[13px] font-sans text-[#183D33] bg-[#E7EDE7] rounded-lg px-3 py-2.5 border border-[#D9E2DA]">
               Rejection reason: {application.rejectionReason}
             </p>
           )}
@@ -402,11 +402,11 @@ export default function SellerApplicationsPage() {
       {/* Header */}
       <div className="mb-7 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[26px] font-[700] font-sans text-[#20201E] leading-tight">Seller Applications</h1>
-          <p className="text-[13.5px] font-sans text-[#9CA3AF] mt-1">Review and action seller applications</p>
+          <h1 className="text-[26px] font-[700] font-sans text-[#0F241D] leading-tight">Seller Applications</h1>
+          <p className="text-[13.5px] font-sans text-[#6B7E6B] mt-1">Review and action seller applications</p>
         </div>
         {total > 0 && (
-          <p className="text-[13px] font-sans text-[#9CA3AF] self-end">
+          <p className="text-[13px] font-sans text-[#6B7E6B] self-end">
             {total.toLocaleString()} application{total !== 1 ? 's' : ''}
           </p>
         )}
@@ -414,18 +414,18 @@ export default function SellerApplicationsPage() {
 
       {/* Search */}
       <div className="mb-4 relative max-w-[340px]">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#C4BDB4]" aria-hidden="true" />
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B7E6B]" aria-hidden="true" />
         <input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by business name or email…"
-          className="w-full h-9 pl-9 pr-3 rounded-lg border border-[#E5DCCB] bg-white text-[13.5px] font-sans text-[#20201E] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#183D33] transition-colors"
+          className="w-full h-9 pl-9 pr-3 rounded-lg border border-[#D9E2DA] bg-white text-[13.5px] font-sans text-[#0F241D] placeholder:text-[#6B7E6B] focus:outline-none focus:border-[#183D33] transition-colors"
         />
       </div>
 
       {/* Status tabs */}
-      <div className="flex gap-0 mb-5 border-b border-[#E5DCCB] overflow-x-auto">
+      <div className="flex gap-0 mb-5 border-b border-[#D9E2DA] overflow-x-auto">
         {STATUS_TABS.map(({ value, label }) => (
           <button
             key={label}
@@ -435,7 +435,7 @@ export default function SellerApplicationsPage() {
               'px-4 py-2.5 text-[13px] font-[600] font-sans border-b-2 -mb-px transition-colors whitespace-nowrap',
               status === value
                 ? 'border-[#183D33] text-[#183D33]'
-                : 'border-transparent text-[#9CA3AF] hover:text-[#20201E]'
+                : 'border-transparent text-[#6B7E6B] hover:text-[#0F241D]'
             )}
           >
             {label}
@@ -447,30 +447,30 @@ export default function SellerApplicationsPage() {
       {isLoading ? (
         <div className="grid gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="bg-white border border-[#E5DCCB] rounded-xl p-5 animate-pulse">
+            <div key={i} className="bg-white border border-[#D9E2DA] rounded-xl p-5 animate-pulse">
               <div className="flex justify-between gap-4">
                 <div className="flex-1 space-y-3">
-                  <div className="h-4 bg-[#F5F0E5] rounded w-40" />
-                  <div className="h-3 bg-[#F5F0E5] rounded w-56" />
+                  <div className="h-4 bg-[#E7EDE7] rounded w-40" />
+                  <div className="h-3 bg-[#E7EDE7] rounded w-56" />
                 </div>
                 <div className="space-y-2">
-                  <div className="h-8 bg-[#F5F0E5] rounded w-24" />
-                  <div className="h-8 bg-[#F5F0E5] rounded w-24" />
+                  <div className="h-8 bg-[#E7EDE7] rounded w-24" />
+                  <div className="h-8 bg-[#E7EDE7] rounded w-24" />
                 </div>
               </div>
             </div>
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white border border-[#E5DCCB] rounded-xl py-16 flex flex-col items-center gap-3 text-center">
-          <div className="w-12 h-12 rounded-full bg-[#F5F0E5] flex items-center justify-center">
+        <div className="bg-white border border-[#D9E2DA] rounded-xl py-16 flex flex-col items-center gap-3 text-center">
+          <div className="w-12 h-12 rounded-full bg-[#E7EDE7] flex items-center justify-center">
             <ClipboardList size={22} className="text-[#183D33]" aria-hidden="true" />
           </div>
-          <p className="text-[16px] font-[600] font-sans text-[#20201E]">
+          <p className="text-[16px] font-[600] font-sans text-[#0F241D]">
             {search ? 'No matching applications' : 'No applications found'}
           </p>
           {(search || status) && (
-            <p className="text-[13px] font-sans text-[#9CA3AF]">Try adjusting your filters.</p>
+            <p className="text-[13px] font-sans text-[#6B7E6B]">Try adjusting your filters.</p>
           )}
         </div>
       ) : (
@@ -489,7 +489,7 @@ export default function SellerApplicationsPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-1 py-5">
-          <p className="text-[12px] font-sans text-[#9CA3AF]">
+          <p className="text-[12px] font-sans text-[#6B7E6B]">
             Page {page} of {totalPages} &middot; {total.toLocaleString()} total
           </p>
           <div className="flex gap-2">
@@ -497,7 +497,7 @@ export default function SellerApplicationsPage() {
               type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="h-8 px-4 rounded-lg border border-[#E5DCCB] text-[12px] font-[600] font-sans text-[#665F55] hover:text-[#20201E] hover:border-[#C4BDB4] disabled:opacity-40 transition-colors"
+              className="h-8 px-4 rounded-lg border border-[#D9E2DA] text-[12px] font-[600] font-sans text-[#183D33B3] hover:text-[#0F241D] hover:border-[#6B7E6B] disabled:opacity-40 transition-colors"
             >
               Prev
             </button>
@@ -505,7 +505,7 @@ export default function SellerApplicationsPage() {
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="h-8 px-4 rounded-lg border border-[#E5DCCB] text-[12px] font-[600] font-sans text-[#665F55] hover:text-[#20201E] hover:border-[#C4BDB4] disabled:opacity-40 transition-colors"
+              className="h-8 px-4 rounded-lg border border-[#D9E2DA] text-[12px] font-[600] font-sans text-[#183D33B3] hover:text-[#0F241D] hover:border-[#6B7E6B] disabled:opacity-40 transition-colors"
             >
               Next
             </button>

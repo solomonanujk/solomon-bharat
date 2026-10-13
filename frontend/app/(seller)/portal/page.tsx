@@ -32,11 +32,11 @@ function KpiCard({ label, value, icon: Icon, iconBg, iconColor, hint, featured }
     <div className={cn(
       'rounded-xl border p-5 flex flex-col gap-3',
       featured
-        ? 'bg-[#1C1A18] border-[#2E2A24]'
-        : 'bg-white border-[#E5DCCB]',
+        ? 'bg-[#0F241D] border-[#183D33]'
+        : 'bg-white border-[#D9E2DA]',
     )}>
       <div className="flex items-center justify-between">
-        <span className={cn('text-[12px] font-[500] font-sans', featured ? 'text-[#9A9189]' : 'text-[#665F55]')}>
+        <span className={cn('text-[12px] font-[500] font-sans', featured ? 'text-[#D9E2DA]' : 'text-[#183D33B3]')}>
           {label}
         </span>
         <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', iconBg)}>
@@ -44,11 +44,11 @@ function KpiCard({ label, value, icon: Icon, iconBg, iconColor, hint, featured }
         </div>
       </div>
       <div>
-        <p className={cn('text-[28px] font-[700] font-sans leading-none tabular-nums', featured ? 'text-white' : 'text-[#20201E]')}>
+        <p className={cn('text-[28px] font-[700] font-sans leading-none tabular-nums', featured ? 'text-white' : 'text-[#0F241D]')}>
           {value}
         </p>
         {hint && (
-          <p className={cn('text-[11px] font-sans mt-1.5 leading-snug', featured ? 'text-[#665F55]' : 'text-[#9CA3AF]')}>
+          <p className={cn('text-[11px] font-sans mt-1.5 leading-snug', featured ? 'text-[#D9E2DA]' : 'text-[#6B7E6B]')}>
             {hint}
           </p>
         )}
@@ -59,9 +59,9 @@ function KpiCard({ label, value, icon: Icon, iconBg, iconColor, hint, featured }
 
 function KpiSkeleton() {
   return (
-    <div className="bg-white border border-[#E5DCCB] rounded-xl p-5 animate-pulse">
-      <div className="h-3 bg-[#F5F0E5] rounded w-1/2 mb-4" />
-      <div className="h-8 bg-[#F5F0E5] rounded w-1/3" />
+    <div className="bg-white border border-[#D9E2DA] rounded-xl p-5 animate-pulse">
+      <div className="h-3 bg-[#E7EDE7] rounded w-1/2 mb-4" />
+      <div className="h-8 bg-[#E7EDE7] rounded w-1/3" />
     </div>
   )
 }
@@ -76,9 +76,9 @@ interface Activity {
 
 function ActivityRow({ activity }: { activity: Activity }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3.5 border-b border-[#F5F0E5] last:border-0">
+    <div className="flex items-center justify-between gap-4 py-3.5 border-b border-[#FFFFFF] last:border-0">
       <div className="min-w-0 flex-1">{activity.content}</div>
-      <span className="text-[11.5px] font-sans text-[#9CA3AF] shrink-0">
+      <span className="text-[11.5px] font-sans text-[#6B7E6B] shrink-0">
         {new Date(activity.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
       </span>
     </div>
@@ -129,7 +129,7 @@ function CuratedDashboard() {
         id: `product-${p.id}`,
         date: p.updatedAt,
         content: (
-          <p className="text-[13px] font-sans text-[#20201E] truncate flex items-center gap-2">
+          <p className="text-[13px] font-sans text-[#0F241D] truncate flex items-center gap-2">
             <span className="font-[600] truncate">{p.name}</span>
             <ApprovalStatusBadge status={p.approvalStatus} />
           </p>
@@ -142,10 +142,10 @@ function CuratedDashboard() {
         id: `order-${item.orderItemId}`,
         date: item.createdAt,
         content: (
-          <p className="text-[13px] font-sans text-[#20201E] truncate flex items-center gap-2">
-            <ShoppingBag size={13} className="text-blue-500 shrink-0" aria-hidden="true" />
+          <p className="text-[13px] font-sans text-[#0F241D] truncate flex items-center gap-2">
+            <ShoppingBag size={13} className="text-[#183D33] shrink-0" aria-hidden="true" />
             Order: <span className="font-[600] truncate">{item.productName}</span>
-            <span className="text-[#9CA3AF]">×{item.quantity}</span>
+            <span className="text-[#6B7E6B]">×{item.quantity}</span>
             <OrderItemStatusBadge status={item.status} />
           </p>
         ),
@@ -157,8 +157,8 @@ function CuratedDashboard() {
         id: `payout-${payout.id}`,
         date: payout.createdAt,
         content: (
-          <p className="text-[13px] font-sans text-[#20201E] truncate flex items-center gap-2">
-            <Wallet size={13} className="text-emerald-600 shrink-0" aria-hidden="true" />
+          <p className="text-[13px] font-sans text-[#0F241D] truncate flex items-center gap-2">
+            <Wallet size={13} className="text-[#183D33] shrink-0" aria-hidden="true" />
             Payout: <span className="font-[600]">{formatINR(payout.amount)}</span>
             <PayoutStatusBadge status={payout.status} />
           </p>
@@ -180,14 +180,14 @@ function CuratedDashboard() {
           <p className="text-[12px] font-[600] font-sans text-[#183D33] tracking-[0.06em] uppercase mb-1">
             {greeting}
           </p>
-          <h1 className="text-[26px] font-[700] font-sans text-[#20201E] leading-tight">
+          <h1 className="text-[26px] font-[700] font-sans text-[#0F241D] leading-tight">
             {sellerFirstName}
           </h1>
-          <p className="text-[13.5px] font-sans text-[#9CA3AF] mt-0.5">Here's what's happening with your store</p>
+          <p className="text-[13.5px] font-sans text-[#6B7E6B] mt-0.5">Here's what's happening with your store</p>
         </div>
         <Link
           href="/portal/products/new"
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#183D33] text-white text-[13px] font-[600] font-sans rounded-lg hover:bg-[#8A7357] transition-colors shadow-sm"
+          className="flex items-center gap-2 px-4 py-2.5 bg-[#183D33] text-white text-[13px] font-[600] font-sans rounded-lg hover:bg-[#0F241D] transition-colors shadow-sm"
         >
           <Plus size={14} aria-hidden="true" />
           Submit Product
@@ -207,28 +207,28 @@ function CuratedDashboard() {
               label="Approved"
               value={String(totalApproved)}
               icon={CheckCircle2}
-              iconBg="bg-emerald-50"
-              iconColor="text-emerald-600"
+              iconBg="bg-[#E7EDE7]"
+              iconColor="text-[#183D33]"
             />
             <KpiCard
               label="Pending Review"
               value={String(totalPending)}
               icon={Clock}
-              iconBg="bg-amber-50"
-              iconColor="text-amber-600"
+              iconBg="bg-[#E7EDE7]"
+              iconColor="text-[#183D33]"
             />
             <KpiCard
               label="Rejected"
               value={String(totalRejected)}
               icon={XCircle}
-              iconBg="bg-red-50"
-              iconColor="text-red-500"
+              iconBg="bg-[#E7EDE7]"
+              iconColor="text-[#183D33]"
             />
             <KpiCard
               label="Total Submitted"
               value={String(totalSubmitted)}
               icon={Package}
-              iconBg="bg-[#F5F0E5]"
+              iconBg="bg-[#E7EDE7]"
               iconColor="text-[#183D33]"
             />
           </div>
@@ -251,16 +251,16 @@ function CuratedDashboard() {
             label="Pending Payout"
             value={payoutSummaryQ.isLoading ? '—' : formatINR(payoutSummaryQ.data?.pendingPayout ?? 0)}
             icon={Hourglass}
-            iconBg="bg-amber-50"
-            iconColor="text-amber-600"
+            iconBg="bg-[#E7EDE7]"
+            iconColor="text-[#183D33]"
             hint="Will be disbursed in the next payout cycle"
           />
           <KpiCard
             label="Order Items"
             value={orderItemsQ.isLoading ? '—' : String(totalOrderItems)}
             icon={ShoppingBag}
-            iconBg="bg-blue-50"
-            iconColor="text-blue-600"
+            iconBg="bg-[#E7EDE7]"
+            iconColor="text-[#183D33]"
             hint="Total line items across all orders"
           />
         </div>
@@ -271,21 +271,21 @@ function CuratedDashboard() {
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between mb-3">
             <p className="text-[11px] font-[700] font-sans text-[#183D33] tracking-[0.1em] uppercase">Recent Activity</p>
-            <Link href="/portal/products" className="flex items-center gap-1 text-[12px] font-[600] font-sans text-[#183D33] hover:text-[#8A7357] transition-colors">
+            <Link href="/portal/products" className="flex items-center gap-1 text-[12px] font-[600] font-sans text-[#183D33] hover:text-[#0F241D] transition-colors">
               All products <ArrowRight size={11} />
             </Link>
           </div>
-          <div className="bg-white border border-[#E5DCCB] rounded-xl px-5 py-1">
+          <div className="bg-white border border-[#D9E2DA] rounded-xl px-5 py-1">
             {activityLoading ? (
               <div className="py-5 space-y-4 animate-pulse">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="h-4 bg-[#F5F0E5] rounded w-3/4" />
+                  <div key={i} className="h-4 bg-[#E7EDE7] rounded w-3/4" />
                 ))}
               </div>
             ) : activity.length === 0 ? (
               <div className="py-12 text-center">
-                <p className="text-[14px] font-sans text-[#9CA3AF]">Nothing to show yet.</p>
-                <p className="text-[12px] font-sans text-[#9CA3AF] mt-1">
+                <p className="text-[14px] font-sans text-[#6B7E6B]">Nothing to show yet.</p>
+                <p className="text-[12px] font-sans text-[#6B7E6B] mt-1">
                   Product approvals, orders, and payouts will appear here.
                 </p>
               </div>
@@ -300,21 +300,21 @@ function CuratedDashboard() {
           <p className="text-[11px] font-[700] font-sans text-[#183D33] tracking-[0.1em] uppercase mb-3">Quick links</p>
           <div className="space-y-2">
             {[
-              { href: '/portal/products/new', label: 'Submit a New Product', icon: Plus, color: 'text-[#183D33]', bg: 'bg-[#F5F0E5]' },
-              { href: '/portal/orders', label: 'View My Orders', icon: ShoppingBag, color: 'text-blue-600', bg: 'bg-blue-50' },
-              { href: '/portal/payouts', label: 'Check Payouts', icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-              { href: '/portal/settings', label: 'Update Settings', icon: ArrowRight, color: 'text-[#9CA3AF]', bg: 'bg-[#F5F0E5]' },
+              { href: '/portal/products/new', label: 'Submit a New Product', icon: Plus, color: 'text-[#183D33]', bg: 'bg-[#E7EDE7]' },
+              { href: '/portal/orders', label: 'View My Orders', icon: ShoppingBag, color: 'text-[#183D33]', bg: 'bg-[#E7EDE7]' },
+              { href: '/portal/payouts', label: 'Check Payouts', icon: Wallet, color: 'text-[#183D33]', bg: 'bg-[#E7EDE7]' },
+              { href: '/portal/settings', label: 'Update Settings', icon: ArrowRight, color: 'text-[#6B7E6B]', bg: 'bg-[#E7EDE7]' },
             ].map(({ href, label, icon: Icon, color, bg }) => (
               <Link
                 key={href}
                 href={href}
-                className="flex items-center gap-3 p-3.5 bg-white border border-[#E5DCCB] rounded-xl hover:border-[#C4BDB4] hover:shadow-sm transition-all"
+                className="flex items-center gap-3 p-3.5 bg-white border border-[#D9E2DA] rounded-xl hover:border-[#6B7E6B] hover:shadow-sm transition-all"
               >
                 <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', bg)}>
                   <Icon size={14} className={color} aria-hidden="true" />
                 </div>
-                <span className="text-[13px] font-[500] font-sans text-[#20201E]">{label}</span>
-                <ArrowRight size={13} className="text-[#C4BDB4] ml-auto" aria-hidden="true" />
+                <span className="text-[13px] font-[500] font-sans text-[#0F241D]">{label}</span>
+                <ArrowRight size={13} className="text-[#6B7E6B] ml-auto" aria-hidden="true" />
               </Link>
             ))}
           </div>

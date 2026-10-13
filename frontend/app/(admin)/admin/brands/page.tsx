@@ -58,7 +58,7 @@ function CommissionDefaultsCard() {
       </p>
       <div className="mt-4 flex flex-wrap items-end gap-4">
         <label className="block">
-          <span className="block text-[12px] font-[600] font-sans text-muted mb-1">First paid order (%)</span>
+          <span className="block text-[12px] font-[600] font-sans text-muted mb-1">First order per buyer (%)</span>
           <input
             type="number" min={0} max={100} step="0.1" inputMode="decimal"
             value={firstValue} onChange={(e) => setFirst(e.target.value)} disabled={isLoading}
@@ -86,7 +86,7 @@ function StatusBadge({ status }: { status: BrandStatus }) {
   return (
     <span className={cn(
       'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-[600] font-sans',
-      status === 'ACTIVE' ? 'bg-selected text-forest' : 'bg-red-50 text-error',
+      status === 'ACTIVE' ? 'bg-selected text-forest' : 'bg-[#E7EDE7] text-error',
     )}>
       {status === 'ACTIVE' ? 'Active' : 'Suspended'}
     </span>
@@ -208,7 +208,7 @@ function ManageBrandDialog({ brand, defaults, onClose }: {
               <legend className="px-1 text-[12px] font-[600] font-sans text-muted">Commission overrides (%)</legend>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">
-                  <span className="block text-[12px] font-sans text-muted mb-1">First paid order</span>
+                  <span className="block text-[12px] font-sans text-muted mb-1">First order per buyer</span>
                   <input
                     type="number" min={0} max={100} step="0.1" inputMode="decimal"
                     value={first} onChange={(e) => setFirst(e.target.value)}
@@ -225,7 +225,7 @@ function ManageBrandDialog({ brand, defaults, onClose }: {
                 </label>
               </div>
               <p className="text-[12.5px] font-sans text-ink mt-3">
-                Effective rates: <strong>{effFirst ?? '–'}%</strong> on the first paid order, <strong>{effRepeat ?? '–'}%</strong> on every later one.
+                Effective rates: <strong>{effFirst ?? '–'}%</strong> on each buyer&apos;s first paid order with this brand, <strong>{effRepeat ?? '–'}%</strong> on every later order from that buyer.
               </p>
               <p className="text-[12px] font-sans text-muted mt-1">Leave a field blank to clear the override and use the platform default.</p>
             </fieldset>

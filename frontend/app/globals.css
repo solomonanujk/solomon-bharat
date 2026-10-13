@@ -1,24 +1,23 @@
 @import "tailwindcss";
 
-/* ─── "Forest & Brass" design tokens ──────────────────────────────────────────
-   Brass is an ACCENT only — never a button fill. Primary buttons are forest on
-   light grounds and white/ivory on forest grounds. #C6A15B passes contrast only
-   on forest; use brass-deep on white and brass-dark on ivory for small text. */
+/* ─── Green & white palette ────────────────────────────────────────────────────
+   Only forest greens and white. Page ground is white. Legacy token names
+   (ivory, brass*, ink, muted, line, error) are kept as aliases onto that palette. */
 :root {
   --forest: #183D33;
   --forest-hover: #0F241D;
-  --ivory: #F5F0E5;
-  --brass: #C6A15B;
-  --brass-deep: #8F6E35;
-  --brass-dark: #86652E;
+  --ivory: #FFFFFF;
+  --brass: #D9E2DA;
+  --brass-deep: #183D33;
+  --brass-dark: #183D33;
   --white: #FFFFFF;
-  --ink: #20201E;
-  --muted: #665F55;
-  --line: #E5DCCB;
-  --review-ground: #EEE8D8;
+  --ink: #0F241D;
+  --muted: #183D33B3;
+  --line: #D9E2DA;
+  --review-ground: #E7EDE7;
   --light-text: #D9E2DA;
   --selected: #E7EDE7;
-  --error: #A32929;
+  --error: #183D33;
 
   /* Legacy aliases — older components still use these names. They point at the
      new palette so every surface picks up the redesign without a rename. */
@@ -27,12 +26,12 @@
   --primary: var(--ink);
   --accent: var(--forest);
   --accent-hover: var(--forest-hover);
-  --muted-bg: var(--ivory);
+  --muted-bg: var(--selected);
   --muted-text: var(--muted);
   --border-warm: var(--line);
   --product-text: var(--ink);
   --success: #6B7E6B;
-  --warning: #C29D72;
+  --warning: #6B7E6B;
 }
 
 @theme {

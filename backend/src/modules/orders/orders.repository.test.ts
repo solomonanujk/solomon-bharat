@@ -150,10 +150,11 @@ describe('OrdersRepository', () => {
 
   it('countOtherPaidBrandOrders excludes this order, unpaid and cancelled orders', async () => {
     db.order.count.mockResolvedValue(2);
-    expect(await repo.countOtherPaidBrandOrders(db as never, 'sp-a', 'o1')).toBe(2);
+    expect(await repo.countOtherPaidBrandOrders(db as never, 'sp-a', 'b1', 'o1')).toBe(2);
     expect(db.order.count).toHaveBeenCalledWith({
       where: {
         sellerProfileId: 'sp-a',
+        buyerId: 'b1',
         id: { not: 'o1' },
         status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED] },
       },
