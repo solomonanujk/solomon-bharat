@@ -15,6 +15,7 @@ import { agentApplicationsRouter } from '../modules/agent-applications/agent-app
 import { cataloguesRouter } from '../modules/catalogues/catalogues.routes';
 import { brandsRouter } from '../modules/brands/brands.routes';
 import { productImportRouter } from '../modules/product-import/product-import.routes';
+import { rfqsRouter } from '../modules/rfqs/rfqs.routes';
 
 export const apiRouter = Router();
 
@@ -49,3 +50,4 @@ apiRouter.use('/agents', agentApplicationsRouter);
 apiRouter.use('/agent/catalogues', cataloguesRouter);
 apiRouter.use('/brands', brandsRouter);
 apiRouter.use('/product-import', productImportRouter);
+apiRouter.use('/rfqs', rfqsRouter);

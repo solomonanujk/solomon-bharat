@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import {
@@ -860,6 +861,19 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
           {howItIsMade && <p className="type-body text-muted whitespace-pre-wrap break-words">{howItIsMade}</p>}
         </section>
       )}
+
+      <section className="border border-line rounded p-5 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex-1">
+          <p className="text-[15px] font-[600] text-ink">Need something custom?</p>
+          <p className="type-body text-muted mt-0.5">Different colours, sizes, packaging or your own label. Tell us and our team will quote.</p>
+        </div>
+        <Link
+          href={`/custom-requirement?product=${id}&name=${encodeURIComponent(product.name)}`}
+          className="inline-flex items-center justify-center h-11 px-5 rounded border border-forest text-forest font-[600] text-[14px] hover:bg-forest hover:text-white transition-colors"
+        >
+          Custom requirement
+        </Link>
+      </section>
 
       <CustomerReviews productId={id} />
 

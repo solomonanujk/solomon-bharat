@@ -18,6 +18,7 @@ import {
   Settings,
   Briefcase,
   Store,
+  MessageSquareQuote,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -59,6 +60,7 @@ function useNavGroups(): NavGroup[] {
       label: 'Operations',
       items: [
         { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
+        { href: '/admin/rfqs', label: 'Custom Requirements', icon: MessageSquareQuote },
         { href: '/admin/payouts', label: 'Payouts', icon: CreditCard },
       ],
     },
