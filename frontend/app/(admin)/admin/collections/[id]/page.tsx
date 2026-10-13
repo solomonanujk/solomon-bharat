@@ -210,6 +210,7 @@ export default function AdminCollectionDetailPage() {
 
   useEffect(() => {
     if (!collection) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     setName(collection.name)
     setHeroImageFile(null)
     setHeroImageRemoved(false)

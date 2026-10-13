@@ -30,6 +30,7 @@ export function HeroImageUpload({
   const [preview, setPreview] = useState<string | null>(null)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     if (!file) { setPreview(null); return }
     const url = URL.createObjectURL(file)
     setPreview(url)

@@ -156,7 +156,7 @@ function SheetContent({ side = 'right', children, className, ...props }: SheetCo
 
 // ─── Close ────────────────────────────────────────────────────────────────────
 
-interface SheetCloseProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {}
+type SheetCloseProps = React.ButtonHTMLAttributes<HTMLButtonElement>
 
 function SheetClose({ className, children, onClick, ...props }: SheetCloseProps) {
   const { setOpen } = React.useContext(SheetContext)

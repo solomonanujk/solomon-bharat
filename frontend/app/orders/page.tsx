@@ -160,6 +160,7 @@ function DownloadInvoiceButton({ orderId, size = 'sm' as const }: { orderId: str
     a.download = `invoice-${invoice.invoiceNumber}.txt`
     a.click()
     URL.revokeObjectURL(url)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     setRequested(false)
   }, [invoice, requested])
 
@@ -226,6 +227,7 @@ function RateProductDialog({
   // next change / unmount, instead of being recreated on every render.
   useEffect(() => {
     const urls = photos.map((f) => URL.createObjectURL(f))
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     setPhotoPreviews(urls)
     return () => { urls.forEach((u) => URL.revokeObjectURL(u)) }
   }, [photos])

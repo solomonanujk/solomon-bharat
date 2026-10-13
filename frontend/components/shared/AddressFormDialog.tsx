@@ -36,6 +36,7 @@ export function AddressFormDialog({
   const [form, setForm] = useState<AddressInput>(initial)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     if (open) setForm(initial)
   }, [open, initial])
 

@@ -122,6 +122,7 @@ function BusinessProfileSection() {
 
   useEffect(() => {
     if (!profileLoaded || !profile) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     setCompanyName(profile.companyName ?? '')
     setContactName(profile.contactName ?? '')
     setPhone(profile.phone ?? '')
@@ -178,6 +179,7 @@ function AgentBusinessProfileSection() {
 
   useEffect(() => {
     if (!profileLoaded || !profile) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     setBusinessName(profile.businessName ?? '')
     setContactName(profile.contactName ?? '')
     setPhone(profile.phone ?? '')

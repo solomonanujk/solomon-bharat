@@ -131,6 +131,7 @@ function BrandForm({ brand }: { brand: OwnBrand }) {
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm((f) => ({ ...f, [k]: v }))
 
   // Re-sync after a save/refetch returns fresh server data.
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
   useEffect(() => { setForm(toForm(brand)) }, [brand])
 
   function onSubmit(e: React.FormEvent) {

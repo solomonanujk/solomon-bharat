@@ -275,8 +275,8 @@ function PricingSection() {
               figures (lib/sellerCommission.ts). Commission terms are shown in the application. */}
           <p className="type-body text-muted mt-4">
             There are no listing fees and no subscriptions. Marketplace brands keep the price they set minus
-            Solomon&apos;s commission ({MARKETPLACE_COMMISSION.first}% on a buyer's first order, {MARKETPLACE_COMMISSION.repeat}%
-            on that buyer's later orders). Curated sellers are paid the price they asked for; the international pricing is ours to manage.
+            Solomon&apos;s commission ({MARKETPLACE_COMMISSION.first}% on a buyer&apos;s first order, {MARKETPLACE_COMMISSION.repeat}%
+            on that buyer&apos;s later orders). Curated sellers are paid the price they asked for; the international pricing is ours to manage.
             Commission terms are set out in the application before you submit.
           </p>
           <ul className="mt-6 flex flex-col gap-3">

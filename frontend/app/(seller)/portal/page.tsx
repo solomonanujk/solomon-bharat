@@ -183,7 +183,7 @@ function CuratedDashboard() {
           <h1 className="text-[26px] font-[700] font-sans text-[#0F241D] leading-tight">
             {sellerFirstName}
           </h1>
-          <p className="text-[13.5px] font-sans text-[#6B7E6B] mt-0.5">Here's what's happening with your store</p>
+          <p className="text-[13.5px] font-sans text-[#6B7E6B] mt-0.5">Here&apos;s what&apos;s happening with your store</p>
         </div>
         <Link
           href="/portal/products/new"

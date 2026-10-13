@@ -118,6 +118,7 @@ export default function AdminOrderDetailPage() {
   // ── Tracking number field ──────────────────────────────────────────────────
   const [trackingInput, setTrackingInput] = useState('')
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     setTrackingInput(order?.trackingNumber ?? '')
   }, [order?.trackingNumber])
 
@@ -125,6 +126,7 @@ export default function AdminOrderDetailPage() {
   const [docs, setDocs] = useState<string[]>([])
   const [newDocUrl, setNewDocUrl] = useState('')
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     setDocs(order?.exportDocuments ?? [])
   }, [order?.exportDocuments])
   const docsDirty = useMemo(

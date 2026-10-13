@@ -95,7 +95,7 @@ function SelectValue({ placeholder }: { placeholder?: string }) {
 
 // ─── Trigger ──────────────────────────────────────────────────────────────────
 
-interface SelectTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {}
+type SelectTriggerProps = React.ButtonHTMLAttributes<HTMLButtonElement>
 
 function SelectTrigger({ className, children, ...props }: SelectTriggerProps) {
   const { open, setOpen } = React.useContext(SelectContext)
@@ -129,7 +129,7 @@ function SelectTrigger({ className, children, ...props }: SelectTriggerProps) {
 
 // ─── Content (Dropdown) ───────────────────────────────────────────────────────
 
-interface SelectContentProps extends React.HTMLAttributes<HTMLDivElement> {}
+type SelectContentProps = React.HTMLAttributes<HTMLDivElement>
 
 function SelectContent({ className, children, ...props }: SelectContentProps) {
   const { open } = React.useContext(SelectContext)

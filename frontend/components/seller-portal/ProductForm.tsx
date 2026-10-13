@@ -298,6 +298,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   // revokeObjectURL on cleanup) — genuinely can't be derived during render.
   useEffect(() => {
     const urls = newImages.map((f) => URL.createObjectURL(f))
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     setNewImagePreviews(urls)
     return () => { urls.forEach((u) => URL.revokeObjectURL(u)) }
   }, [newImages])
@@ -312,6 +313,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   // Same justified exception as the image-preview effect above.
   useEffect(() => {
     const urls = newVideos.map((f) => URL.createObjectURL(f))
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     setNewVideoPreviews(urls)
     return () => { urls.forEach((u) => URL.revokeObjectURL(u)) }
   }, [newVideos])
@@ -397,6 +399,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const craftImageInputRef = useRef<HTMLInputElement>(null)
   // Same justified exception as the image/video-preview effects above.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     if (!craftImage) { setCraftImagePreview(null); return }
     const url = URL.createObjectURL(craftImage)
     setCraftImagePreview(url)

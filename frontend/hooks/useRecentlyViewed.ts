@@ -42,6 +42,7 @@ export function useRecentlyViewed() {
   const [products, setProducts] = useState<RecentProduct[]>([])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     setProducts(read())
   }, [])
 

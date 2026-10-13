@@ -287,6 +287,7 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (selectedAddressId || addresses.length === 0) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     setSelectedAddressId(addresses.find((a) => a.isDefault)?.id ?? addresses[0].id)
   }, [addresses, selectedAddressId])
 
@@ -296,6 +297,7 @@ export default function CheckoutPage() {
   // buyer's own country) so they aren't stuck guessing which one to pick.
   useEffect(() => {
     if (!buyerProfile) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     setPhone((p) => {
       if (p) return p
       if (buyerProfile.phone) return buyerProfile.phone

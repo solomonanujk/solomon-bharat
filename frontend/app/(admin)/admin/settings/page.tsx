@@ -50,6 +50,7 @@ function SettingRow({ setting }: { setting: PlatformSetting }) {
   const updateSetting = useUpdatePlatformSetting()
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     setValue(valueToText(setting.value))
   }, [setting.value])
 
