@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import api from '@/lib/api'
 import { Check, ChevronDown, Eye, EyeOff, Film, GripVertical, Lightbulb, Search, SlidersHorizontal, Trash2, Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useCategoryTree } from '@/hooks/queries/useCategories'
@@ -279,6 +280,33 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const [name, setName] = useState(product?.name ?? '')
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? '')
   const [description, setDescription] = useState(product?.description ?? '')
+  const [drafting, setDrafting] = useState(false)
+
+  // AI writing help: drafts a description from the details already entered; the seller edits it.
+  async function draftDescriptionWithAi() {
+    if (!name.trim()) {
+      toast.error('Enter the product name first.')
+      return
+    }
+    setDrafting(true)
+    try {
+      const res = await api.post('/products/description-draft', {
+        name: name.trim(),
+        category: selectedCategoryPath || undefined,
+        materials: materials.trim() || undefined,
+        craftTechnique: craftTechnique.trim() || undefined,
+        placeOfOrigin: placeOfOrigin.trim() || undefined,
+        careInstructions: careInstructions.trim() || undefined,
+        notes: description.trim() || undefined,
+      })
+      setDescription(String(res.data.data.description).slice(0, 1000))
+      toast.success('Draft added. Review and edit it before saving.')
+    } catch (err) {
+      toast.error(getApiError(err, 'Could not draft a description. Try again.'))
+    } finally {
+      setDrafting(false)
+    }
+  }
   const [materials, setMaterials] = useState(product?.materials ?? '')
 
   // ── Additional details ─────────────────────────────────────────────────────
@@ -939,7 +967,13 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                 rows={4} maxLength={1000}
                 placeholder="Include information about details like materials, durability, use, and more."
                 className={TEXTAREA_CLS} />
-              <p className="text-right text-[12px] font-sans text-muted-text mt-1">{description.length}/1000</p>
+              <div className="flex items-center justify-between mt-1">
+                <button type="button" onClick={draftDescriptionWithAi} disabled={drafting}
+                  className="text-[13px] font-[600] font-sans text-forest underline underline-offset-4 disabled:opacity-50">
+                  {drafting ? 'Drafting…' : 'Draft with AI'}
+                </button>
+                <p className="text-[12px] font-sans text-muted-text">{description.length}/1000</p>
+              </div>
               {selectedCategoryPath && (
                 <p className="text-[13px] font-sans text-primary mt-3">
                   This product will appear in:<br /><span className="font-[700]">{selectedCategoryPath}</span>
