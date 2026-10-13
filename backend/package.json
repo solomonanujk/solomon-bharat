@@ -25,7 +25,8 @@
     "prisma:seed:legacy": "tsx prisma/seedLegacyProducts.ts"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "seed:categories": "tsx prisma/seedCraftCategories.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
