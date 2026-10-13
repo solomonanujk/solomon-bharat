@@ -227,7 +227,7 @@ export class AdminService {
     return toCsv(rows);
   }
 
-  async getAuditLog(filter: { entityType?: string; adminId?: string }, pagination: PaginationQuery) {
+  async getAuditLog(filter: { entityType?: string; adminId?: string; entityId?: string }, pagination: PaginationQuery) {
     const [data, total] = await this.repo.findAuditLog(filter, pagination);
     return { data, total };
   }

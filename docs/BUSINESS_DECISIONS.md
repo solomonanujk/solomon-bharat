@@ -1,5 +1,7 @@
 # Business decisions (owner-confirmed, Oct 2026)
 
+First target market: **UK**. Currency is detected automatically and buyers can switch; exchange rates update daily and automatically.
+
 Source of truth for how the two seller models behave. Where code disagrees with this file, the code is wrong.
 "Curated" = Curated by Solomon. "Marketplace" = a brand selling under its own name.
 
@@ -63,3 +65,18 @@ Recommended: video, the story of the craft.
 - Needed: Terms, Privacy, Seller Agreement, GDPR cookie consent. No return or damage policy yet (claims decided on photo evidence; shipping insurance planned).
 - Mobile-friendly site. Shopify/WooCommerce import is one-time. Google Analytics. Free hosting tier for now.
 - Benchmarks: Faire and Ankorstore.
+
+## 7. Follow-up decisions (round 2)
+- Brand's own buyers join through the brand's **personal invite link** (`/invite/<code>`). Only buyers with no earlier paid order from that brand can be claimed.
+- Prices are shown and charged in the buyer's currency, with automatic daily rates. Agent prices are converted the same way.
+- Until the payment gateway is live, payment is **manual bank transfer**: the admin confirms receipt with the UTR (`PAYMENT_MODE=manual`).
+- Marketplace brands have **24 hours** from payment to accept an order, or it is cancelled and refunded.
+- Solomon collects payment for marketplace orders too, and pays the brand net of commission.
+- Legal entity: **Solomon Bharat Private Limited, Jaipur, India**. Terms, Privacy, Cookie Policy and Seller Agreement are published on the site.
+- Custom requirements (RFQs) always go to the Solomon team.
+- Samples: not yet.
+
+## 8. Order lifecycle (as built)
+- Curated: Awaiting payment → Payment received → Confirmed → Procuring → At warehouse (Jaipur) → Quality checked (photos) → Dispatched → Delivered. Seller paid on dispatch.
+- Marketplace: Awaiting payment → Awaiting brand acceptance (24h) → Accepted → Dispatched (photos + tracking; brand paid) → Delivered. Own-buyer orders are paid out on payment.
+- Buyer can cancel until Confirmed/Accepted. Cancelled paid orders are marked Refunded by an admin with a reference.

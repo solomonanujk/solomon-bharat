@@ -722,6 +722,8 @@ export interface AuditLogEntry {
   entityType: string
   entityId: string
   action: string
+  metadata?: Record<string, unknown> | null
+  admin?: { email: string }
   createdAt: string
 }
 

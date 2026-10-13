@@ -19,6 +19,7 @@ import {
   Briefcase,
   Store,
   MessageSquareQuote,
+  ScrollText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/store/useAuthStore'
@@ -68,6 +69,7 @@ function useNavGroups(): NavGroup[] {
       label: 'Platform',
       items: [
         { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
+        { href: '/admin/audit-log', label: 'Audit Log', icon: ScrollText },
         { href: '/admin/settings', label: 'Settings', icon: Settings },
       ],
     },
