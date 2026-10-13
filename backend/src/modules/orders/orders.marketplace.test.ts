@@ -355,11 +355,12 @@ function buildFakeDb(initial: Order[], items: OrderItem[]) {
       await acquire();
       (tx as unknown as { markLocked: () => void }).markLocked();
     }),
-    countOtherPaidBrandOrders: vi.fn(async (_tx: DbTx, sellerProfileId: string, excludeId: string) => {
+    countOtherPaidBrandOrders: vi.fn(async (_tx: DbTx, sellerProfileId: string, buyerId: string, excludeId: string) => {
       events.push('count');
       return [...rows.values()].filter(
         (r) =>
           r.sellerProfileId === sellerProfileId &&
+          r.buyerId === buyerId &&
           r.id !== excludeId &&
           r._committedStatus !== OrderStatus.PENDING_PAYMENT &&
           r._committedStatus !== OrderStatus.CANCELLED,
@@ -424,6 +425,15 @@ describe('OrdersService.markCheckoutPaid (settle + commission lock)', () => {
     await service(db).markCheckoutPaid(['o2']);
     expect(Number(db.itemRows.get('i2')!.commissionRate)).toBe(15);
     expect(Number(db.itemRows.get('i2')!.commissionAmount)).toBe(150);
+  });
+
+  it('another buyer paid order does not make this buyer a repeat (first rate is per buyer)', async () => {
+    const db = buildFakeDb(
+      [{ ...brandOrder('o-other', OrderStatus.DELIVERED), buyerId: 'buyer-2' }, brandOrder('o4')],
+      [item({ id: 'i4', orderId: 'o4' })],
+    );
+    await service(db).markCheckoutPaid(['o4']);
+    expect(Number(db.itemRows.get('i4')!.commissionRate)).toBe(25);
   });
 
   it('cancelled and unpaid orders do not count as the brand\'s first sale', async () => {

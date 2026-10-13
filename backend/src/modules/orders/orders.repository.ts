@@ -172,11 +172,17 @@ export class OrdersRepository {
     await tx.$queryRaw`SELECT id FROM "brands" WHERE id = ${brandId} FOR UPDATE`;
   }
 
-  /** Other orders of this brand that are past PENDING_PAYMENT and not CANCELLED. */
-  countOtherPaidBrandOrders(tx: DbTx, sellerProfileId: string, excludeOrderId: string): Promise<number> {
+  /** Other orders from this buyer to this brand that are past PENDING_PAYMENT and not CANCELLED. */
+  countOtherPaidBrandOrders(
+    tx: DbTx,
+    sellerProfileId: string,
+    buyerId: string,
+    excludeOrderId: string,
+  ): Promise<number> {
     return tx.order.count({
       where: {
         sellerProfileId,
+        buyerId,
         id: { not: excludeOrderId },
         status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED] },
       },

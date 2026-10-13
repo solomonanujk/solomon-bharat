@@ -563,8 +563,9 @@ export class OrdersService {
 
   /**
    * Locks the commission for one brand order inside the settlement transaction. The brand row is
-   * locked BEFORE counting the brand's other paid orders so two concurrent first orders serialise:
-   * the second one sees the first as already paid and gets the repeat rate.
+   * locked BEFORE counting this buyer's other paid orders with the brand so two concurrent first
+   * orders from the same buyer serialise: the second one sees the first as paid and gets the repeat rate.
+   * The 'first' rate applies once per buyer per brand; every later order from that buyer is 'repeat'.
    * Isolated on purpose — this is the piece that would move if commission is locked at checkout.
    */
   private async lockCommission(tx: DbTx, order: Order): Promise<void> {
@@ -575,7 +576,7 @@ export class OrdersService {
     }
 
     await this.repo.lockBrand(tx, brand.id);
-    const otherPaid = await this.repo.countOtherPaidBrandOrders(tx, sellerProfileId, order.id);
+    const otherPaid = await this.repo.countOtherPaidBrandOrders(tx, sellerProfileId, order.buyerId, order.id);
     const rate = pickRate(await this.rates.resolveCommissionRates(brand.id), otherPaid === 0);
 
     const items = await this.repo.findItemsInTx(tx, order.id);
