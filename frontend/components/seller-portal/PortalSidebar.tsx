@@ -52,10 +52,10 @@ export function PortalSidebar() {
   }
 
   return (
-    <aside className="h-screen w-[200px] bg-white border-r border-[#E5DCCB] flex flex-col fixed left-0 top-0 z-30">
+    <aside className="h-screen w-[200px] bg-white border-r border-[#D9E2DA] flex flex-col fixed left-0 top-0 z-30">
 
       {/* Logo */}
-      <div className="px-5 h-16 flex items-center border-b border-[#E5DCCB] shrink-0">
+      <div className="px-5 h-16 flex items-center border-b border-[#D9E2DA] shrink-0">
         <Link href="/" className="block">
           <img
             src="/branding/solomon-bharat-logo.png"
@@ -85,14 +85,14 @@ export function PortalSidebar() {
                     'flex items-center gap-2.5 px-3 py-[7px] rounded-md w-full text-left',
                     'text-[13px] font-sans transition-colors',
                     active
-                      ? 'bg-[#F5F0E5] text-[#20201E] font-[600]'
-                      : 'text-[#665F55] font-[400] hover:bg-[#F5F0E5] hover:text-[#20201E]'
+                      ? 'bg-[#E7EDE7] text-[#0F241D] font-[600]'
+                      : 'text-[#183D33B3] font-[400] hover:bg-[#E7EDE7] hover:text-[#0F241D]'
                   )}
                 >
                   <Icon
                     size={14}
                     aria-hidden="true"
-                    className={cn('shrink-0', active ? 'text-[#183D33]' : 'text-[#C4BDB4]')}
+                    className={cn('shrink-0', active ? 'text-[#183D33]' : 'text-[#6B7E6B]')}
                   />
                   <span className="flex-1">{label}</span>
                   {active && <span className="w-1.5 h-1.5 rounded-full bg-[#183D33] shrink-0" aria-hidden="true" />}
@@ -104,15 +104,15 @@ export function PortalSidebar() {
       </nav>
 
       {/* Seller profile section */}
-      <div className="px-4 py-4 border-t border-[#E5DCCB] shrink-0">
+      <div className="px-4 py-4 border-t border-[#D9E2DA] shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#183D33] to-[#7A6244] flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#183D33] to-[#0F241D] flex items-center justify-center shrink-0">
             <span className="text-[11px] font-[700] font-sans text-white">
               {sellerInitials}
             </span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[12.5px] font-[600] font-sans text-[#20201E] truncate leading-tight">
+            <p className="text-[12.5px] font-[600] font-sans text-[#0F241D] truncate leading-tight">
               {sellerName}
             </p>
             <p className="text-[10.5px] font-sans text-[#183D33] leading-tight font-[500]">{isMarketplace ? 'Brand' : 'Seller'}</p>
@@ -121,7 +121,7 @@ export function PortalSidebar() {
             type="button"
             onClick={logout}
             aria-label="Sign out"
-            className="text-[#C4BDB4] hover:text-[#665F55] transition-colors p-1"
+            className="text-[#6B7E6B] hover:text-[#183D33B3] transition-colors p-1"
           >
             <LogOut size={13} aria-hidden="true" />
           </button>

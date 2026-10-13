@@ -1290,7 +1290,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                               {hasOptions === 'yes' && activeCombos.length > 1 && (
                                 <button type="button" disabled={pricingLocked} onClick={() => removeCombo(combo.key)}
                                   aria-label={`Delete ${combo.label}`} title="Delete this option"
-                                  className="text-muted-text hover:text-red-600 transition-colors disabled:opacity-40">
+                                  className="text-muted-text hover:text-[#183D33] transition-colors disabled:opacity-40">
                                   <Trash2 size={15} />
                                 </button>
                               )}
@@ -1312,7 +1312,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                 <p className="text-[13px] font-sans text-muted-text max-w-xl">{pricingHint}</p>
                 {isBrand && (
                   <p className="text-[13px] font-sans text-ink max-w-xl mt-1">
-                    Solomon keeps 25% on your first order and 15% after.
+                    Solomon keeps 25% on each buyer&apos;s first order with you and 15% on that buyer&apos;s later orders.
                   </p>
                 )}
                 {brandLocked && (

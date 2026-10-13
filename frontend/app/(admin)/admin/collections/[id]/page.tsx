@@ -59,14 +59,14 @@ function MemberProductRow({
   const thumb = product.images?.[0]?.url
 
   return (
-    <div className="flex items-center gap-3 py-2.5 px-4 border-b border-[#E5DCCB] last:border-0">
+    <div className="flex items-center gap-3 py-2.5 px-4 border-b border-[#D9E2DA] last:border-0">
       <div className="flex flex-col gap-0.5 shrink-0">
         <button
           type="button"
           onClick={onMoveUp}
           disabled={disabled || index === 0}
           aria-label="Move up"
-          className="w-6 h-5 flex items-center justify-center rounded text-[#665F55] hover:text-[#20201E] hover:bg-[#F5F0E5] disabled:opacity-30 transition-colors"
+          className="w-6 h-5 flex items-center justify-center rounded text-[#183D33B3] hover:text-[#0F241D] hover:bg-[#E7EDE7] disabled:opacity-30 transition-colors"
         >
           <ArrowUp size={12} />
         </button>
@@ -75,7 +75,7 @@ function MemberProductRow({
           onClick={onMoveDown}
           disabled={disabled || index === total - 1}
           aria-label="Move down"
-          className="w-6 h-5 flex items-center justify-center rounded text-[#665F55] hover:text-[#20201E] hover:bg-[#F5F0E5] disabled:opacity-30 transition-colors"
+          className="w-6 h-5 flex items-center justify-center rounded text-[#183D33B3] hover:text-[#0F241D] hover:bg-[#E7EDE7] disabled:opacity-30 transition-colors"
         >
           <ArrowDown size={12} />
         </button>
@@ -84,21 +84,21 @@ function MemberProductRow({
       {thumb ? (
         <button type="button" onClick={() => onImageClick(thumb, product.name)} className="flex-shrink-0 cursor-zoom-in" aria-label={`View ${product.name} full size`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={cloudinaryFill(thumb, 160, 160)} alt="" className="w-9 h-9 rounded object-contain bg-[#F5F0E5] border border-[#E5DCCB]" />
+          <img src={cloudinaryFill(thumb, 160, 160)} alt="" className="w-9 h-9 rounded object-contain bg-[#E7EDE7] border border-[#D9E2DA]" />
         </button>
       ) : (
-        <div className="w-9 h-9 rounded bg-[#F5F0E5] border border-[#E5DCCB] flex items-center justify-center flex-shrink-0">
-          <Package size={14} className="text-[#665F55]" />
+        <div className="w-9 h-9 rounded bg-[#E7EDE7] border border-[#D9E2DA] flex items-center justify-center flex-shrink-0">
+          <Package size={14} className="text-[#183D33B3]" />
         </div>
       )}
 
-      <p className="text-[13px] font-[600] font-sans text-[#20201E] flex-1 truncate">{product.name}</p>
+      <p className="text-[13px] font-[600] font-sans text-[#0F241D] flex-1 truncate">{product.name}</p>
 
       <button
         type="button"
         onClick={onRemove}
         disabled={disabled}
-        className="w-7 h-7 flex items-center justify-center rounded text-[#665F55] hover:text-red-500 hover:bg-red-100 transition-colors disabled:opacity-40"
+        className="w-7 h-7 flex items-center justify-center rounded text-[#183D33B3] hover:text-[#183D33] hover:bg-[#E7EDE7] transition-colors disabled:opacity-40"
         aria-label={`Remove ${product.name}`}
       >
         <X size={14} />
@@ -132,21 +132,21 @@ function AddProductPicker({
   return (
     <div className="space-y-3">
       <div className="relative">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#665F55]" aria-hidden="true" />
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#183D33B3]" aria-hidden="true" />
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search approved products by name…"
-          className="w-full h-9 pl-9 pr-3 rounded-lg border border-[#E5DCCB] bg-white text-[13px] font-sans text-[#20201E] placeholder:text-[#665F55] focus:outline-none focus:border-[#183D33] transition-colors"
+          className="w-full h-9 pl-9 pr-3 rounded-lg border border-[#D9E2DA] bg-white text-[13px] font-sans text-[#0F241D] placeholder:text-[#183D33B3] focus:outline-none focus:border-[#183D33] transition-colors"
         />
       </div>
 
-      <div className="border border-[#E5DCCB] rounded max-h-72 overflow-y-auto">
+      <div className="border border-[#D9E2DA] rounded max-h-72 overflow-y-auto">
         {isLoading ? (
-          <div className="p-4 text-[13px] font-sans text-[#665F55]">Loading products…</div>
+          <div className="p-4 text-[13px] font-sans text-[#183D33B3]">Loading products…</div>
         ) : results.length === 0 ? (
-          <div className="p-4 text-[13px] font-sans text-[#665F55]">
+          <div className="p-4 text-[13px] font-sans text-[#183D33B3]">
             {query ? 'No approved products match your search.' : 'No approved products available.'}
           </div>
         ) : (
@@ -154,18 +154,18 @@ function AddProductPicker({
             const alreadyIn = existingIds.has(p.id)
             const thumb = p.images?.[0]?.url
             return (
-              <div key={p.id} className="flex items-center gap-3 py-2 px-3 border-b border-[#E5DCCB] last:border-0">
+              <div key={p.id} className="flex items-center gap-3 py-2 px-3 border-b border-[#D9E2DA] last:border-0">
                 {thumb ? (
                   <button type="button" onClick={() => onImageClick(thumb, p.name)} className="flex-shrink-0 cursor-zoom-in" aria-label={`View ${p.name} full size`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={cloudinaryFill(thumb, 160, 160)} alt="" className="w-8 h-8 rounded object-contain bg-[#F5F0E5] border border-[#E5DCCB]" />
+                    <img src={cloudinaryFill(thumb, 160, 160)} alt="" className="w-8 h-8 rounded object-contain bg-[#E7EDE7] border border-[#D9E2DA]" />
                   </button>
                 ) : (
-                  <div className="w-8 h-8 rounded bg-[#F5F0E5] border border-[#E5DCCB] flex items-center justify-center flex-shrink-0">
-                    <Package size={12} className="text-[#665F55]" />
+                  <div className="w-8 h-8 rounded bg-[#E7EDE7] border border-[#D9E2DA] flex items-center justify-center flex-shrink-0">
+                    <Package size={12} className="text-[#183D33B3]" />
                   </div>
                 )}
-                <p className="text-[13px] font-sans text-[#20201E] flex-1 truncate">{p.name}</p>
+                <p className="text-[13px] font-sans text-[#0F241D] flex-1 truncate">{p.name}</p>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -277,9 +277,9 @@ export default function AdminCollectionDetailPage() {
   if (isLoading) {
     return (
       <div className="max-w-3xl mx-auto animate-pulse space-y-5">
-        <div className="h-5 bg-[#F5F0E5] rounded w-24" />
-        <div className="h-32 bg-white border border-[#E5DCCB] rounded-xl" />
-        <div className="h-48 bg-white border border-[#E5DCCB] rounded-xl" />
+        <div className="h-5 bg-[#E7EDE7] rounded w-24" />
+        <div className="h-32 bg-white border border-[#D9E2DA] rounded-xl" />
+        <div className="h-48 bg-white border border-[#D9E2DA] rounded-xl" />
       </div>
     )
   }
@@ -290,13 +290,13 @@ export default function AdminCollectionDetailPage() {
         <button
           type="button"
           onClick={() => router.push('/admin/collections')}
-          className="flex items-center gap-1.5 text-[13px] font-sans text-[#665F55] hover:text-[#20201E] mb-6 transition-colors"
+          className="flex items-center gap-1.5 text-[13px] font-sans text-[#183D33B3] hover:text-[#0F241D] mb-6 transition-colors"
         >
           <ArrowLeft size={14} /> Back
         </button>
-        <div className="bg-white border border-[#E5DCCB] rounded-xl py-20 flex flex-col items-center gap-3">
-          <ImageOff size={28} className="text-[#E5DCCB]" aria-hidden="true" />
-          <p className="text-[15px] font-[600] font-sans text-[#20201E]">
+        <div className="bg-white border border-[#D9E2DA] rounded-xl py-20 flex flex-col items-center gap-3">
+          <ImageOff size={28} className="text-[#D9E2DA]" aria-hidden="true" />
+          <p className="text-[15px] font-[600] font-sans text-[#0F241D]">
             {isError ? 'Failed to load collection' : 'Collection not found'}
           </p>
         </div>
@@ -315,7 +315,7 @@ export default function AdminCollectionDetailPage() {
         <button
           type="button"
           onClick={() => router.push('/admin/collections')}
-          className="flex items-center gap-1.5 text-[13px] font-sans text-[#665F55] hover:text-[#20201E] transition-colors"
+          className="flex items-center gap-1.5 text-[13px] font-sans text-[#183D33B3] hover:text-[#0F241D] transition-colors"
         >
           <ArrowLeft size={14} />
           Back to collections
@@ -324,26 +324,26 @@ export default function AdminCollectionDetailPage() {
       </div>
 
       {/* Hero */}
-      <div className="bg-white border border-[#E5DCCB] rounded-xl overflow-hidden mb-5 px-6 py-6">
+      <div className="bg-white border border-[#D9E2DA] rounded-xl overflow-hidden mb-5 px-6 py-6">
         <div className="flex items-center gap-4">
           {collection.heroImage ? (
             <button
               type="button"
               onClick={() => openLightbox(collection.heroImage, collection.name)}
-              className="w-14 h-14 rounded bg-[#F5F0E5] border border-[#E5DCCB] flex items-center justify-center shrink-0 overflow-hidden cursor-zoom-in"
+              className="w-14 h-14 rounded bg-[#E7EDE7] border border-[#D9E2DA] flex items-center justify-center shrink-0 overflow-hidden cursor-zoom-in"
               aria-label={`View ${collection.name} hero image full size`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={cloudinaryFill(collection.heroImage, 400, 400)} alt="" className="w-full h-full object-contain" />
             </button>
           ) : (
-            <div className="w-14 h-14 rounded bg-[#F5F0E5] border border-[#E5DCCB] flex items-center justify-center shrink-0 overflow-hidden">
-              <ImageOff size={20} className="text-[#665F55]" aria-hidden="true" />
+            <div className="w-14 h-14 rounded bg-[#E7EDE7] border border-[#D9E2DA] flex items-center justify-center shrink-0 overflow-hidden">
+              <ImageOff size={20} className="text-[#183D33B3]" aria-hidden="true" />
             </div>
           )}
           <div>
-            <h1 className="text-[24px] leading-[1.3] font-[500] font-sans text-[#20201E]">{collection.name}</h1>
-            <p className="text-[13px] font-sans text-[#665F55] mt-0.5">/{collection.slug}</p>
+            <h1 className="text-[24px] leading-[1.3] font-[500] font-sans text-[#0F241D]">{collection.name}</h1>
+            <p className="text-[13px] font-sans text-[#183D33B3] mt-0.5">/{collection.slug}</p>
           </div>
         </div>
       </div>
@@ -406,8 +406,8 @@ export default function AdminCollectionDetailPage() {
       </div>
 
       {/* Edit form */}
-      <div className="bg-white border border-[#E5DCCB] rounded-xl p-6 space-y-4 mb-6">
-        <h2 className="text-[16px] font-[600] font-sans text-[#20201E] pb-3 border-b border-[#E5DCCB]">
+      <div className="bg-white border border-[#D9E2DA] rounded-xl p-6 space-y-4 mb-6">
+        <h2 className="text-[16px] font-[600] font-sans text-[#0F241D] pb-3 border-b border-[#D9E2DA]">
           Details
         </h2>
         <div>
@@ -428,7 +428,7 @@ export default function AdminCollectionDetailPage() {
             value={editorialIntro}
             onChange={(e) => setEditorialIntro(e.target.value)}
             rows={3}
-            className="w-full px-3 py-2 rounded border border-[#E5DCCB] bg-white text-[14px] font-sans text-[#20201E] placeholder:text-[#665F55]/60 focus:outline-none focus:ring-1 focus:ring-[#183D33] focus:border-[#183D33] transition-colors resize-none"
+            className="w-full px-3 py-2 rounded border border-[#D9E2DA] bg-white text-[14px] font-sans text-[#0F241D] placeholder:text-[#183D33B3]/60 focus:outline-none focus:ring-1 focus:ring-[#183D33] focus:border-[#183D33] transition-colors resize-none"
           />
         </div>
         <div className="flex justify-end">
@@ -444,16 +444,16 @@ export default function AdminCollectionDetailPage() {
       </div>
 
       {/* Product membership */}
-      <div className="bg-white border border-[#E5DCCB] rounded-xl p-6 space-y-4 mb-6">
-        <h2 className="text-[16px] font-[600] font-sans text-[#20201E] pb-3 border-b border-[#E5DCCB]">
+      <div className="bg-white border border-[#D9E2DA] rounded-xl p-6 space-y-4 mb-6">
+        <h2 className="text-[16px] font-[600] font-sans text-[#0F241D] pb-3 border-b border-[#D9E2DA]">
           Products in this collection ({orderedProducts.length})
         </h2>
         {orderedProducts.length === 0 ? (
-          <p className="text-[13px] font-sans text-[#665F55] py-4 text-center">
+          <p className="text-[13px] font-sans text-[#183D33B3] py-4 text-center">
             No products in this collection yet — add some below.
           </p>
         ) : (
-          <div className="border border-[#E5DCCB] rounded overflow-hidden">
+          <div className="border border-[#D9E2DA] rounded overflow-hidden">
             {orderedProducts.map((p, i) => (
               <MemberProductRow
                 key={p.id}
@@ -472,8 +472,8 @@ export default function AdminCollectionDetailPage() {
       </div>
 
       {/* Add product */}
-      <div className="bg-white border border-[#E5DCCB] rounded-xl p-6 space-y-4 mb-6">
-        <h2 className="text-[16px] font-[600] font-sans text-[#20201E] pb-3 border-b border-[#E5DCCB]">
+      <div className="bg-white border border-[#D9E2DA] rounded-xl p-6 space-y-4 mb-6">
+        <h2 className="text-[16px] font-[600] font-sans text-[#0F241D] pb-3 border-b border-[#D9E2DA]">
           Add a product
         </h2>
         <AddProductPicker collectionId={id} existingIds={existingIds} onImageClick={openLightbox} />

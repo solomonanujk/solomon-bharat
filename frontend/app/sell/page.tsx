@@ -163,7 +163,7 @@ const WAYS_TO_SELL = [
   {
     title: 'Sell on the marketplace',
     body: 'Sell under your own brand. You set your prices and minimum order value, publish your own products and ship to the buyer yourself. Buyers see your brand name on your products.',
-    fee: `Solomon charges ${MARKETPLACE_COMMISSION.first}% on your first order and ${MARKETPLACE_COMMISSION.repeat}% on every order after.`,
+    fee: `Solomon charges ${MARKETPLACE_COMMISSION.first}% on each buyer's first order with you and ${MARKETPLACE_COMMISSION.repeat}% on that buyer's later orders.`,
   },
   {
     title: 'Curated by Solomon Bharat',
@@ -275,8 +275,8 @@ function PricingSection() {
               figures (lib/sellerCommission.ts). Commission terms are shown in the application. */}
           <p className="type-body text-muted mt-4">
             There are no listing fees and no subscriptions. Marketplace brands keep the price they set minus
-            Solomon&apos;s commission ({MARKETPLACE_COMMISSION.first}% on the first order, {MARKETPLACE_COMMISSION.repeat}%
-            after). Curated sellers are paid the price they asked for; the international pricing is ours to manage.
+            Solomon&apos;s commission ({MARKETPLACE_COMMISSION.first}% on a buyer's first order, {MARKETPLACE_COMMISSION.repeat}%
+            on that buyer's later orders). Curated sellers are paid the price they asked for; the international pricing is ours to manage.
             Commission terms are set out in the application before you submit.
           </p>
           <ul className="mt-6 flex flex-col gap-3">
@@ -503,7 +503,7 @@ const FAQS = [
   {
     q: 'Is there any cost to join?',
     // CONFIRM: fee claim. Commission figures live in the application (step 4).
-    a: `Applying is free and listing is free. Marketplace brands pay ${MARKETPLACE_COMMISSION.first}% commission on their first order and ${MARKETPLACE_COMMISSION.repeat}% on every order after; curated sellers pay ${CURATED_COMMISSION.first}% on the first order from a new buyer and ${CURATED_COMMISSION.repeat}% on repeat orders. You agree to the terms before you submit.`, // CONFIRM: commission figures
+    a: `Applying is free and listing is free. Marketplace brands pay ${MARKETPLACE_COMMISSION.first}% commission on each buyer's first order and ${MARKETPLACE_COMMISSION.repeat}% on that buyer's later orders; curated sellers pay ${CURATED_COMMISSION.first}% on the first order from a new buyer and ${CURATED_COMMISSION.repeat}% on repeat orders. You agree to the terms before you submit.`, // CONFIRM: commission figures
   },
   {
     q: 'How does pricing work?',

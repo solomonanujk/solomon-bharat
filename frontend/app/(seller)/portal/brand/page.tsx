@@ -229,14 +229,14 @@ function CommissionCard({ brand }: { brand: OwnBrand }) {
     <section className="rounded-xl border border-line bg-white p-6">
       <h2 className="type-h3 text-ink mb-2">Commission terms</h2>
       <p className="text-[14px] font-sans text-ink">
-        Solomon Bharat collects the buyer&apos;s payment and keeps <strong>{first}%</strong> of your first paid order and{' '}
-        <strong>{repeat}%</strong> of every later one. You are paid the rest once you
+        Solomon Bharat collects the buyer&apos;s payment and keeps <strong>{first}%</strong> of each buyer&apos;s first paid order with you and{' '}
+        <strong>{repeat}%</strong> of every later order from that buyer. You are paid the rest once you
         mark the order delivered. Shipping is included in your prices.
       </p>
       <p className="text-[12px] font-sans text-muted mt-2">
         {custom
           ? 'Your brand has custom rates set by Solomon Bharat. Rates are read-only.'
-          : 'These are the standard platform rates and are read-only here. Cancelled or unpaid orders never count as your first sale.'}
+          : 'These are the standard platform rates and are read-only here. Cancelled or unpaid orders never count as a buyer’s first order.'}
       </p>
     </section>
   )

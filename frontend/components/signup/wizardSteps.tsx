@@ -70,7 +70,7 @@ export function initialWizardState(email = ''): WizardState {
 
 // ─── Form styling (spec §4) ────────────────────────────────────────────────────
 // Label 14/20/600 with 8px gap; input min-h 48px, 16/24, white, 1px line
-// border, 4px radius; helper/error 6px below; errors #A32929 text + border.
+// border, 4px radius; helper/error 6px below; errors #183D33 text + border.
 
 export const INPUT_CLS =
   'w-full min-h-12 px-4 py-3 rounded-[4px] border border-line bg-white font-sans text-[16px] leading-[24px] text-ink placeholder:text-muted/70 transition-colors duration-150 focus:border-forest disabled:opacity-50 aria-[invalid=true]:border-error'

@@ -43,29 +43,29 @@ const inr = (v: number | string) => `₹${Math.round(Number(v) || 0).toLocaleStr
 function BrandRevenueTable({ brands }: { brands: BrandRevenueRow[] }) {
   return (
     <section className="mt-6" aria-labelledby="brand-revenue-heading">
-      <h2 id="brand-revenue-heading" className="text-[15px] font-[600] font-sans text-[#20201E] mb-1">Revenue by brand</h2>
-      <p className="text-[12.5px] font-sans text-[#665F55] mb-3">
+      <h2 id="brand-revenue-heading" className="text-[15px] font-[600] font-sans text-[#0F241D] mb-1">Revenue by brand</h2>
+      <p className="text-[12.5px] font-sans text-[#183D33B3] mb-3">
         Marketplace brand orders only. Commission is Solomon&apos;s earnings on each brand&apos;s GMV.
       </p>
-      <div className="bg-white border border-[#E5DCCB] rounded-xl overflow-x-auto">
+      <div className="bg-white border border-[#D9E2DA] rounded-xl overflow-x-auto">
         {brands.length === 0 ? (
-          <p className="p-5 text-[13px] font-sans text-[#665F55]">No brand orders in this period.</p>
+          <p className="p-5 text-[13px] font-sans text-[#183D33B3]">No brand orders in this period.</p>
         ) : (
           <table className="w-full">
             <thead>
-              <tr className="border-b border-[#E5DCCB] bg-[#F5F0E5]/40">
+              <tr className="border-b border-[#D9E2DA] bg-[#E7EDE7]/40">
                 {['Brand', 'Orders', 'GMV', 'Commission'].map((h) => (
-                  <th key={h} className="py-3 px-4 text-[12px] font-[600] font-sans text-[#665F55] uppercase tracking-[0.06em] text-left">{h}</th>
+                  <th key={h} className="py-3 px-4 text-[12px] font-[600] font-sans text-[#183D33B3] uppercase tracking-[0.06em] text-left">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {brands.map((b) => (
-                <tr key={b.sellerProfileId} className="border-b border-[#E5DCCB] last:border-0">
-                  <td className="py-3 px-4 text-[13px] font-[600] font-sans text-[#20201E]">{b.brandName}</td>
-                  <td className="py-3 px-4 text-[13px] font-sans text-[#20201E] tabular-nums">{b.ordersCount}</td>
-                  <td className="py-3 px-4 text-[13px] font-sans text-[#20201E] tabular-nums">{inr(b.gmv)}</td>
-                  <td className="py-3 px-4 text-[13px] font-sans text-[#20201E] tabular-nums">{inr(b.commission)}</td>
+                <tr key={b.sellerProfileId} className="border-b border-[#D9E2DA] last:border-0">
+                  <td className="py-3 px-4 text-[13px] font-[600] font-sans text-[#0F241D]">{b.brandName}</td>
+                  <td className="py-3 px-4 text-[13px] font-sans text-[#0F241D] tabular-nums">{b.ordersCount}</td>
+                  <td className="py-3 px-4 text-[13px] font-sans text-[#0F241D] tabular-nums">{inr(b.gmv)}</td>
+                  <td className="py-3 px-4 text-[13px] font-sans text-[#0F241D] tabular-nums">{inr(b.commission)}</td>
                 </tr>
               ))}
             </tbody>
@@ -126,14 +126,14 @@ export default function AdminReportsPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-[28px] leading-[1.3] font-[500] font-sans text-[#20201E]">Reports</h1>
-        <p className="text-[14px] font-sans text-[#665F55] mt-1">
+        <h1 className="text-[28px] leading-[1.3] font-[500] font-sans text-[#0F241D]">Reports</h1>
+        <p className="text-[14px] font-sans text-[#183D33B3] mt-1">
           Analytics and exports across revenue, orders, sellers, products, categories, and collections
         </p>
       </div>
 
       {/* Controls */}
-      <div className="bg-white border border-[#E5DCCB] rounded-xl p-5 mb-6 flex flex-wrap items-end gap-4">
+      <div className="bg-white border border-[#D9E2DA] rounded-xl p-5 mb-6 flex flex-wrap items-end gap-4">
         <div className="w-full sm:w-[260px]">
           <Label>Report type</Label>
           <Select value={type} onValueChange={(v) => setType(v as ReportType)}>
@@ -155,7 +155,7 @@ export default function AdminReportsPage() {
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="h-10 px-3 rounded border border-[#E5DCCB] bg-white text-[14px] font-sans text-[#20201E] focus:outline-none focus:ring-1 focus:ring-[#183D33] focus:border-[#183D33] transition-colors"
+            className="h-10 px-3 rounded border border-[#D9E2DA] bg-white text-[14px] font-sans text-[#0F241D] focus:outline-none focus:ring-1 focus:ring-[#183D33] focus:border-[#183D33] transition-colors"
           />
         </div>
 
@@ -166,7 +166,7 @@ export default function AdminReportsPage() {
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            className="h-10 px-3 rounded border border-[#E5DCCB] bg-white text-[14px] font-sans text-[#20201E] focus:outline-none focus:ring-1 focus:ring-[#183D33] focus:border-[#183D33] transition-colors"
+            className="h-10 px-3 rounded border border-[#D9E2DA] bg-white text-[14px] font-sans text-[#0F241D] focus:outline-none focus:ring-1 focus:ring-[#183D33] focus:border-[#183D33] transition-colors"
           />
         </div>
 
@@ -174,7 +174,7 @@ export default function AdminReportsPage() {
           <button
             type="button"
             onClick={() => { setFrom(''); setTo('') }}
-            className="h-10 text-[12px] font-sans text-[#665F55] hover:text-[#20201E] transition-colors underline underline-offset-2"
+            className="h-10 text-[12px] font-sans text-[#183D33B3] hover:text-[#0F241D] transition-colors underline underline-offset-2"
           >
             Clear dates
           </button>
@@ -194,15 +194,15 @@ export default function AdminReportsPage() {
 
       {/* Results */}
       {isLoading || isFetching ? (
-        <div className="bg-white border border-[#E5DCCB] rounded-xl overflow-hidden">
+        <div className="bg-white border border-[#D9E2DA] rounded-xl overflow-hidden">
           <div className="p-4 space-y-2">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-9 bg-[#F5F0E5] rounded animate-pulse" />
+              <div key={i} className="h-9 bg-[#E7EDE7] rounded animate-pulse" />
             ))}
           </div>
         </div>
       ) : rows.length === 0 ? (
-        <div className="bg-white border border-[#E5DCCB] rounded-xl overflow-hidden">
+        <div className="bg-white border border-[#D9E2DA] rounded-xl overflow-hidden">
           <EmptyState
             title={`No data for ${typeLabel}`}
             description="Try a different date range or report type."
@@ -215,7 +215,7 @@ export default function AdminReportsPage() {
       {!isLoading && !isFetching && brandRows && <BrandRevenueTable brands={brandRows} />}
 
       {rows.length === 0 && !isLoading && !isFetching && (
-        <p className="text-[12px] font-sans text-[#665F55] mt-3 flex items-center gap-1.5">
+        <p className="text-[12px] font-sans text-[#183D33B3] mt-3 flex items-center gap-1.5">
           <FileBarChart size={12} aria-hidden="true" />
           Reports refresh automatically as you change the type or date range.
         </p>

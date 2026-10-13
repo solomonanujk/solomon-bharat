@@ -93,7 +93,7 @@ export function AdminSidebar() {
   }
 
   return (
-    <aside className="h-screen w-[260px] bg-[#1C1A18] flex flex-col fixed left-0 top-0 z-30">
+    <aside className="h-screen w-[260px] bg-[#0F241D] flex flex-col fixed left-0 top-0 z-30">
 
       {/* Logo */}
       <div className="px-6 h-16 flex items-center border-b border-white/[0.07] shrink-0">
@@ -110,7 +110,7 @@ export function AdminSidebar() {
       <nav className="flex-1 overflow-y-auto py-3 px-3">
         {navGroups.map((group) => (
           <div key={group.label} className="mb-5">
-            <p className="px-3 mb-1.5 text-[9.5px] font-[700] font-sans text-[#183D33] tracking-[0.12em] uppercase">
+            <p className="px-3 mb-1.5 text-[9.5px] font-[700] font-sans text-[#6B7E6B] tracking-[0.12em] uppercase">
               {group.label}
             </p>
             <ul className="space-y-0.5">
@@ -125,26 +125,26 @@ export function AdminSidebar() {
                         'flex items-center gap-2.5 px-3 py-[7px] rounded-md',
                         'text-[13px] font-sans transition-colors',
                         active
-                          ? 'bg-[#183D33]/15 text-[#E8D5BB] font-[600]'
-                          : 'text-[#9A9189] font-[400] hover:bg-white/[0.05] hover:text-[#D4C5B0]'
+                          ? 'bg-white/10 text-[#FFFFFF] font-[600]'
+                          : 'text-[#D9E2DA] font-[400] hover:bg-white/[0.05] hover:text-[#D9E2DA]'
                       )}
                     >
                       <Icon
                         size={14}
                         aria-hidden="true"
-                        className={cn('shrink-0', active ? 'text-[#C4A882]' : 'text-[#665F55]')}
+                        className={cn('shrink-0', active ? 'text-[#FFFFFF]' : 'text-[#6B7E6B]')}
                       />
                       <span className="flex-1">{label}</span>
                       {showBadge && (
                         <span className={cn(
                           'text-[10px] font-[700] px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none',
-                          active ? 'bg-[#E04040]/25 text-[#FF8080]' : 'bg-[#E04040]/20 text-[#FF7070]'
+                          active ? 'bg-[#FFFFFF]/25 text-[#FFFFFF]' : 'bg-[#FFFFFF]/20 text-[#FFFFFF]'
                         )}>
                           {badge! > 99 ? '99+' : badge}
                         </span>
                       )}
                       {active && !showBadge && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#183D33]" aria-hidden="true" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#FFFFFF]" aria-hidden="true" />
                       )}
                     </Link>
                   </li>
@@ -158,22 +158,22 @@ export function AdminSidebar() {
       {/* Profile section */}
       <div className="px-4 py-4 border-t border-white/[0.07] shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#183D33] to-[#7A6244] flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#183D33] to-[#183D33] ring-1 ring-white/30 flex items-center justify-center shrink-0">
             <span className="text-[11px] font-[700] font-sans text-white">
               {adminInitials}
             </span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-[600] font-sans text-[#E8D5BB] truncate leading-tight">
+            <p className="text-[13px] font-[600] font-sans text-[#FFFFFF] truncate leading-tight">
               {adminName}
             </p>
-            <p className="text-[11px] font-sans text-[#665F55] leading-tight">Administrator</p>
+            <p className="text-[11px] font-sans text-[#D9E2DA] leading-tight">Administrator</p>
           </div>
           <button
             type="button"
             onClick={logout}
             aria-label="Sign out"
-            className="text-[#665F55] hover:text-[#9A9189] transition-colors p-1"
+            className="text-[#6B7E6B] hover:text-[#FFFFFF] transition-colors p-1"
           >
             <LogOut size={14} aria-hidden="true" />
           </button>
