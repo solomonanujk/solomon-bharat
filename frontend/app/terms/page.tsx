@@ -1,10 +1,9 @@
-import { StubPage } from '@/components/shared/StubPage'
+import type { Metadata } from 'next'
+import { LegalPage } from '@/components/shared/LegalPage'
+import { TERMS } from '@/lib/legal/terms'
 
-export default function TermsPage() {
-  return (
-    <StubPage
-      title="Terms of Service"
-      body="Solomon Bharat's full terms of service will be published here. For questions, contact support@solomonbharat.com."
-    />
-  )
+export const metadata: Metadata = { title: `${TERMS.title} — Solomon Bharat` }
+
+export default function Page() {
+  return <LegalPage doc={TERMS} />
 }
