@@ -80,3 +80,23 @@ Recommended: video, the story of the craft.
 - Curated: Awaiting payment → Payment received → Confirmed → Procuring → At warehouse (Jaipur) → Quality checked (photos) → Dispatched → Delivered. Seller paid on dispatch.
 - Marketplace: Awaiting payment → Awaiting brand acceptance (24h) → Accepted → Dispatched (photos + tracking; brand paid) → Delivered. Own-buyer orders are paid out on payment.
 - Buyer can cancel until Confirmed/Accepted. Cancelled paid orders are marked Refunded by an admin with a reference.
+
+## 9. Round 3 decisions (as built)
+- Damage claims: report within 7 days of delivery, with photos.
+- Refunds after a brand declines or misses the 24h window wait for admin approval (admin records the refund reference).
+- Buyers see their custom requests under Account → Custom requests.
+- Brands can add their own customers by email (linked now, or on sign-up).
+- Applicants no longer pick a seller type; the admin assigns Curated or Marketplace at approval. Applicants accept the versioned Seller Agreement.
+- Products require craft technique, region, made-to-order/ready stock, lead time and care instructions.
+- Sellers have vacation mode; admins keep a private 1-5 internal rating per seller.
+- Commercial invoice and packing list PDFs per order (admin: all; brand: own).
+- Notifications are also sent on WhatsApp (Twilio) once configured.
+- "Draft with AI" product descriptions once ANTHROPIC_API_KEY is configured.
+
+## 10. Not built yet (needs input or a provider)
+- Payment gateway (waiting on the provider; manual bank transfer is live meanwhile).
+- Shipping rates: curated needs the shipping partner's API; marketplace brands choosing own rates vs Solomon's service.
+- Seller team members (several logins per seller).
+- Samples (deferred).
+- Buyer business verification (deferred).
+- GST TCS / TDS (194-O) computation and certificates for marketplace sellers.
