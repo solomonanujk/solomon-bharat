@@ -164,9 +164,12 @@ export interface SubmitProductInput {
   tags?: string[]
   stepQty?: number
   isHandmade?: boolean
+  isMadeToOrder?: boolean
   placeOfOrigin?: string
   isGITagged?: boolean
   howItIsMade?: string
+  craftTechnique?: string
+  careInstructions?: string
   artisanName?: string
   craftImage?: File
   priceTiers?: ProductPriceTier[]
@@ -249,9 +252,12 @@ export interface SaveDraftInput {
   tags?: string[]
   stepQty?: number
   isHandmade?: boolean
+  isMadeToOrder?: boolean
   placeOfOrigin?: string
   isGITagged?: boolean
   howItIsMade?: string
+  craftTechnique?: string
+  careInstructions?: string
   artisanName?: string
   priceTiers?: ProductPriceTier[]
   ecoMaterials?: string[]

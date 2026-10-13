@@ -491,6 +491,10 @@ model Product {
   placeOfOrigin String?
   isGITagged    Boolean  @default(false)
   howItIsMade   String?
+  craftTechnique   String?
+  careInstructions String?
+  /// true = made to order (lead time applies); false = ready stock.
+  isMadeToOrder    Boolean  @default(false)
   artisanName   String?
   craftImageUrl String?
 

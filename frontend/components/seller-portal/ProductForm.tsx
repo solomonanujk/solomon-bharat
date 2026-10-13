@@ -283,6 +283,12 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
 
   // ── Additional details ─────────────────────────────────────────────────────
   const [placeOfOrigin, setPlaceOfOrigin] = useState(product?.placeOfOrigin ?? '')
+  const [craftTechnique, setCraftTechnique] = useState(product?.craftTechnique ?? '')
+  const [careInstructions, setCareInstructions] = useState(product?.careInstructions ?? '')
+  const [leadTime, setLeadTime] = useState(product?.leadTime ?? '')
+  const [isMadeToOrder, setIsMadeToOrder] = useState<'yes' | 'no' | ''>(
+    product ? (product.isMadeToOrder ? 'yes' : 'no') : '',
+  )
   const [isBestseller, setIsBestseller] = useState(product?.isBestseller ?? false)
   const [ecoMaterials, setEcoMaterials] = useState<string[]>(product?.ecoMaterials ?? [])
   const [ecoPackaging, setEcoPackaging] = useState<string[]>(product?.ecoPackaging ?? [])
@@ -559,6 +565,11 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
     if (!categoryId) return 'Select a product category.'
     if (!description.trim()) return 'Enter a description.'
     if (!materials.trim()) return 'Enter the product materials.'
+    if (!craftTechnique.trim()) return 'Enter the craft technique (e.g. block printing, hand weaving).'
+    if (!placeOfOrigin.trim()) return 'Select where the product is made (region).'
+    if (!isMadeToOrder) return 'Choose whether this product is made to order or ready stock.'
+    if (!leadTime.trim()) return 'Enter the lead time (e.g. 15-20 days).'
+    if (!careInstructions.trim()) return 'Enter care instructions.'
     if (totalImageCount < MIN_IMAGES || totalImageCount > MAX_IMAGES) {
       return `Upload between ${MIN_IMAGES} and ${MAX_IMAGES} images (currently ${totalImageCount}).`
     }
@@ -708,6 +719,10 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       declaredStock: totalInventory(),
       variants: buildVariantPayload(base.pricing),
       placeOfOrigin: placeOfOrigin.trim() || undefined,
+      craftTechnique: craftTechnique.trim() || undefined,
+      careInstructions: careInstructions.trim() || undefined,
+      leadTime: leadTime.trim() || undefined,
+      isMadeToOrder: isMadeToOrder === 'yes',
       howItIsMade: howItIsMade.trim() || undefined,
       artisanName: artisanName.trim() || undefined,
       craftImage: craftImage ?? undefined,
@@ -796,6 +811,10 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       ...(brandLocked ? {} : { sellerPrice: base?.sellerPrice, moq: base?.moq, priceTiers: flatTiersForSave(base?.pricing ?? null) }),
       variants: base ? buildVariantPayload(base.pricing) : undefined,
       placeOfOrigin: placeOfOrigin.trim() || undefined,
+      craftTechnique: craftTechnique.trim() || undefined,
+      careInstructions: careInstructions.trim() || undefined,
+      leadTime: leadTime.trim() || undefined,
+      isMadeToOrder: isMadeToOrder === 'yes',
       howItIsMade: howItIsMade.trim() || undefined,
       artisanName: artisanName.trim() || undefined,
       ecoMaterials, ecoPackaging, ecoProduction,
@@ -942,9 +961,34 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
             <h2 className="text-[20px] font-[700] font-sans text-primary mb-1">Additional details</h2>
             <p className="text-[13px] font-sans text-muted-text mb-5">Include additional details to help retailers make better buying decisions.</p>
 
-            <Field label="Made in">
+            <Field label="Made in (region) *">
               <MadeInCombobox value={placeOfOrigin} onChange={setPlaceOfOrigin} />
             </Field>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
+              <Field label="Craft technique *">
+                <input type="text" value={craftTechnique} maxLength={200}
+                  onChange={(e) => setCraftTechnique(e.target.value)}
+                  placeholder="e.g. Hand block printing, Dhokra casting" className={INPUT_CLS} />
+              </Field>
+              <Field label="Made to order or ready stock? *">
+                <select value={isMadeToOrder} onChange={(e) => setIsMadeToOrder(e.target.value as 'yes' | 'no' | '')} className={INPUT_CLS}>
+                  <option value="">Select…</option>
+                  <option value="no">Ready stock</option>
+                  <option value="yes">Made to order</option>
+                </select>
+              </Field>
+              <Field label="Lead time *">
+                <input type="text" value={leadTime} maxLength={200}
+                  onChange={(e) => setLeadTime(e.target.value)}
+                  placeholder="e.g. 15-20 days" className={INPUT_CLS} />
+              </Field>
+              <Field label="Care instructions *">
+                <input type="text" value={careInstructions} maxLength={2000}
+                  onChange={(e) => setCareInstructions(e.target.value)}
+                  placeholder="e.g. Dry clean only; wipe with a dry cloth" className={INPUT_CLS} />
+              </Field>
+            </div>
 
             <label className="flex items-center gap-2.5 cursor-pointer mt-5">
               <input type="checkbox" checked={isBestseller} onChange={(e) => setIsBestseller(e.target.checked)}
@@ -1356,7 +1400,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
           {/* ── Craft story ───────────────────────────────────────────────── */}
           <div className="border border-border-warm rounded-xl p-8 mb-6">
             <h2 className="text-[20px] font-[700] font-sans text-primary mb-1">Craft story</h2>
-            <p className="text-[13px] font-sans text-muted-text mb-5">Optional — share how this product is made. Shown to buyers on the product page.</p>
+            <p className="text-[13px] font-sans text-muted-text mb-5">Recommended: tell buyers the story of the craft and the people behind it. Shown on the product page.</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
               <div className="space-y-5">

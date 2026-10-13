@@ -143,9 +143,12 @@ export interface ProductListingDetails {
   tags: string[]
   stepQty: number
   isHandmade: boolean
+  isMadeToOrder: boolean
   placeOfOrigin: string | null
   isGITagged: boolean
   howItIsMade: string | null
+  craftTechnique: string | null
+  careInstructions: string | null
   artisanName: string | null
   craftImageUrl: string | null
   ecoMaterials: string[]

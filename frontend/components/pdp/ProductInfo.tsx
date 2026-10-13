@@ -325,7 +325,7 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
     id, name, description, materials, dimensions, weight,
     moq, stepQty, leadTime, placeOfOrigin, images, variants = [],
     isBestseller, isHandmade, isGITagged, ecoMaterials = [], ecoPackaging = [], ecoProduction = [],
-    howItIsMade, craftImageUrl, tariffCode,
+    howItIsMade, craftImageUrl, tariffCode, craftTechnique, careInstructions, isMadeToOrder,
   } = product
   const brand = product.brand ?? null
   // Lazy: only marketplace products have a brand page to fetch the display-only return policy from.
@@ -529,6 +529,9 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
   detailRows.push({ label: 'Minimum order', value: `${moq} units${qtyStep > 1 ? `, in cases of ${qtyStep}` : ''}` })
   if (leadTime) detailRows.push({ label: 'Production lead time', value: leadTime })
   if (placeOfOrigin) detailRows.push({ label: 'Made in', value: placeOfOrigin })
+  if (craftTechnique) detailRows.push({ label: 'Craft technique', value: craftTechnique })
+  detailRows.push({ label: 'Availability', value: isMadeToOrder ? 'Made to order' : 'Ready stock' })
+  if (careInstructions) detailRows.push({ label: 'Care', value: careInstructions })
   detailRows.push({ label: 'Country of origin', value: 'India' })
   if (isHandmade) detailRows.push({ label: 'Handmade', value: 'Yes' })
   if (isGITagged) detailRows.push({ label: 'GI tag', value: 'Geographical Indication tagged' })
