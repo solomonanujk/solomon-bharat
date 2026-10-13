@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Building2, User, Phone, MapPin, Landmark, Bell, CalendarDays, AlertTriangle, RotateCcw, Package, Upload } from 'lucide-react'
-import { useAdminSeller } from '@/hooks/queries/useSellers'
+import { useSetSellerInternalRating, useAdminSeller } from '@/hooks/queries/useSellers'
 import { useSuspendUser, useReactivateUser } from '@/hooks/queries/useAdmin'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
@@ -83,6 +83,8 @@ export default function AdminSellerDetailPage() {
     )
   }
 
+  const ratingCard = <InternalRatingCard sellerId={seller.id} rating={seller.internalRating ?? null} notes={seller.internalNotes ?? ''} />
+
   const notificationPrefs = seller.notificationPrefs
     ? Object.entries(seller.notificationPrefs).filter(([, enabled]) => enabled)
     : []
@@ -111,6 +113,8 @@ export default function AdminSellerDetailPage() {
           </Button>
         </div>
       </div>
+
+      {ratingCard}
 
       {/* Data gap note — see final report */}
       <p className="text-[12px] font-sans text-[#183D33B3] mb-5 px-4 py-2.5 rounded border border-[#D9E2DA] bg-[#E7EDE7]/40">
@@ -224,5 +228,49 @@ export default function AdminSellerDetailPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+/** Admin-only performance rating; the seller never sees it. */
+function InternalRatingCard({ sellerId, rating, notes }: { sellerId: string; rating: number | null; notes: string }) {
+  const save = useSetSellerInternalRating()
+  const [value, setValue] = useState<number | null>(rating)
+  const [text, setText] = useState(notes)
+  return (
+    <section className="bg-white border border-[#D9E2DA] rounded-xl p-5 mb-5 space-y-3">
+      <div>
+        <p className="text-[15px] font-[600] font-sans text-[#0F241D]">Internal rating</p>
+        <p className="text-[12px] font-sans text-[#183D33B3]">Only admins see this. Based on quality, dispatch time and claims.</p>
+      </div>
+      <div className="flex gap-1.5" role="radiogroup" aria-label="Internal rating">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            role="radio"
+            aria-checked={value === n}
+            onClick={() => setValue(value === n ? null : n)}
+            className={`w-9 h-9 rounded border text-[14px] font-sans ${value !== null && n <= value ? 'bg-[#183D33] text-white border-[#183D33]' : 'border-[#D9E2DA] text-[#183D33]'}`}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={3}
+        placeholder="Notes (quality issues, late dispatches, strengths…)"
+        className="w-full px-3 py-2 rounded border border-[#D9E2DA] text-[13px] font-sans"
+      />
+      <Button
+        variant="accent"
+        size="sm"
+        disabled={save.isPending}
+        onClick={() => save.mutate({ id: sellerId, internalRating: value, internalNotes: text.trim() || null })}
+      >
+        {save.isPending ? 'Saving…' : 'Save rating'}
+      </Button>
+    </section>
   )
 }

@@ -65,6 +65,11 @@ export const sellersController = {
     sendSuccess(res, seller);
   },
 
+  async setInternalRating(req: Request, res: Response): Promise<void> {
+    const profile = await sellersService.setInternalRating(req.user!.id, req.params.id, req.body);
+    sendSuccess(res, profile, 'Internal rating saved');
+  },
+
   async getMyProfile(req: Request, res: Response): Promise<void> {
     const profile = await sellersService.getMyProfileWithBrand(req.user!.id);
     sendSuccess(res, profile);

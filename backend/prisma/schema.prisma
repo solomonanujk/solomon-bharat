@@ -280,6 +280,11 @@ model SellerProfile {
   updatedAt         DateTime           @updatedAt
   deletedAt         DateTime?
   sellerType        SellerType         @default(CURATED)
+  /// Seller-controlled: while true their products cannot be ordered.
+  isOnVacation      Boolean            @default(false)
+  /// Admin-only performance rating (1-5) and notes. Never sent to the seller.
+  internalRating    Int?
+  internalNotes     String?
 
   products Product[]
   payouts  Payout[]

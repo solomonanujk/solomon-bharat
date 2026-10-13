@@ -453,6 +453,11 @@ export interface SellerProfile {
   businessAddress: string
   bankDetails: string | null
   notificationPrefs: Record<string, boolean> | null
+  /** While true the seller's products cannot be ordered. */
+  isOnVacation?: boolean
+  /** Admin-only (never returned to the seller). */
+  internalRating?: number | null
+  internalNotes?: string | null
   createdAt: string
   updatedAt: string
 }

@@ -40,7 +40,7 @@ export function useMySellerProfile() {
 
 export function useUpdateMySellerProfile() {
   const qc = useQueryClient()
-  return useMutation<SellerProfile, Error, Partial<Pick<SellerProfile, 'businessName' | 'contactName' | 'phone' | 'businessAddress' | 'bankDetails' | 'notificationPrefs'>>>({
+  return useMutation<SellerProfile, Error, Partial<Pick<SellerProfile, 'businessName' | 'contactName' | 'phone' | 'businessAddress' | 'bankDetails' | 'notificationPrefs' | 'isOnVacation'>>>({
     mutationFn: async (body) => (await api.patch('/sellers/me', body)).data.data,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['my-seller-profile'] })
@@ -125,6 +125,18 @@ export function useAdminSellers(params?: { page?: number; limit?: number; enable
     queryKey: ['admin-sellers', queryParams],
     queryFn: async () => toPaginated<SellerProfile>(await api.get('/sellers', { params: queryParams })),
     enabled,
+  })
+}
+
+export function useSetSellerInternalRating() {
+  const qc = useQueryClient()
+  return useMutation<unknown, Error, { id: string; internalRating: number | null; internalNotes: string | null }>({
+    mutationFn: ({ id, ...body }) => api.patch(`/sellers/${id}/internal-rating`, body),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ['admin-seller', id] })
+      toast.success('Internal rating saved.')
+    },
+    onError: (err) => toast.error(getApiError(err)),
   })
 }
 

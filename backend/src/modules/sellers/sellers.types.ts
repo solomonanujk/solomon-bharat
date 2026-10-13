@@ -49,6 +49,7 @@ export interface UpdateSellerProfileInput {
   businessAddress?: string;
   bankDetails?: string;
   notificationPrefs?: Record<string, unknown>;
+  isOnVacation?: boolean;
 }
 
 export interface ApplicationListFilter {

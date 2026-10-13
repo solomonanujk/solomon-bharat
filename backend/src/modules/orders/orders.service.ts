@@ -230,6 +230,9 @@ export class OrdersService {
     ];
     const brands = brandIds.length > 0 ? await this.repo.findBrandsByIds(brandIds) : [];
     const brandById = new Map(brands.map((b) => [b.id, b]));
+    const onVacation = await this.repo.findSellersOnVacation([
+      ...new Set(loaded.map((l) => l.product?.sellerId).filter((id): id is string => !!id)),
+    ]);
 
     const result = new Map<string, { product: CheckoutProduct | null; available: boolean }>();
     for (const { id, product } of loaded) {
@@ -242,7 +245,9 @@ export class OrdersService {
         // Agents are limited to Solomon-curated products - marketplace brand products are
         // never purchasable by them (owner decision; they cannot even see them).
         (pricingRole === 'AGENT' && !!product.brandId) ||
-        (!!product.brandId && (!brand || brand.status === BrandStatus.SUSPENDED));
+        (!!product.brandId && (!brand || brand.status === BrandStatus.SUSPENDED)) ||
+        // A seller on vacation is not taking orders.
+        onVacation.has(product.sellerId);
       result.set(id, { product, available: !bad });
     }
     return result;

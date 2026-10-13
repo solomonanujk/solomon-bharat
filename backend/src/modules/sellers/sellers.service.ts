@@ -268,19 +268,43 @@ export class SellersService {
   }
 
   /** Seller profile for the portal: includes `sellerType` and, for brands, a public-safe brand summary. */
-  async getMyProfileWithBrand(userId: string): Promise<SellerProfile & { brand: BrandSummaryDto | null }> {
+  async getMyProfileWithBrand(
+    userId: string,
+  ): Promise<Omit<SellerProfile, 'internalRating' | 'internalNotes'> & { brand: BrandSummaryDto | null }> {
     const profile = await this.repo.findSellerProfileWithBrandByUserId(userId);
     if (!profile) {
       throw AppError.notFound('Seller profile not found');
     }
     const { brand, ...rest } = profile;
-    return { ...rest, brand: brand ? toBrandSummary(brand) : null };
+    return { ...withoutInternal(rest), brand: brand ? toBrandSummary(brand) : null };
   }
 
-  async updateMyProfile(userId: string, input: UpdateSellerProfileInput): Promise<SellerProfile> {
+  async updateMyProfile(
+    userId: string,
+    input: UpdateSellerProfileInput,
+  ): Promise<Omit<SellerProfile, 'internalRating' | 'internalNotes'>> {
     const profile = await this.getMyProfile(userId);
-    return this.repo.updateSellerProfile(profile.id, input);
+    return withoutInternal(await this.repo.updateSellerProfile(profile.id, input));
   }
+
+  /** Admin-only internal performance rating; never exposed to the seller. */
+  async setInternalRating(
+    adminId: string,
+    sellerProfileId: string,
+    input: { internalRating?: number | null; internalNotes?: string | null },
+  ): Promise<SellerProfile> {
+    const updated = await this.repo.updateSellerProfile(sellerProfileId, input as UpdateSellerProfileInput);
+    await writeAuditLog(adminId, 'SELLER_RATED', 'SellerProfile', sellerProfileId, input);
+    return updated;
+  }
+}
+
+/** Strips admin-only fields before a seller profile is returned to its seller. */
+function withoutInternal<T extends { internalRating?: number | null; internalNotes?: string | null }>(
+  profile: T,
+): Omit<T, 'internalRating' | 'internalNotes'> {
+  const { internalRating: _r, internalNotes: _n, ...rest } = profile;
+  return rest;
 }
 
 export const sellersService = new SellersService();

@@ -117,6 +117,7 @@ function buildMockRepo(): OrdersRepository {
     listForAdmin: vi.fn(),
     listItemsForSeller: vi.fn(),
     findBrandsByIds: vi.fn(),
+    findSellersOnVacation: vi.fn().mockResolvedValue(new Set()),
     transitionIfStatus: vi.fn(),
     findUnacceptedBrandOrders: vi.fn(),
   } as unknown as OrdersRepository;

@@ -9,6 +9,7 @@ import {
   submitApplicationSchema,
   updateSellerProfileSchema,
   approveApplicationSchema,
+  internalRatingSchema,
 } from './sellers.validation';
 import { paginationQuerySchema } from '../../utils/pagination';
 import { validate } from '../../middleware/validate';
@@ -200,6 +201,22 @@ sellersRouter.get(
  *     responses:
  *       200: { description: Seller detail }
  */
+/**
+ * @openapi
+ * /sellers/{id}/internal-rating:
+ *   patch:
+ *     summary: Set the admin-only internal rating (1-5) and notes for a seller (SUPER_ADMIN only)
+ *     tags: [Sellers]
+ */
+sellersRouter.patch(
+  '/:id/internal-rating',
+  requireAuth,
+  requireAdmin,
+  validate(idParamSchema, 'params'),
+  validate(internalRatingSchema),
+  asyncHandler(sellersController.setInternalRating),
+);
+
 sellersRouter.get(
   '/:id',
   requireAuth,

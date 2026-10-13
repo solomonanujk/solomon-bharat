@@ -164,6 +164,16 @@ export class OrdersRepository {
     return count === 1;
   }
 
+  /** Of the given seller profiles, the ones currently on vacation (not taking orders). */
+  async findSellersOnVacation(sellerIds: string[]): Promise<Set<string>> {
+    if (sellerIds.length === 0) return new Set();
+    const rows = await this.db.sellerProfile.findMany({
+      where: { id: { in: sellerIds }, isOnVacation: true },
+      select: { id: true },
+    });
+    return new Set(rows.map((r) => r.id));
+  }
+
   /** Marketplace orders still awaiting the brand's acceptance that were paid before `paidBefore`. */
   findUnacceptedBrandOrders(paidBefore: Date): Promise<Order[]> {
     return this.db.order.findMany({

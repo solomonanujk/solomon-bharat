@@ -112,6 +112,7 @@ function buildCheckoutHarness(productsById: Record<string, ReturnType<typeof pro
     createPending: vi.fn(async (input: { sellerProfileId?: string | null; checkoutId?: string; adminPriceTotal: number }) =>
       ({ ...order({ id: `order-${input.sellerProfileId ?? 'curated'}`, sellerProfileId: input.sellerProfileId ?? null, checkoutId: input.checkoutId ?? null, adminPriceTotal: new Decimal(input.adminPriceTotal) }), items: [] }) as OrderWithItems),
     findBrandsByIds: vi.fn(async (ids: string[]) => brands.filter((b) => ids.includes(b.id))),
+    findSellersOnVacation: vi.fn().mockResolvedValue(new Set()),
   } as unknown as OrdersRepository;
   const products = {
     getForCheckout: vi.fn(async (id: string) => productsById[id]),
@@ -259,6 +260,14 @@ describe('OrdersService.createPendingCheckout (order split + minimum order value
     await expect(
       service.createPendingCheckout('buyer-1', [{ productId: 'a1', quantity: 1 }], undefined, 'BUYER'),
     ).resolves.toBeDefined();
+  });
+
+  it('rejects items from a seller who is on vacation', async () => {
+    const { service, repo } = buildCheckoutHarness({ b1: product('b1', { brandId: 'brand-b', sellerId: 'sp-b', admin: 50 }) }, [brandB]);
+    vi.mocked(repo.findSellersOnVacation).mockResolvedValue(new Set(['sp-b']));
+    await expect(
+      service.createPendingCheckout('buyer-1', [{ productId: 'b1', quantity: 1 }], undefined, 'BUYER'),
+    ).rejects.toMatchObject({ statusCode: 400 });
   });
 
   it('rejects items from a SUSPENDED brand and items whose brand cannot be found', async () => {

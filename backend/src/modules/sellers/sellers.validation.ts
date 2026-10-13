@@ -118,6 +118,7 @@ export const updateSellerProfileSchema = z.object({
   businessAddress: z.string().min(1).max(500).optional(),
   bankDetails: z.string().max(1000).optional(),
   notificationPrefs: z.record(z.unknown()).optional(),
+  isOnVacation: z.boolean().optional(),
 });
 export type UpdateSellerProfileDto = z.infer<typeof updateSellerProfileSchema>;
 
@@ -129,3 +130,9 @@ export const idParamSchema = z.object({
 export const approveApplicationSchema = z.object({
   sellerType: z.nativeEnum(SellerType).optional(),
 });
+
+export const internalRatingSchema = z.object({
+  internalRating: z.number().int().min(1).max(5).nullable().optional(),
+  internalNotes: z.string().max(5000).nullable().optional(),
+});
+export type InternalRatingDto = z.infer<typeof internalRatingSchema>;
