@@ -59,6 +59,19 @@ export class NotificationsRepository {
     const users = await this.db.user.findMany({ where: { role }, select: { id: true } });
     return users.map((u) => u.id);
   }
+
+  /** The phone on whichever profile the user has (buyer, seller or agent). */
+  async findUserPhone(userId: string): Promise<string | null> {
+    const user = await this.db.user.findUnique({
+      where: { id: userId },
+      select: {
+        buyerProfile: { select: { phone: true } },
+        sellerProfile: { select: { phone: true } },
+        agentProfile: { select: { phone: true } },
+      },
+    });
+    return user?.buyerProfile?.phone ?? user?.sellerProfile?.phone ?? user?.agentProfile?.phone ?? null;
+  }
 }
 
 export const notificationsRepository = new NotificationsRepository();
