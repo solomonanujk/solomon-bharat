@@ -8,15 +8,16 @@ export interface CatalogueProductInput {
   /** Every image for this product, in display order — all of them are laid
    *  out in a grid on the product's page, not just the first one. */
   imageUrls: string[];
-  /** The agent's own resale price/MOQ for this product — set per-catalogue, never the platform's own pricing. */
-  price: number;
+  /** The agent's own MOQ for this product. No price is ever printed: the
+   *  catalogue is white-label and price-free, so agents quote their customers directly. */
   moq: number;
 }
 
 export interface CatalogueMeta {
   title: string;
-  /** The agent's business name, shown on the cover page — omitted entirely if unknown. */
-  preparedBy?: string;
+  /** The agent's own company/contact details — the ONLY identity on the PDF.
+   *  The catalogue never names Solomon Bharat anywhere. */
+  contact: { companyName: string; phone: string; email: string };
 }
 
 // Design tokens mirrored from the site's own design system (see AGENTS.md
@@ -56,13 +57,6 @@ function gridDimensions(count: number): { cols: number; rows: number } {
   const cols = 3;
   return { cols, rows: Math.ceil(count / cols) };
 }
-
-// PDFKit's standard base-14 fonts (Helvetica, Times) use WinAnsi/Standard
-// encoding, which has no ₹ glyph — it silently renders as a mojibake
-// superscript-1 instead of throwing, so this must never use the ₹ symbol
-// directly. "Rs." reads correctly in every PDF viewer with zero font embedding.
-const formatInr = (amount: number): string =>
-  `Rs. ${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(amount)}`;
 
 /**
  * Fetches an image URL into a Buffer for embedding via pdfkit's doc.image().
@@ -108,12 +102,16 @@ function drawImageCell(doc: PDFKit.PDFDocument, x: number, y: number, w: number,
   doc.roundedRect(x, y, w, h, 6).lineWidth(1).strokeColor(COLORS.borderWarm).stroke();
 }
 
-function drawWordmark(doc: PDFKit.PDFDocument, x: number, y: number, fontSize: number): number {
-  doc.font('Helvetica-Bold').fontSize(fontSize).fillColor(COLORS.primary);
-  const solomon = 'SOLOMON ';
-  doc.text(solomon, x, y, { continued: true, characterSpacing: 1.2 });
-  doc.fillColor(COLORS.accent).text('BHARAT', { characterSpacing: 1.2 });
-  return doc.widthOfString(solomon) + doc.widthOfString('BHARAT');
+function drawWordmark(doc: PDFKit.PDFDocument, companyName: string, x: number, y: number, fontSize: number): void {
+  doc
+    .font('Helvetica-Bold')
+    .fontSize(fontSize)
+    .fillColor(COLORS.primary)
+    .text(companyName.toUpperCase(), x, y, { width: CONTENT_WIDTH / 2, characterSpacing: 1.2, lineBreak: false, ellipsis: true });
+}
+
+function contactLine(contact: CatalogueMeta['contact']): string {
+  return `${contact.phone}  ·  ${contact.email}`;
 }
 
 function drawCoverPage(doc: PDFKit.PDFDocument, meta: CatalogueMeta, productCount: number): void {
@@ -125,12 +123,11 @@ function drawCoverPage(doc: PDFKit.PDFDocument, meta: CatalogueMeta, productCoun
   // Small centered thin rule above the wordmark, purely decorative.
   doc.moveTo(centerX - 30, 230).lineTo(centerX + 30, 230).lineWidth(1).strokeColor(COLORS.accent).stroke();
 
-  doc.font('Times-Bold').fontSize(34).fillColor(COLORS.primary);
-  const wSolomon = doc.widthOfString('SOLOMON ');
-  const wBharat = doc.widthOfString('BHARAT');
-  const wordmarkX = centerX - (wSolomon + wBharat) / 2;
-  doc.text('SOLOMON ', wordmarkX, 260, { continued: true, characterSpacing: 1.5 });
-  doc.fillColor(COLORS.accent).text('BHARAT', { characterSpacing: 1.5 });
+  doc
+    .font('Times-Bold')
+    .fontSize(30)
+    .fillColor(COLORS.primary)
+    .text(meta.contact.companyName, PAGE_MARGIN, 260, { width: CONTENT_WIDTH, align: 'center', characterSpacing: 1.2 });
 
   doc
     .font('Helvetica-Bold')
@@ -145,9 +142,7 @@ function drawCoverPage(doc: PDFKit.PDFDocument, meta: CatalogueMeta, productCoun
     .text(meta.title, PAGE_MARGIN, 370, { width: CONTENT_WIDTH, align: 'center' });
 
   const dateLabel = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-  const subtitleLines = [meta.preparedBy ? `Prepared by ${meta.preparedBy}` : null, dateLabel, `${productCount} product${productCount === 1 ? '' : 's'}`]
-    .filter((line): line is string => line !== null)
-    .join('  ·  ');
+  const subtitleLines = [dateLabel, `${productCount} product${productCount === 1 ? '' : 's'}`].join('  ·  ');
 
   doc
     .font('Helvetica')
@@ -160,11 +155,11 @@ function drawCoverPage(doc: PDFKit.PDFDocument, meta: CatalogueMeta, productCoun
     .font('Helvetica')
     .fontSize(9)
     .fillColor(COLORS.mutedText)
-    .text('solomonbharat.com', PAGE_MARGIN, PAGE_HEIGHT - 75, { width: CONTENT_WIDTH, align: 'center' });
+    .text(`${meta.contact.companyName}  ·  ${contactLine(meta.contact)}`, PAGE_MARGIN, PAGE_HEIGHT - 75, { width: CONTENT_WIDTH, align: 'center' });
 }
 
-function drawRunningHeader(doc: PDFKit.PDFDocument, pageLabel: string): void {
-  drawWordmark(doc, PAGE_MARGIN, PAGE_MARGIN - 6, 10);
+function drawRunningHeader(doc: PDFKit.PDFDocument, companyName: string, pageLabel: string): void {
+  drawWordmark(doc, companyName, PAGE_MARGIN, PAGE_MARGIN - 6, 10);
 
   doc
     .font('Helvetica')
@@ -180,7 +175,7 @@ function drawRunningHeader(doc: PDFKit.PDFDocument, pageLabel: string): void {
     .stroke();
 }
 
-function drawFooter(doc: PDFKit.PDFDocument): void {
+function drawFooter(doc: PDFKit.PDFDocument, contact: CatalogueMeta['contact']): void {
   const y = PAGE_HEIGHT - PAGE_MARGIN - FOOTER_RESERVE + 10;
   doc
     .moveTo(PAGE_MARGIN, y)
@@ -192,7 +187,7 @@ function drawFooter(doc: PDFKit.PDFDocument): void {
     .font('Helvetica')
     .fontSize(8.5)
     .fillColor(COLORS.mutedText)
-    .text('This price is set independently by the agent — not Solomon Bharat’s own selling price.', PAGE_MARGIN, y + 10, {
+    .text(`For prices and orders contact ${contact.companyName}: ${contactLine(contact)}`, PAGE_MARGIN, y + 10, {
       width: CONTENT_WIDTH,
       align: 'center',
     });
@@ -201,10 +196,11 @@ function drawFooter(doc: PDFKit.PDFDocument): void {
 async function drawProductPage(
   doc: PDFKit.PDFDocument,
   product: CatalogueProductInput,
+  meta: CatalogueMeta,
   pageLabel: string,
 ): Promise<void> {
   doc.addPage();
-  drawRunningHeader(doc, pageLabel);
+  drawRunningHeader(doc, meta.contact.companyName, pageLabel);
 
   let cursorY = PAGE_MARGIN + HEADER_HEIGHT + 24;
   const imageAreaY = cursorY;
@@ -232,25 +228,20 @@ async function drawProductPage(
   doc.font('Times-Bold').fontSize(19).fillColor(COLORS.primary).text(product.name, PAGE_MARGIN, cursorY, { width: CONTENT_WIDTH });
   cursorY = doc.y + 10;
 
-  const priceStr = formatInr(product.price);
-  doc.font('Times-Bold').fontSize(22).fillColor(COLORS.accent);
-  const priceWidth = doc.widthOfString(priceStr);
-  doc.text(priceStr, PAGE_MARGIN, cursorY);
-
   const moqStr = `MOQ: ${product.moq} units`;
   doc.font('Helvetica-Bold').fontSize(9);
   const moqTextWidth = doc.widthOfString(moqStr);
   const pillPaddingX = 10;
   const pillWidth = moqTextWidth + pillPaddingX * 2;
   const pillHeight = 20;
-  const pillX = PAGE_MARGIN + priceWidth + 16;
-  const pillY = cursorY + 7;
+  const pillX = PAGE_MARGIN;
+  const pillY = cursorY;
   doc.roundedRect(pillX, pillY, pillWidth, pillHeight, pillHeight / 2).lineWidth(1).strokeColor(COLORS.borderWarm).stroke();
   doc
     .fillColor(COLORS.mutedText)
     .text(moqStr, pillX + pillPaddingX, pillY + 5.5, { width: moqTextWidth });
 
-  cursorY += 22 + 22;
+  cursorY += pillHeight + 16;
 
   doc
     .moveTo(PAGE_MARGIN, cursorY)
@@ -272,13 +263,13 @@ async function drawProductPage(
       lineGap: 2,
     });
 
-  drawFooter(doc);
+  drawFooter(doc, meta.contact);
 }
 
 /**
- * Builds a branded, paginated PDF catalogue — a cover page followed by one
- * page per product (image, name, the agent's own resale price/MOQ, and
- * description), styled to match the site's own design tokens.
+ * Builds a white-label, paginated PDF catalogue under the agent's own company
+ * name — a cover page followed by one page per product (images, name, MOQ and
+ * description). It carries no prices and never mentions Solomon Bharat.
  */
 export async function buildCataloguePdf(products: CatalogueProductInput[], meta: CatalogueMeta): Promise<Buffer> {
   const doc = new PDFDocument({ size: 'A4', margin: PAGE_MARGIN, autoFirstPage: false });
@@ -296,14 +287,14 @@ export async function buildCataloguePdf(products: CatalogueProductInput[], meta:
 
   if (products.length === 0) {
     doc.addPage();
-    drawRunningHeader(doc, '');
+    drawRunningHeader(doc, meta.contact.companyName, '');
     doc.font('Helvetica').fontSize(13).fillColor(COLORS.mutedText).text('No products in this catalogue.', PAGE_MARGIN, PAGE_MARGIN + HEADER_HEIGHT + 24);
   } else {
     for (let i = 0; i < products.length; i += 1) {
       // Sequential, one page at a time — each page awaits its own image fetch,
       // so a slow/failing image never blocks or reorders the others.
       // eslint-disable-next-line no-await-in-loop
-      await drawProductPage(doc, products[i], `${i + 1} / ${products.length}`);
+      await drawProductPage(doc, products[i], meta, `${i + 1} / ${products.length}`);
     }
   }
 

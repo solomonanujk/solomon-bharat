@@ -43,6 +43,8 @@ function buildMockProducts(): ProductsRepository {
   } as unknown as ProductsRepository;
 }
 
+const CONTACT = { companyName: 'Asha Imports', phone: '+44 20 7946 0000', email: 'asha@example.com' };
+
 describe('CataloguesService.generate', () => {
   let repo: CataloguesRepository;
   let products: ProductsRepository;
@@ -66,18 +68,21 @@ describe('CataloguesService.generate', () => {
     } as never);
   });
 
-  it('builds the PDF with the agent-supplied price/moq per item, not any platform price', async () => {
+  it('builds a white-label, price-free PDF under the agent contact details', async () => {
     vi.mocked(products.findByIdWithMedia).mockResolvedValue(buildProduct());
 
     await service.generate('user-1', {
       items: [{ productId: 'prod-1', price: 499, moq: 25 }],
       title: 'My Catalogue',
+      contact: CONTACT,
     });
 
     expect(buildCataloguePdf).toHaveBeenCalledWith(
-      [expect.objectContaining({ name: 'Table Runner', price: 499, moq: 25 })],
-      { title: 'My Catalogue', preparedBy: undefined },
+      [expect.objectContaining({ name: 'Table Runner', moq: 25 })],
+      { title: 'My Catalogue', contact: CONTACT },
     );
+    const pdfItem = vi.mocked(buildCataloguePdf).mock.calls[0][0][0];
+    expect(pdfItem).not.toHaveProperty('price');
     expect(storageProvider.uploadFile).toHaveBeenCalledWith(
       expect.any(Buffer),
       expect.any(String),
@@ -85,7 +90,7 @@ describe('CataloguesService.generate', () => {
     );
     expect(repo.create).toHaveBeenCalledWith('agent-1', {
       title: 'My Catalogue',
-      items: [{ productId: 'prod-1', price: 499, moq: 25 }],
+      items: [{ productId: 'prod-1', moq: 25 }],
       fileUrl: 'https://files/cat.pdf',
       publicId: 'pub-1',
     });
@@ -101,6 +106,7 @@ describe('CataloguesService.generate', () => {
         { productId: 'prod-1', price: 100, moq: 10 },
         { productId: 'prod-2', price: 200, moq: 20 },
       ],
+      contact: CONTACT,
     });
 
     const pdfArg = vi.mocked(buildCataloguePdf).mock.calls[0][0];
@@ -112,7 +118,7 @@ describe('CataloguesService.generate', () => {
     vi.mocked(products.findByIdWithMedia).mockResolvedValue(buildProduct({ deletedAt: new Date() }));
 
     await expect(
-      service.generate('user-1', { items: [{ productId: 'prod-1', price: 100, moq: 10 }] })
+      service.generate('user-1', { items: [{ productId: 'prod-1', moq: 10 }], contact: CONTACT })
     ).rejects.toThrow('None of the selected products are available to include in a catalogue');
   });
 });

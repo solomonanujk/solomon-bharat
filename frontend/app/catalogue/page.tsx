@@ -14,6 +14,7 @@ import { useCatalogueStore } from '@/lib/store/useCatalogueStore'
 import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import { formatINR } from '@/lib/utils'
 import { useGenerateCatalogue, useMyCatalogues } from '@/hooks/queries/useCatalogues'
+import { useMyAgentProfile } from '@/hooks/queries/useAgents'
 
 // Agents build a catalogue by tapping "Add to catalogue" on any product card or
 // PDP anywhere in the marketplace (the floating CatalogueTray tracks progress);
@@ -27,20 +28,37 @@ function BuildingSection() {
   const clear = useCatalogueStore((s) => s.clear)
   const [title, setTitle] = useState('')
   const generateCatalogue = useGenerateCatalogue()
+  const user = useAuthStore((s) => s.user)
+  const { data: profile } = useMyAgentProfile()
+  // The PDF is white-label: it shows only the agent's own company and contact
+  // details, prefilled from their profile and editable per catalogue.
+  type ContactKey = 'companyName' | 'phone' | 'email'
+  const [contactEdits, setContactEdits] = useState<Partial<Record<ContactKey, string>>>({})
+  const contact: Record<ContactKey, string> = {
+    companyName: contactEdits.companyName ?? profile?.businessName ?? '',
+    phone: contactEdits.phone ?? profile?.phone ?? '',
+    email: contactEdits.email ?? user?.email ?? '',
+  }
 
-  // MOQ must also be a whole number — the backend rejects a fractional MOQ
+  // MOQ must be a whole number — the backend rejects a fractional MOQ
   // (e.g. a stray "25.5" typed into the number input) with a 422.
-  const hasInvalidPricing = items.some((i) => !(i.price > 0) || !(i.moq > 0) || !Number.isInteger(i.moq))
+  const hasInvalidMoq = items.some((i) => !(i.moq > 0) || !Number.isInteger(i.moq))
+  const hasMissingContact = !contact.companyName.trim() || !contact.phone.trim() || !contact.email.trim()
 
   function handleGenerate() {
-    if (hasInvalidPricing) {
-      toast.error('Set a price and a whole-number MOQ greater than 0 for every product before generating.')
+    if (hasInvalidMoq) {
+      toast.error('Set a whole-number MOQ greater than 0 for every product before generating.')
+      return
+    }
+    if (hasMissingContact) {
+      toast.error('Add your company name, phone and email. They are printed on the catalogue.')
       return
     }
     generateCatalogue.mutate(
       {
-        items: items.map((i) => ({ productId: i.productId, price: i.price, moq: i.moq })),
+        items: items.map((i) => ({ productId: i.productId, moq: i.moq })),
         title: title.trim() || undefined,
+        contact: { companyName: contact.companyName.trim(), phone: contact.phone.trim(), email: contact.email.trim() },
       },
       { onSuccess: () => { clear(); setTitle('') } }
     )
@@ -51,8 +69,8 @@ function BuildingSection() {
       <div className="pb-4 border-b border-border-warm">
         <h2 className="text-[18px] font-[600] font-sans text-primary">Building a catalogue</h2>
         <p className="text-[14px] font-sans text-muted-text mt-0.5">
-          Add products from anywhere in the marketplace — see what Solomon Bharat charges you, set your own resale
-          price and MOQ for each, then generate a PDF to share.
+          Add products from anywhere in the marketplace and set an MOQ for each. The PDF shows only your company
+          name and contact details, with no prices and no Solomon Bharat branding, so you can quote your customers directly.
         </p>
       </div>
 
@@ -79,17 +97,6 @@ function BuildingSection() {
                 </div>
 
                 <label className="flex flex-col gap-0.5">
-                  <span className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.04em]">Your price (₹)</span>
-                  <input
-                    type="number"
-                    min={1}
-                    value={item.price}
-                    onChange={(e) => updateItem(item.productId, { price: Number(e.target.value) })}
-                    className="w-24 h-9 px-2 rounded border border-border-warm bg-muted-bg/30 text-[13px] font-sans text-primary focus:outline-none focus:border-primary/40 focus:bg-surface transition-colors"
-                  />
-                </label>
-
-                <label className="flex flex-col gap-0.5">
                   <span className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.04em]">MOQ</span>
                   <input
                     type="number"
@@ -113,7 +120,25 @@ function BuildingSection() {
             ))}
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+            {([
+              ['companyName', 'Company name', 'text'],
+              ['phone', 'Phone', 'tel'],
+              ['email', 'Email', 'email'],
+            ] as const).map(([key, label, type]) => (
+              <label key={key} className="flex flex-col gap-0.5">
+                <span className="text-[11px] font-[600] font-sans text-muted-text uppercase tracking-[0.04em]">{label}</span>
+                <input
+                  type={type}
+                  value={contact[key]}
+                  onChange={(e) => setContactEdits((c) => ({ ...c, [key]: e.target.value }))}
+                  className="h-10 px-3 rounded border border-border-warm bg-muted-bg/30 text-[14px] font-sans text-primary focus:outline-none focus:border-primary/40 focus:bg-surface transition-colors"
+                />
+              </label>
+            ))}
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
             <input
               type="text"
               value={title}

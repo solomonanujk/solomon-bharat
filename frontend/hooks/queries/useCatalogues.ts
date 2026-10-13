@@ -31,15 +31,21 @@ export interface AgentCatalogue {
 
 export interface CatalogueItemInput {
   productId: string
-  /** The agent's own resale price for this product — never the platform's price. */
-  price: number
-  /** The agent's own MOQ for this product. */
+  /** The agent's own MOQ for this product. The PDF carries no prices. */
   moq: number
+}
+
+/** The agent's own details: the only identity printed on the white-label PDF. */
+export interface CatalogueContact {
+  companyName: string
+  phone: string
+  email: string
 }
 
 export interface GenerateCatalogueInput {
   items: CatalogueItemInput[]
   title?: string
+  contact: CatalogueContact
 }
 
 export function useGenerateCatalogue() {

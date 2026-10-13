@@ -69,18 +69,17 @@ export class CataloguesService {
       name: product.name,
       description: product.description,
       imageUrls: [...product.images].sort((a, b) => a.sortOrder - b.sortOrder).map((img) => img.url),
-      price: item.price,
       moq: item.moq,
     }));
 
-    const pdfBuffer = await buildCataloguePdf(pdfProducts, { title, preparedBy: agentProfile.businessName });
+    const pdfBuffer = await buildCataloguePdf(pdfProducts, { title, contact: input.contact });
 
     const filename = `catalogue-${Date.now()}-${agentId}.pdf`;
     const uploaded = await storageProvider.uploadFile(pdfBuffer, filename, `${CATALOGUE_STORAGE_FOLDER}/${agentId}`);
 
     const catalogue = await this.repo.create(agentId, {
       title,
-      items: qualifying.map(({ item }) => ({ productId: item.productId, price: item.price, moq: item.moq })),
+      items: qualifying.map(({ item }) => ({ productId: item.productId, moq: item.moq })),
       fileUrl: uploaded.url,
       publicId: uploaded.publicId,
     });
