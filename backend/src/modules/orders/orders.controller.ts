@@ -6,6 +6,8 @@ import { sellersService } from '../sellers/sellers.service';
 import { buyersService } from '../buyers/buyers.service';
 import { storageProvider } from '../../providers/storage';
 import { ordersService } from './orders.service';
+import { exportDocumentsService } from './documents/exportDocuments.service';
+import { ExportDocumentType } from './documents/exportDocuments';
 import {
   AdminOrderListQueryDto,
   BrandOrderListQueryDto,
@@ -40,7 +42,25 @@ async function uploadDispatchPhotos(req: Request, orderId: string): Promise<stri
   return uploads.map((u) => u.url);
 }
 
+function sendPdf(res: Response, { filename, pdf }: { filename: string; pdf: Buffer }): void {
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(pdf);
+}
+
 export const ordersController = {
+  async adminDocument(req: Request, res: Response): Promise<void> {
+    sendPdf(res, await exportDocumentsService.build(req.params.id, req.params.type as ExportDocumentType, { kind: 'admin' }));
+  },
+
+  async brandDocument(req: Request, res: Response): Promise<void> {
+    const sellerProfileId = await resolveSellerProfileId(req.user!.id);
+    sendPdf(
+      res,
+      await exportDocumentsService.build(req.params.id, req.params.type as ExportDocumentType, { kind: 'brand', sellerProfileId }),
+    );
+  },
+
   async buyerCancel(req: Request, res: Response): Promise<void> {
     const buyerId = await resolveBuyerProfileId(req.user!.id);
     const dto = req.body as BuyerCancelDto;

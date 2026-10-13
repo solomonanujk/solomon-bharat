@@ -6,6 +6,7 @@ import {
   brandShipSchema,
   buyerCancelSchema,
   declineSchema,
+  documentParamSchema,
   refundSchema,
   cancelOrderSchema,
   exportDocumentsSchema,
@@ -208,6 +209,36 @@ ordersRouter.post(
  *     responses:
  *       200: { description: Order shipped }
  */
+/**
+ * @openapi
+ * /orders/brand/{id}/documents/{type}:
+ *   get:
+ *     summary: Commercial invoice or packing list PDF for one of my orders (marketplace SELLER)
+ *     tags: [Orders]
+ */
+ordersRouter.get(
+  '/brand/:id/documents/:type',
+  requireAuth,
+  requireMarketplaceSeller,
+  validate(documentParamSchema, 'params'),
+  asyncHandler(ordersController.brandDocument),
+);
+
+/**
+ * @openapi
+ * /orders/admin/{id}/documents/{type}:
+ *   get:
+ *     summary: Commercial invoice or packing list PDF for any paid order (SUPER_ADMIN only)
+ *     tags: [Orders]
+ */
+ordersRouter.get(
+  '/admin/:id/documents/:type',
+  requireAuth,
+  requireAdmin,
+  validate(documentParamSchema, 'params'),
+  asyncHandler(ordersController.adminDocument),
+);
+
 ordersRouter.post(
   '/brand/:id/decline',
   requireAuth,

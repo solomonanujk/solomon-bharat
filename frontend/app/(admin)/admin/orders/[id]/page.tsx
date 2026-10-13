@@ -29,6 +29,7 @@ import {
 import { useBuyerMessages, useSendAdminMessage } from '@/hooks/queries/useMessages'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
+import { downloadOrderDocument } from '@/lib/downloadOrderDocument'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { cn, formatCurrency } from '@/lib/utils'
 import type { OrderStatus } from '@/types'
@@ -303,6 +304,16 @@ export default function AdminOrderDetailPage() {
             <Button variant="accent" size="sm" onClick={runNextAction} disabled={anyActionPending}>
               {anyActionPending ? 'Working…' : nextAction.label}
             </Button>
+          )}
+          {order.status !== 'PENDING_PAYMENT' && (
+            <>
+              <Button type="button" variant="ghost" size="sm" onClick={() => downloadOrderDocument('admin', order.id, 'commercial-invoice')}>
+                Commercial invoice
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => downloadOrderDocument('admin', order.id, 'packing-list')}>
+                Packing list
+              </Button>
+            </>
           )}
           {order.status === 'PENDING_PAYMENT' && order.checkoutId && (
             <Button variant="accent" size="sm" onClick={confirmBankTransfer} disabled={anyActionPending}>

@@ -75,6 +75,11 @@ export const brandShipSchema = z.object({
 });
 export type BrandShipDto = z.infer<typeof brandShipSchema>;
 
+export const documentParamSchema = z.object({
+  id: z.string().uuid(),
+  type: z.enum(['commercial-invoice', 'packing-list']),
+});
+
 export const declineSchema = z.object({
   reason: z.string().trim().min(1).max(1000),
 });

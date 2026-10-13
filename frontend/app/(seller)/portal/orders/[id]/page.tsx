@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft, Copy, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { downloadOrderDocument } from '@/lib/downloadOrderDocument'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   useBrandOrder,
@@ -170,6 +171,16 @@ function OrderDetail({ order }: { order: BrandOrderView }) {
           Placed {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
         </span>
         <div className="ml-auto flex flex-wrap gap-2">
+          {order.status !== 'PENDING_PAYMENT' && (
+            <>
+              <Button type="button" variant="ghost" size="sm" onClick={() => downloadOrderDocument('brand', order.id, 'commercial-invoice')}>
+                Commercial invoice
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => downloadOrderDocument('brand', order.id, 'packing-list')}>
+                Packing list
+              </Button>
+            </>
+          )}
           {order.status === 'PAYMENT_RECEIVED' && (
             <Button type="button" variant="primary" disabled={confirm.isPending} onClick={() => confirm.mutate({ id: order.id })}>
               {confirm.isPending && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}

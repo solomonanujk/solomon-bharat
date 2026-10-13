@@ -164,6 +164,31 @@ export class OrdersRepository {
     return count === 1;
   }
 
+  /** Everything the export documents need for one order. */
+  findForDocuments(orderId: string) {
+    return this.db.order.findUnique({
+      where: { id: orderId },
+      include: {
+        items: {
+          include: {
+            product: { select: { name: true, tariffCode: true, weight: true, dimensions: true, placeOfOrigin: true } },
+            variant: {
+              select: {
+                sku: true, weight: true, weightUnit: true, length: true, width: true, height: true,
+                dimensionUnit: true, tariffCode: true,
+              },
+            },
+          },
+        },
+        buyer: { select: { companyName: true, contactName: true, phone: true, country: true } },
+        shippingAddress: true,
+        sellerProfile: {
+          select: { businessName: true, businessAddress: true, phone: true, brand: { select: { name: true, legalName: true, gstin: true } } },
+        },
+      },
+    });
+  }
+
   /** Of the given seller profiles, the ones currently on vacation (not taking orders). */
   async findSellersOnVacation(sellerIds: string[]): Promise<Set<string>> {
     if (sellerIds.length === 0) return new Set();
