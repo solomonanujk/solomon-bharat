@@ -27,7 +27,7 @@ const BUYER_NAV_ITEMS = [
   { href: '/profile', label: 'Profile', icon: UserIcon },
 ]
 
-const FALLBACK_CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'AUD']
+const FALLBACK_CURRENCIES = ['GBP', 'USD', 'EUR', 'AUD', 'CAD', 'SGD', 'INR']
 
 // Header geometry (spec §3). Desktop: 72px main row + 44px category row; below
 // 1024px: 56px brand row + 60px search row (48px field + 12px bottom padding).
