@@ -1,3 +1,4 @@
+import { logger } from '../../config/logger';
 import { User } from '@prisma/client';
 import { env } from '../../config/env';
 import { AppError } from '../../utils/errors';
@@ -61,6 +62,15 @@ export class AuthService {
 
     const passwordHash = await hashPassword(input.password);
     const user = await this.repo.createBuyerUser(input, passwordHash);
+
+    // Brands may have emailed this address an invite before the account existed.
+    if (user.buyerProfile?.id) {
+      try {
+        await this.repo.claimBrandEmailInvites(user.email, user.buyerProfile.id);
+      } catch (err) {
+        logger.error({ err, userId: user.id }, 'Failed to claim brand email invites');
+      }
+    }
 
     const rawToken = generateOpaqueToken();
     const tokenHash = await hashToken(rawToken);

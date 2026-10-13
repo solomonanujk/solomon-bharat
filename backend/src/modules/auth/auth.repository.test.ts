@@ -36,6 +36,7 @@ describe('AuthRepository', () => {
       'hashed',
     );
     expect(db.user.create).toHaveBeenCalledWith({
+      include: { buyerProfile: { select: { id: true } } },
       data: {
         email: 'a@b.com',
         passwordHash: 'hashed',

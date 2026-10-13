@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Menu, X, ChevronDown, LogOut, User as UserIcon, ShoppingCart, Globe, Package, MessageSquare, Heart, LayoutDashboard, Search as SearchIcon, Bell, Layers, Check } from 'lucide-react'
+import { Menu, X, ChevronDown, LogOut, User as UserIcon, ShoppingCart, Globe, Package, MessageSquare, Heart, LayoutDashboard, Search as SearchIcon, Bell, Layers, Check, ClipboardList } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { useCurrencyStore } from '@/lib/store/useCurrencyStore'
@@ -23,6 +23,7 @@ const BUYER_NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/orders', label: 'Orders', icon: Package },
   { href: '/messages', label: 'Messages', icon: MessageSquare },
+  { href: '/requests', label: 'Custom requests', icon: ClipboardList },
   { href: '/wishlist', label: 'Wishlist', icon: Heart },
   { href: '/profile', label: 'Profile', icon: UserIcon },
 ]

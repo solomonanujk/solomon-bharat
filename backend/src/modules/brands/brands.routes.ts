@@ -60,6 +60,22 @@ brandsRouter.get(
 );
 
 const inviteCodeParamSchema = z.object({ code: z.string().trim().min(4).max(64) });
+const ownBuyerEmailsSchema = z.object({ emails: z.array(z.string().trim().email()).min(1).max(200) });
+
+/**
+ * @openapi
+ * /brands/me/own-buyers:
+ *   post:
+ *     summary: Add my existing customers by email (links existing buyers, emails the rest). Marketplace SELLER only
+ *     tags: [Brands]
+ */
+brandsRouter.post(
+  '/me/own-buyers',
+  requireAuth,
+  requireMarketplaceSeller,
+  validate(ownBuyerEmailsSchema),
+  asyncHandler(brandsController.addOwnBuyers),
+);
 
 /**
  * @openapi

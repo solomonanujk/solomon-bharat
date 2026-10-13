@@ -30,6 +30,11 @@ export const brandsController = {
     sendSuccess(res, await brandsService.getMyInvite(req.user!.id));
   },
 
+  async addOwnBuyers(req: Request, res: Response): Promise<void> {
+    const { emails } = req.body as { emails: string[] };
+    sendSuccess(res, await brandsService.addOwnBuyersByEmail(req.user!.id, emails), 'Buyers added');
+  },
+
   async invitePreview(req: Request, res: Response): Promise<void> {
     sendSuccess(res, await brandsService.getInvitePreview(req.params.code));
   },

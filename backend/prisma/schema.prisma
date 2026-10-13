@@ -933,6 +933,7 @@ model Brand {
   products  Product[]
   followers BrandFollow[]
   ownBuyers BrandOwnBuyer[]
+  emailInvites BrandEmailInvite[]
 
   @@index([status])
   @@map("brands")
@@ -950,6 +951,21 @@ model BrandOwnBuyer {
   @@unique([buyerId, brandId])
   @@index([brandId])
   @@map("brand_own_buyers")
+}
+
+/// An emailed invite from a brand to someone without a buyer account yet. Claimed (and the
+/// buyer recorded as the brand's own) when they sign up with this email.
+model BrandEmailInvite {
+  id        String    @id @default(uuid())
+  brandId   String
+  brand     Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  email     String
+  claimedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@unique([brandId, email])
+  @@index([email])
+  @@map("brand_email_invites")
 }
 
 model BrandFollow {

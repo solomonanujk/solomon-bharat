@@ -8,6 +8,9 @@ import { storageProvider } from '../../providers/storage';
 import { MAX_IMAGE_FILE_SIZE_BYTES } from '../../middleware/upload';
 import { productsService } from '../products/products.service';
 import { payoutsService } from '../payouts/payouts.service';
+import { mailProvider } from '../../providers/mail';
+import { env } from '../../config/env';
+import { logger } from '../../config/logger';
 import { BrandsRepository, BrandWithCounts, brandsRepository } from './brands.repository';
 import {
   AdminBrandListFilter,
@@ -148,6 +151,52 @@ export class BrandsService {
     const brand = await this.getOwnBrandRowOrThrow(userId);
     const code = brand.inviteCode ?? (await this.repo.ensureInviteCode(brand.id, randomBytes(6).toString('base64url')));
     return { code, ownBuyerCount: await this.repo.countOwnBuyers(brand.id) };
+  }
+
+  /**
+   * Adds the brand's existing customers by email. Existing buyer accounts are linked now
+   * (unless they already bought from the brand on the platform); everyone else is emailed the
+   * invite link and linked automatically when they sign up with that address.
+   */
+  async addOwnBuyersByEmail(
+    userId: string,
+    emails: string[],
+  ): Promise<{ linked: string[]; invited: string[]; skipped: string[] }> {
+    const brand = await this.getOwnBrandRowOrThrow(userId);
+    const { code } = await this.getMyInvite(userId);
+    const inviteUrl = `${env.APP_URL}/invite/${code}`;
+    const unique = [...new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean))];
+    const result = { linked: [] as string[], invited: [] as string[], skipped: [] as string[] };
+
+    for (const email of unique) {
+      // eslint-disable-next-line no-await-in-loop
+      const buyerId = await this.repo.findBuyerIdByEmail(email);
+      if (buyerId) {
+        // eslint-disable-next-line no-await-in-loop
+        if ((await this.repo.countPaidOrdersWithBrand(buyerId, brand.sellerProfileId)) > 0) {
+          result.skipped.push(email);
+          continue;
+        }
+        // eslint-disable-next-line no-await-in-loop
+        await this.repo.addOwnBuyer(buyerId, brand.id);
+        result.linked.push(email);
+        continue;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      await this.repo.upsertEmailInvite(brand.id, email);
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await mailProvider.sendMail({
+          to: email,
+          subject: `${brand.name} invited you to order wholesale on Solomon Bharat`,
+          html: `<p>${brand.name} has invited you to order from them wholesale on Solomon Bharat, in your own currency.</p><p><a href="${inviteUrl}">Accept the invite</a></p>`,
+        });
+      } catch (err) {
+        logger.error({ err, email, brandId: brand.id }, 'Failed to send brand invite email');
+      }
+      result.invited.push(email);
+    }
+    return result;
   }
 
   async getInvitePreview(code: string): Promise<{ name: string; slug: string; logoUrl: string | null }> {

@@ -9,7 +9,7 @@ import {
   useMyBrand,
   useSellerType,
   useUpdateMyBrand,
-  useUploadBrandImage, useMyBrandInvite } from '@/hooks/queries/useBrandPortal'
+  useUploadBrandImage, useMyBrandInvite, useAddOwnBuyers } from '@/hooks/queries/useBrandPortal'
 import type { OwnBrand, UpdateOwnBrandInput } from '@/types/brand-portal'
 
 const INPUT_CLS =
@@ -244,6 +244,22 @@ function CommissionCard({ brand }: { brand: OwnBrand }) {
 
 function InviteLinkCard() {
   const { data, isLoading } = useMyBrandInvite()
+  const addOwnBuyers = useAddOwnBuyers()
+  const [emailText, setEmailText] = useState('')
+
+  function submitEmails() {
+    const emails = emailText.split(/[\s,;]+/).map((e) => e.trim()).filter((e) => e.includes('@'))
+    if (emails.length === 0) return
+    addOwnBuyers.mutate(emails.slice(0, 200), {
+      onSuccess: (r) => {
+        setEmailText('')
+        toast.success(
+          `${r.linked.length} linked, ${r.invited.length} invited by email` +
+            (r.skipped.length ? `, ${r.skipped.length} skipped (already ordered from you here)` : ''),
+        )
+      },
+    })
+  }
   const url = data && typeof window !== 'undefined' ? `${window.location.origin}/invite/${data.code}` : ''
 
   async function copy() {
@@ -275,6 +291,17 @@ function InviteLinkCard() {
           <p className="text-[12px] font-sans text-muted mt-2">
             {data.ownBuyerCount} buyer{data.ownBuyerCount === 1 ? '' : 's'} joined through your link
           </p>
+          <div className="mt-4">
+            <label htmlFor="own-buyer-emails" className="block text-[13px] font-[600] font-sans text-ink mb-1.5">
+              Or add customers by email (up to 200)
+            </label>
+            <textarea id="own-buyer-emails" rows={3} value={emailText} onChange={(e) => setEmailText(e.target.value)}
+              placeholder="one@shop.co.uk, two@boutique.com"
+              className="w-full px-3 py-2 rounded border border-line text-[13px] font-sans" />
+            <Button type="button" variant="secondary" size="sm" className="mt-2" onClick={submitEmails} disabled={addOwnBuyers.isPending || !emailText.trim()}>
+              {addOwnBuyers.isPending ? 'Adding…' : 'Add customers'}
+            </Button>
+          </div>
         </>
       )}
     </section>

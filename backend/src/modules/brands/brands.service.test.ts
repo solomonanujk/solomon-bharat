@@ -67,6 +67,8 @@ function buildMockRepo(): BrandsRepository {
     countOwnBuyers: vi.fn(),
     countPaidOrdersWithBrand: vi.fn(),
     addOwnBuyer: vi.fn(),
+    findBuyerIdByEmail: vi.fn(),
+    upsertEmailInvite: vi.fn(),
   } as unknown as BrandsRepository;
 }
 
@@ -114,6 +116,20 @@ describe('BrandsService', () => {
       expect(res.linked).toBe(false);
       expect(repo.countPaidOrdersWithBrand).toHaveBeenCalledWith('buyer-1', 'sp-1');
       expect(repo.addOwnBuyer).not.toHaveBeenCalled();
+    });
+
+    it('adds own buyers by email: links existing buyers, invites the rest, skips past customers', async () => {
+      vi.mocked(repo.findByUserId).mockResolvedValue(buildBrand({ inviteCode: 'abc' }) as never);
+      vi.mocked(repo.countOwnBuyers).mockResolvedValue(0);
+      vi.mocked(repo.findBuyerIdByEmail).mockImplementation(async (e: string) =>
+        e === 'new@x.com' ? null : e === 'old@x.com' ? 'buyer-old' : 'buyer-ok',
+      );
+      vi.mocked(repo.countPaidOrdersWithBrand).mockImplementation(async (b: string) => (b === 'buyer-old' ? 1 : 0));
+
+      const res = await service.addOwnBuyersByEmail('user-1', ['OK@x.com', 'ok@x.com', 'new@x.com', 'old@x.com']);
+      expect(res).toEqual({ linked: ['ok@x.com'], invited: ['new@x.com'], skipped: ['old@x.com'] });
+      expect(repo.addOwnBuyer).toHaveBeenCalledWith('buyer-ok', 'brand-1');
+      expect(repo.upsertEmailInvite).toHaveBeenCalledWith('brand-1', 'new@x.com');
     });
 
     it('404s on an unknown code', async () => {

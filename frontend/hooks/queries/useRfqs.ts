@@ -49,6 +49,13 @@ export function useCreateRfq() {
   })
 }
 
+export function useMyRfqs() {
+  return useQuery<Rfq[]>({
+    queryKey: ['my-rfqs'],
+    queryFn: async () => (await api.get('/rfqs/me', { params: { limit: 100 } })).data.data ?? [],
+  })
+}
+
 export function useAdminRfqs(status?: RfqStatus) {
   return useQuery<Rfq[]>({
     queryKey: ['admin-rfqs', status],

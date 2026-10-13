@@ -121,6 +121,23 @@ export class BrandsRepository {
     });
   }
 
+  /** Buyer profile id for a BUYER account with this email, or null. */
+  async findBuyerIdByEmail(email: string): Promise<string | null> {
+    const user = await this.db.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' }, role: 'BUYER' },
+      select: { buyerProfile: { select: { id: true } } },
+    });
+    return user?.buyerProfile?.id ?? null;
+  }
+
+  upsertEmailInvite(brandId: string, email: string): Promise<unknown> {
+    return this.db.brandEmailInvite.upsert({
+      where: { brandId_email: { brandId, email } },
+      update: {},
+      create: { brandId, email },
+    });
+  }
+
   addOwnBuyer(buyerId: string, brandId: string): Promise<unknown> {
     return this.db.brandOwnBuyer.upsert({
       where: { buyerId_brandId: { buyerId, brandId } },

@@ -77,6 +77,15 @@ export function useMyBrandInvite(enabled = true) {
   })
 }
 
+export function useAddOwnBuyers() {
+  const qc = useQueryClient()
+  return useMutation<{ linked: string[]; invited: string[]; skipped: string[] }, Error, string[]>({
+    mutationFn: async (emails) => (await api.post('/brands/me/own-buyers', { emails })).data.data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-brand-invite'] }),
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
 export function useMyBrandStats(enabled = true) {
   return useQuery<BrandSalesStats>({
     queryKey: ['my-brand-stats'],
