@@ -112,7 +112,7 @@ describe('PayoutsRepository', () => {
     await repo.findPaidOrdersForBrand('brand-1', since);
     const arg = db.order.findMany.mock.calls[0][0];
     expect(arg.where.sellerProfileId).toBe('brand-1');
-    expect(arg.where.status).toEqual({ notIn: ['PENDING_PAYMENT', 'CANCELLED'] });
+    expect(arg.where.status).toEqual({ notIn: ['PENDING_PAYMENT', 'CANCELLED', 'REFUNDED'] });
     expect(arg.where.createdAt).toEqual({ gte: since });
   });
 

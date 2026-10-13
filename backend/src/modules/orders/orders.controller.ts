@@ -4,11 +4,15 @@ import { sendSuccess } from '../../utils/response';
 import { buildPaginationMeta, PaginationQuery } from '../../utils/pagination';
 import { sellersService } from '../sellers/sellers.service';
 import { buyersService } from '../buyers/buyers.service';
+import { storageProvider } from '../../providers/storage';
 import { ordersService } from './orders.service';
 import {
   AdminOrderListQueryDto,
   BrandOrderListQueryDto,
   BrandShipDto,
+  BuyerCancelDto,
+  DeclineDto,
+  RefundDto,
   CancelOrderDto,
   ExportDocumentsDto,
   ProcureDto,
@@ -27,7 +31,38 @@ async function resolveBuyerProfileId(userId: string): Promise<string> {
   return profile.id;
 }
 
+/** Uploads the multipart `photos` of a dispatch request and returns their URLs. */
+async function uploadDispatchPhotos(req: Request, orderId: string): Promise<string[]> {
+  const files = (req.files as Express.Multer.File[] | undefined) ?? [];
+  const uploads = await Promise.all(
+    files.map((f, i) => storageProvider.uploadImage(f.buffer, `${Date.now()}-${i}-${f.originalname}`, `dispatch/${orderId}`)),
+  );
+  return uploads.map((u) => u.url);
+}
+
 export const ordersController = {
+  async buyerCancel(req: Request, res: Response): Promise<void> {
+    const buyerId = await resolveBuyerProfileId(req.user!.id);
+    const dto = req.body as BuyerCancelDto;
+    sendSuccess(res, await ordersService.buyerCancel(buyerId, req.params.id, dto.reason), 'Order cancelled');
+  },
+
+  async brandDecline(req: Request, res: Response): Promise<void> {
+    const sellerProfileId = await resolveSellerProfileId(req.user!.id);
+    const dto = req.body as DeclineDto;
+    sendSuccess(res, await ordersService.brandDecline(sellerProfileId, req.params.id, dto.reason), 'Order declined');
+  },
+
+  async qualityCheck(req: Request, res: Response): Promise<void> {
+    const photos = await uploadDispatchPhotos(req, req.params.id);
+    sendSuccess(res, await ordersService.qualityCheckOrder(req.params.id, req.user!.id, photos), 'Order quality-checked');
+  },
+
+  async refund(req: Request, res: Response): Promise<void> {
+    const dto = req.body as RefundDto;
+    sendSuccess(res, await ordersService.markRefunded(req.params.id, req.user!.id, dto.reference), 'Order marked refunded');
+  },
+
   async quote(req: Request, res: Response): Promise<void> {
     const dto = req.body as QuoteDto;
     const pricingRole = req.user!.role === Role.AGENT ? 'AGENT' : 'BUYER';
@@ -74,7 +109,8 @@ export const ordersController = {
   async brandShip(req: Request, res: Response): Promise<void> {
     const sellerProfileId = await resolveSellerProfileId(req.user!.id);
     const dto = req.body as BrandShipDto;
-    const order = await ordersService.brandShip(sellerProfileId, req.params.id, dto.trackingNumber, dto.carrier);
+    const photos = await uploadDispatchPhotos(req, req.params.id);
+    const order = await ordersService.brandShip(sellerProfileId, req.params.id, dto.trackingNumber, photos, dto.carrier);
     sendSuccess(res, order, 'Order marked as shipped');
   },
 

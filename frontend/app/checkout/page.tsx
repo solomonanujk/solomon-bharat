@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { ArrowLeft, Lock, MapPin, Phone, Plus, ShieldCheck, Timer } from 'lucide-react'
 import { useCartStore } from '@/lib/store/useCartStore'
 import { useCurrencyStore } from '@/lib/store/useCurrencyStore'
@@ -237,7 +239,7 @@ function PriceDetails({
           disabled={!!disabledReason || isPending}
           className="w-full h-12 mt-5 rounded bg-forest text-white font-[600] font-sans text-[14px] hover:bg-[#0F241D] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isPending ? 'Redirecting to PayPal…' : 'Pay with PayPal'}
+          {isPending ? 'Placing order…' : 'Place order'}
         </button>
         {disabledReason && !isPending && (
           <p className="text-[11px] font-sans text-muted-text mt-2 text-center" aria-live="polite">
@@ -249,11 +251,11 @@ function PriceDetails({
       <div className="flex flex-col gap-2.5 mt-4 px-1">
         <div className="flex items-center gap-2 text-[12px] font-sans text-muted-text">
           <ShieldCheck size={14} className="text-accent flex-shrink-0" aria-hidden="true" />
-          {/* CONFIRM: copy covers both seller types */}Curated products reviewed by Solomon Bharat; marketplace brands ship directly
+          Curated orders are quality-checked in Jaipur; brands ship directly to you
         </div>
         <div className="flex items-center gap-2 text-[12px] font-sans text-muted-text">
           <Lock size={14} className="text-accent flex-shrink-0" aria-hidden="true" />
-          Secure checkout via PayPal
+          100% advance payment, in your currency
         </div>
       </div>
     </aside>
@@ -268,6 +270,8 @@ export default function CheckoutPage() {
   const currency = useCurrencyStore((s) => s.currency)
   const items = useCartStore((s) => s.items)
   const getTotalItems = useCartStore((s) => s.getTotalItems)
+  const clearCart = useCartStore((s) => s.clearCart)
+  const router = useRouter()
   const checkout = useCheckout()
   const { data: addresses = [] } = useAddresses()
   const { data: buyerProfile, isLoading: profileLoading } = useBuyerProfile()
@@ -361,10 +365,15 @@ export default function CheckoutPage() {
               sessionStorage.setItem(ORDER_ID_KEY, result.orderId)
               if (result.checkoutId) sessionStorage.setItem(CHECKOUT_ID_KEY, result.checkoutId)
             }
-            if (result.approveUrl) {
+            if (result.paymentMode === 'MANUAL') {
+              // Bank transfer: the order is placed and awaits our payment confirmation.
+              clearCart()
+              toast.success('Order placed. We will email you bank transfer details.')
+              router.push('/orders')
+            } else if (result.approveUrl) {
               window.location.href = result.approveUrl
             } else {
-              setErrorMessage('Could not start the PayPal checkout. Please try again.')
+              setErrorMessage('Could not start the payment. Please try again.')
             }
           },
           onError: (err) => {

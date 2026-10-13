@@ -61,19 +61,35 @@ export interface SettleOutcome {
   brandOrderIds: string[];
 }
 
-/** Admin-driven lifecycle after payment — strictly sequential, no skipping stages. */
+/**
+ * Admin-driven curated lifecycle after payment — strictly sequential, no skipping stages.
+ * COLLECTED = goods received at the Jaipur warehouse; QUALITY_CHECKED = inspected, with
+ * dispatch photos attached.
+ */
 const LIFECYCLE_SEQUENCE: OrderStatus[] = [
   OrderStatus.PAYMENT_RECEIVED,
   OrderStatus.CONFIRMED,
   OrderStatus.PROCURING,
   OrderStatus.COLLECTED,
+  OrderStatus.QUALITY_CHECKED,
   OrderStatus.IN_TRANSIT,
   OrderStatus.DELIVERED,
 ];
 
-// Cancellation is only meaningful "before fulfillment" — once procurement has started
+// Admin cancellation is only meaningful "before fulfillment" — once procurement has started
 // goods are already committed, so cancellation is blocked from PROCURING onward.
-const CANCELLABLE_STATUSES: OrderStatus[] = [OrderStatus.PAYMENT_RECEIVED, OrderStatus.CONFIRMED];
+const CANCELLABLE_STATUSES: OrderStatus[] = [
+  OrderStatus.PENDING_PAYMENT,
+  OrderStatus.PAYMENT_RECEIVED,
+  OrderStatus.CONFIRMED,
+];
+
+// A buyer may cancel only until the order is confirmed (curated) or accepted by the brand
+// (marketplace) — in both cases that is the move out of PAYMENT_RECEIVED.
+const BUYER_CANCELLABLE_STATUSES: OrderStatus[] = [OrderStatus.PENDING_PAYMENT, OrderStatus.PAYMENT_RECEIVED];
+
+/** A marketplace brand must accept a paid order within this window or it is cancelled. */
+export const BRAND_ACCEPT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 function toBuyerOrder(order: OrderWithItems): BuyerOrder {
   return {
@@ -88,6 +104,9 @@ function toBuyerOrder(order: OrderWithItems): BuyerOrder {
     exportDocuments: order.exportDocuments,
     expectedCollectionDate: order.expectedCollectionDate,
     cancelledReason: order.cancelledReason,
+    paidAt: order.paidAt,
+    dispatchPhotos: (order.dispatchPhotos as string[] | null) ?? [],
+    refundedAt: order.refundedAt,
     shippingAddressId: order.shippingAddressId,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
@@ -127,6 +146,9 @@ export function toBrandOrderView(order: BrandOrderRecord): BrandOrderView {
     status: order.status,
     trackingNumber: order.trackingNumber,
     cancelledReason: order.cancelledReason,
+    paidAt: order.paidAt,
+    dispatchPhotos: (order.dispatchPhotos as string[] | null) ?? [],
+    refundedAt: order.refundedAt,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
     grossTotal: order.adminPriceTotal.toString(),
@@ -666,7 +688,7 @@ export class OrdersService {
     orderId: string,
     target: OrderStatus,
     adminId: string,
-    extra?: { expectedCollectionDate?: Date; trackingNumber?: string },
+    extra?: { expectedCollectionDate?: Date; trackingNumber?: string; dispatchPhotos?: string[] },
   ): Promise<Order> {
     const order = await this.getOrderOrThrow(orderId);
     if (order.sellerProfileId) {
@@ -696,16 +718,24 @@ export class OrdersService {
     return this.transition(orderId, OrderStatus.PROCURING, adminId, { expectedCollectionDate });
   }
 
-  async collectOrder(orderId: string, adminId: string): Promise<Order> {
-    const order = await this.transition(orderId, OrderStatus.COLLECTED, adminId);
-    // Goods are physically taken from the seller at this point — Solomon Bharat now owes
-    // them, independent of whether the shipment later reaches the buyer (no returns).
-    await this.payouts.createForOrder(orderId);
-    return order;
+  /** Goods received at the Jaipur warehouse. */
+  collectOrder(orderId: string, adminId: string): Promise<Order> {
+    return this.transition(orderId, OrderStatus.COLLECTED, adminId);
   }
 
-  shipOrder(orderId: string, adminId: string, trackingNumber?: string): Promise<Order> {
-    return this.transition(orderId, OrderStatus.IN_TRANSIT, adminId, { trackingNumber });
+  /** Inspected at the warehouse; the photos are the evidence any later damage claim is judged against. */
+  async qualityCheckOrder(orderId: string, adminId: string, dispatchPhotos: string[]): Promise<Order> {
+    if (dispatchPhotos.length === 0) {
+      throw AppError.badRequest('Attach at least one dispatch photo');
+    }
+    return this.transition(orderId, OrderStatus.QUALITY_CHECKED, adminId, { dispatchPhotos });
+  }
+
+  async shipOrder(orderId: string, adminId: string, trackingNumber?: string): Promise<Order> {
+    const order = await this.transition(orderId, OrderStatus.IN_TRANSIT, adminId, { trackingNumber });
+    // Sellers are paid on dispatch.
+    await this.payouts.createForOrder(orderId);
+    return order;
   }
 
   deliverOrder(orderId: string, adminId: string): Promise<Order> {
@@ -720,13 +750,72 @@ export class OrdersService {
 
     const updated = await this.repo.setStatus(orderId, OrderStatus.CANCELLED, { cancelledReason: reason });
     await writeAuditLog(adminId, 'ORDER_CANCELLED', 'Order', orderId, { reason });
-
-    const buyerUserId = await this.getBuyerUserId(order.buyerId);
-    if (buyerUserId) {
-      await notificationsService.notifyOrderStatusChanged(buyerUserId, orderId, OrderStatus.CANCELLED);
-    }
-
+    await this.notifyBuyer(order.buyerId, orderId, OrderStatus.CANCELLED);
     return updated;
+  }
+
+  private async notifyBuyer(buyerProfileId: string, orderId: string, status: OrderStatus): Promise<void> {
+    const buyerUserId = await this.getBuyerUserId(buyerProfileId);
+    if (buyerUserId) {
+      await notificationsService.notifyOrderStatusChanged(buyerUserId, orderId, status);
+    }
+  }
+
+  /** Buyer self-cancel, allowed until the order is confirmed (curated) or accepted (marketplace). */
+  async buyerCancel(buyerId: string, orderId: string, reason?: string): Promise<Order> {
+    const order = await this.getOrderOrThrow(orderId);
+    this.assertOwnedByBuyer(order, buyerId);
+    if (!BUYER_CANCELLABLE_STATUSES.includes(order.status)) {
+      throw AppError.badRequest('This order has already been confirmed and can no longer be cancelled');
+    }
+    const cancelledReason = reason?.trim() ? `Cancelled by buyer: ${reason.trim()}` : 'Cancelled by buyer';
+    if (!(await this.repo.transitionIfStatus(orderId, order.status, OrderStatus.CANCELLED, { cancelledReason }))) {
+      throw AppError.conflict('Order status changed concurrently, please refresh');
+    }
+    logger.info({ orderId, buyerId, from: order.status }, 'Order cancelled by buyer');
+    return this.getOrderOrThrow(orderId);
+  }
+
+  /** Records that a cancelled, paid order's money was returned to the buyer. */
+  async markRefunded(orderId: string, adminId: string, reference: string): Promise<Order> {
+    const order = await this.getOrderOrThrow(orderId);
+    if (order.status !== OrderStatus.CANCELLED || !order.paidAt) {
+      throw AppError.badRequest('Only a cancelled order that was paid can be marked refunded');
+    }
+    const updated = await this.repo.setStatus(orderId, OrderStatus.REFUNDED, {
+      refundedAt: new Date(),
+      refundReference: reference,
+    });
+    await writeAuditLog(adminId, 'ORDER_REFUNDED', 'Order', orderId, { reference });
+    await this.notifyBuyer(order.buyerId, orderId, OrderStatus.REFUNDED);
+    return updated;
+  }
+
+  /**
+   * Cancels marketplace orders the brand did not accept within 24h of payment. Run on a
+   * timer; each order is moved with a status guard so a brand accepting at the same moment wins.
+   */
+  async expireUnacceptedBrandOrders(now: Date = new Date()): Promise<string[]> {
+    const stale = await this.repo.findUnacceptedBrandOrders(new Date(now.getTime() - BRAND_ACCEPT_WINDOW_MS));
+    const expired: string[] = [];
+    for (const order of stale) {
+      // eslint-disable-next-line no-await-in-loop
+      const moved = await this.repo.transitionIfStatus(order.id, OrderStatus.PAYMENT_RECEIVED, OrderStatus.CANCELLED, {
+        cancelledReason: 'Not accepted by the brand within 24 hours. A full refund will be issued.',
+      });
+      if (!moved) continue;
+      expired.push(order.id);
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await this.notifyBuyer(order.buyerId, order.id, OrderStatus.CANCELLED);
+      } catch (err) {
+        logger.error({ err, orderId: order.id }, 'Failed to notify buyer of expired brand order');
+      }
+    }
+    if (expired.length > 0) {
+      logger.info({ orderIds: expired }, 'Cancelled marketplace orders not accepted within 24h');
+    }
+    return expired;
   }
 
   async setTrackingNumber(orderId: string, trackingNumber: string): Promise<Order> {
@@ -771,7 +860,7 @@ export class OrdersService {
     orderId: string,
     from: OrderStatus,
     to: OrderStatus,
-    extra?: { trackingNumber?: string },
+    extra?: { trackingNumber?: string; dispatchPhotos?: string[]; cancelledReason?: string },
   ): Promise<BrandOrderView> {
     const order = await this.getBrandOrderOrThrow(sellerProfileId, orderId);
     if (order.status !== from) {
@@ -794,33 +883,40 @@ export class OrdersService {
     return this.brandTransition(sellerProfileId, orderId, OrderStatus.PAYMENT_RECEIVED, OrderStatus.CONFIRMED);
   }
 
-  brandShip(
-    sellerProfileId: string,
-    orderId: string,
-    trackingNumber: string,
-    carrier?: string,
-  ): Promise<BrandOrderView> {
-    const tracking = carrier ? `${carrier}: ${trackingNumber}` : trackingNumber;
-    return this.brandTransition(sellerProfileId, orderId, OrderStatus.CONFIRMED, OrderStatus.IN_TRANSIT, {
-      trackingNumber: tracking,
+  /** The brand turns down a paid order it has not accepted; the buyer is refunded. */
+  async brandDecline(sellerProfileId: string, orderId: string, reason: string): Promise<BrandOrderView> {
+    return this.brandTransition(sellerProfileId, orderId, OrderStatus.PAYMENT_RECEIVED, OrderStatus.CANCELLED, {
+      cancelledReason: `Declined by the brand: ${reason}`,
     });
   }
 
-  async brandDeliver(sellerProfileId: string, orderId: string): Promise<BrandOrderView> {
-    const view = await this.brandTransition(
-      sellerProfileId,
-      orderId,
-      OrderStatus.IN_TRANSIT,
-      OrderStatus.DELIVERED,
-    );
-    // The status change is already committed and cannot be retried by the brand, so a payout
-    // failure is logged loudly for reconciliation rather than failing the request.
+  async brandShip(
+    sellerProfileId: string,
+    orderId: string,
+    trackingNumber: string,
+    dispatchPhotos: string[],
+    carrier?: string,
+  ): Promise<BrandOrderView> {
+    if (dispatchPhotos.length === 0) {
+      throw AppError.badRequest('Upload at least one dispatch photo before shipping');
+    }
+    const tracking = carrier ? `${carrier}: ${trackingNumber}` : trackingNumber;
+    const view = await this.brandTransition(sellerProfileId, orderId, OrderStatus.CONFIRMED, OrderStatus.IN_TRANSIT, {
+      trackingNumber: tracking,
+      dispatchPhotos,
+    });
+    // Brands are paid on dispatch. The status change is already committed and cannot be retried
+    // by the brand, so a payout failure is logged loudly for reconciliation rather than failing.
     try {
       await this.payouts.createForDeliveredBrandOrder(orderId);
     } catch (err) {
-      logger.error({ err, orderId }, 'Failed to create payout for delivered brand order — reconcile manually');
+      logger.error({ err, orderId }, 'Failed to create payout for dispatched brand order — reconcile manually');
     }
     return view;
+  }
+
+  brandDeliver(sellerProfileId: string, orderId: string): Promise<BrandOrderView> {
+    return this.brandTransition(sellerProfileId, orderId, OrderStatus.IN_TRANSIT, OrderStatus.DELIVERED);
   }
 
   async listItemsForSeller(sellerId: string, pagination: PaginationQuery): Promise<{ data: SellerOrderItem[]; total: number }> {

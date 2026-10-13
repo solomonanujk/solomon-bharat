@@ -15,6 +15,9 @@ import {
 import {
   useAdminOrder,
   useCancelOrder,
+  useMarkCheckoutPaid,
+  useQualityCheckOrder,
+  useRefundOrder,
   useCollectOrder,
   useConfirmOrder,
   useDeliverOrder,
@@ -36,24 +39,19 @@ import type { AdminOrderBrandFields } from '@/types/brand-admin'
 // disputes/returns/refunds anywhere. Cancel is offered separately, from any
 // non-terminal state.
 
-type LifecycleAction = 'confirm' | 'procure' | 'collect' | 'ship' | 'deliver'
+type LifecycleAction = 'confirm' | 'procure' | 'collect' | 'qc' | 'ship' | 'deliver'
 
 const NEXT_ACTION: Partial<Record<OrderStatus, { action: LifecycleAction; label: string }>> = {
   PAYMENT_RECEIVED: { action: 'confirm', label: 'Confirm Order' },
   CONFIRMED: { action: 'procure', label: 'Start Procurement' },
-  PROCURING: { action: 'collect', label: 'Mark Collected' },
-  COLLECTED: { action: 'ship', label: 'Mark In Transit' },
+  PROCURING: { action: 'collect', label: 'Received at Warehouse' },
+  COLLECTED: { action: 'qc', label: 'Quality Check + Photos' },
+  QUALITY_CHECKED: { action: 'ship', label: 'Mark Dispatched' },
   IN_TRANSIT: { action: 'deliver', label: 'Mark Delivered' },
 }
 
-const CANCELLABLE_STATUSES: OrderStatus[] = [
-  'PENDING_PAYMENT',
-  'PAYMENT_RECEIVED',
-  'CONFIRMED',
-  'PROCURING',
-  'COLLECTED',
-  'IN_TRANSIT',
-]
+// Mirrors the backend: cancellation stops once procurement starts.
+const CANCELLABLE_STATUSES: OrderStatus[] = ['PENDING_PAYMENT', 'PAYMENT_RECEIVED', 'CONFIRMED']
 
 function shortId(id: string) {
   return id.slice(-8).toUpperCase()
@@ -103,6 +101,11 @@ export default function AdminOrderDetailPage() {
   const shipOrder = useShipOrder()
   const deliverOrder = useDeliverOrder()
   const cancelOrder = useCancelOrder()
+  const qualityCheck = useQualityCheckOrder()
+  const refundOrder = useRefundOrder()
+  const markPaid = useMarkCheckoutPaid()
+  const [qcDialogOpen, setQcDialogOpen] = useState(false)
+  const [qcPhotos, setQcPhotos] = useState<File[]>([])
   const updateTracking = useUpdateTracking()
   const attachDocs = useAttachExportDocuments()
 
@@ -180,7 +183,10 @@ export default function AdminOrderDetailPage() {
     collectOrder.isPending ||
     shipOrder.isPending ||
     deliverOrder.isPending ||
-    cancelOrder.isPending
+    cancelOrder.isPending ||
+    qualityCheck.isPending ||
+    refundOrder.isPending ||
+    markPaid.isPending
 
   function runNextAction() {
     if (!nextAction) return
@@ -193,6 +199,9 @@ export default function AdminOrderDetailPage() {
         break
       case 'collect':
         collectOrder.mutate({ id })
+        break
+      case 'qc':
+        setQcDialogOpen(true)
         break
       case 'ship':
         shipOrder.mutate({ id })
@@ -208,6 +217,24 @@ export default function AdminOrderDetailPage() {
       { id, body: expectedCollectionDate ? { expectedCollectionDate } : undefined },
       { onSuccess: () => setProcureDialogOpen(false) }
     )
+  }
+
+  function submitQualityCheck() {
+    if (qcPhotos.length === 0) return
+    qualityCheck.mutate({ id, photos: qcPhotos }, { onSuccess: () => { setQcDialogOpen(false); setQcPhotos([]) } })
+  }
+
+  function confirmBankTransfer() {
+    if (!order?.checkoutId) return
+    const reference = window.prompt('Bank transfer reference (UTR) for this checkout. Every order in it will be marked paid.')
+    if (!reference?.trim()) return
+    markPaid.mutate({ orderId: id, checkoutId: order.checkoutId, reference: reference.trim() })
+  }
+
+  function recordRefund() {
+    const reference = window.prompt('Refund reference (UTR / transaction ID):')
+    if (!reference?.trim()) return
+    refundOrder.mutate({ id, body: { reference: reference.trim() } })
   }
 
   function submitCancel() {
@@ -275,6 +302,16 @@ export default function AdminOrderDetailPage() {
               {anyActionPending ? 'Working…' : nextAction.label}
             </Button>
           )}
+          {order.status === 'PENDING_PAYMENT' && order.checkoutId && (
+            <Button variant="accent" size="sm" onClick={confirmBankTransfer} disabled={anyActionPending}>
+              Confirm Bank Transfer
+            </Button>
+          )}
+          {order.status === 'CANCELLED' && order.paidAt && (
+            <Button variant="accent" size="sm" onClick={recordRefund} disabled={anyActionPending}>
+              Mark Refunded
+            </Button>
+          )}
           {canCancel && (
             <Button variant="destructive" size="sm" onClick={() => setCancelDialogOpen(true)} disabled={anyActionPending}>
               Cancel Order
@@ -309,7 +346,20 @@ export default function AdminOrderDetailPage() {
             {order.sellerPriceTotal != null && <InfoRow label="Seller Price Total" value={formatCurrency(order.sellerPriceTotal)} />}
             {order.adminMargin != null && <InfoRow label="Admin Margin" value={formatCurrency(order.adminMargin)} />}
             <InfoRow label="Expected Collection Date" value={formatDate(order.expectedCollectionDate)} />
-            {order.status === 'CANCELLED' && (
+            {order.paidAt && <InfoRow label="Paid" value={formatDate(order.paidAt)} />}
+            {order.dispatchPhotos && order.dispatchPhotos.length > 0 && (
+              <InfoRow
+                label="Dispatch Photos"
+                value={
+                  <span className="flex flex-wrap gap-2">
+                    {order.dispatchPhotos.map((url, i) => (
+                      <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="underline">Photo {i + 1}</a>
+                    ))}
+                  </span>
+                }
+              />
+            )}
+            {(order.status === 'CANCELLED' || order.status === 'REFUNDED') && (
               <InfoRow
                 label="Cancellation Reason"
                 value={<span className="text-[#183D33]">{order.cancelledReason ?? '—'}</span>}
@@ -540,6 +590,30 @@ export default function AdminOrderDetailPage() {
       </Dialog>
 
       {/* Cancel dialog */}
+      <Dialog open={qcDialogOpen} onOpenChange={setQcDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Quality check</DialogTitle>
+            <DialogDescription>
+              Upload photos of the inspected, packed goods. They are shown to the buyer and used to judge any damage claim.
+            </DialogDescription>
+          </DialogHeader>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(e) => setQcPhotos(Array.from(e.target.files ?? []).slice(0, 8))}
+            className="text-[13px] font-sans"
+          />
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setQcDialogOpen(false)}>Cancel</Button>
+            <Button variant="accent" size="sm" onClick={submitQualityCheck} disabled={qcPhotos.length === 0 || qualityCheck.isPending}>
+              {qualityCheck.isPending ? 'Uploading…' : `Save (${qcPhotos.length} photo${qcPhotos.length === 1 ? '' : 's'})`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
         <DialogContent>
           <DialogHeader>

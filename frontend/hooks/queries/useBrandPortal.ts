@@ -102,7 +102,11 @@ function useBrandOrderAction<V extends { id: string }>(
 ) {
   const qc = useQueryClient()
   return useMutation<BrandOrderView, Error, V>({
-    mutationFn: async (vars) => (await api.post(path(vars), body(vars))).data.data,
+    mutationFn: async (vars) => {
+      const data = body(vars)
+      const config = data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined
+      return (await api.post(path(vars), data, config)).data.data
+    },
     onSuccess: (order, vars) => {
       qc.setQueryData(['brand-order', vars.id], order)
       qc.invalidateQueries({ queryKey: ['brand-orders'] })
@@ -122,8 +126,23 @@ export function useConfirmBrandOrder() {
 export function useShipBrandOrder() {
   return useBrandOrderAction<{ id: string } & BrandShipInput>(
     (v) => `/orders/brand/${v.id}/ship`,
-    (v) => ({ trackingNumber: v.trackingNumber, ...(v.carrier ? { carrier: v.carrier } : {}) }),
+    (v) => {
+      // Multipart: dispatch photos travel with the tracking details.
+      const form = new FormData()
+      form.append('trackingNumber', v.trackingNumber)
+      if (v.carrier) form.append('carrier', v.carrier)
+      v.photos.forEach((file) => form.append('photos', file))
+      return form
+    },
     'Order marked as shipped.',
+  )
+}
+
+export function useDeclineBrandOrder() {
+  return useBrandOrderAction<{ id: string; reason: string }>(
+    (v) => `/orders/brand/${v.id}/decline`,
+    (v) => ({ reason: v.reason }),
+    'Order declined. The buyer will be refunded.',
   )
 }
 

@@ -4,6 +4,9 @@ import {
   adminOrderListQuerySchema,
   brandOrderListQuerySchema,
   brandShipSchema,
+  buyerCancelSchema,
+  declineSchema,
+  refundSchema,
   cancelOrderSchema,
   exportDocumentsSchema,
   idParamSchema,
@@ -14,6 +17,7 @@ import {
 } from './orders.validation';
 import { paginationQuerySchema } from '../../utils/pagination';
 import { validate } from '../../middleware/validate';
+import { uploadImages } from '../../middleware/upload';
 import {
   requireAdmin,
   requireAuth,
@@ -22,6 +26,8 @@ import {
   requireSeller,
 } from '../../middleware/auth';
 import { asyncHandler } from '../../utils/asyncHandler';
+
+const dispatchPhotosUpload = uploadImages.array('photos', 8);
 
 export const ordersRouter = Router();
 
@@ -91,6 +97,22 @@ ordersRouter.get(
  *       200: { description: "Quote with lines and subtotalInr" }
  *       400: { description: Validation error }
  */
+/**
+ * @openapi
+ * /orders/me/{id}/cancel:
+ *   post:
+ *     summary: Buyer cancels their own order before it is confirmed or accepted by the brand
+ *     tags: [Orders]
+ */
+ordersRouter.post(
+  '/me/:id/cancel',
+  requireAuth,
+  requireBuyerOrAgent,
+  validate(idParamSchema, 'params'),
+  validate(buyerCancelSchema),
+  asyncHandler(ordersController.buyerCancel),
+);
+
 ordersRouter.post(
   '/quote',
   requireAuth,
@@ -187,10 +209,27 @@ ordersRouter.post(
  *       200: { description: Order shipped }
  */
 ordersRouter.post(
+  '/brand/:id/decline',
+  requireAuth,
+  requireMarketplaceSeller,
+  validate(idParamSchema, 'params'),
+  validate(declineSchema),
+  asyncHandler(ordersController.brandDecline),
+);
+
+/**
+ * @openapi
+ * /orders/brand/{id}/ship:
+ *   post:
+ *     summary: Ship with tracking and dispatch photos (multipart 'photos', at least 1), CONFIRMED to IN_TRANSIT; creates the payout
+ *     tags: [Orders]
+ */
+ordersRouter.post(
   '/brand/:id/ship',
   requireAuth,
   requireMarketplaceSeller,
   validate(idParamSchema, 'params'),
+  dispatchPhotosUpload,
   validate(brandShipSchema),
   asyncHandler(ordersController.brandShip),
 );
@@ -345,6 +384,31 @@ ordersRouter.post(
  *     responses:
  *       200: { description: Order cancelled }
  */
+ordersRouter.post(
+  '/admin/:id/quality-check',
+  requireAuth,
+  requireAdmin,
+  validate(idParamSchema, 'params'),
+  dispatchPhotosUpload,
+  asyncHandler(ordersController.qualityCheck),
+);
+
+/**
+ * @openapi
+ * /orders/admin/{id}/refund:
+ *   post:
+ *     summary: Mark a cancelled, paid order as refunded, with the refund reference (SUPER_ADMIN only)
+ *     tags: [Orders]
+ */
+ordersRouter.post(
+  '/admin/:id/refund',
+  requireAuth,
+  requireAdmin,
+  validate(idParamSchema, 'params'),
+  validate(refundSchema),
+  asyncHandler(ordersController.refund),
+);
+
 ordersRouter.post(
   '/admin/:id/cancel',
   requireAuth,

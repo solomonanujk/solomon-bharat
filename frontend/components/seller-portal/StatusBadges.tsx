@@ -64,10 +64,12 @@ const ORDER_STATUS_CONFIG: Record<OrderStatus, { label: string; variant: NonNull
   PAYMENT_RECEIVED: { label: 'Payment Received', variant: 'accent' },
   CONFIRMED: { label: 'Confirmed', variant: 'accent' },
   PROCURING: { label: 'Procuring', variant: 'warning' },
-  COLLECTED: { label: 'Collected', variant: 'warning' },
+  COLLECTED: { label: 'At Warehouse', variant: 'warning' },
+  QUALITY_CHECKED: { label: 'Quality Checked', variant: 'accent' },
   IN_TRANSIT: { label: 'In Transit', variant: 'accent' },
   DELIVERED: { label: 'Delivered', variant: 'success' },
   CANCELLED: { label: 'Cancelled', variant: 'error' },
+  REFUNDED: { label: 'Refunded', variant: 'default' },
 }
 
 export function OrderItemStatusBadge({ status, className }: { status: OrderStatus; className?: string }) {

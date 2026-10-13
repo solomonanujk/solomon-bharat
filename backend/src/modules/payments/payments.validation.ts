@@ -35,3 +35,13 @@ export const idParamSchema = z.object({
 export const orderIdParamSchema = z.object({
   orderId: z.string().uuid(),
 });
+
+export const checkoutIdParamSchema = z.object({
+  checkoutId: z.string().uuid(),
+});
+
+export const manualPaymentSchema = z.object({
+  /** Bank transfer UTR / reference, kept on the payment for reconciliation. */
+  reference: z.string().trim().min(1).max(200),
+});
+export type ManualPaymentDto = z.infer<typeof manualPaymentSchema>;

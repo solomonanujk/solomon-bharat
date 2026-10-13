@@ -23,7 +23,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
-import { useMyOrders, useMyOrder } from '@/hooks/queries/useOrders'
+import { useCancelMyOrder, useMyOrders, useMyOrder } from '@/hooks/queries/useOrders'
 import { useInvoice } from '@/hooks/queries/usePayments'
 import { useSubmitReview } from '@/hooks/queries/useReviews'
 import { useFormatPrice } from '@/components/ui/Price'
@@ -44,21 +44,25 @@ const FILTER_TABS: FilterTab[] = [
   'CONFIRMED',
   'PROCURING',
   'COLLECTED',
+  'QUALITY_CHECKED',
   'IN_TRANSIT',
   'DELIVERED',
   'CANCELLED',
+  'REFUNDED',
 ]
 
 const TAB_LABELS: Record<FilterTab, string> = {
   ALL: 'All',
-  PENDING_PAYMENT: 'Pending Payment',
+  PENDING_PAYMENT: 'Awaiting Payment',
   PAYMENT_RECEIVED: 'Payment Received',
   CONFIRMED: 'Confirmed',
   PROCURING: 'Procuring',
-  COLLECTED: 'Collected',
+  COLLECTED: 'At Warehouse',
+  QUALITY_CHECKED: 'Quality Checked',
   IN_TRANSIT: 'In Transit',
   DELIVERED: 'Delivered',
   CANCELLED: 'Cancelled',
+  REFUNDED: 'Refunded',
 }
 
 function formatDate(iso: string) {
@@ -78,8 +82,8 @@ function sellerLabel(order: BuyerOrder) {
 }
 
 const BRAND_STEP_LABELS: Partial<Record<OrderStatus, string>> = {
-  PAYMENT_RECEIVED: 'Payment received',
-  CONFIRMED: 'Confirmed by brand',
+  PAYMENT_RECEIVED: 'Awaiting brand acceptance',
+  CONFIRMED: 'Accepted by brand',
   IN_TRANSIT: 'Shipped',
   DELIVERED: 'Delivered',
 }
@@ -377,6 +381,15 @@ function OrderDetailSheet({
 }) {
   const fmt = useFormatPrice()
   const { data: order, isLoading } = useMyOrder(orderId)
+  const cancelOrder = useCancelMyOrder()
+  const canCancel = order?.status === 'PENDING_PAYMENT' || order?.status === 'PAYMENT_RECEIVED'
+
+  function handleCancel() {
+    if (!order) return
+    const reason = window.prompt('Cancel this order? You can add a reason (optional).')
+    if (reason === null) return
+    cancelOrder.mutate({ id: order.id, reason: reason || undefined })
+  }
 
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) onClose() }}>
@@ -467,7 +480,50 @@ function OrderDetailSheet({
                 </div>
               </section>
 
-              {order.status === 'CANCELLED' && order.cancelledReason && (
+              {order.status === 'PENDING_PAYMENT' && (
+                <div className="bg-warning/[8%] border border-warning/30 rounded p-4">
+                  <p className="text-[14px] font-[600] font-sans text-ink">Awaiting payment</p>
+                  <p className="text-[12px] font-sans text-muted-text mt-0.5">
+                    We&apos;ll email you bank transfer details for this order. It is confirmed once we receive your payment.
+                  </p>
+                </div>
+              )}
+
+              {order.status === 'REFUNDED' && (
+                <div className="bg-muted-bg border border-border-warm rounded p-4">
+                  <p className="text-[14px] font-[600] font-sans text-ink">Refunded</p>
+                  <p className="text-[12px] font-sans text-muted-text mt-0.5">
+                    {order.refundedAt ? `Refunded on ${formatDate(order.refundedAt)}.` : 'Your payment has been refunded.'}
+                  </p>
+                </div>
+              )}
+
+              {order.dispatchPhotos && order.dispatchPhotos.length > 0 && (
+                <section>
+                  <h3 className="text-[14px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-3">
+                    Dispatch photos
+                  </h3>
+                  <div className="grid grid-cols-3 gap-2">
+                    {order.dispatchPhotos.map((url) => (
+                      <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block aspect-square rounded overflow-hidden border border-border-warm bg-muted-bg">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt="Goods at dispatch" className="w-full h-full object-cover" />
+                      </a>
+                    ))}
+                  </div>
+                  <p className="text-[12px] font-sans text-muted mt-2">
+                    Report any damage within 7 days of delivery, with photos.
+                  </p>
+                </section>
+              )}
+
+              {canCancel && (
+                <Button variant="ghost" size="md" onClick={handleCancel} disabled={cancelOrder.isPending}>
+                  {cancelOrder.isPending ? 'Cancelling…' : 'Cancel order'}
+                </Button>
+              )}
+
+              {(order.status === 'CANCELLED' || order.status === 'REFUNDED') && order.cancelledReason && (
                 <div className="bg-error/[6%] border border-error/20 rounded p-4">
                   <p className="text-[14px] font-[600] font-sans text-error">Order Cancelled</p>
                   <p className="text-[12px] font-sans text-muted-text mt-0.5">{order.cancelledReason}</p>

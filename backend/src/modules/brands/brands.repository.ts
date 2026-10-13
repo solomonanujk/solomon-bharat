@@ -149,7 +149,7 @@ export class BrandsRepository {
       where: {
         sellerProfileId: { in: sellerProfileIds },
         deletedAt: null,
-        status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED] },
+        status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED, OrderStatus.REFUNDED] },
       },
       _count: { _all: true },
       _sum: { adminPriceTotal: true },

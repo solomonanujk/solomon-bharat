@@ -273,7 +273,7 @@ describe('orders controller', () => {
         .set(authHeader(Role.SELLER))
         .send({ trackingNumber: 'TRK1', carrier: 'DHL' });
       expect(ship.status).toBe(200);
-      expect(ordersService.brandShip).toHaveBeenCalledWith('brand-profile-1', ORDER_ID, 'TRK1', 'DHL');
+      expect(ordersService.brandShip).toHaveBeenCalledWith('brand-profile-1', ORDER_ID, 'TRK1', [], 'DHL');
 
       expect((await request(app).post(`/api/v1/orders/brand/${ORDER_ID}/deliver`).set(authHeader(Role.SELLER))).status).toBe(200);
       expect(ordersService.brandDeliver).toHaveBeenCalledWith('brand-profile-1', ORDER_ID);

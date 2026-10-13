@@ -11,9 +11,11 @@ export type OrderStatus =
   | 'CONFIRMED'
   | 'PROCURING'
   | 'COLLECTED'
+  | 'QUALITY_CHECKED'
   | 'IN_TRANSIT'
   | 'DELIVERED'
   | 'CANCELLED'
+  | 'REFUNDED'
 
 export type ApprovalStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'RESUBMITTED'
 export type CategoryStatus = 'ACTIVE' | 'ARCHIVED'
@@ -574,6 +576,12 @@ export interface Order {
   exportDocuments: string[] | null
   expectedCollectionDate: string | null
   cancelledReason: string | null
+  /** When payment was confirmed (null while awaiting payment). */
+  paidAt?: string | null
+  /** Photos of the goods at dispatch — the evidence for any damage claim. */
+  dispatchPhotos?: string[]
+  refundedAt?: string | null
+  checkoutId?: string | null
   createdAt: string
   updatedAt: string
   items: OrderItem[]
@@ -605,6 +613,8 @@ export interface CheckoutResult {
   orderId: string
   paymentId: string
   approveUrl: string | null
+  /** MANUAL = bank transfer: no approveUrl; Solomon Bharat confirms receipt. */
+  paymentMode?: 'ONLINE' | 'MANUAL'
   adminPriceTotal: string
   currency?: string
   chargeAmount?: string

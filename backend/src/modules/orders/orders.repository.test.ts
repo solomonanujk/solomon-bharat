@@ -91,7 +91,7 @@ describe('OrdersRepository', () => {
     expect(db.order.update).toHaveBeenCalledWith({ where: { id: 'o1' }, data: { trackingNumber: 'TRACK123' } });
   });
 
-  it('listForBuyer excludes still-unpaid orders', async () => {
+  it('listForBuyer includes awaiting-payment orders (manual payment)', async () => {
     db.order.findMany.mockResolvedValue([]);
     db.order.count.mockResolvedValue(0);
     await repo.listForBuyer('buyer-1', { page: 1, limit: 20 });
@@ -99,7 +99,6 @@ describe('OrdersRepository', () => {
     expect(arg.where).toEqual({
       buyerId: 'buyer-1',
       deletedAt: null,
-      status: { not: OrderStatus.PENDING_PAYMENT },
     });
   });
 
@@ -144,7 +143,7 @@ describe('OrdersRepository', () => {
     expect(await repo.markPaidIfPending(db as never, 'o1')).toBe(false);
     expect(db.order.updateMany.mock.calls[0][0]).toEqual({
       where: { id: 'o1', status: OrderStatus.PENDING_PAYMENT, deletedAt: null },
-      data: { status: OrderStatus.PAYMENT_RECEIVED },
+      data: { status: OrderStatus.PAYMENT_RECEIVED, paidAt: expect.any(Date) },
     });
   });
 
@@ -156,7 +155,7 @@ describe('OrdersRepository', () => {
         sellerProfileId: 'sp-a',
         buyerId: 'b1',
         id: { not: 'o1' },
-        status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED] },
+        status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED, OrderStatus.REFUNDED] },
       },
     });
   });

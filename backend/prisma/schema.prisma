@@ -69,9 +69,13 @@ enum OrderStatus {
   CONFIRMED
   PROCURING
   COLLECTED
+  /// Curated only: checked at the Jaipur warehouse, with dispatch photos attached.
+  QUALITY_CHECKED
   IN_TRANSIT
   DELIVERED
   CANCELLED
+  /// A paid order that was cancelled and has had its money returned.
+  REFUNDED
 }
 
 enum PaymentStatus {
@@ -692,6 +696,12 @@ model Order {
   exportDocuments        Json?
   expectedCollectionDate DateTime?
   cancelledReason        String?
+  /// When payment was confirmed. Marketplace brands must accept within 24h of this.
+  paidAt                 DateTime?
+  /// Photo URLs proving the goods' condition at dispatch. Required before shipping.
+  dispatchPhotos         Json?
+  refundedAt             DateTime?
+  refundReference        String?
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
   deletedAt              DateTime?
@@ -707,6 +717,7 @@ model Order {
   @@index([createdAt])
   @@index([deletedAt])
   @@index([placedAsAgent])
+  @@index([status, paidAt])
   @@map("orders")
 }
 

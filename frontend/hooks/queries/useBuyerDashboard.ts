@@ -12,7 +12,7 @@ export interface BuyerDashboard {
   recentOrders: Order[]
 }
 
-const ACTIVE_STATUSES = new Set(['CONFIRMED', 'PROCURING', 'COLLECTED', 'IN_TRANSIT'])
+const ACTIVE_STATUSES = new Set(['CONFIRMED', 'PROCURING', 'COLLECTED', 'QUALITY_CHECKED', 'IN_TRANSIT'])
 const PENDING_STATUSES = new Set(['PENDING_PAYMENT', 'PAYMENT_RECEIVED'])
 
 /**

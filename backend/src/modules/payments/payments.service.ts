@@ -1,7 +1,8 @@
 import { Payment, PaymentStatus, Prisma, Role } from '@prisma/client';
 import { logger } from '../../config/logger';
 import { AppError } from '../../utils/errors';
-import { paymentProvider, WebhookHeaders } from '../../providers/payments';
+import { isManualPayment, paymentProvider, WebhookHeaders } from '../../providers/payments';
+import { writeAuditLog } from '../../utils/auditLog';
 import { fxProvider } from '../../providers/fx';
 import { prisma } from '../../config/prisma';
 import { OrdersService, ordersService } from '../orders/orders.service';
@@ -81,10 +82,29 @@ export class PaymentsService {
       checkoutId,
       orders: orders.map((o) => ({ orderId: o.id, sellerProfileId: o.sellerProfileId ?? null })),
       approveUrl: providerOrder.approveUrl,
+      paymentMode: isManualPayment(paymentProvider) ? 'MANUAL' : 'ONLINE',
       adminPriceTotal: totalInr.toFixed(2),
       currency: input.currency,
       chargeAmount: chargeAmount.toFixed(2),
     };
+  }
+
+  /**
+   * Admin confirms a bank transfer for a whole checkout. Runs the same settle path as an online
+   * capture (orders -> PAYMENT_RECEIVED, brand commission locked). Idempotent.
+   */
+  async markCheckoutPaidManually(checkoutId: string, reference: string, adminId: string): Promise<{ settled: number }> {
+    const payments = await this.repo.findByCheckoutId(checkoutId);
+    if (payments.length === 0) {
+      throw AppError.notFound('Checkout not found');
+    }
+    if (payments.every((p) => p.status === PaymentStatus.COMPLETED)) {
+      return { settled: 0 };
+    }
+    const pending = payments.filter((p) => p.status === PaymentStatus.PENDING);
+    await this.settle(pending, `MANUAL:${reference}`, { manual: true, reference, confirmedBy: adminId });
+    await writeAuditLog(adminId, 'PAYMENT_CONFIRMED_MANUALLY', 'Checkout', checkoutId, { reference });
+    return { settled: pending.length };
   }
 
   async getFxRate(currency: string): Promise<FxRateResult> {

@@ -625,7 +625,7 @@ export class ProductsRepository {
       by: ['productId'],
       where: {
         createdAt: { gte: since },
-        order: { status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED] } },
+        order: { status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED, OrderStatus.REFUNDED] } },
         product: {
           deletedAt: null,
           isPublished: true,

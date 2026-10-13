@@ -111,6 +111,9 @@ export interface BuyerOrder {
   exportDocuments: unknown;
   expectedCollectionDate: Date | null;
   cancelledReason: string | null;
+  paidAt: Date | null;
+  dispatchPhotos: string[];
+  refundedAt: Date | null;
   shippingAddressId: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -158,6 +161,9 @@ export interface BrandOrderView {
   status: OrderStatus;
   trackingNumber: string | null;
   cancelledReason: string | null;
+  paidAt: Date | null;
+  dispatchPhotos: string[];
+  refundedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   /** Gross (what the buyer paid for this brand's items), INR. */

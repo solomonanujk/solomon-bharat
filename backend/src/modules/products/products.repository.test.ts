@@ -550,7 +550,7 @@ describe('ProductsRepository', () => {
     expect(data.map((p) => p.id)).toEqual(['p-2', 'p-1', 'p-3']);
 
     const groupByArg = db.orderItem.groupBy.mock.calls[0][0];
-    expect(groupByArg.where.order.status.notIn).toEqual(['PENDING_PAYMENT', 'CANCELLED']);
+    expect(groupByArg.where.order.status.notIn).toEqual(['PENDING_PAYMENT', 'CANCELLED', 'REFUNDED']);
     expect(groupByArg.where.product).toMatchObject({
       deletedAt: null,
       isPublished: true,

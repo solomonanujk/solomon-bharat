@@ -11,7 +11,10 @@ vi.mock('../../providers/payments', () => ({
     captureOrder: vi.fn(),
     verifyWebhook: vi.fn(),
   },
+  isManualPayment: vi.fn().mockReturnValue(false),
 }));
+
+vi.mock('../../utils/auditLog', () => ({ writeAuditLog: vi.fn() }));
 
 vi.mock('../../providers/fx', () => ({
   fxProvider: {
@@ -28,6 +31,7 @@ vi.mock('../../config/prisma', () => ({
 
 import { paymentProvider } from '../../providers/payments';
 import { prisma } from '../../config/prisma';
+import { writeAuditLog } from '../../utils/auditLog';
 
 function buildOrder(overrides: Partial<Order> = {}): Order {
   return {
@@ -44,6 +48,10 @@ function buildOrder(overrides: Partial<Order> = {}): Order {
     exportDocuments: null,
     expectedCollectionDate: null,
     cancelledReason: null,
+    paidAt: null,
+    dispatchPhotos: null,
+    refundedAt: null,
+    refundReference: null,
     placedAsAgent: false,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -90,6 +98,45 @@ function buildMockOrders(): OrdersService {
     getMyOrder: vi.fn(),
   } as unknown as OrdersService;
 }
+
+describe('PaymentsService.markCheckoutPaidManually', () => {
+  it('settles the pending payments of a checkout through the shared settle path and audits it', async () => {
+    const repo = buildMockRepo();
+    const orders = buildMockOrders();
+    const service = new PaymentsService(repo, orders);
+    vi.mocked(repo.findByCheckoutId).mockResolvedValue([
+      buildPayment({ id: 'pay-1', orderId: 'order-1', checkoutId: 'chk-1' }),
+      buildPayment({ id: 'pay-2', orderId: 'order-2', checkoutId: 'chk-1' }),
+    ]);
+    vi.mocked(orders.markCheckoutPaid).mockImplementation(async (_ids, inTx) => {
+      await inTx?.({} as never);
+      return { settledOrderIds: ['order-1', 'order-2'], brandOrderIds: [] };
+    });
+
+    expect(await service.markCheckoutPaidManually('chk-1', 'UTR123', 'admin-1')).toEqual({ settled: 2 });
+    expect(orders.markCheckoutPaid).toHaveBeenCalledWith(['order-1', 'order-2'], expect.any(Function));
+    expect(repo.completeInTx).toHaveBeenCalledWith(expect.anything(), ['pay-1', 'pay-2'], 'MANUAL:UTR123', {
+      manual: true,
+      reference: 'UTR123',
+      confirmedBy: 'admin-1',
+    });
+    expect(writeAuditLog).toHaveBeenCalledWith('admin-1', 'PAYMENT_CONFIRMED_MANUALLY', 'Checkout', 'chk-1', {
+      reference: 'UTR123',
+    });
+  });
+
+  it('is a no-op when already paid, and 404s for an unknown checkout', async () => {
+    const repo = buildMockRepo();
+    const orders = buildMockOrders();
+    const service = new PaymentsService(repo, orders);
+    vi.mocked(repo.findByCheckoutId).mockResolvedValueOnce([buildPayment({ status: PaymentStatus.COMPLETED })]);
+    expect(await service.markCheckoutPaidManually('chk-1', 'R', 'a')).toEqual({ settled: 0 });
+    expect(orders.markCheckoutPaid).not.toHaveBeenCalled();
+
+    vi.mocked(repo.findByCheckoutId).mockResolvedValueOnce([]);
+    await expect(service.markCheckoutPaidManually('chk-x', 'R', 'a')).rejects.toMatchObject({ statusCode: 404 });
+  });
+});
 
 describe('PaymentsService', () => {
   let repo: PaymentsRepository;

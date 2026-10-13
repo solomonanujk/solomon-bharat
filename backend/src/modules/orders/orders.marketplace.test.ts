@@ -21,6 +21,8 @@ vi.mock('../notifications/notifications.service', () => ({
 
 import { notificationsService } from '../notifications/notifications.service';
 
+const PHOTOS = ['https://img/p1.jpg'];
+
 // ── fixtures ────────────────────────────────────────────────────────────
 
 function product(id: string, opts: { brandId?: string | null; sellerId?: string; admin: number; seller?: number; moq?: number }) {
@@ -71,6 +73,10 @@ function order(overrides: Partial<Order> = {}): Order {
     exportDocuments: null,
     expectedCollectionDate: null,
     cancelledReason: null,
+    paidAt: null,
+    dispatchPhotos: null,
+    refundedAt: null,
+    refundReference: null,
     placedAsAgent: false,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -633,7 +639,7 @@ describe('OrdersService brand fulfilment', () => {
 
     await expect(service.getForBrand('sp-a', 'bo-1')).rejects.toMatchObject({ statusCode: 403 });
     await expect(service.brandConfirm('sp-a', 'bo-1')).rejects.toMatchObject({ statusCode: 403 });
-    await expect(service.brandShip('sp-a', 'bo-1', 'TRK')).rejects.toMatchObject({ statusCode: 403 });
+    await expect(service.brandShip('sp-a', 'bo-1', 'TRK', ['https://img/p1.jpg'])).rejects.toMatchObject({ statusCode: 403 });
     await expect(service.brandDeliver('sp-a', 'bo-1')).rejects.toMatchObject({ statusCode: 403 });
     expect(repo.transitionIfStatus).not.toHaveBeenCalled();
     expect(payouts.createForDeliveredBrandOrder).not.toHaveBeenCalled();
@@ -663,35 +669,62 @@ describe('OrdersService brand fulfilment', () => {
 
   it('ship: CONFIRMED -> IN_TRANSIT stores the tracking number (with carrier when given)', async () => {
     vi.mocked(repo.findBrandOrder).mockResolvedValue(brandRecord({ status: OrderStatus.CONFIRMED }));
-    await service.brandShip('sp-a', 'bo-1', 'TRK123', 'DHL');
+    await service.brandShip('sp-a', 'bo-1', 'TRK123', PHOTOS, 'DHL');
     expect(repo.transitionIfStatus).toHaveBeenCalledWith('bo-1', OrderStatus.CONFIRMED, OrderStatus.IN_TRANSIT, {
       trackingNumber: 'DHL: TRK123',
+      dispatchPhotos: PHOTOS,
     });
 
-    await service.brandShip('sp-a', 'bo-1', 'TRK456');
+    await service.brandShip('sp-a', 'bo-1', 'TRK456', PHOTOS);
     expect(repo.transitionIfStatus).toHaveBeenLastCalledWith('bo-1', OrderStatus.CONFIRMED, OrderStatus.IN_TRANSIT, {
       trackingNumber: 'TRK456',
+      dispatchPhotos: PHOTOS,
     });
   });
 
-  it('deliver: IN_TRANSIT -> DELIVERED then creates the brand payout', async () => {
+  it('ship requires at least one dispatch photo', async () => {
+    vi.mocked(repo.findBrandOrder).mockResolvedValue(brandRecord({ status: OrderStatus.CONFIRMED }));
+    await expect(service.brandShip('sp-a', 'bo-1', 'TRK', [])).rejects.toMatchObject({ statusCode: 400 });
+    expect(repo.transitionIfStatus).not.toHaveBeenCalled();
+  });
+
+  it('ship creates the brand payout (brands are paid on dispatch)', async () => {
+    vi.mocked(repo.findBrandOrder).mockResolvedValue(brandRecord({ status: OrderStatus.CONFIRMED }));
+    await service.brandShip('sp-a', 'bo-1', 'TRK', PHOTOS);
+    expect(payouts.createForDeliveredBrandOrder).toHaveBeenCalledWith('bo-1');
+  });
+
+  it('ship still succeeds (and logs) if payout creation fails after the status change', async () => {
+    vi.mocked(repo.findBrandOrder).mockResolvedValue(brandRecord({ status: OrderStatus.CONFIRMED }));
+    vi.mocked(payouts.createForDeliveredBrandOrder).mockRejectedValue(new Error('db down'));
+    await expect(service.brandShip('sp-a', 'bo-1', 'TRK', PHOTOS)).resolves.toBeDefined();
+  });
+
+  it('deliver: IN_TRANSIT -> DELIVERED without creating another payout', async () => {
     vi.mocked(repo.findBrandOrder).mockResolvedValue(brandRecord({ status: OrderStatus.IN_TRANSIT }));
     await service.brandDeliver('sp-a', 'bo-1');
 
     expect(repo.transitionIfStatus).toHaveBeenCalledWith('bo-1', OrderStatus.IN_TRANSIT, OrderStatus.DELIVERED, undefined);
-    expect(payouts.createForDeliveredBrandOrder).toHaveBeenCalledWith('bo-1');
+    expect(payouts.createForDeliveredBrandOrder).not.toHaveBeenCalled();
   });
 
-  it('deliver still succeeds (and logs) if payout creation fails after the status change', async () => {
-    vi.mocked(repo.findBrandOrder).mockResolvedValue(brandRecord({ status: OrderStatus.IN_TRANSIT }));
-    vi.mocked(payouts.createForDeliveredBrandOrder).mockRejectedValue(new Error('db down'));
-    await expect(service.brandDeliver('sp-a', 'bo-1')).resolves.toBeDefined();
+  it('decline: PAYMENT_RECEIVED -> CANCELLED with the brand reason', async () => {
+    vi.mocked(repo.findBrandOrder).mockResolvedValue(brandRecord());
+    await service.brandDecline('sp-a', 'bo-1', 'Out of stock');
+    expect(repo.transitionIfStatus).toHaveBeenCalledWith('bo-1', OrderStatus.PAYMENT_RECEIVED, OrderStatus.CANCELLED, {
+      cancelledReason: 'Declined by the brand: Out of stock',
+    });
+  });
+
+  it('decline is rejected once the brand has accepted', async () => {
+    vi.mocked(repo.findBrandOrder).mockResolvedValue(brandRecord({ status: OrderStatus.CONFIRMED }));
+    await expect(service.brandDecline('sp-a', 'bo-1', 'x')).rejects.toMatchObject({ statusCode: 400 });
   });
 
   it.each([
     ['confirm', OrderStatus.CONFIRMED, (s: OrdersService) => s.brandConfirm('sp-a', 'bo-1')],
     ['confirm', OrderStatus.DELIVERED, (s: OrdersService) => s.brandConfirm('sp-a', 'bo-1')],
-    ['ship (skipping confirm)', OrderStatus.PAYMENT_RECEIVED, (s: OrdersService) => s.brandShip('sp-a', 'bo-1', 'T')],
+    ['ship (skipping confirm)', OrderStatus.PAYMENT_RECEIVED, (s: OrdersService) => s.brandShip('sp-a', 'bo-1', 'T', PHOTOS)],
     ['deliver (skipping ship)', OrderStatus.CONFIRMED, (s: OrdersService) => s.brandDeliver('sp-a', 'bo-1')],
     ['deliver (cancelled)', OrderStatus.CANCELLED, (s: OrdersService) => s.brandDeliver('sp-a', 'bo-1')],
   ])('rejects invalid transition: %s from %s', async (_label, status, act) => {

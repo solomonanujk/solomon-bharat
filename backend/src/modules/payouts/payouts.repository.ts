@@ -65,7 +65,7 @@ export class PayoutsRepository {
       where: {
         sellerProfileId,
         deletedAt: null,
-        status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED] },
+        status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED, OrderStatus.REFUNDED] },
         ...(since ? { createdAt: { gte: since } } : {}),
       },
       select: { createdAt: true, adminPriceTotal: true },
@@ -78,7 +78,7 @@ export class PayoutsRepository {
         order: {
           sellerProfileId,
           deletedAt: null,
-          status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED] },
+          status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED, OrderStatus.REFUNDED] },
         },
       },
       select: {

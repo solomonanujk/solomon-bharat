@@ -83,7 +83,10 @@ export class OrdersRepository {
   setStatus(
     id: string,
     status: OrderStatus,
-    extra?: Pick<Prisma.OrderUpdateInput, 'expectedCollectionDate' | 'trackingNumber' | 'cancelledReason'>,
+    extra?: Pick<
+      Prisma.OrderUpdateInput,
+      'expectedCollectionDate' | 'trackingNumber' | 'cancelledReason' | 'dispatchPhotos' | 'refundedAt' | 'refundReference'
+    >,
   ): Promise<Order> {
     return this.db.order.update({ where: { id }, data: { status, ...extra } });
   }
@@ -100,7 +103,9 @@ export class OrdersRepository {
     buyerId: string,
     pagination: PaginationQuery,
   ): Promise<{ data: OrderWithItems[]; total: number }> {
-    const where = { buyerId, deletedAt: null, status: { not: OrderStatus.PENDING_PAYMENT } };
+    // Awaiting-payment orders are listed too: with manual (bank transfer) payment the buyer
+    // needs to see them, and can cancel them.
+    const where = { buyerId, deletedAt: null };
     const [data, total] = await Promise.all([
       this.db.order.findMany({
         where,
@@ -154,9 +159,21 @@ export class OrdersRepository {
   async markPaidIfPending(tx: DbTx, orderId: string): Promise<boolean> {
     const { count } = await tx.order.updateMany({
       where: { id: orderId, status: OrderStatus.PENDING_PAYMENT, deletedAt: null },
-      data: { status: OrderStatus.PAYMENT_RECEIVED },
+      data: { status: OrderStatus.PAYMENT_RECEIVED, paidAt: new Date() },
     });
     return count === 1;
+  }
+
+  /** Marketplace orders still awaiting the brand's acceptance that were paid before `paidBefore`. */
+  findUnacceptedBrandOrders(paidBefore: Date): Promise<Order[]> {
+    return this.db.order.findMany({
+      where: {
+        status: OrderStatus.PAYMENT_RECEIVED,
+        sellerProfileId: { not: null },
+        paidAt: { lt: paidBefore },
+        deletedAt: null,
+      },
+    });
   }
 
   findOrderInTx(tx: DbTx, orderId: string): Promise<Order | null> {
@@ -184,7 +201,7 @@ export class OrdersRepository {
         sellerProfileId,
         buyerId,
         id: { not: excludeOrderId },
-        status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED] },
+        status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED, OrderStatus.REFUNDED] },
       },
     });
   }
@@ -216,7 +233,7 @@ export class OrdersRepository {
     id: string,
     from: OrderStatus,
     to: OrderStatus,
-    extra?: Pick<Prisma.OrderUpdateManyMutationInput, 'trackingNumber'>,
+    extra?: Pick<Prisma.OrderUpdateManyMutationInput, 'trackingNumber' | 'dispatchPhotos' | 'cancelledReason'>,
   ): Promise<boolean> {
     const { count } = await this.db.order.updateMany({
       where: { id, status: from, deletedAt: null },
