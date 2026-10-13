@@ -4,7 +4,7 @@ import { sendCreated, sendSuccess } from '../../utils/response';
 import { buyersService } from '../buyers/buyers.service';
 import { PricingRole } from '../orders/orders.types';
 import { paymentsService } from './payments.service';
-import { CheckoutDto } from './payments.validation';
+import { CheckoutDto, ManualPaymentDto } from './payments.validation';
 
 async function resolveBuyerProfileId(userId: string): Promise<string> {
   const profile = await buyersService.getMyProfile(userId);
@@ -44,6 +44,12 @@ export const paymentsController = {
       req.user!.role === Role.SUPER_ADMIN ? req.user!.id : await resolveBuyerProfileId(req.user!.id);
     const invoice = await paymentsService.getInvoice(requesterId, req.user!.role, req.params.orderId);
     sendSuccess(res, invoice);
+  },
+
+  async markPaidManually(req: Request, res: Response): Promise<void> {
+    const dto = req.body as ManualPaymentDto;
+    const result = await paymentsService.markCheckoutPaidManually(req.params.checkoutId, dto.reference, req.user!.id);
+    sendSuccess(res, result, 'Payment confirmed');
   },
 
   async getFxRate(req: Request, res: Response): Promise<void> {

@@ -15,6 +15,14 @@ const envSchema = z.object({
   PAYPAL_MODE: z.enum(['sandbox', 'live']).default('sandbox'),
   /** Webhook id from the PayPal developer dashboard; required to verify webhook signatures. */
   PAYPAL_WEBHOOK_ID: z.string().default(''),
+  /** 'manual' = bank transfer confirmed by an admin; 'auto' = gateway when configured. */
+  PAYMENT_MODE: z.enum(['auto', 'manual']).default('auto'),
+  /** WhatsApp notifications via Twilio; leave empty to only log them. */
+  /** Enables AI help for product descriptions; empty disables it. */
+  ANTHROPIC_API_KEY: z.string().default(''),
+  TWILIO_ACCOUNT_SID: z.string().default(''),
+  TWILIO_AUTH_TOKEN: z.string().default(''),
+  TWILIO_WHATSAPP_FROM: z.string().default(''),
 
   CLOUDINARY_URL: z.string().default(''),
 

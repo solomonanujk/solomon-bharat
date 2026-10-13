@@ -89,7 +89,7 @@ describe('sellers controller', () => {
         .post(`/api/v1/sellers/applications/${APP_ID}/approve`)
         .set(authHeader(Role.SUPER_ADMIN, 'admin-1'));
       expect(res.status).toBe(200);
-      expect(sellersService.approveApplication).toHaveBeenCalledWith(APP_ID, 'admin-1');
+      expect(sellersService.approveApplication).toHaveBeenCalledWith(APP_ID, 'admin-1', undefined);
     });
   });
 

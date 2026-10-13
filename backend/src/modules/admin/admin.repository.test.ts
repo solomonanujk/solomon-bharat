@@ -165,9 +165,10 @@ describe('AdminRepository', () => {
   it('findAuditLog applies entityType and adminId filters together', async () => {
     db.auditLog.findMany.mockResolvedValue([]);
     db.auditLog.count.mockResolvedValue(0);
-    await repo.findAuditLog({ entityType: 'Product', adminId: 'admin-1' }, { page: 1, limit: 20 });
+    await repo.findAuditLog({ entityType: 'Product', adminId: 'admin-1', entityId: 'p-1' }, { page: 1, limit: 20 });
     const arg = db.auditLog.findMany.mock.calls[0][0];
-    expect(arg.where).toEqual({ entityType: 'Product', adminId: 'admin-1' });
+    expect(arg.where).toEqual({ entityType: 'Product', adminId: 'admin-1', entityId: 'p-1' });
+    expect(arg.include).toEqual({ admin: { select: { email: true } } });
   });
 
   it('upsertSetting creates when missing, updates when present', async () => {

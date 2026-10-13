@@ -217,7 +217,7 @@ function PriceDetails({
         </div>
         <div className="flex items-center gap-2 text-[12px] font-sans text-muted-text">
           <Lock size={14} className="text-accent flex-shrink-0" aria-hidden="true" />
-          Secure checkout via PayPal
+          100% advance payment, in your currency
         </div>
       </div>
     </aside>

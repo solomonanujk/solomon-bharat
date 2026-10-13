@@ -23,6 +23,7 @@ export type ReportQueryDto = z.infer<typeof reportQuerySchema>;
 export const auditLogQuerySchema = paginationQuerySchema.extend({
   entityType: z.string().min(1).optional(),
   adminId: z.string().uuid().optional(),
+  entityId: z.string().min(1).optional(),
 });
 export type AuditLogQueryDto = z.infer<typeof auditLogQuerySchema>;
 

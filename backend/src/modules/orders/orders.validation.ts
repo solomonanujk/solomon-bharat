@@ -74,3 +74,23 @@ export const brandShipSchema = z.object({
   carrier: z.string().trim().min(1).max(100).optional(),
 });
 export type BrandShipDto = z.infer<typeof brandShipSchema>;
+
+export const documentParamSchema = z.object({
+  id: z.string().uuid(),
+  type: z.enum(['commercial-invoice', 'packing-list']),
+});
+
+export const declineSchema = z.object({
+  reason: z.string().trim().min(1).max(1000),
+});
+export type DeclineDto = z.infer<typeof declineSchema>;
+
+export const buyerCancelSchema = z.object({
+  reason: z.string().trim().max(1000).optional(),
+});
+export type BuyerCancelDto = z.infer<typeof buyerCancelSchema>;
+
+export const refundSchema = z.object({
+  reference: z.string().trim().min(1).max(200),
+});
+export type RefundDto = z.infer<typeof refundSchema>;

@@ -101,7 +101,7 @@ describe('BrandsRepository', () => {
     const stats = await repo.getOrderStatsBySellerProfile(['sp1']);
     expect(stats.get('sp1')).toEqual({ ordersCount: 2, gmv: 150.5 });
     expect(db.order.groupBy.mock.calls[0][0].where.status).toEqual({
-      notIn: ['PENDING_PAYMENT', 'CANCELLED'],
+      notIn: ['PENDING_PAYMENT', 'CANCELLED', 'REFUNDED'],
     });
   });
 

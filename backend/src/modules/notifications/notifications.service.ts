@@ -4,19 +4,34 @@ import { PaginationQuery } from '../../utils/pagination';
 import { env } from '../../config/env';
 import { logger } from '../../config/logger';
 import { mailProvider } from '../../providers/mail';
+import { normalizeWhatsAppNumber, whatsAppProvider } from '../../providers/whatsapp';
 import { NotificationsRepository, notificationsRepository } from './notifications.repository';
 
 export class NotificationsService {
   constructor(private readonly repo: NotificationsRepository = notificationsRepository) {}
 
-  notify(
+  async notify(
     userId: string,
     type: NotificationType,
     title: string,
     message: string,
     link?: string,
   ): Promise<Notification> {
-    return this.repo.create({ userId, type, title, message, link });
+    const notification = await this.repo.create({ userId, type, title, message, link });
+    // WhatsApp copy of the same notice. Never awaited by callers' success path: a failure is logged only.
+    void this.sendWhatsApp(userId, title, message, link);
+    return notification;
+  }
+
+  private async sendWhatsApp(userId: string, title: string, message: string, link?: string): Promise<void> {
+    try {
+      const to = normalizeWhatsAppNumber(await this.repo.findUserPhone(userId));
+      if (!to) return;
+      const url = link ? `\n${env.APP_URL}${link}` : '';
+      await whatsAppProvider.sendText(to, `Solomon Bharat: ${title}\n${message}${url}`);
+    } catch (err) {
+      logger.error({ err, userId }, 'WhatsApp notification failed');
+    }
   }
 
   async notifyAllAdmins(type: NotificationType, title: string, message: string, link?: string): Promise<void> {

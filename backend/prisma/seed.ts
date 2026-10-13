@@ -1,6 +1,7 @@
 import { PrismaClient, Role, ProductApprovalStatus, CollectionStatus } from '@prisma/client';
 import { hashPassword } from '../src/utils/bcrypt';
 import { slugify } from '../src/utils/helpers';
+import { CRAFT_CATEGORY_TREE } from './craftCategories';
 
 const prisma = new PrismaClient();
 
@@ -140,28 +141,7 @@ const COLLECTIONS: Array<{
   },
 ];
 
-const CATEGORY_TREE: Record<string, Record<string, string[]>> = {
-  'Home Décor': {
-    Textiles: ['Table Runners', 'Cushion Covers', 'Wall Hangings', 'Bed Throws'],
-    Ceramics: ['Vases', 'Bowls', 'Planters', 'Decorative Plates'],
-    Lighting: ['Pendant Lights', 'Table Lamps', 'Candle Holders'],
-  },
-  Kitchenware: {
-    Cookware: ['Kadhai', 'Tawa', 'Handi', 'Sauce Pans'],
-    Serveware: ['Serving Bowls', 'Platters', 'Trays', 'Condiment Sets'],
-  },
-  'Fashion Accessories': {
-    Jewellery: ['Necklaces', 'Earrings', 'Bangles', 'Rings'],
-    'Bags & Totes': ['Tote Bags', 'Clutches', 'Potli Bags'],
-  },
-  Gifting: {
-    'Festive Hampers': ['Diwali Sets', 'Wedding Favours', 'Corporate Gifts'],
-  },
-  Furniture: {
-    Seating: ['Chairs', 'Stools', 'Floor Cushions', 'Ottomans'],
-    Storage: ['Shelves', 'Cabinets', 'Baskets', 'Boxes'],
-  },
-};
+const CATEGORY_TREE = CRAFT_CATEGORY_TREE;
 
 async function seedAdmin(): Promise<void> {
   const email = process.env.SEED_ADMIN_EMAIL ?? 'admin@solomonbharat.com';

@@ -131,7 +131,7 @@ function DialogContent({ children, className, showClose = true, ...props }: Dial
 
 // ─── Close ────────────────────────────────────────────────────────────────────
 
-interface DialogCloseProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {}
+type DialogCloseProps = React.ButtonHTMLAttributes<HTMLButtonElement>
 
 function DialogClose({ className, children, onClick, ...props }: DialogCloseProps) {
   const { setOpen } = React.useContext(DialogContext)

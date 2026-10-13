@@ -3,10 +3,9 @@
 import { CreditCard } from 'lucide-react'
 import { AccountPageWrapper } from '@/components/shared/AccountPageWrapper'
 
-// There is no backend concept of a stored/saved payment method — buyers pay
-// via PayPal per order at checkout (AGENTS.md → Orders: "Buyer pays via
-// PayPal only"). This page is intentionally informational only; it must
-// never fake a list of saved cards/methods.
+// There is no backend concept of a stored/saved payment method — every order
+// is paid 100% in advance at checkout (bank transfer until an online gateway is
+// live). This page is informational only; it must never fake saved cards.
 
 export default function PaymentMethodsPage() {
   return (
@@ -16,11 +15,12 @@ export default function PaymentMethodsPage() {
           <CreditCard size={24} aria-hidden="true" />
         </div>
         <h2 className="text-[18px] font-[700] font-sans text-primary">
-          Paid securely via PayPal
+          100% advance payment
         </h2>
         <p className="text-[14px] font-sans text-muted-text mt-2 leading-relaxed">
-          Solomon Bharat processes every order through PayPal at checkout — there's nothing to
-          save or manage here. You'll be prompted to pay with PayPal each time you place an order.
+          Every order is paid in full before it is confirmed, in your local currency. After you place an
+          order we email you bank transfer details, and the order is confirmed once payment arrives.
+          There&apos;s nothing to save or manage here.
         </p>
       </div>
     </AccountPageWrapper>

@@ -42,10 +42,12 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   PAYMENT_RECEIVED: { label: 'Payment Received', className: 'bg-accent/10 text-accent-hover' },
   CONFIRMED: { label: 'Confirmed', className: 'bg-accent/10 text-accent-hover' },
   PROCURING: { label: 'Procuring', className: 'bg-accent/10 text-accent-hover' },
-  COLLECTED: { label: 'Collected', className: 'bg-accent/10 text-accent-hover' },
+  COLLECTED: { label: 'At Warehouse', className: 'bg-accent/10 text-accent-hover' },
+  QUALITY_CHECKED: { label: 'Quality Checked', className: 'bg-accent/10 text-accent-hover' },
   IN_TRANSIT: { label: 'In Transit', className: 'bg-accent/10 text-accent-hover' },
   DELIVERED: { label: 'Delivered', className: 'bg-success/10 text-success' },
   CANCELLED: { label: 'Cancelled', className: 'bg-error/10 text-error' },
+  REFUNDED: { label: 'Refunded', className: 'bg-muted-bg text-muted-text' },
 
   // Approval / seller applications
   PENDING: { label: 'Pending', className: 'bg-warning/[12%] text-warning' },

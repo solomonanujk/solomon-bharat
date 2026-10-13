@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import api from '@/lib/api'
 import { Check, ChevronDown, Eye, EyeOff, Film, GripVertical, Lightbulb, Search, SlidersHorizontal, Trash2, Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useCategoryTree } from '@/hooks/queries/useCategories'
@@ -279,10 +280,43 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const [name, setName] = useState(product?.name ?? '')
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? '')
   const [description, setDescription] = useState(product?.description ?? '')
+  const [drafting, setDrafting] = useState(false)
+
+  // AI writing help: drafts a description from the details already entered; the seller edits it.
+  async function draftDescriptionWithAi() {
+    if (!name.trim()) {
+      toast.error('Enter the product name first.')
+      return
+    }
+    setDrafting(true)
+    try {
+      const res = await api.post('/products/description-draft', {
+        name: name.trim(),
+        category: selectedCategoryPath || undefined,
+        materials: materials.trim() || undefined,
+        craftTechnique: craftTechnique.trim() || undefined,
+        placeOfOrigin: placeOfOrigin.trim() || undefined,
+        careInstructions: careInstructions.trim() || undefined,
+        notes: description.trim() || undefined,
+      })
+      setDescription(String(res.data.data.description).slice(0, 1000))
+      toast.success('Draft added. Review and edit it before saving.')
+    } catch (err) {
+      toast.error(getApiError(err, 'Could not draft a description. Try again.'))
+    } finally {
+      setDrafting(false)
+    }
+  }
   const [materials, setMaterials] = useState(product?.materials ?? '')
 
   // ── Additional details ─────────────────────────────────────────────────────
   const [placeOfOrigin, setPlaceOfOrigin] = useState(product?.placeOfOrigin ?? '')
+  const [craftTechnique, setCraftTechnique] = useState(product?.craftTechnique ?? '')
+  const [careInstructions, setCareInstructions] = useState(product?.careInstructions ?? '')
+  const [leadTime, setLeadTime] = useState(product?.leadTime ?? '')
+  const [isMadeToOrder, setIsMadeToOrder] = useState<'yes' | 'no' | ''>(
+    product ? (product.isMadeToOrder ? 'yes' : 'no') : '',
+  )
   const [isBestseller, setIsBestseller] = useState(product?.isBestseller ?? false)
   const [ecoMaterials, setEcoMaterials] = useState<string[]>(product?.ecoMaterials ?? [])
   const [ecoPackaging, setEcoPackaging] = useState<string[]>(product?.ecoPackaging ?? [])
@@ -298,6 +332,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   // revokeObjectURL on cleanup) — genuinely can't be derived during render.
   useEffect(() => {
     const urls = newImages.map((f) => URL.createObjectURL(f))
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     setNewImagePreviews(urls)
     return () => { urls.forEach((u) => URL.revokeObjectURL(u)) }
   }, [newImages])
@@ -312,6 +347,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   // Same justified exception as the image-preview effect above.
   useEffect(() => {
     const urls = newVideos.map((f) => URL.createObjectURL(f))
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     setNewVideoPreviews(urls)
     return () => { urls.forEach((u) => URL.revokeObjectURL(u)) }
   }, [newVideos])
@@ -397,6 +433,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const craftImageInputRef = useRef<HTMLInputElement>(null)
   // Same justified exception as the image/video-preview effects above.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     if (!craftImage) { setCraftImagePreview(null); return }
     const url = URL.createObjectURL(craftImage)
     setCraftImagePreview(url)
@@ -556,6 +593,11 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
     if (!categoryId) return 'Select a product category.'
     if (!description.trim()) return 'Enter a description.'
     if (!materials.trim()) return 'Enter the product materials.'
+    if (!craftTechnique.trim()) return 'Enter the craft technique (e.g. block printing, hand weaving).'
+    if (!placeOfOrigin.trim()) return 'Select where the product is made (region).'
+    if (!isMadeToOrder) return 'Choose whether this product is made to order or ready stock.'
+    if (!leadTime.trim()) return 'Enter the lead time (e.g. 15-20 days).'
+    if (!careInstructions.trim()) return 'Enter care instructions.'
     if (totalImageCount < MIN_IMAGES || totalImageCount > MAX_IMAGES) {
       return `Upload between ${MIN_IMAGES} and ${MAX_IMAGES} images (currently ${totalImageCount}).`
     }
@@ -705,6 +747,10 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       declaredStock: totalInventory(),
       variants: buildVariantPayload(base.pricing),
       placeOfOrigin: placeOfOrigin.trim() || undefined,
+      craftTechnique: craftTechnique.trim() || undefined,
+      careInstructions: careInstructions.trim() || undefined,
+      leadTime: leadTime.trim() || undefined,
+      isMadeToOrder: isMadeToOrder === 'yes',
       howItIsMade: howItIsMade.trim() || undefined,
       artisanName: artisanName.trim() || undefined,
       craftImage: craftImage ?? undefined,
@@ -793,6 +839,10 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       ...(brandLocked ? {} : { sellerPrice: base?.sellerPrice, moq: base?.moq, priceTiers: flatTiersForSave(base?.pricing ?? null) }),
       variants: base ? buildVariantPayload(base.pricing) : undefined,
       placeOfOrigin: placeOfOrigin.trim() || undefined,
+      craftTechnique: craftTechnique.trim() || undefined,
+      careInstructions: careInstructions.trim() || undefined,
+      leadTime: leadTime.trim() || undefined,
+      isMadeToOrder: isMadeToOrder === 'yes',
       howItIsMade: howItIsMade.trim() || undefined,
       artisanName: artisanName.trim() || undefined,
       ecoMaterials, ecoPackaging, ecoProduction,
@@ -917,7 +967,13 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                 rows={4} maxLength={1000}
                 placeholder="Include information about details like materials, durability, use, and more."
                 className={TEXTAREA_CLS} />
-              <p className="text-right text-[12px] font-sans text-muted-text mt-1">{description.length}/1000</p>
+              <div className="flex items-center justify-between mt-1">
+                <button type="button" onClick={draftDescriptionWithAi} disabled={drafting}
+                  className="text-[13px] font-[600] font-sans text-forest underline underline-offset-4 disabled:opacity-50">
+                  {drafting ? 'Drafting…' : 'Draft with AI'}
+                </button>
+                <p className="text-[12px] font-sans text-muted-text">{description.length}/1000</p>
+              </div>
               {selectedCategoryPath && (
                 <p className="text-[13px] font-sans text-primary mt-3">
                   This product will appear in:<br /><span className="font-[700]">{selectedCategoryPath}</span>
@@ -939,9 +995,34 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
             <h2 className="text-[20px] font-[700] font-sans text-primary mb-1">Additional details</h2>
             <p className="text-[13px] font-sans text-muted-text mb-5">Include additional details to help retailers make better buying decisions.</p>
 
-            <Field label="Made in">
+            <Field label="Made in (region) *">
               <MadeInCombobox value={placeOfOrigin} onChange={setPlaceOfOrigin} />
             </Field>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
+              <Field label="Craft technique *">
+                <input type="text" value={craftTechnique} maxLength={200}
+                  onChange={(e) => setCraftTechnique(e.target.value)}
+                  placeholder="e.g. Hand block printing, Dhokra casting" className={INPUT_CLS} />
+              </Field>
+              <Field label="Made to order or ready stock? *">
+                <select value={isMadeToOrder} onChange={(e) => setIsMadeToOrder(e.target.value as 'yes' | 'no' | '')} className={INPUT_CLS}>
+                  <option value="">Select…</option>
+                  <option value="no">Ready stock</option>
+                  <option value="yes">Made to order</option>
+                </select>
+              </Field>
+              <Field label="Lead time *">
+                <input type="text" value={leadTime} maxLength={200}
+                  onChange={(e) => setLeadTime(e.target.value)}
+                  placeholder="e.g. 15-20 days" className={INPUT_CLS} />
+              </Field>
+              <Field label="Care instructions *">
+                <input type="text" value={careInstructions} maxLength={2000}
+                  onChange={(e) => setCareInstructions(e.target.value)}
+                  placeholder="e.g. Dry clean only; wipe with a dry cloth" className={INPUT_CLS} />
+              </Field>
+            </div>
 
             <label className="flex items-center gap-2.5 cursor-pointer mt-5">
               <input type="checkbox" checked={isBestseller} onChange={(e) => setIsBestseller(e.target.checked)}
@@ -1353,7 +1434,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
           {/* ── Craft story ───────────────────────────────────────────────── */}
           <div className="border border-border-warm rounded-xl p-8 mb-6">
             <h2 className="text-[20px] font-[700] font-sans text-primary mb-1">Craft story</h2>
-            <p className="text-[13px] font-sans text-muted-text mb-5">Optional — share how this product is made. Shown to buyers on the product page.</p>
+            <p className="text-[13px] font-sans text-muted-text mb-5">Recommended: tell buyers the story of the craft and the people behind it. Shown on the product page.</p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
               <div className="space-y-5">

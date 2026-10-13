@@ -1,10 +1,9 @@
-import { StubPage } from '@/components/shared/StubPage'
+import type { Metadata } from 'next'
+import { LegalPage } from '@/components/shared/LegalPage'
+import { PRIVACY } from '@/lib/legal/privacy'
 
-export default function PrivacyPage() {
-  return (
-    <StubPage
-      title="Privacy Policy"
-      body="Solomon Bharat's full privacy policy will be published here. For questions about how your data is handled, contact support@solomonbharat.com."
-    />
-  )
+export const metadata: Metadata = { title: `${PRIVACY.title} — Solomon Bharat` }
+
+export default function Page() {
+  return <LegalPage doc={PRIVACY} />
 }

@@ -156,9 +156,12 @@ export class ProductsRepository {
         tags: input.tags ?? [],
         stepQty: input.stepQty,
         isHandmade: input.isHandmade,
+        isMadeToOrder: input.isMadeToOrder,
         placeOfOrigin: input.placeOfOrigin,
         isGITagged: input.isGITagged,
         howItIsMade: input.howItIsMade,
+        craftTechnique: input.craftTechnique,
+        careInstructions: input.careInstructions,
         artisanName: input.artisanName,
         craftImageUrl: input.craftImageUrl,
         ecoMaterials: input.ecoMaterials ?? [],
@@ -625,7 +628,7 @@ export class ProductsRepository {
       by: ['productId'],
       where: {
         createdAt: { gte: since },
-        order: { status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED] } },
+        order: { status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED, OrderStatus.REFUNDED] } },
         product: {
           deletedAt: null,
           isPublished: true,

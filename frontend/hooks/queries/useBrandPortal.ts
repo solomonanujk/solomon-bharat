@@ -68,6 +68,24 @@ export function useUploadBrandImage(kind: 'logo' | 'banner') {
   })
 }
 
+/** The brand's personal invite link: buyers who join through it are the brand's own (0% commission). */
+export function useMyBrandInvite(enabled = true) {
+  return useQuery<{ code: string; ownBuyerCount: number }>({
+    queryKey: ['my-brand-invite'],
+    queryFn: async () => (await api.get('/brands/me/invite')).data.data,
+    enabled,
+  })
+}
+
+export function useAddOwnBuyers() {
+  const qc = useQueryClient()
+  return useMutation<{ linked: string[]; invited: string[]; skipped: string[] }, Error, string[]>({
+    mutationFn: async (emails) => (await api.post('/brands/me/own-buyers', { emails })).data.data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-brand-invite'] }),
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
 export function useMyBrandStats(enabled = true) {
   return useQuery<BrandSalesStats>({
     queryKey: ['my-brand-stats'],
@@ -102,7 +120,11 @@ function useBrandOrderAction<V extends { id: string }>(
 ) {
   const qc = useQueryClient()
   return useMutation<BrandOrderView, Error, V>({
-    mutationFn: async (vars) => (await api.post(path(vars), body(vars))).data.data,
+    mutationFn: async (vars) => {
+      const data = body(vars)
+      const config = data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined
+      return (await api.post(path(vars), data, config)).data.data
+    },
     onSuccess: (order, vars) => {
       qc.setQueryData(['brand-order', vars.id], order)
       qc.invalidateQueries({ queryKey: ['brand-orders'] })
@@ -122,8 +144,23 @@ export function useConfirmBrandOrder() {
 export function useShipBrandOrder() {
   return useBrandOrderAction<{ id: string } & BrandShipInput>(
     (v) => `/orders/brand/${v.id}/ship`,
-    (v) => ({ trackingNumber: v.trackingNumber, ...(v.carrier ? { carrier: v.carrier } : {}) }),
+    (v) => {
+      // Multipart: dispatch photos travel with the tracking details.
+      const form = new FormData()
+      form.append('trackingNumber', v.trackingNumber)
+      if (v.carrier) form.append('carrier', v.carrier)
+      v.photos.forEach((file) => form.append('photos', file))
+      return form
+    },
     'Order marked as shipped.',
+  )
+}
+
+export function useDeclineBrandOrder() {
+  return useBrandOrderAction<{ id: string; reason: string }>(
+    (v) => `/orders/brand/${v.id}/decline`,
+    (v) => ({ reason: v.reason }),
+    'Order declined. The buyer will be refunded.',
   )
 }
 

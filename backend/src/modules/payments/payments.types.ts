@@ -15,6 +15,8 @@ export interface CheckoutResult {
   /** One sibling order per brand (sellerProfileId set) plus at most one curated order (null). */
   orders: { orderId: string; sellerProfileId: string | null }[];
   approveUrl: string | null;
+  /** MANUAL = bank transfer: no approveUrl; the order awaits an admin's payment confirmation. */
+  paymentMode: 'ONLINE' | 'MANUAL';
   adminPriceTotal: string;
   currency: string;
   chargeAmount: string;

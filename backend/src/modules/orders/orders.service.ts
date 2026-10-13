@@ -61,19 +61,35 @@ export interface SettleOutcome {
   brandOrderIds: string[];
 }
 
-/** Admin-driven lifecycle after payment — strictly sequential, no skipping stages. */
+/**
+ * Admin-driven curated lifecycle after payment — strictly sequential, no skipping stages.
+ * COLLECTED = goods received at the Jaipur warehouse; QUALITY_CHECKED = inspected, with
+ * dispatch photos attached.
+ */
 const LIFECYCLE_SEQUENCE: OrderStatus[] = [
   OrderStatus.PAYMENT_RECEIVED,
   OrderStatus.CONFIRMED,
   OrderStatus.PROCURING,
   OrderStatus.COLLECTED,
+  OrderStatus.QUALITY_CHECKED,
   OrderStatus.IN_TRANSIT,
   OrderStatus.DELIVERED,
 ];
 
-// Cancellation is only meaningful "before fulfillment" — once procurement has started
+// Admin cancellation is only meaningful "before fulfillment" — once procurement has started
 // goods are already committed, so cancellation is blocked from PROCURING onward.
-const CANCELLABLE_STATUSES: OrderStatus[] = [OrderStatus.PAYMENT_RECEIVED, OrderStatus.CONFIRMED];
+const CANCELLABLE_STATUSES: OrderStatus[] = [
+  OrderStatus.PENDING_PAYMENT,
+  OrderStatus.PAYMENT_RECEIVED,
+  OrderStatus.CONFIRMED,
+];
+
+// A buyer may cancel only until the order is confirmed (curated) or accepted by the brand
+// (marketplace) — in both cases that is the move out of PAYMENT_RECEIVED.
+const BUYER_CANCELLABLE_STATUSES: OrderStatus[] = [OrderStatus.PENDING_PAYMENT, OrderStatus.PAYMENT_RECEIVED];
+
+/** A marketplace brand must accept a paid order within this window or it is cancelled. */
+export const BRAND_ACCEPT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 function toBuyerOrder(order: OrderWithItems): BuyerOrder {
   return {
@@ -88,6 +104,9 @@ function toBuyerOrder(order: OrderWithItems): BuyerOrder {
     exportDocuments: order.exportDocuments,
     expectedCollectionDate: order.expectedCollectionDate,
     cancelledReason: order.cancelledReason,
+    paidAt: order.paidAt,
+    dispatchPhotos: (order.dispatchPhotos as string[] | null) ?? [],
+    refundedAt: order.refundedAt,
     shippingAddressId: order.shippingAddressId,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
@@ -127,6 +146,10 @@ export function toBrandOrderView(order: BrandOrderRecord): BrandOrderView {
     status: order.status,
     trackingNumber: order.trackingNumber,
     cancelledReason: order.cancelledReason,
+    paidAt: order.paidAt,
+    dispatchPhotos: (order.dispatchPhotos as string[] | null) ?? [],
+    brandOwnBuyer: order.brandOwnBuyer,
+    refundedAt: order.refundedAt,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
     grossTotal: order.adminPriceTotal.toString(),
@@ -207,6 +230,9 @@ export class OrdersService {
     ];
     const brands = brandIds.length > 0 ? await this.repo.findBrandsByIds(brandIds) : [];
     const brandById = new Map(brands.map((b) => [b.id, b]));
+    const onVacation = await this.repo.findSellersOnVacation([
+      ...new Set(loaded.map((l) => l.product?.sellerId).filter((id): id is string => !!id)),
+    ]);
 
     const result = new Map<string, { product: CheckoutProduct | null; available: boolean }>();
     for (const { id, product } of loaded) {
@@ -219,7 +245,9 @@ export class OrdersService {
         // Agents are limited to Solomon-curated products - marketplace brand products are
         // never purchasable by them (owner decision; they cannot even see them).
         (pricingRole === 'AGENT' && !!product.brandId) ||
-        (!!product.brandId && (!brand || brand.status === BrandStatus.SUSPENDED));
+        (!!product.brandId && (!brand || brand.status === BrandStatus.SUSPENDED)) ||
+        // A seller on vacation is not taking orders.
+        onVacation.has(product.sellerId);
       result.set(id, { product, available: !bad });
     }
     return result;
@@ -531,6 +559,7 @@ export class OrdersService {
     const sortedIds = [...new Set(orderIds)].sort();
     const settledOrderIds: string[] = [];
     const brandOrderIds: string[] = [];
+    const ownBuyerOrderIds: string[] = [];
 
     await this.repo.runInTransaction(async (tx) => {
       if (inTx) await inTx(tx);
@@ -542,11 +571,21 @@ export class OrdersService {
         const order = await this.repo.findOrderInTx(tx, id);
         if (order?.sellerProfileId) {
           // eslint-disable-next-line no-await-in-loop
-          await this.lockCommission(tx, order);
+          if (await this.lockCommission(tx, order)) ownBuyerOrderIds.push(id);
           brandOrderIds.push(id);
         }
       }
     });
+
+    // The brand's own buyers are paid out instantly, on payment rather than on dispatch.
+    for (const id of ownBuyerOrderIds) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await this.payouts.createForDeliveredBrandOrder(id);
+      } catch (err) {
+        logger.error({ err, orderId: id }, 'Failed to create instant payout for own-buyer order — reconcile manually');
+      }
+    }
 
     // After commit: a notification failure must never undo or fail a settled payment.
     for (const id of brandOrderIds) {
@@ -568,7 +607,7 @@ export class OrdersService {
    * The 'first' rate applies once per buyer per brand; every later order from that buyer is 'repeat'.
    * Isolated on purpose — this is the piece that would move if commission is locked at checkout.
    */
-  private async lockCommission(tx: DbTx, order: Order): Promise<void> {
+  private async lockCommission(tx: DbTx, order: Order): Promise<boolean> {
     const sellerProfileId = order.sellerProfileId!;
     const brand = await this.repo.findBrandBySellerProfileId(tx, sellerProfileId);
     if (!brand) {
@@ -576,8 +615,12 @@ export class OrdersService {
     }
 
     await this.repo.lockBrand(tx, brand.id);
-    const otherPaid = await this.repo.countOtherPaidBrandOrders(tx, sellerProfileId, order.buyerId, order.id);
-    const rate = pickRate(await this.rates.resolveCommissionRates(brand.id), otherPaid === 0);
+    // The brand's own buyers (joined via its invite link) carry no commission.
+    const ownBuyer = await this.repo.isBrandOwnBuyer(tx, brand.id, order.buyerId);
+    const otherPaid = ownBuyer
+      ? 0
+      : await this.repo.countOtherPaidBrandOrders(tx, sellerProfileId, order.buyerId, order.id);
+    const rate = ownBuyer ? 0 : pickRate(await this.rates.resolveCommissionRates(brand.id), otherPaid === 0);
 
     const items = await this.repo.findItemsInTx(tx, order.id);
     let netPaise = 0;
@@ -596,8 +639,10 @@ export class OrdersService {
     await this.repo.updateOrderTotals(tx, order.id, {
       sellerPriceTotal: fromPaise(netPaise),
       adminMargin: fromPaise(adminPaise - netPaise),
+      brandOwnBuyer: ownBuyer,
     });
-    logger.info({ orderId: order.id, brandId: brand.id, rate, firstOrder: otherPaid === 0 }, 'Commission locked');
+    logger.info({ orderId: order.id, brandId: brand.id, rate, ownBuyer, firstOrder: otherPaid === 0 }, 'Commission locked');
+    return ownBuyer;
   }
 
   private assertOwnedByBuyer(order: Order, buyerId: string): void {
@@ -666,7 +711,7 @@ export class OrdersService {
     orderId: string,
     target: OrderStatus,
     adminId: string,
-    extra?: { expectedCollectionDate?: Date; trackingNumber?: string },
+    extra?: { expectedCollectionDate?: Date; trackingNumber?: string; dispatchPhotos?: string[] },
   ): Promise<Order> {
     const order = await this.getOrderOrThrow(orderId);
     if (order.sellerProfileId) {
@@ -696,16 +741,24 @@ export class OrdersService {
     return this.transition(orderId, OrderStatus.PROCURING, adminId, { expectedCollectionDate });
   }
 
-  async collectOrder(orderId: string, adminId: string): Promise<Order> {
-    const order = await this.transition(orderId, OrderStatus.COLLECTED, adminId);
-    // Goods are physically taken from the seller at this point — Solomon Bharat now owes
-    // them, independent of whether the shipment later reaches the buyer (no returns).
-    await this.payouts.createForOrder(orderId);
-    return order;
+  /** Goods received at the Jaipur warehouse. */
+  collectOrder(orderId: string, adminId: string): Promise<Order> {
+    return this.transition(orderId, OrderStatus.COLLECTED, adminId);
   }
 
-  shipOrder(orderId: string, adminId: string, trackingNumber?: string): Promise<Order> {
-    return this.transition(orderId, OrderStatus.IN_TRANSIT, adminId, { trackingNumber });
+  /** Inspected at the warehouse; the photos are the evidence any later damage claim is judged against. */
+  async qualityCheckOrder(orderId: string, adminId: string, dispatchPhotos: string[]): Promise<Order> {
+    if (dispatchPhotos.length === 0) {
+      throw AppError.badRequest('Attach at least one dispatch photo');
+    }
+    return this.transition(orderId, OrderStatus.QUALITY_CHECKED, adminId, { dispatchPhotos });
+  }
+
+  async shipOrder(orderId: string, adminId: string, trackingNumber?: string): Promise<Order> {
+    const order = await this.transition(orderId, OrderStatus.IN_TRANSIT, adminId, { trackingNumber });
+    // Sellers are paid on dispatch.
+    await this.payouts.createForOrder(orderId);
+    return order;
   }
 
   deliverOrder(orderId: string, adminId: string): Promise<Order> {
@@ -720,13 +773,72 @@ export class OrdersService {
 
     const updated = await this.repo.setStatus(orderId, OrderStatus.CANCELLED, { cancelledReason: reason });
     await writeAuditLog(adminId, 'ORDER_CANCELLED', 'Order', orderId, { reason });
-
-    const buyerUserId = await this.getBuyerUserId(order.buyerId);
-    if (buyerUserId) {
-      await notificationsService.notifyOrderStatusChanged(buyerUserId, orderId, OrderStatus.CANCELLED);
-    }
-
+    await this.notifyBuyer(order.buyerId, orderId, OrderStatus.CANCELLED);
     return updated;
+  }
+
+  private async notifyBuyer(buyerProfileId: string, orderId: string, status: OrderStatus): Promise<void> {
+    const buyerUserId = await this.getBuyerUserId(buyerProfileId);
+    if (buyerUserId) {
+      await notificationsService.notifyOrderStatusChanged(buyerUserId, orderId, status);
+    }
+  }
+
+  /** Buyer self-cancel, allowed until the order is confirmed (curated) or accepted (marketplace). */
+  async buyerCancel(buyerId: string, orderId: string, reason?: string): Promise<Order> {
+    const order = await this.getOrderOrThrow(orderId);
+    this.assertOwnedByBuyer(order, buyerId);
+    if (!BUYER_CANCELLABLE_STATUSES.includes(order.status)) {
+      throw AppError.badRequest('This order has already been confirmed and can no longer be cancelled');
+    }
+    const cancelledReason = reason?.trim() ? `Cancelled by buyer: ${reason.trim()}` : 'Cancelled by buyer';
+    if (!(await this.repo.transitionIfStatus(orderId, order.status, OrderStatus.CANCELLED, { cancelledReason }))) {
+      throw AppError.conflict('Order status changed concurrently, please refresh');
+    }
+    logger.info({ orderId, buyerId, from: order.status }, 'Order cancelled by buyer');
+    return this.getOrderOrThrow(orderId);
+  }
+
+  /** Records that a cancelled, paid order's money was returned to the buyer. */
+  async markRefunded(orderId: string, adminId: string, reference: string): Promise<Order> {
+    const order = await this.getOrderOrThrow(orderId);
+    if (order.status !== OrderStatus.CANCELLED || !order.paidAt) {
+      throw AppError.badRequest('Only a cancelled order that was paid can be marked refunded');
+    }
+    const updated = await this.repo.setStatus(orderId, OrderStatus.REFUNDED, {
+      refundedAt: new Date(),
+      refundReference: reference,
+    });
+    await writeAuditLog(adminId, 'ORDER_REFUNDED', 'Order', orderId, { reference });
+    await this.notifyBuyer(order.buyerId, orderId, OrderStatus.REFUNDED);
+    return updated;
+  }
+
+  /**
+   * Cancels marketplace orders the brand did not accept within 24h of payment. Run on a
+   * timer; each order is moved with a status guard so a brand accepting at the same moment wins.
+   */
+  async expireUnacceptedBrandOrders(now: Date = new Date()): Promise<string[]> {
+    const stale = await this.repo.findUnacceptedBrandOrders(new Date(now.getTime() - BRAND_ACCEPT_WINDOW_MS));
+    const expired: string[] = [];
+    for (const order of stale) {
+      // eslint-disable-next-line no-await-in-loop
+      const moved = await this.repo.transitionIfStatus(order.id, OrderStatus.PAYMENT_RECEIVED, OrderStatus.CANCELLED, {
+        cancelledReason: 'Not accepted by the brand within 24 hours. A full refund will be issued.',
+      });
+      if (!moved) continue;
+      expired.push(order.id);
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await this.notifyBuyer(order.buyerId, order.id, OrderStatus.CANCELLED);
+      } catch (err) {
+        logger.error({ err, orderId: order.id }, 'Failed to notify buyer of expired brand order');
+      }
+    }
+    if (expired.length > 0) {
+      logger.info({ orderIds: expired }, 'Cancelled marketplace orders not accepted within 24h');
+    }
+    return expired;
   }
 
   async setTrackingNumber(orderId: string, trackingNumber: string): Promise<Order> {
@@ -771,7 +883,7 @@ export class OrdersService {
     orderId: string,
     from: OrderStatus,
     to: OrderStatus,
-    extra?: { trackingNumber?: string },
+    extra?: { trackingNumber?: string; dispatchPhotos?: string[]; cancelledReason?: string },
   ): Promise<BrandOrderView> {
     const order = await this.getBrandOrderOrThrow(sellerProfileId, orderId);
     if (order.status !== from) {
@@ -794,33 +906,40 @@ export class OrdersService {
     return this.brandTransition(sellerProfileId, orderId, OrderStatus.PAYMENT_RECEIVED, OrderStatus.CONFIRMED);
   }
 
-  brandShip(
-    sellerProfileId: string,
-    orderId: string,
-    trackingNumber: string,
-    carrier?: string,
-  ): Promise<BrandOrderView> {
-    const tracking = carrier ? `${carrier}: ${trackingNumber}` : trackingNumber;
-    return this.brandTransition(sellerProfileId, orderId, OrderStatus.CONFIRMED, OrderStatus.IN_TRANSIT, {
-      trackingNumber: tracking,
+  /** The brand turns down a paid order it has not accepted; the buyer is refunded. */
+  async brandDecline(sellerProfileId: string, orderId: string, reason: string): Promise<BrandOrderView> {
+    return this.brandTransition(sellerProfileId, orderId, OrderStatus.PAYMENT_RECEIVED, OrderStatus.CANCELLED, {
+      cancelledReason: `Declined by the brand: ${reason}`,
     });
   }
 
-  async brandDeliver(sellerProfileId: string, orderId: string): Promise<BrandOrderView> {
-    const view = await this.brandTransition(
-      sellerProfileId,
-      orderId,
-      OrderStatus.IN_TRANSIT,
-      OrderStatus.DELIVERED,
-    );
-    // The status change is already committed and cannot be retried by the brand, so a payout
-    // failure is logged loudly for reconciliation rather than failing the request.
+  async brandShip(
+    sellerProfileId: string,
+    orderId: string,
+    trackingNumber: string,
+    dispatchPhotos: string[],
+    carrier?: string,
+  ): Promise<BrandOrderView> {
+    if (dispatchPhotos.length === 0) {
+      throw AppError.badRequest('Upload at least one dispatch photo before shipping');
+    }
+    const tracking = carrier ? `${carrier}: ${trackingNumber}` : trackingNumber;
+    const view = await this.brandTransition(sellerProfileId, orderId, OrderStatus.CONFIRMED, OrderStatus.IN_TRANSIT, {
+      trackingNumber: tracking,
+      dispatchPhotos,
+    });
+    // Brands are paid on dispatch. The status change is already committed and cannot be retried
+    // by the brand, so a payout failure is logged loudly for reconciliation rather than failing.
     try {
       await this.payouts.createForDeliveredBrandOrder(orderId);
     } catch (err) {
-      logger.error({ err, orderId }, 'Failed to create payout for delivered brand order — reconcile manually');
+      logger.error({ err, orderId }, 'Failed to create payout for dispatched brand order — reconcile manually');
     }
     return view;
+  }
+
+  brandDeliver(sellerProfileId: string, orderId: string): Promise<BrandOrderView> {
+    return this.brandTransition(sellerProfileId, orderId, OrderStatus.IN_TRANSIT, OrderStatus.DELIVERED);
   }
 
   async listItemsForSeller(sellerId: string, pagination: PaginationQuery): Promise<{ data: SellerOrderItem[]; total: number }> {

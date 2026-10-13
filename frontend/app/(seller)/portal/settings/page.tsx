@@ -99,6 +99,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!profile) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     setBusinessName(profile.businessName ?? '')
     setContactName(profile.contactName ?? '')
     setPhone(profile.phone ?? '')
@@ -148,6 +149,25 @@ export default function SettingsPage() {
         <h1 className="text-[24px] font-[700] font-sans text-[#0F241D] leading-tight">Settings</h1>
         <p className="text-[13px] font-sans text-[#183D33B3] mt-0.5">Manage your profile, bank details, and preferences.</p>
       </div>
+
+      <section className="bg-white border border-[#D9E2DA] rounded-xl p-5 mb-5 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex-1">
+          <p className="text-[15px] font-[600] font-sans text-[#0F241D]">Vacation mode</p>
+          <p className="text-[13px] font-sans text-[#183D33B3] mt-0.5">
+            {profile?.isOnVacation
+              ? 'You are on vacation: buyers can see your products but cannot order them.'
+              : 'Going away? Pause new orders without unpublishing your products.'}
+          </p>
+        </div>
+        <Button
+          variant={profile?.isOnVacation ? 'accent' : 'ghost'}
+          size="sm"
+          disabled={!profile || updateProfile.isPending}
+          onClick={() => updateProfile.mutate({ isOnVacation: !profile?.isOnVacation })}
+        >
+          {profile?.isOnVacation ? 'End vacation' : 'Start vacation'}
+        </Button>
+      </section>
 
       {/* Business Profile */}
       <Section title="Business Profile" description="Basic information Solomon Bharat uses to work with you." icon={User}>

@@ -1,3 +1,4 @@
+import { draftProductDescription, DescriptionDraftInput } from './descriptionAssistant';
 import { Request, Response } from 'express';
 import { sendCreated, sendSuccess } from '../../utils/response';
 import { buildPaginationMeta, PaginationQuery } from '../../utils/pagination';
@@ -54,6 +55,11 @@ async function resolveBuyerProfileId(userId: string): Promise<string> {
 }
 
 export const productsController = {
+  async draftDescription(req: Request, res: Response): Promise<void> {
+    const description = await draftProductDescription(req.body as DescriptionDraftInput);
+    sendSuccess(res, { description });
+  },
+
   async create(req: Request, res: Response): Promise<void> {
     const sellerProfileId = await resolveSellerProfileId(req.user!.id);
     const dto = req.body as CreateProductDto;

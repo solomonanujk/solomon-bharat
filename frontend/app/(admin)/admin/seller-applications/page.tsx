@@ -278,6 +278,9 @@ function ApplicationCard({
   const [expanded, setExpanded] = useState(false)
   const [detailsExpanded, setDetailsExpanded] = useState(false)
   const approveApplication = useApproveSellerApplication()
+  const [assignType, setAssignType] = useState<'CURATED' | 'MARKETPLACE'>(
+    application.sellerType === 'MARKETPLACE' ? 'MARKETPLACE' : 'CURATED',
+  )
 
   const canAct = application.status === 'PENDING' || application.status === 'MORE_INFO_REQUESTED'
 
@@ -336,11 +339,20 @@ function ApplicationCard({
         <div className="flex flex-col gap-2 shrink-0">
           {canAct && (
             <>
+              <select
+                value={assignType}
+                onChange={(e) => setAssignType(e.target.value as 'CURATED' | 'MARKETPLACE')}
+                aria-label="Assign seller type"
+                className="h-8 px-2 rounded border border-[#D9E2DA] text-[12.5px] font-sans bg-white"
+              >
+                <option value="CURATED">Curated by Solomon</option>
+                <option value="MARKETPLACE">Marketplace brand</option>
+              </select>
               <Button
                 variant="accent"
                 size="sm"
                 disabled={approveApplication.isPending}
-                onClick={() => approveApplication.mutate(application.id)}
+                onClick={() => approveApplication.mutate({ id: application.id, sellerType: assignType })}
               >
                 {approveApplication.isPending ? 'Approving…' : 'Approve'}
               </Button>

@@ -26,8 +26,8 @@ export const adminController = {
   },
 
   async getAuditLog(req: Request, res: Response): Promise<void> {
-    const { entityType, adminId, ...pagination } = req.query as unknown as AuditLogQueryDto;
-    const { data, total } = await adminService.getAuditLog({ entityType, adminId }, pagination);
+    const { entityType, adminId, entityId, ...pagination } = req.query as unknown as AuditLogQueryDto;
+    const { data, total } = await adminService.getAuditLog({ entityType, adminId, entityId }, pagination);
     sendSuccess(res, data, 'Audit log retrieved', 200, buildPaginationMeta(total, pagination));
   },
 

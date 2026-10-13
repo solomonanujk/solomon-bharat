@@ -57,7 +57,7 @@ export async function downloadAdminReportCsv(params: ReportsParams, filename = '
 
 // ─── Audit log ─────────────────────────────────────────────────────────────────
 
-export function useAuditLog(params?: { entityType?: string; adminId?: string; page?: number; limit?: number }) {
+export function useAuditLog(params?: { entityType?: string; adminId?: string; entityId?: string; page?: number; limit?: number }) {
   return useQuery<PaginatedResult<AuditLogEntry>>({
     queryKey: ['audit-log', params],
     queryFn: async () => toPaginated<AuditLogEntry>(await api.get('/admin/audit-log', { params })),

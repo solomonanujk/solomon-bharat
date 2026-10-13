@@ -185,9 +185,12 @@ export interface CreateProductInput {
   tags?: string[];
   stepQty?: number;
   isHandmade?: boolean;
+  isMadeToOrder?: boolean;
   placeOfOrigin?: string;
   isGITagged?: boolean;
   howItIsMade?: string;
+  craftTechnique?: string;
+  careInstructions?: string;
   artisanName?: string;
   // Resolved by the service from the uploaded craftImage file, never sent directly by
   // the client — see ProductsService.createProduct/createProductAsAdmin.
@@ -218,9 +221,12 @@ export interface SaveDraftInput {
   tags?: string[];
   stepQty?: number;
   isHandmade?: boolean;
+  isMadeToOrder?: boolean;
   placeOfOrigin?: string;
   isGITagged?: boolean;
   howItIsMade?: string;
+  craftTechnique?: string;
+  careInstructions?: string;
   artisanName?: string;
   priceTiers?: PriceTierWithAdminPricing[];
   ecoMaterials?: string[];
@@ -268,9 +274,12 @@ export interface UpdateProductInput {
   tags?: string[];
   stepQty?: number;
   isHandmade?: boolean;
+  isMadeToOrder?: boolean;
   placeOfOrigin?: string;
   isGITagged?: boolean;
   howItIsMade?: string;
+  craftTechnique?: string;
+  careInstructions?: string;
   artisanName?: string;
   priceTiers?: PriceTierWithAdminPricing[];
   ecoMaterials?: string[];
@@ -374,9 +383,12 @@ export interface BuyerProduct {
   tags: string[];
   stepQty: number;
   isHandmade: boolean;
+  isMadeToOrder: boolean;
   placeOfOrigin: string | null;
   isGITagged: boolean;
   howItIsMade: string | null;
+  craftTechnique: string | null;
+  careInstructions: string | null;
   artisanName: string | null;
   craftImageUrl: string | null;
   ecoMaterials: string[];
@@ -431,9 +443,12 @@ export interface SellerProduct {
   tags: string[];
   stepQty: number;
   isHandmade: boolean;
+  isMadeToOrder: boolean;
   placeOfOrigin: string | null;
   isGITagged: boolean;
   howItIsMade: string | null;
+  craftTechnique: string | null;
+  careInstructions: string | null;
   artisanName: string | null;
   craftImageUrl: string | null;
   ecoMaterials: string[];

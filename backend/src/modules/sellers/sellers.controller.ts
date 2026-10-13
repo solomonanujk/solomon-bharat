@@ -1,3 +1,4 @@
+import { SellerType } from '@prisma/client';
 import { Request, Response } from 'express';
 import { sendCreated, sendSuccess } from '../../utils/response';
 import { buildPaginationMeta } from '../../utils/pagination';
@@ -30,7 +31,8 @@ export const sellersController = {
   },
 
   async approveApplication(req: Request, res: Response): Promise<void> {
-    const result = await sellersService.approveApplication(req.params.id, req.user!.id);
+    const { sellerType } = (req.body ?? {}) as { sellerType?: SellerType };
+    const result = await sellersService.approveApplication(req.params.id, req.user!.id, sellerType);
     sendSuccess(res, result, 'Seller application approved');
   },
 
@@ -61,6 +63,11 @@ export const sellersController = {
   async getSeller(req: Request, res: Response): Promise<void> {
     const seller = await sellersService.getSellerDetailForAdmin(req.params.id);
     sendSuccess(res, seller);
+  },
+
+  async setInternalRating(req: Request, res: Response): Promise<void> {
+    const profile = await sellersService.setInternalRating(req.user!.id, req.params.id, req.body);
+    sendSuccess(res, profile, 'Internal rating saved');
   },
 
   async getMyProfile(req: Request, res: Response): Promise<void> {

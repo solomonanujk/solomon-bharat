@@ -83,7 +83,10 @@ export class OrdersRepository {
   setStatus(
     id: string,
     status: OrderStatus,
-    extra?: Pick<Prisma.OrderUpdateInput, 'expectedCollectionDate' | 'trackingNumber' | 'cancelledReason'>,
+    extra?: Pick<
+      Prisma.OrderUpdateInput,
+      'expectedCollectionDate' | 'trackingNumber' | 'cancelledReason' | 'dispatchPhotos' | 'refundedAt' | 'refundReference'
+    >,
   ): Promise<Order> {
     return this.db.order.update({ where: { id }, data: { status, ...extra } });
   }
@@ -100,7 +103,9 @@ export class OrdersRepository {
     buyerId: string,
     pagination: PaginationQuery,
   ): Promise<{ data: OrderWithItems[]; total: number }> {
-    const where = { buyerId, deletedAt: null, status: { not: OrderStatus.PENDING_PAYMENT } };
+    // Awaiting-payment orders are listed too: with manual (bank transfer) payment the buyer
+    // needs to see them, and can cancel them.
+    const where = { buyerId, deletedAt: null };
     const [data, total] = await Promise.all([
       this.db.order.findMany({
         where,
@@ -154,9 +159,56 @@ export class OrdersRepository {
   async markPaidIfPending(tx: DbTx, orderId: string): Promise<boolean> {
     const { count } = await tx.order.updateMany({
       where: { id: orderId, status: OrderStatus.PENDING_PAYMENT, deletedAt: null },
-      data: { status: OrderStatus.PAYMENT_RECEIVED },
+      data: { status: OrderStatus.PAYMENT_RECEIVED, paidAt: new Date() },
     });
     return count === 1;
+  }
+
+  /** Everything the export documents need for one order. */
+  findForDocuments(orderId: string) {
+    return this.db.order.findUnique({
+      where: { id: orderId },
+      include: {
+        items: {
+          include: {
+            product: { select: { name: true, tariffCode: true, weight: true, dimensions: true, placeOfOrigin: true } },
+            variant: {
+              select: {
+                sku: true, weight: true, weightUnit: true, length: true, width: true, height: true,
+                dimensionUnit: true, tariffCode: true,
+              },
+            },
+          },
+        },
+        buyer: { select: { companyName: true, contactName: true, phone: true, country: true } },
+        shippingAddress: true,
+        sellerProfile: {
+          select: { businessName: true, businessAddress: true, phone: true, brand: { select: { name: true, legalName: true, gstin: true } } },
+        },
+      },
+    });
+  }
+
+  /** Of the given seller profiles, the ones currently on vacation (not taking orders). */
+  async findSellersOnVacation(sellerIds: string[]): Promise<Set<string>> {
+    if (sellerIds.length === 0) return new Set();
+    const rows = await this.db.sellerProfile.findMany({
+      where: { id: { in: sellerIds }, isOnVacation: true },
+      select: { id: true },
+    });
+    return new Set(rows.map((r) => r.id));
+  }
+
+  /** Marketplace orders still awaiting the brand's acceptance that were paid before `paidBefore`. */
+  findUnacceptedBrandOrders(paidBefore: Date): Promise<Order[]> {
+    return this.db.order.findMany({
+      where: {
+        status: OrderStatus.PAYMENT_RECEIVED,
+        sellerProfileId: { not: null },
+        paidAt: { lt: paidBefore },
+        deletedAt: null,
+      },
+    });
   }
 
   findOrderInTx(tx: DbTx, orderId: string): Promise<Order | null> {
@@ -184,9 +236,15 @@ export class OrdersRepository {
         sellerProfileId,
         buyerId,
         id: { not: excludeOrderId },
-        status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED] },
+        status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED, OrderStatus.REFUNDED] },
       },
     });
+  }
+
+  /** True when the buyer joined through this brand's invite link (the brand's own buyer). */
+  async isBrandOwnBuyer(tx: DbTx, brandId: string, buyerId: string): Promise<boolean> {
+    const row = await tx.brandOwnBuyer.findUnique({ where: { buyerId_brandId: { buyerId, brandId } } });
+    return row !== null;
   }
 
   findItemsInTx(tx: DbTx, orderId: string): Promise<OrderItem[]> {
@@ -204,7 +262,7 @@ export class OrdersRepository {
   updateOrderTotals(
     tx: DbTx,
     orderId: string,
-    data: { sellerPriceTotal: number; adminMargin: number },
+    data: { sellerPriceTotal: number; adminMargin: number; brandOwnBuyer?: boolean },
   ): Promise<Order> {
     return tx.order.update({ where: { id: orderId }, data });
   }
@@ -216,7 +274,7 @@ export class OrdersRepository {
     id: string,
     from: OrderStatus,
     to: OrderStatus,
-    extra?: Pick<Prisma.OrderUpdateManyMutationInput, 'trackingNumber'>,
+    extra?: Pick<Prisma.OrderUpdateManyMutationInput, 'trackingNumber' | 'dispatchPhotos' | 'cancelledReason'>,
   ): Promise<boolean> {
     const { count } = await this.db.order.updateMany({
       where: { id, status: from, deletedAt: null },

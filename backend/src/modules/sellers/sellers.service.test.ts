@@ -225,6 +225,9 @@ describe('SellersService', () => {
           businessAddress: application.businessAddress,
           bankDetails: null,
           notificationPrefs: null,
+          isOnVacation: false,
+          internalRating: null,
+          internalNotes: null,
           sellerType: SellerType.CURATED,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -296,6 +299,9 @@ describe('SellersService', () => {
       businessAddress: 'Jaipur',
       bankDetails: null,
       notificationPrefs: null,
+      isOnVacation: false,
+      internalRating: null,
+      internalNotes: null,
       sellerType: SellerType.CURATED,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -353,6 +359,9 @@ describe('SellersService', () => {
         businessAddress: 'Jaipur',
         bankDetails: null,
         notificationPrefs: null,
+        isOnVacation: false,
+        internalRating: null,
+        internalNotes: null,
         sellerType: SellerType.CURATED,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -368,6 +377,9 @@ describe('SellersService', () => {
         businessAddress: 'Jaipur',
         bankDetails: 'HDFC Bank',
         notificationPrefs: null,
+        isOnVacation: false,
+        internalRating: null,
+        internalNotes: null,
         sellerType: SellerType.CURATED,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -424,6 +436,9 @@ describe('SellersService', () => {
           businessAddress: 'N/A',
           bankDetails: null,
           notificationPrefs: null,
+          isOnVacation: false,
+          internalRating: null,
+          internalNotes: null,
           sellerType: SellerType.CURATED,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -531,6 +546,19 @@ describe('SellersService', () => {
         'SellerApplication',
         'app-1',
         expect.objectContaining({ brandId: 'brand-1' }),
+      );
+    });
+
+    it('the admin can assign MARKETPLACE to an application submitted without a type choice', async () => {
+      setupApprove();
+      vi.mocked(repo.findApplicationById).mockResolvedValue(
+        buildApplication({ sellerType: SellerType.CURATED, brandName: null, businessName: 'Kala Kendra' }),
+      );
+      await service.approveApplication('app-1', 'admin-1', SellerType.MARKETPLACE);
+      expect(repo.createSellerUserAndProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ sellerType: SellerType.MARKETPLACE }),
+        expect.any(String),
+        'kala-kendra',
       );
     });
 

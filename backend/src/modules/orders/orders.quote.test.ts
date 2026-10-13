@@ -68,6 +68,7 @@ describe('OrdersService quote + shared pricing core', () => {
   beforeEach(() => {
     repo = {
       findBrandsByIds: vi.fn().mockResolvedValue([]),
+      findSellersOnVacation: vi.fn().mockResolvedValue(new Set()),
       createPending: vi.fn().mockImplementation(async (input: unknown) => ({ id: 'o1', items: [], input })),
     } as unknown as OrdersRepository;
     products = { getForCheckout: vi.fn() } as unknown as ProductsService;

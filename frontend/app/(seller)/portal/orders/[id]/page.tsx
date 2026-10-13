@@ -5,10 +5,12 @@ import Link from 'next/link'
 import { ArrowLeft, Copy, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { downloadOrderDocument } from '@/lib/downloadOrderDocument'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   useBrandOrder,
   useConfirmBrandOrder,
+  useDeclineBrandOrder,
   useDeliverBrandOrder,
   useSellerType,
   useShipBrandOrder,
@@ -60,12 +62,13 @@ function ShipDialog({ order, open, onOpenChange }: { order: BrandOrderView; open
   const ship = useShipBrandOrder()
   const [tracking, setTracking] = useState('')
   const [carrier, setCarrier] = useState('')
+  const [photos, setPhotos] = useState<File[]>([])
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!tracking.trim()) return
+    if (!tracking.trim() || photos.length === 0) return
     ship.mutate(
-      { id: order.id, trackingNumber: tracking.trim(), carrier: carrier.trim() || undefined },
+      { id: order.id, trackingNumber: tracking.trim(), carrier: carrier.trim() || undefined, photos },
       { onSuccess: () => onOpenChange(false) },
     )
   }
@@ -76,7 +79,10 @@ function ShipDialog({ order, open, onOpenChange }: { order: BrandOrderView; open
         <form onSubmit={submit}>
           <DialogHeader>
             <DialogTitle>Ship this order</DialogTitle>
-            <DialogDescription>The buyer is notified with the tracking details.</DialogDescription>
+            <DialogDescription>
+              Upload photos of the packed goods and the tracking details. The photos are used to judge any damage
+              claim, and your payout is created when you ship.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 my-5">
             <div>
@@ -89,10 +95,17 @@ function ShipDialog({ order, open, onOpenChange }: { order: BrandOrderView; open
               <input id="carrier" maxLength={100} value={carrier} onChange={(e) => setCarrier(e.target.value)} placeholder="e.g. DHL, FedEx"
                 className="w-full h-11 px-3 rounded border border-line text-[14px] font-sans" />
             </div>
+            <div>
+              <label htmlFor="photos" className="block text-[14px] font-[600] font-sans text-ink mb-1.5">Dispatch photos * (up to 8)</label>
+              <input id="photos" type="file" accept="image/*" multiple required
+                onChange={(e) => setPhotos(Array.from(e.target.files ?? []).slice(0, 8))}
+                className="w-full text-[14px] font-sans" />
+              {photos.length > 0 && <p className="text-[12px] font-sans text-muted mt-1">{photos.length} photo{photos.length === 1 ? '' : 's'} selected</p>}
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" variant="primary" disabled={ship.isPending || !tracking.trim()}>
+            <Button type="submit" variant="primary" disabled={ship.isPending || !tracking.trim() || photos.length === 0}>
               {ship.isPending && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}
               Mark as shipped
             </Button>
@@ -111,8 +124,7 @@ function DeliverDialog({ order, open, onOpenChange }: { order: BrandOrderView; o
         <DialogHeader>
           <DialogTitle>Mark as delivered?</DialogTitle>
           <DialogDescription>
-            Confirm only once the buyer has received the order. This creates your payout
-            {order.netTotal !== null ? ` of ${money(order.netTotal)}` : ''} and cannot be undone.
+            Confirm only once the buyer has received the order. This cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="mt-5">
@@ -134,6 +146,14 @@ function DeliverDialog({ order, open, onOpenChange }: { order: BrandOrderView; o
 
 function OrderDetail({ order }: { order: BrandOrderView }) {
   const confirm = useConfirmBrandOrder()
+  const decline = useDeclineBrandOrder()
+  const acceptBy = order.paidAt ? new Date(new Date(order.paidAt).getTime() + 24 * 60 * 60 * 1000) : null
+
+  function handleDecline() {
+    const reason = window.prompt('Why are you declining this order? The buyer will see this and be refunded.')
+    if (!reason?.trim()) return
+    decline.mutate({ id: order.id, reason: reason.trim() })
+  }
   const [shipOpen, setShipOpen] = useState(false)
   const [deliverOpen, setDeliverOpen] = useState(false)
   const a = order.shippingAddress
@@ -142,14 +162,34 @@ function OrderDetail({ order }: { order: BrandOrderView }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <OrderItemStatusBadge status={order.status} />
+        {order.brandOwnBuyer && (
+          <span className="inline-flex items-center rounded-full bg-selected px-2.5 py-1 text-[12px] font-[600] font-sans text-forest">
+            Your buyer &middot; 0% commission
+          </span>
+        )}
         <span className="text-[13px] font-sans text-muted">
           Placed {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
         </span>
         <div className="ml-auto flex flex-wrap gap-2">
+          {order.status !== 'PENDING_PAYMENT' && (
+            <>
+              <Button type="button" variant="ghost" size="sm" onClick={() => downloadOrderDocument('brand', order.id, 'commercial-invoice')}>
+                Commercial invoice
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => downloadOrderDocument('brand', order.id, 'packing-list')}>
+                Packing list
+              </Button>
+            </>
+          )}
           {order.status === 'PAYMENT_RECEIVED' && (
             <Button type="button" variant="primary" disabled={confirm.isPending} onClick={() => confirm.mutate({ id: order.id })}>
               {confirm.isPending && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}
-              Confirm order
+              Accept order
+            </Button>
+          )}
+          {order.status === 'PAYMENT_RECEIVED' && (
+            <Button type="button" variant="ghost" disabled={decline.isPending} onClick={handleDecline}>
+              Decline
             </Button>
           )}
           {order.status === 'CONFIRMED' && (
@@ -162,7 +202,11 @@ function OrderDetail({ order }: { order: BrandOrderView }) {
       </div>
 
       {order.status === 'PAYMENT_RECEIVED' && (
-        <p className="text-[13px] font-sans text-muted">Payment is received. Confirm the order to start preparing it.</p>
+        <p className="text-[13px] font-sans text-muted">
+          Payment is received. Accept the order
+          {acceptBy ? ` by ${acceptBy.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ' within 24 hours'}
+          , or it is cancelled automatically and the buyer is refunded.
+        </p>
       )}
       {order.status === 'CANCELLED' && (
         <p role="status" className="text-[13px] font-sans text-error">

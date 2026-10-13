@@ -1,11 +1,34 @@
 import { Router } from 'express';
 import { paymentsController } from './payments.controller';
-import { checkoutSchema, fxRateQuerySchema, idParamSchema, orderIdParamSchema } from './payments.validation';
+import {
+  checkoutIdParamSchema,
+  checkoutSchema,
+  fxRateQuerySchema,
+  idParamSchema,
+  manualPaymentSchema,
+  orderIdParamSchema,
+} from './payments.validation';
 import { validate } from '../../middleware/validate';
-import { requireAuth, requireBuyerOrAgent } from '../../middleware/auth';
+import { requireAdmin, requireAuth, requireBuyerOrAgent } from '../../middleware/auth';
 import { asyncHandler } from '../../utils/asyncHandler';
 
 export const paymentsRouter = Router();
+
+/**
+ * @openapi
+ * /payments/admin/checkouts/{checkoutId}/mark-paid:
+ *   post:
+ *     summary: Confirm a bank transfer for a whole checkout, with its reference (SUPER_ADMIN only)
+ *     tags: [Payments]
+ */
+paymentsRouter.post(
+  '/admin/checkouts/:checkoutId/mark-paid',
+  requireAuth,
+  requireAdmin,
+  validate(checkoutIdParamSchema, 'params'),
+  validate(manualPaymentSchema),
+  asyncHandler(paymentsController.markPaidManually),
+);
 
 /**
  * @openapi

@@ -62,6 +62,13 @@ function buildMockRepo(): BrandsRepository {
     getOrderStatsBySellerProfile: vi.fn(),
     findSettingValue: vi.fn(),
     upsertSetting: vi.fn(),
+    findActiveByInviteCode: vi.fn(),
+    ensureInviteCode: vi.fn(),
+    countOwnBuyers: vi.fn(),
+    countPaidOrdersWithBrand: vi.fn(),
+    addOwnBuyer: vi.fn(),
+    findBuyerIdByEmail: vi.fn(),
+    upsertEmailInvite: vi.fn(),
   } as unknown as BrandsRepository;
 }
 
@@ -73,6 +80,62 @@ describe('BrandsService', () => {
     vi.clearAllMocks();
     repo = buildMockRepo();
     service = new BrandsService(repo);
+  });
+
+  describe('invite links (brand\'s own buyers)', () => {
+    it('creates the invite code on first request and reports how many buyers joined', async () => {
+      vi.mocked(repo.findByUserId).mockResolvedValue(buildBrand({ inviteCode: null }) as never);
+      vi.mocked(repo.ensureInviteCode).mockResolvedValue('abc123');
+      vi.mocked(repo.countOwnBuyers).mockResolvedValue(4);
+      expect(await service.getMyInvite('user-1')).toEqual({ code: 'abc123', ownBuyerCount: 4 });
+      expect(repo.ensureInviteCode).toHaveBeenCalledWith('brand-1', expect.any(String));
+    });
+
+    it('reuses an existing code', async () => {
+      vi.mocked(repo.findByUserId).mockResolvedValue(buildBrand({ inviteCode: 'keep' }) as never);
+      vi.mocked(repo.countOwnBuyers).mockResolvedValue(0);
+      expect((await service.getMyInvite('user-1')).code).toBe('keep');
+      expect(repo.ensureInviteCode).not.toHaveBeenCalled();
+    });
+
+    it('links a new buyer as the brand\'s own and follows the brand', async () => {
+      vi.mocked(repo.findBuyerProfileId).mockResolvedValue('buyer-1');
+      vi.mocked(repo.findActiveByInviteCode).mockResolvedValue(buildBrand() as never);
+      vi.mocked(repo.countPaidOrdersWithBrand).mockResolvedValue(0);
+      const res = await service.acceptInvite('user-9', 'abc123');
+      expect(res.linked).toBe(true);
+      expect(repo.addOwnBuyer).toHaveBeenCalledWith('buyer-1', 'brand-1');
+      expect(repo.followBrand).toHaveBeenCalledWith('buyer-1', 'brand-1');
+    });
+
+    it('does not claim a buyer who already bought from the brand through the platform', async () => {
+      vi.mocked(repo.findBuyerProfileId).mockResolvedValue('buyer-1');
+      vi.mocked(repo.findActiveByInviteCode).mockResolvedValue(buildBrand() as never);
+      vi.mocked(repo.countPaidOrdersWithBrand).mockResolvedValue(2);
+      const res = await service.acceptInvite('user-9', 'abc123');
+      expect(res.linked).toBe(false);
+      expect(repo.countPaidOrdersWithBrand).toHaveBeenCalledWith('buyer-1', 'sp-1');
+      expect(repo.addOwnBuyer).not.toHaveBeenCalled();
+    });
+
+    it('adds own buyers by email: links existing buyers, invites the rest, skips past customers', async () => {
+      vi.mocked(repo.findByUserId).mockResolvedValue(buildBrand({ inviteCode: 'abc' }) as never);
+      vi.mocked(repo.countOwnBuyers).mockResolvedValue(0);
+      vi.mocked(repo.findBuyerIdByEmail).mockImplementation(async (e: string) =>
+        e === 'new@x.com' ? null : e === 'old@x.com' ? 'buyer-old' : 'buyer-ok',
+      );
+      vi.mocked(repo.countPaidOrdersWithBrand).mockImplementation(async (b: string) => (b === 'buyer-old' ? 1 : 0));
+
+      const res = await service.addOwnBuyersByEmail('user-1', ['OK@x.com', 'ok@x.com', 'new@x.com', 'old@x.com']);
+      expect(res).toEqual({ linked: ['ok@x.com'], invited: ['new@x.com'], skipped: ['old@x.com'] });
+      expect(repo.addOwnBuyer).toHaveBeenCalledWith('buyer-ok', 'brand-1');
+      expect(repo.upsertEmailInvite).toHaveBeenCalledWith('brand-1', 'new@x.com');
+    });
+
+    it('404s on an unknown code', async () => {
+      vi.mocked(repo.findActiveByInviteCode).mockResolvedValue(null);
+      await expect(service.getInvitePreview('nope')).rejects.toMatchObject({ statusCode: 404 });
+    });
   });
 
   describe('public detail', () => {

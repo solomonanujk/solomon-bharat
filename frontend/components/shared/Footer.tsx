@@ -1,5 +1,6 @@
 'use client'
 
+import { openCookieSettings } from '@/components/shared/CookieConsent'
 import { useState } from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -42,13 +43,12 @@ const FOOTER_GROUPS: { title: string; links: { href: string; label: string; hide
       { href: '/privacy', label: 'Privacy' },
       { href: '/terms', label: 'Terms' },
       { href: '/cookies', label: 'Cookies' },
+      { href: '/seller-agreement', label: 'Seller Agreement' },
     ],
   },
 ]
 
-// CONFIRM: legal entity wording for the copyright line — reused verbatim from the
-// previous footer; owner to confirm the registered entity name before launch.
-const COPYRIGHT_TEXT = '© 2026 Solomon Bharat. All rights reserved.'
+const COPYRIGHT_TEXT = '© 2026 Solomon Bharat Private Limited, Jaipur, India. All rights reserved.'
 
 const CONTACT_EMAIL = 'solomonbharat@gmail.com'
 
@@ -176,7 +176,16 @@ export function Footer() {
 
         {/* Legal row: 1px divider, 32px above, 24px below; stacked on mobile. */}
         <div className="mt-8 border-t border-line pt-6 flex flex-col-reverse items-start gap-4 md:flex-row md:items-center md:justify-between">
-          <p className="font-sans text-[13px] leading-[20px] text-muted">{COPYRIGHT_TEXT}</p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <p className="font-sans text-[13px] leading-[20px] text-muted">{COPYRIGHT_TEXT}</p>
+            <button
+              type="button"
+              onClick={openCookieSettings}
+              className="font-sans text-[13px] leading-[20px] text-muted underline underline-offset-4 hover:text-forest"
+            >
+              Cookie settings
+            </button>
+          </div>
           <div className="flex items-center gap-2">
             <SocialLink href="https://www.linkedin.com/company/sourcewithsolomon/" label="LinkedIn">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

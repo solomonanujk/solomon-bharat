@@ -235,15 +235,21 @@ export class AdminRepository {
   }
 
   findAuditLog(
-    filter: { entityType?: string; adminId?: string },
+    filter: { entityType?: string; adminId?: string; entityId?: string },
     pagination: PaginationQuery,
   ) {
     const where = {
       ...(filter.entityType ? { entityType: filter.entityType } : {}),
       ...(filter.adminId ? { adminId: filter.adminId } : {}),
+      ...(filter.entityId ? { entityId: filter.entityId } : {}),
     };
     return Promise.all([
-      this.db.auditLog.findMany({ where, orderBy: { createdAt: 'desc' }, ...toSkipTake(pagination) }),
+      this.db.auditLog.findMany({
+        where,
+        include: { admin: { select: { email: true } } },
+        orderBy: { createdAt: 'desc' },
+        ...toSkipTake(pagination),
+      }),
       this.db.auditLog.count({ where }),
     ]);
   }

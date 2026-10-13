@@ -103,5 +103,15 @@ export function AppInitialiser() {
     }
   }, [setCurrency, setRates, lastFetched])
 
+  // A detected or saved currency the rate feed doesn't cover (e.g. AED) would show INR
+  // amounts under the wrong symbol and fail at checkout, so fall back to USD.
+  const currency = useCurrencyStore((s) => s.currency)
+  const rates = useCurrencyStore((s) => s.rates)
+  useEffect(() => {
+    if (currency !== 'INR' && Object.keys(rates).length > 0 && rates[currency] == null) {
+      setCurrency('USD')
+    }
+  }, [currency, rates, setCurrency])
+
   return null
 }

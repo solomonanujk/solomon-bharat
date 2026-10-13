@@ -57,6 +57,9 @@ function buildProduct(overrides: Partial<Product> = {}): ProductWithMedia {
     placeOfOrigin: null,
     isGITagged: false,
     howItIsMade: null,
+    craftTechnique: null,
+    careInstructions: null,
+    isMadeToOrder: false,
     artisanName: null,
     craftImageUrl: null,
     agentPrice: null,
@@ -85,6 +88,11 @@ function buildOrder(overrides: Partial<Order> = {}): Order {
     exportDocuments: null,
     expectedCollectionDate: null,
     cancelledReason: null,
+    paidAt: null,
+    dispatchPhotos: null,
+    refundedAt: null,
+    refundReference: null,
+    brandOwnBuyer: false,
     placedAsAgent: false,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -109,6 +117,9 @@ function buildMockRepo(): OrdersRepository {
     listForAdmin: vi.fn(),
     listItemsForSeller: vi.fn(),
     findBrandsByIds: vi.fn(),
+    findSellersOnVacation: vi.fn().mockResolvedValue(new Set()),
+    transitionIfStatus: vi.fn(),
+    findUnacceptedBrandOrders: vi.fn(),
   } as unknown as OrdersRepository;
 }
 
@@ -355,13 +366,77 @@ describe('OrdersService', () => {
       await expect(service.confirmOrder('order-1', 'admin-1')).rejects.toMatchObject({ statusCode: 400 });
     });
 
-    it('collectOrder triggers payout creation for the seller(s) — goods are now owed regardless of transit outcome', async () => {
+    it('collectOrder no longer creates payouts; shipOrder does (sellers are paid on dispatch)', async () => {
       vi.mocked(repo.findByIdRaw).mockResolvedValue(buildOrder({ status: OrderStatus.PROCURING }));
       vi.mocked(repo.setStatus).mockResolvedValue(buildOrder({ status: OrderStatus.COLLECTED }));
-
       await service.collectOrder('order-1', 'admin-1');
+      expect(payouts.createForOrder).not.toHaveBeenCalled();
 
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildOrder({ status: OrderStatus.QUALITY_CHECKED }));
+      vi.mocked(repo.setStatus).mockResolvedValue(buildOrder({ status: OrderStatus.IN_TRANSIT }));
+      await service.shipOrder('order-1', 'admin-1', 'TRK');
       expect(payouts.createForOrder).toHaveBeenCalledWith('order-1');
+    });
+
+    it('quality check needs photos and sits between COLLECTED and IN_TRANSIT', async () => {
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildOrder({ status: OrderStatus.COLLECTED }));
+      await expect(service.qualityCheckOrder('order-1', 'admin-1', [])).rejects.toMatchObject({ statusCode: 400 });
+
+      vi.mocked(repo.setStatus).mockResolvedValue(buildOrder({ status: OrderStatus.QUALITY_CHECKED }));
+      await service.qualityCheckOrder('order-1', 'admin-1', ['https://img/1.jpg']);
+      expect(repo.setStatus).toHaveBeenCalledWith('order-1', OrderStatus.QUALITY_CHECKED, {
+        dispatchPhotos: ['https://img/1.jpg'],
+      });
+
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildOrder({ status: OrderStatus.COLLECTED }));
+      await expect(service.shipOrder('order-1', 'admin-1')).rejects.toMatchObject({ statusCode: 400 });
+    });
+  });
+
+  describe('buyerCancel / refunds / 24h brand acceptance', () => {
+    it('buyer can cancel while awaiting payment or confirmation, not after', async () => {
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildOrder({ status: OrderStatus.PAYMENT_RECEIVED }));
+      vi.mocked(repo.transitionIfStatus).mockResolvedValue(true);
+      await service.buyerCancel(buildOrder().buyerId, 'order-1', 'changed mind');
+      expect(repo.transitionIfStatus).toHaveBeenCalledWith('order-1', OrderStatus.PAYMENT_RECEIVED, OrderStatus.CANCELLED, {
+        cancelledReason: 'Cancelled by buyer: changed mind',
+      });
+
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildOrder({ status: OrderStatus.CONFIRMED }));
+      await expect(service.buyerCancel(buildOrder().buyerId, 'order-1')).rejects.toMatchObject({ statusCode: 400 });
+    });
+
+    it('buyer cannot cancel someone else\'s order', async () => {
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildOrder({ status: OrderStatus.PAYMENT_RECEIVED }));
+      await expect(service.buyerCancel('other-buyer', 'order-1')).rejects.toMatchObject({ statusCode: 403 });
+    });
+
+    it('only a cancelled order that was paid can be marked refunded', async () => {
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildOrder({ status: OrderStatus.CANCELLED, paidAt: null }));
+      await expect(service.markRefunded('order-1', 'admin-1', 'UTR1')).rejects.toMatchObject({ statusCode: 400 });
+
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildOrder({ status: OrderStatus.CANCELLED, paidAt: new Date() }));
+      vi.mocked(repo.setStatus).mockResolvedValue(buildOrder({ status: OrderStatus.REFUNDED }));
+      await service.markRefunded('order-1', 'admin-1', 'UTR1');
+      expect(repo.setStatus).toHaveBeenCalledWith('order-1', OrderStatus.REFUNDED, {
+        refundedAt: expect.any(Date),
+        refundReference: 'UTR1',
+      });
+    });
+
+    it('expires marketplace orders not accepted within 24h of payment', async () => {
+      const now = new Date('2026-10-13T12:00:00Z');
+      vi.mocked(repo.findUnacceptedBrandOrders).mockResolvedValue([
+        buildOrder({ id: 'o1', status: OrderStatus.PAYMENT_RECEIVED }),
+        buildOrder({ id: 'o2', status: OrderStatus.PAYMENT_RECEIVED }),
+      ]);
+      vi.mocked(repo.transitionIfStatus).mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+
+      expect(await service.expireUnacceptedBrandOrders(now)).toEqual(['o1']);
+      expect(repo.findUnacceptedBrandOrders).toHaveBeenCalledWith(new Date('2026-10-12T12:00:00Z'));
+      expect(repo.transitionIfStatus).toHaveBeenCalledWith('o1', OrderStatus.PAYMENT_RECEIVED, OrderStatus.CANCELLED, {
+        cancelledReason: expect.stringContaining('24 hours'),
+      });
     });
   });
 

@@ -1,10 +1,9 @@
-import { StubPage } from '@/components/shared/StubPage'
+import type { Metadata } from 'next'
+import { LegalPage } from '@/components/shared/LegalPage'
+import { COOKIES } from '@/lib/legal/cookies'
 
-export default function CookiesPage() {
-  return (
-    <StubPage
-      title="Cookie Policy"
-      body="Solomon Bharat's cookie policy will be published here. For questions, contact support@solomonbharat.com."
-    />
-  )
+export const metadata: Metadata = { title: `${COOKIES.title} — Solomon Bharat` }
+
+export default function Page() {
+  return <LegalPage doc={COOKIES} />
 }

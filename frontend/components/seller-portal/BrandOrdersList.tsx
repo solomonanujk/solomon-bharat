@@ -12,7 +12,7 @@ type Filter = 'ALL' | OrderStatus
 
 const FILTERS: { label: string; value: Filter }[] = [
   { label: 'All', value: 'ALL' },
-  { label: 'To confirm', value: 'PAYMENT_RECEIVED' },
+  { label: 'To accept (24h)', value: 'PAYMENT_RECEIVED' },
   { label: 'To ship', value: 'CONFIRMED' },
   { label: 'In transit', value: 'IN_TRANSIT' },
   { label: 'Delivered', value: 'DELIVERED' },

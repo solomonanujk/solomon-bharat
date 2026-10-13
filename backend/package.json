@@ -25,9 +25,11 @@
     "prisma:seed:legacy": "tsx prisma/seedLegacyProducts.ts"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "seed:categories": "tsx prisma/seedCraftCategories.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "@google/generative-ai": "^0.24.1",
     "@paypal/paypal-server-sdk": "^0.6.1",
     "@prisma/client": "^5.20.0",

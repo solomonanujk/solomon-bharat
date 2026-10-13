@@ -27,6 +27,7 @@ function VerifyEmailInner() {
     attempted.current = true
 
     if (!id || !token) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
       setStatus('missing')
       return
     }
@@ -62,7 +63,7 @@ function VerifyEmailInner() {
           <>
             <h1 className="text-[22px] font-[600] font-display text-primary mb-2">Email verified</h1>
             <p className="text-[14px] font-sans text-muted-text leading-[1.5] mb-6">
-              Your address is confirmed — you're all set.
+              Your address is confirmed — you&apos;re all set.
             </p>
             <Button variant="primary" size="lg" className="w-full" onClick={() => router.push(next)}>
               Continue

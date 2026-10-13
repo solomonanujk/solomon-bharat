@@ -4,6 +4,11 @@ import { NotificationsRepository } from './notifications.repository';
 
 const { sendMailMock } = vi.hoisted(() => ({ sendMailMock: vi.fn() }));
 vi.mock('../../providers/mail', () => ({ mailProvider: { sendMail: sendMailMock } }));
+const { sendTextMock } = vi.hoisted(() => ({ sendTextMock: vi.fn() }));
+vi.mock('../../providers/whatsapp', async (orig) => ({
+  ...(await orig<typeof import('../../providers/whatsapp')>()),
+  whatsAppProvider: { sendText: sendTextMock },
+}));
 import { NotificationsService } from './notifications.service';
 
 function buildNotification(overrides: Partial<Notification> = {}): Notification {
@@ -29,6 +34,7 @@ function buildMockRepo(): NotificationsRepository {
     markAllRead: vi.fn(),
     countUnread: vi.fn(),
     findUserIdsByRole: vi.fn(),
+    findUserPhone: vi.fn().mockResolvedValue(null),
     findOrderForBrandAlert: vi.fn(),
   } as unknown as NotificationsRepository;
 }
@@ -40,6 +46,14 @@ describe('NotificationsService', () => {
   beforeEach(() => {
     repo = buildMockRepo();
     service = new NotificationsService(repo);
+  });
+
+  it('also sends a WhatsApp copy to the user\'s profile phone', async () => {
+    vi.mocked(repo.create).mockResolvedValue({ id: 'n1' } as never);
+    vi.mocked(repo.findUserPhone).mockResolvedValue('+91 98123 45678');
+    await service.notify('user-1', NotificationType.ORDER_STATUS_CHANGED, 'Order update', 'Shipped', '/orders/o1');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sendTextMock).toHaveBeenCalledWith('+919812345678', expect.stringContaining('Order update'));
   });
 
   describe('markRead', () => {

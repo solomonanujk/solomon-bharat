@@ -12,9 +12,9 @@ const AUTO_DISMISS_MS = 4000
  * Global floating tray — agent-only. Pops up right after a product is added to
  * (or removed from) the in-progress catalogue, then auto-dismisses a few
  * seconds later, same pattern as AddedToCartPopup — it's a confirmation toast,
- * not a permanent progress bar. Links to /catalogue to set price/MOQ per
- * product and generate — never generates directly from here, since every
- * product needs the agent's own price/MOQ set first.
+ * not a permanent progress bar. Links to /catalogue to set MOQ and contact details
+ * and generate — never generates directly from here, since every catalogue
+ * needs the agent's own contact details first.
  */
 export function CatalogueTray() {
   const user = useAuthStore((s) => s.user)
@@ -47,7 +47,7 @@ export function CatalogueTray() {
         onClick={hideTray}
         className="text-[13px] font-[700] font-sans bg-white text-primary rounded-full px-3 py-1.5 hover:bg-white/90 transition-colors"
       >
-        Set price &amp; generate
+        Review &amp; generate
       </Link>
     </div>
   )

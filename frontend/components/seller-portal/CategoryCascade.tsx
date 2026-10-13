@@ -57,6 +57,7 @@ export function CategoryCascadeSelect({ tree, value, onChange, disabled }: Categ
   // (e.g. tree finishes loading after `value` was already set).
   useEffect(() => {
     const path = findCategoryPath(tree, value)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: syncs local state from server data / browser storage once it is available
     setActiveL1(path[0]?.id ?? '')
     setActiveL2(path[1]?.id ?? '')
     // eslint-disable-next-line react-hooks/exhaustive-deps

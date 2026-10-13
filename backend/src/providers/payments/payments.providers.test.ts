@@ -21,9 +21,9 @@ vi.mock('../../config/logger', () => ({
 import { createPaymentProvider } from './index';
 import { MockPaymentProvider } from './mockPaymentProvider';
 import { PayPalPaymentProvider } from './paypalPaymentProvider';
-import { UnconfiguredPaymentProvider } from './unconfiguredPaymentProvider';
+import { ManualPaymentProvider } from './manualPaymentProvider';
 
-const base = { clientId: '', clientSecret: '', mode: 'sandbox' as const, webhookId: '' };
+const base = { clientId: '', clientSecret: '', mode: 'sandbox' as const, webhookId: '', paymentMode: 'auto' as const };
 
 describe('createPaymentProvider', () => {
   it('uses PayPal when credentials are present, in any environment', () => {
@@ -39,17 +39,30 @@ describe('createPaymentProvider', () => {
     expect(createPaymentProvider({ ...base, nodeEnv: 'test' })).toBeInstanceOf(MockPaymentProvider);
   });
 
-  it('FAILS CLOSED in production when credentials are missing (never the mock)', async () => {
+  it('uses manual bank-transfer payment in production when credentials are missing (never the mock)', async () => {
     for (const creds of [{}, { clientId: 'id' }, { clientSecret: 'secret' }]) {
       const provider = createPaymentProvider({ ...base, ...creds, nodeEnv: 'production' });
-      expect(provider).toBeInstanceOf(UnconfiguredPaymentProvider);
+      expect(provider).toBeInstanceOf(ManualPaymentProvider);
       expect(provider).not.toBeInstanceOf(MockPaymentProvider);
-      await expect(provider.createOrder({ amount: 1, currency: 'USD', referenceId: 'x' })).rejects.toMatchObject({
-        statusCode: 503,
+      expect(await provider.createOrder({ amount: 1, currency: 'USD', referenceId: 'chk-1' })).toEqual({
+        providerOrderId: 'MANUAL-chk-1',
+        approveUrl: null,
       });
-      await expect(provider.captureOrder('x')).rejects.toMatchObject({ statusCode: 503 });
+      // The buyer can never self-settle a manual payment.
+      await expect(provider.captureOrder('x')).rejects.toMatchObject({ statusCode: 409 });
       expect(await provider.verifyWebhook({}, '{}')).toBe(false);
     }
+  });
+
+  it('PAYMENT_MODE=manual forces manual payment even with gateway credentials', () => {
+    const provider = createPaymentProvider({
+      ...base,
+      clientId: 'id',
+      clientSecret: 'secret',
+      nodeEnv: 'production',
+      paymentMode: 'manual',
+    });
+    expect(provider).toBeInstanceOf(ManualPaymentProvider);
   });
 });
 

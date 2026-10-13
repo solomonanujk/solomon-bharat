@@ -56,6 +56,11 @@ export interface BrandOrderView {
   status: OrderStatus
   trackingNumber: string | null
   cancelledReason: string | null
+  /** When payment was confirmed; the brand must accept within 24h of this. */
+  paidAt: string | null
+  dispatchPhotos: string[]
+  /** The buyer joined via this brand's invite link: no commission on this order. */
+  brandOwnBuyer: boolean
   createdAt: string
   updatedAt: string
   grossTotal: string
@@ -77,6 +82,8 @@ export interface BrandOrderView {
 export interface BrandShipInput {
   trackingNumber: string
   carrier?: string
+  /** Photos of the packed goods — at least one is required to ship. */
+  photos: File[]
 }
 
 /** Payout row incl. the marketplace breakdown (null for curated payouts). Money is string-encoded

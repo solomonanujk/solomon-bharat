@@ -26,12 +26,41 @@ import {
   requireMarketplaceSeller,
   requireSeller,
   optionalAuth,
+  requireRole,
 } from '../../middleware/auth';
+import { Role } from '@prisma/client';
+import { z } from 'zod';
 import { uploadProductMedia } from '../../middleware/upload';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { paginationQuerySchema } from '../../utils/pagination';
 
 export const productsRouter = Router();
+
+const descriptionDraftSchema = z.object({
+  name: z.string().trim().min(2).max(200),
+  category: z.string().max(200).optional(),
+  materials: z.string().max(500).optional(),
+  craftTechnique: z.string().max(200).optional(),
+  placeOfOrigin: z.string().max(200).optional(),
+  dimensions: z.string().max(200).optional(),
+  careInstructions: z.string().max(1000).optional(),
+  notes: z.string().max(2000).optional(),
+});
+
+/**
+ * @openapi
+ * /products/description-draft:
+ *   post:
+ *     summary: AI-drafted product description from the product's details, for the seller to edit (SELLER or SUPER_ADMIN)
+ *     tags: [Products]
+ */
+productsRouter.post(
+  '/description-draft',
+  requireAuth,
+  requireRole(Role.SELLER, Role.SUPER_ADMIN),
+  validate(descriptionDraftSchema),
+  asyncHandler(productsController.draftDescription),
+);
 
 // ── Seller: own products ──────────────────────────────────────────────
 

@@ -11,9 +11,11 @@ export type OrderStatus =
   | 'CONFIRMED'
   | 'PROCURING'
   | 'COLLECTED'
+  | 'QUALITY_CHECKED'
   | 'IN_TRANSIT'
   | 'DELIVERED'
   | 'CANCELLED'
+  | 'REFUNDED'
 
 export type ApprovalStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'RESUBMITTED'
 export type CategoryStatus = 'ACTIVE' | 'ARCHIVED'
@@ -141,9 +143,12 @@ export interface ProductListingDetails {
   tags: string[]
   stepQty: number
   isHandmade: boolean
+  isMadeToOrder: boolean
   placeOfOrigin: string | null
   isGITagged: boolean
   howItIsMade: string | null
+  craftTechnique: string | null
+  careInstructions: string | null
   artisanName: string | null
   craftImageUrl: string | null
   ecoMaterials: string[]
@@ -448,6 +453,11 @@ export interface SellerProfile {
   businessAddress: string
   bankDetails: string | null
   notificationPrefs: Record<string, boolean> | null
+  /** While true the seller's products cannot be ordered. */
+  isOnVacation?: boolean
+  /** Admin-only (never returned to the seller). */
+  internalRating?: number | null
+  internalNotes?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -574,6 +584,12 @@ export interface Order {
   exportDocuments: string[] | null
   expectedCollectionDate: string | null
   cancelledReason: string | null
+  /** When payment was confirmed (null while awaiting payment). */
+  paidAt?: string | null
+  /** Photos of the goods at dispatch — the evidence for any damage claim. */
+  dispatchPhotos?: string[]
+  refundedAt?: string | null
+  checkoutId?: string | null
   createdAt: string
   updatedAt: string
   items: OrderItem[]
@@ -605,6 +621,8 @@ export interface CheckoutResult {
   orderId: string
   paymentId: string
   approveUrl: string | null
+  /** MANUAL = bank transfer: no approveUrl; Solomon Bharat confirms receipt. */
+  paymentMode?: 'ONLINE' | 'MANUAL'
   adminPriceTotal: string
   currency?: string
   chargeAmount?: string
@@ -712,6 +730,8 @@ export interface AuditLogEntry {
   entityType: string
   entityId: string
   action: string
+  metadata?: Record<string, unknown> | null
+  admin?: { email: string }
   createdAt: string
 }
 

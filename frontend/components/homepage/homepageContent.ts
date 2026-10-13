@@ -1,16 +1,16 @@
 // ─── Guest homepage copy that states a business promise ───────────────────────
 // Every line here is a claim made to buyers on the marketing homepage. Each one
-// is grounded only in the business rules in AGENTS.md (Solomon Bharat is the
-// sole merchant, every product is admin-reviewed before publishing, PayPal-only
-// checkout, wholesale MOQs). Nothing here is a delivery time, fee, count or
-// customs promise. The owner must confirm each line before launch.
+// is grounded in docs/BUSINESS_DECISIONS.md: two seller models (Curated by
+// Solomon, where Solomon is the merchant, and marketplace brands, which sell
+// under their own name), 100% advance payment, wholesale MOQs, and DDP delivery
+// for curated orders. Nothing here is a delivery time, fee or count.
 
 /** Trust bar directly under the hero: exactly four short promises. */
 // CONFIRM: owner to approve all four trust-bar promises (the first now covers both seller types).
 export const TRUST_BAR_PROMISES: readonly string[] = [
   'Curated and marketplace brands, one checkout',
-  'Every product reviewed before listing',
-  'Secure checkout with PayPal',
+  'Verified Indian makers and brands',
+  'Prices in your local currency',
   'Wholesale minimum order quantities',
 ]
 
@@ -20,8 +20,8 @@ export const TRUST_BAR_PROMISES: readonly string[] = [
 // customs and duties cleared". Those were dropped because nothing in the business
 // rules backs them. Add them back here only once they're confirmed.
 export const ABOUT_PROMISES: readonly string[] = [
-  'You buy from Solomon Bharat: one merchant and one checkout for every order',
-  'Products from Indian makers, each reviewed by our team before it is listed',
+  'One checkout for Curated by Solomon products and independent Indian brands',
+  'Curated orders are quality-checked in Jaipur and delivered duty paid to your door',
   'Sign up to unlock wholesale pricing on the full catalogue',
 ]
 
@@ -34,20 +34,20 @@ export interface Benefit {
 // CONFIRM: owner to approve all four benefit titles and descriptions.
 export const BENEFITS: readonly Benefit[] = [
   {
-    title: 'One trusted merchant',
-    body: 'Every order is placed with Solomon Bharat, so you have a single point of contact from checkout to delivery.',
+    title: 'Curated by Solomon',
+    body: 'Buy curated products directly from Solomon Bharat. We collect, quality-check and ship them duty paid to your door.',
   },
   {
-    title: 'A reviewed catalogue',
-    body: 'Our team reviews every product before it is published to the marketplace.',
+    title: 'Independent Indian brands',
+    body: 'Discover verified makers selling under their own name, each with their own shop and minimums.',
   },
   {
     title: 'Wholesale quantities',
     body: 'Each product shows its minimum order quantity up front, so you know what you are committing to.',
   },
   {
-    title: 'Secure PayPal checkout',
-    body: 'Pay for every order through PayPal.',
+    title: 'Your currency, one checkout',
+    body: 'See prices in your local currency and pay for every brand in one checkout.',
   },
 ]
 
@@ -68,7 +68,7 @@ export const PROCESS_STEPS: readonly ProcessStep[] = [
   {
     number: '02',
     title: 'Add to cart and check out',
-    body: 'Order each product at or above its minimum order quantity and pay with PayPal.',
+    body: 'Order each product at or above its minimum order quantity and pay in advance in your local currency.',
   },
   {
     number: '03',

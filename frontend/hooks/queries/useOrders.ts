@@ -37,6 +37,19 @@ export function useMyOrder(id: string | null) {
   })
 }
 
+export function useCancelMyOrder() {
+  const qc = useQueryClient()
+  return useMutation<unknown, Error, { id: string; reason?: string }>({
+    mutationFn: async ({ id, reason }) => (await api.post(`/orders/me/${id}/cancel`, { reason })).data.data,
+    onSuccess: (_d, { id }) => {
+      qc.invalidateQueries({ queryKey: ['my-orders'] })
+      qc.invalidateQueries({ queryKey: ['my-order', id] })
+      toast.success('Order cancelled')
+    },
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
 // ─── Seller: order items linked to their own products — never buyer identity ─
 
 export function useSellerOrderItems(params?: { page?: number; limit?: number }) {
@@ -87,6 +100,37 @@ export const useCollectOrder = () => useAdminOrderAction('collect', 'Goods marke
 export const useShipOrder = () => useAdminOrderAction<{ trackingNumber?: string }>('ship', 'Order marked in transit.')
 export const useDeliverOrder = () => useAdminOrderAction('deliver', 'Order marked delivered.')
 export const useCancelOrder = () => useAdminOrderAction<{ reason: string }>('cancel', 'Order cancelled.')
+export const useRefundOrder = () => useAdminOrderAction<{ reference: string }>('refund', 'Order marked refunded.')
+
+/** Curated: warehouse quality check, with the dispatch photos (multipart). */
+export function useQualityCheckOrder() {
+  const qc = useQueryClient()
+  return useMutation<unknown, Error, { id: string; photos: File[] }>({
+    mutationFn: ({ id, photos }) => {
+      const form = new FormData()
+      photos.forEach((file) => form.append('photos', file))
+      return api.post(`/orders/admin/${id}/quality-check`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
+    },
+    onSuccess: (_, vars) => {
+      invalidateOrder(qc, vars.id)
+      toast.success('Quality check recorded.')
+    },
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
+/** Confirms a bank transfer for every order in a checkout. */
+export function useMarkCheckoutPaid() {
+  const qc = useQueryClient()
+  return useMutation<unknown, Error, { orderId: string; checkoutId: string; reference: string }>({
+    mutationFn: ({ checkoutId, reference }) => api.post(`/payments/admin/checkouts/${checkoutId}/mark-paid`, { reference }),
+    onSuccess: (_, vars) => {
+      invalidateOrder(qc, vars.orderId)
+      toast.success('Payment confirmed.')
+    },
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
 
 export function useUpdateTracking() {
   const qc = useQueryClient()
