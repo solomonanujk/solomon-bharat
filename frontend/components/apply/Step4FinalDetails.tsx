@@ -1,7 +1,8 @@
 'use client'
 
 import { BUSINESS_TYPE_OPTIONS, HEAR_ABOUT_US_OPTIONS } from '@/lib/sellerApplicationOptions'
-import { CURATED_COMMISSION } from '@/lib/sellerCommission'
+import { MARKETPLACE_COMMISSION } from '@/lib/sellerCommission'
+import { SELLER_AGREEMENT_VERSION } from '@/lib/legal/sellerAgreement'
 import { APPLY_SELECT_CLS, APPLY_TEXTAREA_CLS, ChoicePill, RequiredMark, StepField, StepHeader } from './shared'
 import type { StepProps } from './types'
 
@@ -42,12 +43,13 @@ export function Step4FinalDetails({ data, patch }: StepProps) {
       </StepField>
 
       <div className="rounded-lg p-4 bg-muted-bg border border-border-warm">
-        <p className="font-sans text-[13.5px] font-[700] text-primary mb-1.5">Commission structure — please read</p>
+        <p className="font-sans text-[13.5px] font-[700] text-primary mb-1.5">How selling works — please read</p>
         <p className="font-sans text-[13px] leading-[1.6] text-muted-text">
-          Solomon Bharat charges <strong className="text-primary">{CURATED_COMMISSION.first}% on the FIRST order</strong> from any new
-          international buyer we introduce. Every <strong className="text-primary">REPEAT order</strong> from the
-          same buyer is <strong className="text-primary">{CURATED_COMMISSION.repeat}%</strong>. No listing fees. No monthly fees. You pay
-          only when you earn.
+          After reviewing your application, our team assigns you one of two ways to sell.{' '}
+          <strong className="text-primary">Curated by Solomon</strong>: we buy your products at your price and sell them
+          under the Solomon name, with no commission. <strong className="text-primary">Marketplace brand</strong>: you sell
+          under your own brand and set your prices; we charge {MARKETPLACE_COMMISSION.first}% on a buyer&apos;s first order
+          with you and {MARKETPLACE_COMMISSION.repeat}% after, and 0% on buyers you bring yourself. No listing or monthly fees.
         </p>
       </div>
 
@@ -59,8 +61,11 @@ export function Step4FinalDetails({ data, patch }: StepProps) {
           className="mt-0.5 w-4 h-4 rounded border-border-warm accent-primary flex-shrink-0"
         />
         <span className="font-sans text-[13px] text-primary leading-[1.5]">
-          I agree to the commission structure. I understand this is an expression of interest, not a guaranteed
-          listing.
+          I have read and accept the{' '}
+          <a href="/seller-agreement" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+            Seller Agreement
+          </a>{' '}
+          (version {SELLER_AGREEMENT_VERSION}). I understand this application does not guarantee approval.
         </span>
       </label>
     </div>

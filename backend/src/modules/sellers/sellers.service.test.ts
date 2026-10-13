@@ -534,6 +534,19 @@ describe('SellersService', () => {
       );
     });
 
+    it('the admin can assign MARKETPLACE to an application submitted without a type choice', async () => {
+      setupApprove();
+      vi.mocked(repo.findApplicationById).mockResolvedValue(
+        buildApplication({ sellerType: SellerType.CURATED, brandName: null, businessName: 'Kala Kendra' }),
+      );
+      await service.approveApplication('app-1', 'admin-1', SellerType.MARKETPLACE);
+      expect(repo.createSellerUserAndProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ sellerType: SellerType.MARKETPLACE }),
+        expect.any(String),
+        'kala-kendra',
+      );
+    });
+
     it('appends a suffix when the slug is already taken (collision-safe)', async () => {
       setupApprove(['kala-kendra']);
 

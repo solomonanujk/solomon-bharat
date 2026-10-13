@@ -74,9 +74,9 @@ function invalidateApplication(qc: ReturnType<typeof useQueryClient>, id: string
 
 export function useApproveSellerApplication() {
   const qc = useQueryClient()
-  return useMutation<unknown, Error, string>({
-    mutationFn: (id) => api.post(`/sellers/applications/${id}/approve`),
-    onSuccess: (_, id) => {
+  return useMutation<unknown, Error, { id: string; sellerType: 'CURATED' | 'MARKETPLACE' }>({
+    mutationFn: ({ id, sellerType }) => api.post(`/sellers/applications/${id}/approve`, { sellerType }),
+    onSuccess: (_, { id }) => {
       invalidateApplication(qc, id)
       toast.success('Seller approved — account credentials sent.')
     },

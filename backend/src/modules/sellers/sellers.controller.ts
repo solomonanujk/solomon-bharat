@@ -1,3 +1,4 @@
+import { SellerType } from '@prisma/client';
 import { Request, Response } from 'express';
 import { sendCreated, sendSuccess } from '../../utils/response';
 import { buildPaginationMeta } from '../../utils/pagination';
@@ -30,7 +31,8 @@ export const sellersController = {
   },
 
   async approveApplication(req: Request, res: Response): Promise<void> {
-    const result = await sellersService.approveApplication(req.params.id, req.user!.id);
+    const { sellerType } = (req.body ?? {}) as { sellerType?: SellerType };
+    const result = await sellersService.approveApplication(req.params.id, req.user!.id, sellerType);
     sendSuccess(res, result, 'Seller application approved');
   },
 

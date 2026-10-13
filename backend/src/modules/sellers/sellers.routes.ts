@@ -8,6 +8,7 @@ import {
   requestMoreInfoSchema,
   submitApplicationSchema,
   updateSellerProfileSchema,
+  approveApplicationSchema,
 } from './sellers.validation';
 import { paginationQuerySchema } from '../../utils/pagination';
 import { validate } from '../../middleware/validate';
@@ -83,6 +84,7 @@ sellersRouter.post(
   requireAuth,
   requireAdmin,
   validate(idParamSchema, 'params'),
+  validate(approveApplicationSchema),
   asyncHandler(sellersController.approveApplication),
 );
 

@@ -9,7 +9,7 @@ import { useApplyAsSeller } from '@/hooks/queries/useSellers'
 import { getApiError } from '@/lib/getApiError'
 import { MARKETPLACE_COMMISSION_TERMS_VERSION } from '@/lib/sellerCommission'
 import { ApplySidebar } from '@/components/apply/ApplySidebar'
-import { StepSellerType } from '@/components/apply/StepSellerType'
+import { SELLER_AGREEMENT_VERSION } from '@/lib/legal/sellerAgreement'
 import { Step1Seller } from '@/components/apply/Step1Seller'
 import { Step2Products } from '@/components/apply/Step2Products'
 import { Step3ExportReadiness } from '@/components/apply/Step3ExportReadiness'
@@ -57,6 +57,7 @@ function buildCuratedPayload(data: ApplyWizardState): SellerApplyInput {
     businessType: data.businessType,
     hearAboutUs: data.hearAboutUs || undefined,
     agreedToCommissionTerms: data.agreedToCommissionTerms,
+    commissionTermsVersion: SELLER_AGREEMENT_VERSION,
   }
 }
 
@@ -94,7 +95,7 @@ function validateCuratedStep(step: number, data: ApplyWizardState): string | nul
   }
   if (step === 4) {
     if (!data.businessType) return 'Select what best describes you.'
-    if (!data.agreedToCommissionTerms) return 'Please agree to the commission structure to continue.'
+    if (!data.agreedToCommissionTerms) return 'Please accept the Seller Agreement to continue.'
   }
   return null
 }
@@ -142,9 +143,10 @@ function validateMarketplaceStep(step: number, data: ApplyWizardState): FieldErr
 
 export default function ApplyPage() {
   const router = useRouter()
-  // 0 = "How do you want to sell?"; 1..TOTAL_STEPS = the path's steps.
-  const [step, setStep] = useState(0)
-  const [data, setData] = useState<ApplyWizardState>(INITIAL_APPLY_WIZARD_STATE)
+  // Applicants never choose a seller type: everyone fills the same application and the admin
+  // assigns Curated or Marketplace at approval. The wizard therefore starts at step 1.
+  const [step, setStep] = useState(1)
+  const [data, setData] = useState<ApplyWizardState>({ ...INITIAL_APPLY_WIZARD_STATE, sellerType: 'CURATED' })
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const applyAsSeller = useApplyAsSeller()
@@ -181,13 +183,6 @@ export default function ApplyPage() {
   }
 
   function goNext() {
-    if (step === 0) {
-      if (!data.sellerType) { setError('Choose how you want to sell to continue.'); focusField('sellerType-group'); return }
-      setError(null)
-      setStep(1)
-      return
-    }
-
     if (isMarketplace) {
       const errs = validateMarketplaceStep(step, data)
       // The review step re-checks everything so a skipped/edited step can't slip through.
@@ -232,13 +227,7 @@ export default function ApplyPage() {
   function goBack() {
     setError(null)
     setFieldErrors({})
-    setStep((s) => Math.max(0, s - 1))
-  }
-
-  function switchType() {
-    setError(null)
-    setFieldErrors({})
-    setStep(0)
+    setStep((s) => Math.max(1, s - 1))
   }
 
   const apiError = applyAsSeller.error ? getApiError(applyAsSeller.error) : null
@@ -305,24 +294,6 @@ export default function ApplyPage() {
                 </div>
 
                 <div ref={panelRef} tabIndex={-1} className="flex-1 p-5 sm:p-9 outline-none">
-                  {step === 0 && (
-                    <div id="sellerType-group" tabIndex={-1} className="outline-none">
-                      <StepSellerType data={data} patch={patch} />
-                    </div>
-                  )}
-
-                  {step > 0 && (
-                    <p className="mb-5 font-sans text-[13px] text-muted-text">
-                      {isMarketplace ? 'Selling on the marketplace.' : 'Curated by Solomon Bharat.'}{' '}
-                      <button
-                        type="button"
-                        onClick={switchType}
-                        className="inline-flex min-h-11 items-center font-[600] text-forest underline underline-offset-4 hover:text-forest-hover"
-                      >
-                        {isMarketplace ? 'Switch to curated' : 'Switch to marketplace'}
-                      </button>
-                    </p>
-                  )}
 
                   {isMarketplace ? (
                     <>
@@ -348,7 +319,7 @@ export default function ApplyPage() {
                 </div>
 
                 <div className="border-t border-border-warm px-5 sm:px-9 py-4 flex items-center justify-between gap-3 flex-shrink-0">
-                  {step > 0 ? (
+                  {step > 1 ? (
                     <button
                       type="button"
                       onClick={goBack}

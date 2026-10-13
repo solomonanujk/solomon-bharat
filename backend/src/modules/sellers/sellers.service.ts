@@ -73,7 +73,8 @@ export class SellersService {
           brandBannerUrl: undefined,
           brandWebsite: undefined,
           minOrderValueInr: undefined,
-          commissionTermsVersion: undefined,
+          // Every applicant accepts the Seller Agreement; keep which version and when.
+          commissionAgreedAt: input.commissionTermsVersion ? new Date() : undefined,
         };
 
     // The wizard only collects city + country, not a full street address —
@@ -103,12 +104,18 @@ export class SellersService {
     return this.getApplicationOrThrow(id);
   }
 
+  /**
+   * The admin assigns the seller type here (applicants never choose it). Defaults to what
+   * the application already carries.
+   */
   async approveApplication(
     id: string,
     adminId: string,
+    sellerTypeOverride?: SellerType,
   ): Promise<{ user: SafeUser; profile: SellerProfile }> {
-    const application = await this.getApplicationOrThrow(id);
-    this.assertApplicationIsOpen(application);
+    const stored = await this.getApplicationOrThrow(id);
+    this.assertApplicationIsOpen(stored);
+    const application = sellerTypeOverride ? { ...stored, sellerType: sellerTypeOverride } : stored;
 
     const existingUser = await this.repo.findUserByEmail(application.email);
     if (existingUser) {

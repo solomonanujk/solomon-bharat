@@ -124,3 +124,8 @@ export type UpdateSellerProfileDto = z.infer<typeof updateSellerProfileSchema>;
 export const idParamSchema = z.object({
   id: z.string().uuid(),
 });
+
+/** The admin assigns the seller type at approval. */
+export const approveApplicationSchema = z.object({
+  sellerType: z.nativeEnum(SellerType).optional(),
+});
