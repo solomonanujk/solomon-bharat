@@ -5,6 +5,7 @@ import { prisma } from './config/prisma';
 import { redis } from './config/redis';
 import { ordersService } from './modules/orders/orders.service';
 import { seedCraftCategories } from './modules/categories/craftCategories';
+import { purgeDemoDataOnce } from './jobs/purgeDemoData';
 import { cache } from './utils/cache';
 
 const app = createApp();
@@ -14,8 +15,10 @@ const server = app.listen(env.PORT, () => {
   logger.info(`Swagger docs available at http://localhost:${env.PORT}/api/docs`);
 });
 
-// Adds any missing craft categories (never changes existing ones), then clears the cached tree.
-seedCraftCategories(prisma)
+// One-time pre-launch cleanup first, then any missing craft categories, then clear the cached tree.
+purgeDemoDataOnce(prisma)
+  .catch((err) => logger.error({ err }, 'Launch purge failed'))
+  .then(() => seedCraftCategories(prisma))
   .then(async (created) => {
     if (created > 0) {
       await cache.del('categories:public-tree');
