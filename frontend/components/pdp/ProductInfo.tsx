@@ -326,6 +326,7 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
     moq, stepQty, leadTime, placeOfOrigin, images, variants = [],
     isBestseller, isHandmade, isGITagged, ecoMaterials = [], ecoPackaging = [], ecoProduction = [],
     howItIsMade, craftImageUrl, tariffCode, craftTechnique, careInstructions, isMadeToOrder,
+    offersSamples, sampleMaxQty, samplePrice,
   } = product
   const brand = product.brand ?? null
   // Lazy: only marketplace products have a brand page to fetch the display-only return policy from.
@@ -878,6 +879,24 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
             </div>
           )}
           {howItIsMade && <p className="type-body text-muted whitespace-pre-wrap break-words">{howItIsMade}</p>}
+        </section>
+      )}
+
+      {offersSamples && (
+        <section className="border border-line rounded p-5 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1">
+            <p className="text-[15px] font-[600] text-ink">Samples available</p>
+            <p className="type-body text-muted mt-0.5">
+              Order up to {sampleMaxQty ?? 1} unit{(sampleMaxQty ?? 1) === 1 ? '' : 's'} before buying wholesale
+              {samplePrice && isAuthenticated ? `, at ${formatPrice(Number(samplePrice))} each` : ''}.
+            </p>
+          </div>
+          <Link
+            href={`/custom-requirement?product=${id}&name=${encodeURIComponent(product.name)}&sample=${sampleMaxQty ?? 1}`}
+            className="inline-flex items-center justify-center h-11 px-5 rounded bg-forest text-white font-[600] text-[14px] hover:bg-[#0F241D] transition-colors"
+          >
+            Order a sample
+          </Link>
         </section>
       )}
 

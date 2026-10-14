@@ -11,6 +11,8 @@ export const createRfqSchema = z.object({
   currency: z.string().trim().length(3).toUpperCase().optional(),
   destinationCountry: z.string().trim().min(2).max(100),
   deadline: z.coerce.date().optional(),
+  /** A sample order from a product page (multipart sends 'true'). */
+  isSample: z.preprocess((v) => v === true || v === 'true', z.boolean()).optional(),
 });
 export type CreateRfqDto = z.infer<typeof createRfqSchema>;
 

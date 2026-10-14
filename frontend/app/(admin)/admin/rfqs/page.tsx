@@ -16,6 +16,7 @@ function RfqCard({ rfq }: { rfq: Rfq }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-[15px] font-[600] font-sans text-[#0F241D]">
+            {rfq.isSample && <span className="mr-2 text-[11px] font-[700] uppercase tracking-[0.06em] text-[#A0522D]">Sample order</span>}
             {rfq.quantity.toLocaleString()} units &middot; {rfq.destinationCountry}
           </p>
           <p className="text-[12px] font-sans text-[#183D33B3] mt-0.5">

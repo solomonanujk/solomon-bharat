@@ -21,8 +21,17 @@ export class RfqsService {
     if (files.length > MAX_RFQ_IMAGES) {
       throw AppError.badRequest(`At most ${MAX_RFQ_IMAGES} reference images`);
     }
-    if (input.productId && !(await this.repo.productExists(input.productId))) {
+    const product = input.productId ? await this.repo.findProductForRfq(input.productId) : null;
+    if (input.productId && !product) {
       throw AppError.badRequest('Product not found');
+    }
+    if (input.isSample) {
+      if (!product || !product.offersSamples) {
+        throw AppError.badRequest('Samples are not available for this product');
+      }
+      if (product.sampleMaxQty && input.quantity > product.sampleMaxQty) {
+        throw AppError.badRequest(`You can order at most ${product.sampleMaxQty} sample units of this product`);
+      }
     }
     const uploads = await Promise.all(
       files.map((f, i) => storageProvider.uploadImage(f.buffer, `${Date.now()}-${i}-${f.originalname}`, `rfqs/${userId}`)),
@@ -37,6 +46,7 @@ export class RfqsService {
       destinationCountry: input.destinationCountry,
       deadline: input.deadline ?? null,
       referenceImages: uploads.map((u) => u.url),
+      isSample: input.isSample ?? false,
     });
   }
 

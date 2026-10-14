@@ -313,6 +313,13 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const [placeOfOrigin, setPlaceOfOrigin] = useState(product?.placeOfOrigin ?? '')
   const [craftTechnique, setCraftTechnique] = useState(product?.craftTechnique ?? '')
   const [careInstructions, setCareInstructions] = useState(product?.careInstructions ?? '')
+  // Samples: marketplace brands must say whether they offer them; admins set them for curated products.
+  const [offersSamples, setOffersSamples] = useState<'yes' | 'no' | ''>(
+    product ? (product.offersSamples ? 'yes' : 'no') : '',
+  )
+  const [sampleMaxQty, setSampleMaxQty] = useState(product?.sampleMaxQty ? String(product.sampleMaxQty) : '')
+  const [samplePrice, setSamplePrice] = useState(product?.samplePrice ? String(product.samplePrice) : '')
+  const samplesRequired = sellerIsMarketplace && !isAdminMode
   const [leadTime, setLeadTime] = useState(product?.leadTime ?? '')
   const [isMadeToOrder, setIsMadeToOrder] = useState<'yes' | 'no' | ''>(
     product ? (product.isMadeToOrder ? 'yes' : 'no') : '',
@@ -598,6 +605,9 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
     if (!isMadeToOrder) return 'Choose whether this product is made to order or ready stock.'
     if (!leadTime.trim()) return 'Enter the lead time (e.g. 15-20 days).'
     if (!careInstructions.trim()) return 'Enter care instructions.'
+    if (samplesRequired && !offersSamples) return 'Choose whether you offer samples of this product.'
+    if (offersSamples === 'yes' && !(Number(sampleMaxQty) >= 1 && Number.isInteger(Number(sampleMaxQty)))) return 'Enter the maximum sample quantity (a whole number).'
+    if (offersSamples === 'yes' && !(Number(samplePrice) > 0)) return 'Enter the price per sample unit.'
     if (totalImageCount < MIN_IMAGES || totalImageCount > MAX_IMAGES) {
       return `Upload between ${MIN_IMAGES} and ${MAX_IMAGES} images (currently ${totalImageCount}).`
     }
@@ -749,6 +759,9 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       placeOfOrigin: placeOfOrigin.trim() || undefined,
       craftTechnique: craftTechnique.trim() || undefined,
       careInstructions: careInstructions.trim() || undefined,
+      offersSamples: offersSamples === 'yes',
+      sampleMaxQty: offersSamples === 'yes' ? Number(sampleMaxQty) : undefined,
+      samplePrice: offersSamples === 'yes' ? Number(samplePrice) : undefined,
       leadTime: leadTime.trim() || undefined,
       isMadeToOrder: isMadeToOrder === 'yes',
       howItIsMade: howItIsMade.trim() || undefined,
@@ -841,6 +854,9 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       placeOfOrigin: placeOfOrigin.trim() || undefined,
       craftTechnique: craftTechnique.trim() || undefined,
       careInstructions: careInstructions.trim() || undefined,
+      offersSamples: offersSamples === 'yes',
+      sampleMaxQty: offersSamples === 'yes' ? Number(sampleMaxQty) : undefined,
+      samplePrice: offersSamples === 'yes' ? Number(samplePrice) : undefined,
       leadTime: leadTime.trim() || undefined,
       isMadeToOrder: isMadeToOrder === 'yes',
       howItIsMade: howItIsMade.trim() || undefined,
@@ -1022,6 +1038,28 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                   onChange={(e) => setCareInstructions(e.target.value)}
                   placeholder="e.g. Dry clean only; wipe with a dry cloth" className={INPUT_CLS} />
               </Field>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-5">
+              <Field label={samplesRequired ? 'Do you offer samples? *' : 'Offer samples?'}>
+                <select value={offersSamples} onChange={(e) => setOffersSamples(e.target.value as 'yes' | 'no' | '')} className={INPUT_CLS}>
+                  <option value="">Select…</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </Field>
+              {offersSamples === 'yes' && (
+                <>
+                  <Field label="Max sample quantity *">
+                    <input type="number" min={1} step={1} value={sampleMaxQty} onChange={(e) => setSampleMaxQty(e.target.value)}
+                      placeholder="e.g. 3" className={INPUT_CLS} />
+                  </Field>
+                  <Field label="Price per sample unit (₹) *">
+                    <input type="number" min={1} step="0.01" value={samplePrice} onChange={(e) => setSamplePrice(e.target.value)}
+                      placeholder="e.g. 500" className={INPUT_CLS} />
+                  </Field>
+                </>
+              )}
             </div>
 
             <label className="flex items-center gap-2.5 cursor-pointer mt-5">

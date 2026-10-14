@@ -500,6 +500,11 @@ model Product {
   careInstructions String?
   /// true = made to order (lead time applies); false = ready stock.
   isMadeToOrder    Boolean  @default(false)
+  /// Samples: whether the product can be ordered as a sample, the most units per sample
+  /// order, and the price per sample unit in INR (brand-set for marketplace, admin-set for curated).
+  offersSamples    Boolean  @default(false)
+  sampleMaxQty     Int?
+  samplePrice      Decimal? @db.Decimal(12, 2)
   artisanName   String?
   craftImageUrl String?
 
@@ -1034,6 +1039,8 @@ model Rfq {
   deadline           DateTime?
   referenceImages    Json?
   status             RfqStatus @default(NEW)
+  /// A sample order placed from a product page (quantity within the product's sample limit).
+  isSample           Boolean   @default(false)
   adminNotes         String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt

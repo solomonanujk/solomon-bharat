@@ -18,13 +18,16 @@ function CustomRequirementForm() {
   const params = useSearchParams()
   const productId = params.get('product') ?? undefined
   const productName = params.get('name')
+  // ?sample=N: ordering a sample of the product, up to N units.
+  const sampleMax = Number(params.get('sample')) || 0
+  const isSample = sampleMax > 0 && !!productId
   const user = useAuthStore((s) => s.user)
   const openAuthModal = useAuthStore((s) => s.openAuthModal)
   const currency = useCurrencyStore((s) => s.currency)
   const createRfq = useCreateRfq()
 
-  const [description, setDescription] = useState('')
-  const [quantity, setQuantity] = useState('')
+  const [description, setDescription] = useState(isSample ? 'Sample order' : '')
+  const [quantity, setQuantity] = useState(isSample ? '1' : '')
   const [targetPrice, setTargetPrice] = useState('')
   const [destinationCountry, setDestinationCountry] = useState('United Kingdom')
   const [deadline, setDeadline] = useState('')
@@ -46,6 +49,7 @@ function CustomRequirementForm() {
       currency: targetPrice ? currency : undefined,
       destinationCountry: destinationCountry.trim(),
       deadline: deadline || undefined,
+      isSample,
       images,
     })
   }
@@ -53,9 +57,11 @@ function CustomRequirementForm() {
   if (createRfq.isSuccess) {
     return (
       <div className="max-w-[640px]">
-        <h1 className="type-h1 text-ink">Request received</h1>
+        <h1 className="type-h1 text-ink">{isSample ? 'Sample order received' : 'Request received'}</h1>
         <p className="type-body text-muted mt-4">
-          Thank you. Our sourcing team will review your requirement and reply by email with options and a quote.
+          {isSample
+            ? 'Thank you. We will email you the total with shipping and bank transfer details, and send your sample once paid.'
+            : 'Thank you. Our sourcing team will review your requirement and reply by email with options and a quote.'}
         </p>
         <Link href="/" className="inline-block mt-6 underline underline-offset-4">Continue browsing</Link>
       </div>
@@ -65,8 +71,8 @@ function CustomRequirementForm() {
   return (
     <form onSubmit={submit} className="max-w-[640px] space-y-5">
       <div>
-        <h1 className="type-h1 text-ink">Custom requirement</h1>
-        <p className="type-body text-muted mt-3">
+        <h1 className="type-h1 text-ink">{isSample ? 'Order a sample' : 'Custom requirement'}</h1>
+        <p className="type-body text-muted mt-3" hidden={isSample}>
           Tell us what you need: custom colours, sizes, materials, packaging or private label. Our team works with our
           makers and replies with a quote.
         </p>
@@ -87,8 +93,8 @@ function CustomRequirementForm() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="quantity" className={LABEL}>Quantity (units) *</label>
-          <input id="quantity" type="number" required min={1} step={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} className={FIELD} />
+          <label htmlFor="quantity" className={LABEL}>{isSample ? `Sample units (up to ${sampleMax}) *` : 'Quantity (units) *'}</label>
+          <input id="quantity" type="number" required min={1} max={isSample ? sampleMax : undefined} step={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} className={FIELD} />
         </div>
         <div>
           <label htmlFor="targetPrice" className={LABEL}>Target price per unit ({currency}, optional)</label>
