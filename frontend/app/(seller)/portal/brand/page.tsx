@@ -188,8 +188,8 @@ function BrandForm({ brand }: { brand: OwnBrand }) {
 
       <section className="rounded-xl border border-line bg-white p-6 space-y-5">
         <h2 className="type-h3 text-ink">Selling terms</h2>
-        <Field id="brand-min" label="Minimum order value (INR)" hint="Buyers must reach this total from your products in one checkout. Enforced at checkout.">
-          <input id="brand-min" type="number" min={0} step="1" value={form.minOrderValueInr} onChange={(e) => set('minOrderValueInr', e.target.value)} className={INPUT_CLS + ' max-w-xs'} />
+        <Field id="brand-min" label="Minimum order value (INR) *" hint="Required before you can add or publish products. Buyers must reach this total from your products in one checkout.">
+          <input id="brand-min" type="number" min={1} step="1" value={form.minOrderValueInr} onChange={(e) => set('minOrderValueInr', e.target.value)} className={INPUT_CLS + ' max-w-xs'} />
         </Field>
         <Field id="brand-returns" label="Return policy" hint="Shown to buyers as information only. Solomon Bharat does not process returns, refunds or disputes.">
           <textarea id="brand-returns" rows={4} maxLength={2000} value={form.returnPolicy} onChange={(e) => set('returnPolicy', e.target.value)} className={TEXTAREA_CLS} />

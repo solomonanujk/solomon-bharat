@@ -115,6 +115,7 @@ function buildMockRepo(): ProductsRepository {
     update: vi.fn(),
     setApproval: vi.fn(),
     updateProductTierAdminPrices: vi.fn().mockResolvedValue(undefined),
+    createBaseTier: vi.fn().mockResolvedValue({ id: 'new-tier' }),
     updateVariantTierAdminPrices: vi.fn().mockResolvedValue(undefined),
     setCategory: vi.fn(),
     setPublished: vi.fn(),
@@ -562,6 +563,24 @@ describe('ProductsService', () => {
   });
 
   describe('approveProduct / rejectProduct', () => {
+    it('prices a product that has no tiers through a base tier created from the seller MOQ and price', async () => {
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildProduct());
+      vi.mocked(repo.findByIdWithMedia)
+        .mockResolvedValueOnce({ ...withMedia(buildProduct()), priceTiers: [], variants: [] } as never)
+        .mockResolvedValue({
+          ...withMedia(buildProduct()),
+          priceTiers: [{ id: 'new-tier', productId: 'prod-1', moq: 10, sellerPrice: new Decimal(5), adminPrice: null, agentPrice: null }],
+          variants: [],
+        } as never);
+      vi.mocked(repo.setApproval).mockResolvedValue(buildProduct({ approvalStatus: ProductApprovalStatus.APPROVED }));
+
+      await service.approveProduct('prod-1', [{ id: 'base', adminPrice: 900, agentPrice: 700 }], undefined, 'admin-1');
+
+      expect(repo.createBaseTier).toHaveBeenCalledWith('prod-1', expect.any(Number), expect.any(Number));
+      expect(repo.updateProductTierAdminPrices).toHaveBeenCalledWith([{ id: 'new-tier', adminPrice: 900, agentPrice: 700 }]);
+      expect(repo.setApproval).toHaveBeenCalledWith('prod-1', expect.objectContaining({ adminPrice: 900, agentPrice: 700 }));
+    });
+
     it('rejects approving a product that is already approved', async () => {
       vi.mocked(repo.findByIdRaw).mockResolvedValue(
         buildProduct({ approvalStatus: ProductApprovalStatus.APPROVED }),

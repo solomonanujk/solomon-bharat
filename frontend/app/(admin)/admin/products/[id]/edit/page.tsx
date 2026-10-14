@@ -132,13 +132,25 @@ function RejectDialog({ product, onClose }: { product: AdminProduct; onClose: ()
 
 // ─── Admin pricing card (post-approval tier price editing) ─────────────────────
 
-function AdminPricingCard({ product }: { product: AdminProduct }) {
+/**
+ * Curated products: the admin sets the buyer price (and optionally the agent price) for every
+ * quantity tier. In review it doubles as the approval form; once approved it updates prices.
+ */
+function AdminPricingCard({ product, mode, onReject }: { product: AdminProduct; mode: 'review' | 'update'; onReject?: () => void }) {
   const setAdminPrice = useSetAdminPrice()
-  const { allTiers, values, setValue, agentValues, setAgentValue, buildPayload, hasAnyPriced } = useTierPriceForm(product)
+  const approveProduct = useApproveProduct()
+  const { allTiers, values, setValue, agentValues, setAgentValue, buildPayload, hasAnyPriced, allPriced, missingCount } = useTierPriceForm(product)
+  const pending = setAdminPrice.isPending || approveProduct.isPending
 
   return (
     <div className="space-y-3">
-      <p className="text-[12px] font-[600] font-sans text-[#183D33B3] uppercase tracking-[0.06em]">Admin Pricing</p>
+      <div>
+        <p className="text-[15px] font-[600] font-sans text-[#0F241D]">Set prices</p>
+        <p className="text-[12.5px] font-sans text-[#183D33B3] mt-0.5">
+          Seller price is what the seller asked for. Enter the <strong>buyer price</strong> buyers will pay for each quantity
+          tier, and an <strong>agent price</strong> if agents should pay less (blank = agents pay the buyer price). All prices in ₹.
+        </p>
+      </div>
       <TierPriceTable
         tiers={allTiers}
         values={values}
@@ -146,16 +158,35 @@ function AdminPricingCard({ product }: { product: AdminProduct }) {
         agentValues={agentValues}
         onAgentChange={setAgentValue}
         editable
-        disabled={setAdminPrice.isPending}
+        disabled={pending}
       />
-      <Button
-        variant="ghost"
-        size="sm"
-        disabled={!hasAnyPriced || setAdminPrice.isPending}
-        onClick={() => setAdminPrice.mutate({ id: product.id, ...buildPayload() })}
-      >
-        {setAdminPrice.isPending ? 'Saving…' : 'Update Prices'}
-      </Button>
+      {mode === 'review' ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={!allPriced || pending}
+            onClick={() => approveProduct.mutate({ id: product.id, ...buildPayload() })}
+          >
+            {approveProduct.isPending ? 'Approving…' : 'Approve & publish with these prices'}
+          </Button>
+          <Button variant="destructive" size="sm" onClick={onReject} disabled={pending}>Reject</Button>
+          {!allPriced && missingCount > 0 && (
+            <span className="text-[12.5px] font-sans text-[#183D33B3]">
+              {missingCount} {missingCount === 1 ? 'tier still needs' : 'tiers still need'} a buyer price.
+            </span>
+          )}
+        </div>
+      ) : (
+        <Button
+          variant="primary"
+          size="sm"
+          disabled={!hasAnyPriced || pending}
+          onClick={() => setAdminPrice.mutate({ id: product.id, ...buildPayload() })}
+        >
+          {setAdminPrice.isPending ? 'Saving…' : 'Save prices'}
+        </Button>
+      )}
     </div>
   )
 }
@@ -317,23 +348,22 @@ export default function AdminProductEditPage() {
       <div className="space-y-5">
         {brand && <BrandOwnsPriceNotice brand={brand} />}
 
-        <Section title={brand ? 'Brand Price Tiers (set by the brand)' : 'Seller Price Tiers'}>
-          <TierPriceTable tiers={allTiers} />
-        </Section>
-
-        {needsReview && !brand && (
-          <div className="bg-white border border-[#D9E2DA] rounded-xl p-5 space-y-3">
-            <p className="text-[12px] font-[600] font-sans text-[#183D33B3] uppercase tracking-[0.06em]">Review</p>
-            <div className="flex flex-col gap-2">
-              <Button variant="primary" size="sm" onClick={() => setDialog('approve')}>
-                Approve
-              </Button>
-              <Button variant="destructive" size="sm" onClick={() => setDialog('reject')}>
-                Reject
-              </Button>
-            </div>
+        {brand ? (
+          <Section title="Brand Price Tiers (set by the brand)">
+            <TierPriceTable tiers={allTiers} />
+          </Section>
+        ) : needsReview ? (
+          <div className="bg-white border border-[#D9E2DA] rounded-xl p-5">
+            <AdminPricingCard product={product} mode="review" onReject={() => setDialog('reject')} />
           </div>
-        )}
+        ) : !isApproved ? (
+          <Section title="Seller Price Tiers">
+            <TierPriceTable tiers={allTiers} />
+            <p className="text-[12.5px] font-sans text-[#183D33B3]">
+              Prices can be set once the seller submits this product for review.
+            </p>
+          </Section>
+        ) : null}
 
         {isApproved && (
           <>
@@ -372,7 +402,7 @@ export default function AdminProductEditPage() {
 
             {!brand && (
               <div className="bg-white border border-[#D9E2DA] rounded-xl p-5">
-                <AdminPricingCard product={product} />
+                <AdminPricingCard product={product} mode="update" />
               </div>
             )}
 

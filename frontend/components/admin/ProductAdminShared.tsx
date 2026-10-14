@@ -50,21 +50,38 @@ export interface TierRow {
   key: string
   groupLabel: string | null
   tier: ProductPriceTier
+  /** flat = the product's own tiers; variant = a variant's tiers; base = the product has no
+   *  tiers yet and is priced from its MOQ and seller price (the backend creates the tier). */
+  kind?: 'flat' | 'variant' | 'base'
 }
 
 /** Flattens a product's pricing into one list of tiers — its own flat tiers if it
  *  has no variants, or each variant's own tiers (grouped by variant label) if it does. */
 export function collectAllTiers(product: AdminProduct): TierRow[] {
-  if (product.variants.length === 0) {
-    return product.priceTiers
-      .filter((t) => t.id)
-      .map((t) => ({ key: t.id!, groupLabel: null, tier: t }))
-  }
-  return product.variants.flatMap((v) =>
+  const flat: TierRow[] = product.priceTiers
+    .filter((t) => t.id)
+    .map((t) => ({ key: t.id!, groupLabel: product.variants.length ? 'All options' : null, tier: t, kind: 'flat' as const }))
+  const variant: TierRow[] = product.variants.flatMap((v) =>
     (v.priceTiers ?? [])
       .filter((t) => t.id)
-      .map((t) => ({ key: t.id!, groupLabel: `${v.type}: ${v.value}`, tier: t }))
+      .map((t) => ({ key: t.id!, groupLabel: `${v.type}: ${v.value}`, tier: t, kind: 'variant' as const })),
   )
+  if (flat.length + variant.length > 0) return [...flat, ...variant]
+  // No tiers saved: one row priced from the product's own MOQ and seller price.
+  return [
+    {
+      key: 'base',
+      groupLabel: null,
+      kind: 'base',
+      tier: {
+        id: 'base',
+        moq: product.moq,
+        sellerPrice: product.sellerPrice,
+        adminPrice: product.adminPrice ?? null,
+        agentPrice: product.agentPrice ?? null,
+      } as ProductPriceTier,
+    },
+  ]
 }
 
 export function useTierPriceForm(product: AdminProduct) {
@@ -92,16 +109,20 @@ export function useTierPriceForm(product: AdminProduct) {
   const allPriced = allTiers.length > 0 && missingCount === 0
 
   function buildPayload() {
-    const tierInputs = priced.map(({ key }) => {
+    const toInput = (key: string) => {
       const input: { id: string; adminPrice: number; agentPrice?: number } = { id: key, adminPrice: Number(values[key]) }
       if (agentValues[key]) {
         input.agentPrice = Number(agentValues[key])
       }
       return input
-    })
-    return product.variants.length === 0
-      ? { priceTiers: tierInputs }
-      : { variantPriceTiers: tierInputs }
+    }
+    // Flat and base rows are the product's own tiers; variant rows go separately.
+    const priceTiers = priced.filter((r) => r.kind !== 'variant').map(({ key }) => toInput(key))
+    const variantPriceTiers = priced.filter((r) => r.kind === 'variant').map(({ key }) => toInput(key))
+    return {
+      ...(priceTiers.length ? { priceTiers } : {}),
+      ...(variantPriceTiers.length ? { variantPriceTiers } : {}),
+    }
   }
 
   return { allTiers, values, setValue, agentValues, setAgentValue, buildPayload, hasAnyPriced, allPriced, missingCount }
@@ -208,8 +229,8 @@ export function TierPriceTable({ tiers, values, onChange, agentValues, onAgentCh
                 <tr className="bg-[#E7EDE7]/40 border-b border-[#D9E2DA]">
                   <th className="text-left py-1.5 px-2.5 font-[600] text-[#183D33B3]">MOQ</th>
                   <th className="text-left py-1.5 px-2.5 font-[600] text-[#183D33B3]">Seller Price</th>
-                  <th className="text-left py-1.5 px-2.5 font-[600] text-[#183D33B3]">Admin Price</th>
-                  <th className="text-left py-1.5 px-2.5 font-[600] text-[#183D33B3]">Agent Price</th>
+                  <th className="text-left py-1.5 px-2.5 font-[600] text-[#183D33B3]">Buyer Price (you set)</th>
+                  <th className="text-left py-1.5 px-2.5 font-[600] text-[#183D33B3]">Agent Price (optional)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#D9E2DA]">

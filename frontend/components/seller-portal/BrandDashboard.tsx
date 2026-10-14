@@ -45,6 +45,17 @@ export function BrandDashboard() {
 
   return (
     <div className="space-y-6">
+      {brand && !(Number(brand.minOrderValueInr) > 0) && (
+        <div role="alert" className="rounded-xl border border-[#E8C7A0] bg-[#FFF7EC] px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <p className="flex-1 text-[14px] font-sans text-ink">
+            <strong>Set your shop&apos;s minimum order value</strong> before adding or publishing products. Buyers must reach
+            it in one checkout.
+          </p>
+          <Link href="/portal/brand#brand-min" className="text-[14px] font-[600] font-sans text-forest underline underline-offset-4">
+            Set it now
+          </Link>
+        </div>
+      )}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <p className="text-[12px] font-[600] font-sans text-brass-dark tracking-[0.06em] uppercase mb-1">Brand dashboard</p>

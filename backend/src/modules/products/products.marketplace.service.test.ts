@@ -407,10 +407,19 @@ describe('ProductsService - marketplace brands', () => {
   });
 
   describe('createProduct by seller type', () => {
+    it('a brand without a shop minimum order value cannot add products', async () => {
+      vi.mocked(repo.findSellerContext).mockResolvedValue({
+        sellerType: SellerType.MARKETPLACE,
+        brand: { id: 'brand-1', status: BrandStatus.ACTIVE, minOrderValueInr: 0 },
+      });
+      await expect(service.createProduct('seller-1', createInput, files)).rejects.toMatchObject({ statusCode: 400 });
+      expect(repo.create).not.toHaveBeenCalled();
+    });
+
     it('marketplace seller: auto-approves, publishes, adminPrice = sellerPrice, brandId set, tier prices mirrored', async () => {
       vi.mocked(repo.findSellerContext).mockResolvedValue({
         sellerType: SellerType.MARKETPLACE,
-        brand: { id: 'brand-1', status: BrandStatus.ACTIVE },
+        brand: { id: 'brand-1', status: BrandStatus.ACTIVE, minOrderValueInr: 5000 },
       });
       vi.mocked(repo.create).mockResolvedValue(brandProduct());
 
@@ -454,7 +463,7 @@ describe('ProductsService - marketplace brands', () => {
     it('marketplace draft stays DRAFT but is tied to the brand', async () => {
       vi.mocked(repo.findSellerContext).mockResolvedValue({
         sellerType: SellerType.MARKETPLACE,
-        brand: { id: 'brand-1', status: BrandStatus.ACTIVE },
+        brand: { id: 'brand-1', status: BrandStatus.ACTIVE, minOrderValueInr: 5000 },
       });
       vi.mocked(repo.create).mockResolvedValue(withMedia(buildProduct({ approvalStatus: ProductApprovalStatus.DRAFT })));
       await service.saveDraft('seller-1', { name: 'Draft', categoryId: 'cat-l3-1', priceTiers: [{ moq: 5, sellerPrice: 9 }] });
@@ -475,7 +484,7 @@ describe('ProductsService - marketplace brands', () => {
       vi.mocked(sellersService.getSellerDetailForAdmin).mockResolvedValue({ id: 'seller-1' } as never);
       vi.mocked(repo.findSellerContext).mockResolvedValue({
         sellerType: SellerType.MARKETPLACE,
-        brand: { id: 'brand-1', status: BrandStatus.ACTIVE },
+        brand: { id: 'brand-1', status: BrandStatus.ACTIVE, minOrderValueInr: 5000 },
       });
       await expect(
         service.createProductAsAdmin('existing', 'seller-1', createInput, files, 'admin-1'),
@@ -485,7 +494,7 @@ describe('ProductsService - marketplace brands', () => {
   });
 
   describe('updateProduct', () => {
-    const marketplaceCtx = { sellerType: SellerType.MARKETPLACE, brand: { id: 'brand-1', status: BrandStatus.ACTIVE } };
+    const marketplaceCtx = { sellerType: SellerType.MARKETPLACE, brand: { id: 'brand-1', status: BrandStatus.ACTIVE, minOrderValueInr: 5000 } };
 
     it('marketplace: edits to a live product apply immediately - no pending pricing change', async () => {
       vi.mocked(repo.findSellerContext).mockResolvedValue(marketplaceCtx);
@@ -558,7 +567,7 @@ describe('ProductsService - marketplace brands', () => {
   });
 
   describe('quantity-tier pricing (brands)', () => {
-    const ctx = { sellerType: SellerType.MARKETPLACE, brand: { id: 'brand-1', status: BrandStatus.ACTIVE } };
+    const ctx = { sellerType: SellerType.MARKETPLACE, brand: { id: 'brand-1', status: BrandStatus.ACTIVE, minOrderValueInr: 5000 } };
     const ladder = [
       { moq: 10, sellerPrice: 500 },
       { moq: 50, sellerPrice: 450 },

@@ -152,7 +152,8 @@ function toBuyerProduct(
     careInstructions: product.careInstructions,
     offersSamples: product.offersSamples,
     sampleMaxQty: product.sampleMaxQty,
-    samplePrice: product.samplePrice?.toString() ?? null,
+    // Like every wholesale price, the sample price is only for signed-in buyers and agents.
+    samplePrice: canSeePrice ? product.samplePrice?.toString() ?? null : null,
     artisanName: product.artisanName,
     craftImageUrl: product.craftImageUrl,
     ecoMaterials: product.ecoMaterials,
@@ -359,6 +360,9 @@ Input: "${value}"`,
 /** A marketplace brand's quantity-price ladder (flat or per variant) is capped at this many tiers. */
 const MAX_BRAND_PRICE_TIERS = 5;
 
+/** Tier id the admin uses to price a product that has no tiers yet (see applyTierAdminPrices). */
+export const BASE_TIER_ID = 'base';
+
 export class ProductsService {
   constructor(
     private readonly repo: ProductsRepository = productsRepository,
@@ -382,6 +386,16 @@ export class ProductsService {
       throw AppError.forbidden('This marketplace account has no brand profile yet');
     }
     return ctx.brand.id;
+  }
+
+  /** Brands must set their shop's minimum order value before selling (owner rule). */
+  private async assertBrandShopMinimumSet(sellerProfileId: string): Promise<void> {
+    const ctx = await this.repo.findSellerContext(sellerProfileId);
+    if (ctx?.sellerType === SellerType.MARKETPLACE && !(Number(ctx.brand?.minOrderValueInr ?? 0) > 0)) {
+      throw AppError.badRequest(
+        "Set your shop's minimum order value in Brand profile before adding or publishing products",
+      );
+    }
   }
 
   /**
@@ -623,7 +637,10 @@ export class ProductsService {
 
     await this.categories.assertValidLeafCategory(input.categoryId);
     const brandId = await this.resolveBrandId(sellerProfileId);
-    if (brandId) this.assertValidBrandTiers(input);
+    if (brandId) {
+      this.assertValidBrandTiers(input);
+      await this.assertBrandShopMinimumSet(sellerProfileId);
+    }
 
     const slug = await this.generateUniqueSlug(input.name);
     const id = randomUUID();
@@ -1033,8 +1050,19 @@ export class ProductsService {
     variantPriceTiers: TierAdminPriceInput[] = [],
     requireEveryTierPriced = false,
   ): Promise<{ adminPrice: number | null; agentPrice: number | null }> {
-    const product = await this.repo.findByIdWithMedia(productId);
+    let product = await this.repo.findByIdWithMedia(productId);
     if (!product) throw AppError.notFound('Product not found');
+
+    // A product saved without any tier (e.g. imported) is priced through a 'base' row: create
+    // its first tier from the seller's MOQ and price, then price that tier like any other.
+    const baseInput = priceTiers.find((t) => t.id === BASE_TIER_ID);
+    if (baseInput) {
+      const hasTiers = product.priceTiers.length > 0 || product.variants.some((v) => v.priceTiers.length > 0);
+      if (hasTiers) throw AppError.badRequest('This product already has price tiers; price those instead');
+      const created = await this.repo.createBaseTier(productId, product.moq, Number(product.sellerPrice));
+      priceTiers = priceTiers.map((t) => (t.id === BASE_TIER_ID ? { ...t, id: created.id } : t));
+      product = (await this.repo.findByIdWithMedia(productId))!;
+    }
 
     const validTierIds = new Set(product.priceTiers.map((t) => t.id));
     const validVariantTierIds = new Set(product.variants.flatMap((v) => v.priceTiers.map((t) => t.id)));
@@ -1219,6 +1247,7 @@ export class ProductsService {
     if (!product.brandId) {
       throw AppError.forbidden('Only marketplace brand products can be published or unpublished by the seller');
     }
+    if (isPublished) await this.assertBrandShopMinimumSet(sellerProfileId);
     return this.setPublished(product.id, isPublished);
   }
 
