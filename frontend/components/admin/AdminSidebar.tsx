@@ -61,7 +61,7 @@ function useNavGroups(): NavGroup[] {
       label: 'Operations',
       items: [
         { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
-        { href: '/admin/rfqs', label: 'Custom Requirements', icon: MessageSquareQuote },
+        { href: '/admin/rfqs', label: 'Custom Requirements', icon: MessageSquareQuote, badge: stats?.newRfqs ?? null },
         { href: '/admin/payouts', label: 'Payouts', icon: CreditCard },
       ],
     },

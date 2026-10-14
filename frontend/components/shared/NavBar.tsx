@@ -839,6 +839,13 @@ function MobileNavDrawer({ open, onClose }: { open: boolean; onClose: () => void
                   Sign in
                 </Button>
                 <Link
+                  href="/custom-requirement"
+                  onClick={onClose}
+                  className="inline-flex items-center justify-center min-h-11 text-[14px] font-[600] font-sans text-forest underline underline-offset-4 hover:text-forest-hover"
+                >
+                  Custom order
+                </Link>
+                <Link
                   href="/sell"
                   onClick={onClose}
                   className="inline-flex items-center justify-center min-h-11 text-[14px] font-[600] font-sans text-forest underline underline-offset-4 hover:text-forest-hover"
@@ -901,6 +908,15 @@ export function NavBar({ transparent = false, initialSearchQuery }: NavBarProps)
           <NavSearchBar ghost={ghost} initialQuery={initialSearchQuery} className="flex-1 mx-1" />
 
           <div className="flex items-center gap-1 flex-shrink-0">
+            <Link
+              href="/custom-requirement"
+              className={cn(
+                'inline-flex items-center h-11 px-2.5 whitespace-nowrap text-[14px] leading-[20px] font-[500] font-sans underline-offset-4 hover:underline',
+                ghost ? 'text-white' : 'text-ink',
+              )}
+            >
+              Custom order
+            </Link>
             <CurrencySelector ghost={ghost} />
 
             {isAuthenticated ? (

@@ -3,7 +3,8 @@ export type LegalParagraph = string | string[]
 
 export interface LegalDocument {
   title: string
-  updated: string
+  /** Shown as "Last updated"; omit for help pages. */
+  updated?: string
   intro?: string
   sections: { heading: string; body: LegalParagraph[] }[]
 }
@@ -11,6 +12,7 @@ export interface LegalDocument {
 export const COMPANY = {
   name: 'Solomon Bharat Private Limited',
   city: 'Jaipur, Rajasthan, India',
-  email: 'support@solomonbharat.com',
-  privacyEmail: 'privacy@solomonbharat.com',
+  // The inbox the team actually reads (same as the site footer).
+  email: 'solomonbharat@gmail.com',
+  privacyEmail: 'solomonbharat@gmail.com',
 } as const

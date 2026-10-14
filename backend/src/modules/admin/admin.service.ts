@@ -54,6 +54,9 @@ export class AdminService {
       totalBuyers,
       totalApprovedSellers,
       brandTotals,
+      checkoutsAwaitingPayment,
+      newRfqs,
+      refundsToApprove,
     ] = await Promise.all([
       this.repo.countPendingSellerApplications(),
       this.repo.countPendingProductReviews(),
@@ -64,9 +67,15 @@ export class AdminService {
       this.repo.countTotalBuyers(),
       this.repo.countTotalApprovedSellers(),
       this.repo.brandRevenueTotals({}),
+      this.repo.countCheckoutsAwaitingPayment(),
+      this.repo.countNewRfqs(),
+      this.repo.countRefundsToApprove(),
     ]);
 
     return {
+      checkoutsAwaitingPayment,
+      newRfqs,
+      refundsToApprove,
       pendingSellerApplications,
       pendingProductReviews,
       activeOrders,

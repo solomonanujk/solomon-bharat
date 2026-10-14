@@ -1,10 +1,9 @@
-import { StubPage } from '@/components/shared/StubPage'
+import type { Metadata } from 'next'
+import { LegalPage } from '@/components/shared/LegalPage'
+import { FAQS } from '@/lib/content/helpPages'
 
-export default function FAQsPage() {
-  return (
-    <StubPage
-      title="Frequently Asked Questions"
-      body="Answers to common questions about browsing, ordering, and shipping on Solomon Bharat will be published here soon."
-    />
-  )
+export const metadata: Metadata = { title: `${FAQS.title} — Solomon Bharat` }
+
+export default function Page() {
+  return <LegalPage doc={FAQS} />
 }

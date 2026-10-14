@@ -192,6 +192,9 @@ export default function AdminOverviewPage() {
   const { data: stats, isLoading } = useAdminDashboard()
 
   const pendingActions = stats ? [
+    (stats.checkoutsAwaitingPayment ?? 0) > 0 && { label: 'Bank transfers to confirm', count: stats.checkoutsAwaitingPayment ?? 0, href: '/admin/orders?status=PENDING_PAYMENT', urgency: 'high' as const },
+    (stats.refundsToApprove ?? 0) > 0 && { label: 'Refunds to approve', count: stats.refundsToApprove ?? 0, href: '/admin/orders?status=CANCELLED', urgency: 'high' as const },
+    (stats.newRfqs ?? 0) > 0 && { label: 'New custom requests', count: stats.newRfqs ?? 0, href: '/admin/rfqs', urgency: 'high' as const },
     stats.pendingSellerApplications > 0 && { label: 'Seller applications awaiting review', count: stats.pendingSellerApplications, href: '/admin/seller-applications', urgency: 'high' as const },
     stats.pendingProductReviews > 0 && { label: 'Products awaiting approval', count: stats.pendingProductReviews, href: '/admin/products?approvalStatus=PENDING', urgency: 'high' as const },
     stats.ordersAwaitingCollection > 0 && { label: 'Orders awaiting collection', count: stats.ordersAwaitingCollection, href: '/admin/orders', urgency: 'medium' as const },

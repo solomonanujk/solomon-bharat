@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ShoppingCart } from 'lucide-react'
 import { useAdminOrders } from '@/hooks/queries/useOrders'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -33,8 +33,18 @@ function shortId(id: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminOrdersPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminOrdersList />
+    </Suspense>
+  )
+}
+
+function AdminOrdersList() {
+  // Dashboard counters link here with ?status=… to open the right filter.
+  const initialStatus = (useSearchParams().get('status') ?? '') as OrderStatus | ''
   const router = useRouter()
-  const [status, setStatus] = useState<OrderStatus | ''>('')
+  const [status, setStatus] = useState<OrderStatus | ''>(initialStatus)
   const [page, setPage] = useState(1)
 
   const { data, isLoading } = useAdminOrders({

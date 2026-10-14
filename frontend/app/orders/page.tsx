@@ -73,6 +73,9 @@ function formatDate(iso: string) {
   })
 }
 
+// Solomon's bank account for transfers, set in Vercel (NEXT_PUBLIC_BANK_DETAILS, line breaks as \n).
+const BANK_DETAILS = (process.env.NEXT_PUBLIC_BANK_DETAILS ?? '').replace(/\\n/g, '\n').trim()
+
 function orderRef(id: string) {
   return `#${id.slice(0, 8).toUpperCase()}`
 }
@@ -485,9 +488,19 @@ function OrderDetailSheet({
               {order.status === 'PENDING_PAYMENT' && (
                 <div className="bg-warning/[8%] border border-warning/30 rounded p-4">
                   <p className="text-[14px] font-[600] font-sans text-ink">Awaiting payment</p>
-                  <p className="text-[12px] font-sans text-muted-text mt-0.5">
-                    We&apos;ll email you bank transfer details for this order. It is confirmed once we receive your payment.
-                  </p>
+                  {BANK_DETAILS ? (
+                    <>
+                      <p className="text-[12px] font-sans text-muted-text mt-0.5">
+                        Pay by bank transfer to the account below. Use <strong>{orderRef(order.id)}</strong> as the payment reference.
+                        Your order is confirmed once we receive it.
+                      </p>
+                      <pre className="mt-2 whitespace-pre-wrap text-[12px] font-mono text-ink bg-white border border-border-warm rounded p-3">{BANK_DETAILS}</pre>
+                    </>
+                  ) : (
+                    <p className="text-[12px] font-sans text-muted-text mt-0.5">
+                      We&apos;ll email you bank transfer details for this order. It is confirmed once we receive your payment.
+                    </p>
+                  )}
                 </div>
               )}
 

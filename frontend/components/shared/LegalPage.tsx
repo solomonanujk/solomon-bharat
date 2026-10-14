@@ -11,7 +11,7 @@ export function LegalPage({ doc, children }: { doc: LegalDocument; children?: Re
         <div className="sb-container sb-section">
           <article className="max-w-[760px]">
             <h1 className="type-h1 text-ink">{doc.title}</h1>
-            <p className="type-body text-muted mt-3">Last updated: {doc.updated}</p>
+            {doc.updated && <p className="type-body text-muted mt-3">Last updated: {doc.updated}</p>}
             {doc.intro && <p className="type-body text-ink mt-6">{doc.intro}</p>}
             {children}
             <div className="mt-8 space-y-8">

@@ -28,6 +28,24 @@ function createdAtRange(range: DateRangeFilter) {
 export class AdminRepository {
   constructor(private readonly db: PrismaClient = prisma) {}
 
+  /** Checkouts placed and waiting for a bank transfer to be confirmed. */
+  async countCheckoutsAwaitingPayment(): Promise<number> {
+    const rows = await this.db.order.findMany({
+      where: { status: OrderStatus.PENDING_PAYMENT, deletedAt: null },
+      select: { checkoutId: true, id: true },
+    });
+    return new Set(rows.map((r) => r.checkoutId ?? r.id)).size;
+  }
+
+  countNewRfqs(): Promise<number> {
+    return this.db.rfq.count({ where: { status: 'NEW' } });
+  }
+
+  /** Paid orders that were cancelled and still need their refund recorded. */
+  countRefundsToApprove(): Promise<number> {
+    return this.db.order.count({ where: { status: OrderStatus.CANCELLED, paidAt: { not: null }, deletedAt: null } });
+  }
+
   countPendingSellerApplications(): Promise<number> {
     return this.db.sellerApplication.count({
       where: { status: { in: [SellerApplicationStatus.PENDING, SellerApplicationStatus.MORE_INFO_REQUESTED] } },
