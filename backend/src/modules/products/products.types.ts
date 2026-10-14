@@ -191,6 +191,9 @@ export interface CreateProductInput {
   howItIsMade?: string;
   craftTechnique?: string;
   careInstructions?: string;
+  offersSamples?: boolean;
+  sampleMaxQty?: number;
+  samplePrice?: number;
   artisanName?: string;
   // Resolved by the service from the uploaded craftImage file, never sent directly by
   // the client — see ProductsService.createProduct/createProductAsAdmin.
@@ -227,6 +230,9 @@ export interface SaveDraftInput {
   howItIsMade?: string;
   craftTechnique?: string;
   careInstructions?: string;
+  offersSamples?: boolean;
+  sampleMaxQty?: number;
+  samplePrice?: number;
   artisanName?: string;
   priceTiers?: PriceTierWithAdminPricing[];
   ecoMaterials?: string[];
@@ -280,6 +286,9 @@ export interface UpdateProductInput {
   howItIsMade?: string;
   craftTechnique?: string;
   careInstructions?: string;
+  offersSamples?: boolean;
+  sampleMaxQty?: number;
+  samplePrice?: number;
   artisanName?: string;
   priceTiers?: PriceTierWithAdminPricing[];
   ecoMaterials?: string[];
@@ -389,6 +398,9 @@ export interface BuyerProduct {
   howItIsMade: string | null;
   craftTechnique: string | null;
   careInstructions: string | null;
+  offersSamples: boolean;
+  sampleMaxQty: number | null;
+  samplePrice: string | null;
   artisanName: string | null;
   craftImageUrl: string | null;
   ecoMaterials: string[];
@@ -449,6 +461,9 @@ export interface SellerProduct {
   howItIsMade: string | null;
   craftTechnique: string | null;
   careInstructions: string | null;
+  offersSamples: boolean;
+  sampleMaxQty: number | null;
+  samplePrice: string | null;
   artisanName: string | null;
   craftImageUrl: string | null;
   ecoMaterials: string[];

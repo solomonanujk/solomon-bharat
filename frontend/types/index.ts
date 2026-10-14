@@ -149,6 +149,9 @@ export interface ProductListingDetails {
   howItIsMade: string | null
   craftTechnique: string | null
   careInstructions: string | null
+  offersSamples?: boolean
+  sampleMaxQty?: number | null
+  samplePrice?: string | null
   artisanName: string | null
   craftImageUrl: string | null
   ecoMaterials: string[]

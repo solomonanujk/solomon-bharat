@@ -170,6 +170,9 @@ export interface SubmitProductInput {
   howItIsMade?: string
   craftTechnique?: string
   careInstructions?: string
+  offersSamples?: boolean
+  sampleMaxQty?: number
+  samplePrice?: number
   artisanName?: string
   craftImage?: File
   priceTiers?: ProductPriceTier[]
@@ -258,6 +261,9 @@ export interface SaveDraftInput {
   howItIsMade?: string
   craftTechnique?: string
   careInstructions?: string
+  offersSamples?: boolean
+  sampleMaxQty?: number
+  samplePrice?: number
   artisanName?: string
   priceTiers?: ProductPriceTier[]
   ecoMaterials?: string[]

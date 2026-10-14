@@ -18,6 +18,7 @@ export interface Rfq {
   deadline: string | null
   referenceImages: string[] | null
   status: RfqStatus
+  isSample?: boolean
   adminNotes: string | null
   createdAt: string
   user?: { id: string; email: string; role: string }
@@ -32,6 +33,7 @@ export interface CreateRfqInput {
   currency?: string
   destinationCountry: string
   deadline?: string
+  isSample?: boolean
   images: File[]
 }
 

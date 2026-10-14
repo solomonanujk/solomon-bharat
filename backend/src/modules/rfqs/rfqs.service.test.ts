@@ -13,7 +13,7 @@ import { RfqsService } from './rfqs.service';
 function buildRepo(): RfqsRepository {
   return {
     create: vi.fn(async (data) => ({ id: 'rfq-1', ...data })),
-    productExists: vi.fn().mockResolvedValue(true),
+    findProductForRfq: vi.fn().mockResolvedValue({ id: 'p-1', offersSamples: true, sampleMaxQty: 5 }),
     listForUser: vi.fn(),
     listForAdmin: vi.fn(),
     findById: vi.fn(),
@@ -50,12 +50,21 @@ describe('RfqsService', () => {
   });
 
   it('rejects an unknown product and too many images', async () => {
-    vi.mocked(repo.productExists).mockResolvedValueOnce(false);
+    vi.mocked(repo.findProductForRfq).mockResolvedValueOnce(null);
     await expect(service.create('u', { ...INPUT, productId: 'nope' })).rejects.toMatchObject({ statusCode: 400 });
 
     const six = Array.from({ length: 6 }, () => ({ buffer: Buffer.from('x'), originalname: 'a.jpg' }));
     await expect(service.create('u', INPUT, six)).rejects.toMatchObject({ statusCode: 400 });
     expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('sample orders must be offered and within the sample limit', async () => {
+    await service.create('u', { ...INPUT, productId: 'p-1', quantity: 3, isSample: true });
+    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ isSample: true, quantity: 3 }));
+
+    await expect(service.create('u', { ...INPUT, productId: 'p-1', quantity: 6, isSample: true })).rejects.toMatchObject({ statusCode: 400 });
+    vi.mocked(repo.findProductForRfq).mockResolvedValueOnce({ id: 'p-2', offersSamples: false, sampleMaxQty: null } as never);
+    await expect(service.create('u', { ...INPUT, productId: 'p-2', quantity: 1, isSample: true })).rejects.toMatchObject({ statusCode: 400 });
   });
 
   it('admin update writes an audit log, 404s on unknown ids', async () => {

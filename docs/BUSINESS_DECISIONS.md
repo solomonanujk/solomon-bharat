@@ -97,6 +97,9 @@ Recommended: video, the story of the craft.
 - Payment gateway (waiting on the provider; manual bank transfer is live meanwhile).
 - Shipping rates: curated needs the shipping partner's API; marketplace brands choosing own rates vs Solomon's service.
 - Seller team members (several logins per seller).
-- Samples (deferred).
 - Buyer business verification (deferred).
 - GST TCS / TDS (194-O) computation and certificates for marketplace sellers.
+
+## 11. Samples (as built)
+- Marketplace brands must say on every product whether they offer samples; if yes, the maximum sample quantity and the price per sample unit. Admins can set the same for curated products.
+- Buyers see "Samples available" on the product page (price after sign-up) and use "Order a sample". It arrives in the admin's Custom Requirements inbox marked "Sample order"; the team emails the total with shipping and bank details.

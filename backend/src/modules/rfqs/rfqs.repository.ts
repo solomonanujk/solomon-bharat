@@ -16,8 +16,11 @@ export class RfqsRepository {
     return this.db.rfq.create({ data });
   }
 
-  productExists(id: string): Promise<boolean> {
-    return this.db.product.count({ where: { id, deletedAt: null } }).then((n) => n > 0);
+  findProductForRfq(id: string) {
+    return this.db.product.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, offersSamples: true, sampleMaxQty: true },
+    });
   }
 
   async listForUser(userId: string, pagination: PaginationQuery): Promise<{ data: Rfq[]; total: number }> {

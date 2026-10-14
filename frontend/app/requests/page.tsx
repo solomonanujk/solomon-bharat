@@ -32,7 +32,7 @@ export default function MyRequestsPage() {
             <article key={r.id} className="border border-border-warm rounded bg-surface p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[15px] font-[600] font-sans text-primary">
-                  {r.quantity.toLocaleString()} units &middot; {r.destinationCountry}
+                  {r.isSample ? 'Sample · ' : ''}{r.quantity.toLocaleString()} units &middot; {r.destinationCountry}
                 </p>
                 <span className="text-[12px] font-[600] font-sans px-2.5 py-1 rounded-full bg-accent/10 text-accent-hover">
                   {LABELS[r.status]}
