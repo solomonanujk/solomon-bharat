@@ -273,7 +273,8 @@ export type PolishFieldDto = z.infer<typeof polishFieldSchema>;
 // priced for buyers, for agents, or both in the same request.
 const tierAdminPriceSchema = z
   .object({
-    id: z.string().uuid(),
+    // A real tier uuid, or 'base' to price a product that has no tiers yet.
+    id: z.union([z.string().uuid(), z.literal('base')]),
     adminPrice: z.coerce.number().positive().optional(),
     agentPrice: z.coerce.number().positive().optional(),
   })

@@ -45,7 +45,7 @@ const PUBLISHED_WHERE: Prisma.ProductWhereInput = {
 
 export interface SellerContext {
   sellerType: SellerType;
-  brand: { id: string; status: BrandStatus } | null;
+  brand: { id: string; status: BrandStatus; minOrderValueInr?: { toString(): string } } | null;
 }
 
 type VariantCreateData = {
@@ -103,7 +103,7 @@ export class ProductsRepository {
   findSellerContext(sellerProfileId: string): Promise<SellerContext | null> {
     return this.db.sellerProfile.findUnique({
       where: { id: sellerProfileId },
-      select: { sellerType: true, brand: { select: { id: true, status: true } } },
+      select: { sellerType: true, brand: { select: { id: true, status: true, minOrderValueInr: true } } },
     });
   }
 
@@ -465,6 +465,11 @@ export class ProductsRepository {
     >,
   ): Promise<Product> {
     return this.db.product.update({ where: { id }, data });
+  }
+
+  /** Creates a product's first flat price tier (for products that were saved without any). */
+  createBaseTier(productId: string, moq: number, sellerPrice: number): Promise<{ id: string }> {
+    return this.db.productPriceTier.create({ data: { productId, moq, sellerPrice }, select: { id: true } });
   }
 
   async updateProductTierAdminPrices(updates: TierAdminPriceInput[]): Promise<void> {

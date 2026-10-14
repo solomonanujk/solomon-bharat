@@ -489,12 +489,12 @@ describe('ProductsRepository', () => {
     expect(db.brand.findMany.mock.calls[0][0].where.status).toBe('ACTIVE');
   });
 
-  it('findSellerContext selects only sellerType and brand id/status', async () => {
+  it('findSellerContext selects sellerType and brand id/status/minimum order value', async () => {
     db.sellerProfile.findUnique.mockResolvedValue({ sellerType: 'MARKETPLACE', brand: { id: 'b1', status: 'ACTIVE' } });
     await repo.findSellerContext('sp1');
     expect(db.sellerProfile.findUnique).toHaveBeenCalledWith({
       where: { id: 'sp1' },
-      select: { sellerType: true, brand: { select: { id: true, status: true } } },
+      select: { sellerType: true, brand: { select: { id: true, status: true, minOrderValueInr: true } } },
     });
   });
 

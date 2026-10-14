@@ -64,7 +64,7 @@ export default function SellerPortalLayout({
       </div>
 
       {/* Main area */}
-      <div className="flex-1 min-w-0 lg:ml-[200px] flex flex-col min-h-screen">
+      <div className="flex-1 min-w-0 lg:ml-[200px] flex flex-col min-h-screen overflow-x-hidden">
         {/* Top bar */}
         <header className="h-16 border-b border-[#D9E2DA] bg-white flex items-center justify-between px-6 sticky top-0 z-20">
           {/* Search */}
