@@ -1,10 +1,9 @@
-import { StubPage } from '@/components/shared/StubPage'
+import type { Metadata } from 'next'
+import { LegalPage } from '@/components/shared/LegalPage'
+import { CAREERS } from '@/lib/content/helpPages'
 
-export default function CareersPage() {
-  return (
-    <StubPage
-      title="Careers"
-      body="We're building the bridge between Indian artisan craftsmanship and global wholesale buyers. Open roles will be listed here — check back soon."
-    />
-  )
+export const metadata: Metadata = { title: `${CAREERS.title} — Solomon Bharat` }
+
+export default function Page() {
+  return <LegalPage doc={CAREERS} />
 }

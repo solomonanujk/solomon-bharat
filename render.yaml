@@ -5,8 +5,7 @@ services:
     rootDir: backend
     plan: free
     branch: main
-    # seed:categories only adds missing categories, so it is safe on every deploy.
-    buildCommand: npm ci --include=dev && npx prisma migrate deploy && npm run seed:categories && npm run build
+    buildCommand: npm ci --include=dev && npx prisma migrate deploy && npm run build
     startCommand: npm start
     healthCheckPath: /api/v1/health
     envVars:

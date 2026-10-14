@@ -99,7 +99,10 @@ export function BrandOrdersList() {
                     <td className="px-5 py-4 text-[13.5px] font-sans tabular-nums text-ink">
                       {o.netTotal !== null ? formatINR(Number(o.netTotal)) : '—'}
                     </td>
-                    <td className="px-5 py-4"><OrderItemStatusBadge status={o.status} /></td>
+                    <td className="px-5 py-4">
+                      <OrderItemStatusBadge status={o.status} />
+                      {o.status === 'PAYMENT_RECEIVED' && <AcceptDeadline paidAt={o.paidAt} />}
+                    </td>
                     <td className="px-5 py-4">
                       <Link href={`/portal/orders/${o.id}`} className="text-[13px] font-[600] font-sans text-forest underline min-h-[44px] inline-flex items-center">
                         View<span className="sr-only"> order {o.id.slice(0, 8)}</span>
@@ -130,5 +133,19 @@ export function BrandOrdersList() {
         </>
       )}
     </div>
+  )
+}
+
+/** "Accept within 5h" for a paid order the brand has not accepted yet (24h window). */
+function AcceptDeadline({ paidAt }: { paidAt: string | null }) {
+  // The time this row was first shown; a page refresh updates it.
+  const [now] = useState(() => Date.now())
+  if (!paidAt) return null
+  const hoursLeft = Math.ceil((new Date(paidAt).getTime() + 24 * 60 * 60 * 1000 - now) / (60 * 60 * 1000))
+  if (hoursLeft <= 0) return null
+  return (
+    <span className={`block mt-1 text-[11.5px] font-[600] font-sans ${hoursLeft <= 6 ? 'text-error' : 'text-muted'}`}>
+      Accept within {hoursLeft}h
+    </span>
   )
 }

@@ -8,10 +8,10 @@
 /** Trust bar directly under the hero: exactly four short promises. */
 // CONFIRM: owner to approve all four trust-bar promises (the first now covers both seller types).
 export const TRUST_BAR_PROMISES: readonly string[] = [
-  'Curated and marketplace brands, one checkout',
+  'Delivered duty paid to the UK',
+  'Pay in your own currency',
+  'Quality-checked in Jaipur',
   'Verified Indian makers and brands',
-  'Prices in your local currency',
-  'Wholesale minimum order quantities',
 ]
 
 /** About-preview band: three promise rows under the "We're Solomon Bharat" story. */

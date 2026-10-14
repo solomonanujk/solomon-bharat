@@ -4,6 +4,9 @@ export interface DateRangeFilter {
 }
 
 export interface DashboardSummary {
+  checkoutsAwaitingPayment: number;
+  newRfqs: number;
+  refundsToApprove: number;
   pendingSellerApplications: number;
   pendingProductReviews: number;
   activeOrders: number;

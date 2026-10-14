@@ -529,6 +529,13 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
   detailRows.push({ label: 'Minimum order', value: `${moq} units${qtyStep > 1 ? `, in cases of ${qtyStep}` : ''}` })
   if (leadTime) detailRows.push({ label: 'Production lead time', value: leadTime })
   if (placeOfOrigin) detailRows.push({ label: 'Made in', value: placeOfOrigin })
+  // Quick-scan craft badges under the title: handmade, technique, region, availability.
+  const craftBadges = [
+    isHandmade ? 'Handmade' : null,
+    craftTechnique || null,
+    placeOfOrigin || null,
+    isMadeToOrder ? 'Made to order' : 'Ready stock',
+  ].filter((b): b is string => !!b)
   if (craftTechnique) detailRows.push({ label: 'Craft technique', value: craftTechnique })
   detailRows.push({ label: 'Availability', value: isMadeToOrder ? 'Made to order' : 'Ready stock' })
   if (careInstructions) detailRows.push({ label: 'Care', value: careInstructions })
@@ -599,6 +606,15 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
       </div>
 
       <h1 className="type-h1 text-ink mt-1 break-words">{name}</h1>
+      {craftBadges.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2" aria-label="Craft details">
+          {craftBadges.map((b) => (
+            <span key={b} className="inline-flex items-center h-7 px-2.5 rounded-full bg-ivory border border-line text-[12px] font-[600] font-sans text-forest">
+              {b}
+            </span>
+          ))}
+        </div>
+      )}
 
       {brand && <BrandTag brand={brand} prefix="by " className="mt-2 !text-[14px] !leading-[20px]" />}
 

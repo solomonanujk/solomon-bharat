@@ -243,7 +243,13 @@ export function ProductCard({ product, className }: ProductCardProps) {
           </Link>
         </h3>
 
-        {brand && <BrandTag brand={brand} />}
+        {brand ? (
+          <BrandTag brand={brand} />
+        ) : (
+          <span className="inline-flex self-start items-center text-[11px] font-[600] font-sans uppercase tracking-[0.04em] text-forest">
+            Curated by Solomon
+          </span>
+        )}
 
         <span className="moq-tag self-start">MOQ {moq} units</span>
 

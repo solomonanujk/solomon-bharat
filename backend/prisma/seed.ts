@@ -1,7 +1,7 @@
 import { PrismaClient, Role, ProductApprovalStatus, CollectionStatus } from '@prisma/client';
 import { hashPassword } from '../src/utils/bcrypt';
 import { slugify } from '../src/utils/helpers';
-import { CRAFT_CATEGORY_TREE } from './craftCategories';
+import { CRAFT_CATEGORY_TREE } from '../src/modules/categories/craftCategories';
 
 const prisma = new PrismaClient();
 

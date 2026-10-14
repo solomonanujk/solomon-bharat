@@ -19,7 +19,8 @@ export const useCurrencyStore = create<CurrencyStore>()(
   persist(
     (set, get) => ({
   // ─── State ──────────────────────────────────────────────────────────────────
-  currency: 'USD',
+  // UK is the first market; IP detection overrides this on a first visit.
+  currency: 'GBP',
   rates: {},
   lastFetched: null,
 

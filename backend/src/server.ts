@@ -4,6 +4,8 @@ import { logger } from './config/logger';
 import { prisma } from './config/prisma';
 import { redis } from './config/redis';
 import { ordersService } from './modules/orders/orders.service';
+import { seedCraftCategories } from './modules/categories/craftCategories';
+import { cache } from './utils/cache';
 
 const app = createApp();
 
@@ -11,6 +13,17 @@ const server = app.listen(env.PORT, () => {
   logger.info(`Solomon Bharat API listening on port ${env.PORT} [${env.NODE_ENV}]`);
   logger.info(`Swagger docs available at http://localhost:${env.PORT}/api/docs`);
 });
+
+// Adds any missing craft categories (never changes existing ones), then clears the cached tree.
+seedCraftCategories(prisma)
+  .then(async (created) => {
+    if (created > 0) {
+      await cache.del('categories:public-tree');
+      await cache.del('categories:public-tree:curated');
+      logger.info({ created }, 'Craft categories added');
+    }
+  })
+  .catch((err) => logger.error({ err }, 'Craft category seeding failed'));
 
 // Cancels marketplace orders a brand has not accepted within 24h of payment.
 const EXPIRY_SWEEP_MS = 10 * 60 * 1000;

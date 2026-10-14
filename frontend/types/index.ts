@@ -698,6 +698,9 @@ export interface BuyerMessage {
 // ─── Admin ────────────────────────────────────────────────────────────────────
 
 export interface AdminDashboardSummary {
+  checkoutsAwaitingPayment?: number
+  newRfqs?: number
+  refundsToApprove?: number
   pendingSellerApplications: number
   pendingProductReviews: number
   activeOrders: number

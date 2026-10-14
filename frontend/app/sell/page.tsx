@@ -9,7 +9,7 @@ import { NavBar } from '@/components/shared/NavBar'
 import { Footer } from '@/components/shared/Footer'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/store/useAuthStore'
-import { CURATED_COMMISSION, MARKETPLACE_COMMISSION } from '@/lib/sellerCommission'
+import { MARKETPLACE_COMMISSION } from '@/lib/sellerCommission'
 
 // The seller application itself lives at /apply (multi-step wizard). Every
 // "Apply as a seller" CTA on this page links there.
@@ -25,7 +25,7 @@ const REVIEW_TIME_LABEL = '24–48 hours'
 // this page no longer says "no commission" — only that applying and listing are free.
 const FEE_LABEL = 'Free to apply and list'
 // CONFIRM: payout timing after dispatch.
-const PAYOUT_TIMING = 'within 15 days'
+const PAYOUT_TIMING = 'when the order is dispatched'
 // CONFIRM: hide seller testimonials until real, permissioned quotes exist.
 const SHOW_SELLER_TESTIMONIALS = false
 
@@ -127,7 +127,7 @@ const STEPS = [
   {
     title: 'Add products, ship orders',
     // CONFIRM: payout timing
-    body: `Once approved, add products in your seller portal — curated products are reviewed before they go live, and marketplace brands publish their own. When orders come in, you ship them, mark them dispatched, and we process your payment ${PAYOUT_TIMING}.`,
+    body: `Once approved, add products in your seller portal: curated products are reviewed before they go live, and brands publish their own. Brands accept each order within 24 hours and ship it with dispatch photos; for curated orders we collect the goods from you. We pay you ${PAYOUT_TIMING}.`,
   },
 ]
 
@@ -161,14 +161,14 @@ function ProcessBand() {
 // CONFIRM: all commission figures come from lib/sellerCommission.ts (owner to confirm).
 const WAYS_TO_SELL = [
   {
-    title: 'Sell on the marketplace',
+    title: 'Independent brand',
     body: 'Sell under your own brand. You set your prices and minimum order value, publish your own products and ship to the buyer yourself. Buyers see your brand name on your products.',
-    fee: `Solomon charges ${MARKETPLACE_COMMISSION.first}% on each buyer's first order with you and ${MARKETPLACE_COMMISSION.repeat}% on that buyer's later orders.`,
+    fee: `Solomon charges ${MARKETPLACE_COMMISSION.first}% on each buyer's first order with you and ${MARKETPLACE_COMMISSION.repeat}% on that buyer's later orders, and 0% on buyers you invite yourself.`,
   },
   {
     title: 'Curated by Solomon Bharat',
-    body: 'We review and price your products and sell them to international buyers under the Solomon Bharat name. Buyers contract with us and do not see your name.',
-    fee: `Solomon charges ${CURATED_COMMISSION.first}% on the first order from a new buyer and ${CURATED_COMMISSION.repeat}% on repeat orders.`,
+    body: 'You tell us the price you want for each product. We sell it to international buyers under the Solomon name, collect it from you, quality-check it in Jaipur and ship it.',
+    fee: 'No commission: we pay you the price you asked for on every unit ordered.',
   },
 ]
 
@@ -178,10 +178,10 @@ function WaysToSellSection() {
       <div className="sb-container">
         <div className="max-w-[660px]">
           <p className="type-eyebrow text-brass-deep">Two ways to sell</p>
-          <h2 className="type-h2 text-ink mt-3">Choose how you want to sell</h2>
+          <h2 className="type-h2 text-ink mt-3">Apply once. We find the right fit.</h2>
           <p className="type-body text-muted mt-4">
-            You choose once when you apply, and each account sells one way. Either way, applying is free and every
-            application is reviewed by our team.
+            You don&apos;t have to choose. Fill in one application; our team reviews your products and presence and sets
+            you up the way that suits you best. Applying is free.
           </p>
         </div>
         <div className="mt-6 lg:mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -274,9 +274,9 @@ function PricingSection() {
           {/* CONFIRM: fee claim — "no listing fees, no subscriptions" and the commission
               figures (lib/sellerCommission.ts). Commission terms are shown in the application. */}
           <p className="type-body text-muted mt-4">
-            There are no listing fees and no subscriptions. Marketplace brands keep the price they set minus
+            There are no listing fees and no subscriptions. Independent brands keep the price they set minus
             Solomon&apos;s commission ({MARKETPLACE_COMMISSION.first}% on a buyer&apos;s first order, {MARKETPLACE_COMMISSION.repeat}%
-            on that buyer&apos;s later orders). Curated sellers are paid the price they asked for; the international pricing is ours to manage.
+            on that buyer&apos;s later orders, 0% on buyers they invite). Curated sellers are paid the price they asked for, with no commission.
             Commission terms are set out in the application before you submit.
           </p>
           <ul className="mt-6 flex flex-col gap-3">
@@ -503,7 +503,7 @@ const FAQS = [
   {
     q: 'Is there any cost to join?',
     // CONFIRM: fee claim. Commission figures live in the application (step 4).
-    a: `Applying is free and listing is free. Marketplace brands pay ${MARKETPLACE_COMMISSION.first}% commission on each buyer's first order and ${MARKETPLACE_COMMISSION.repeat}% on that buyer's later orders; curated sellers pay ${CURATED_COMMISSION.first}% on the first order from a new buyer and ${CURATED_COMMISSION.repeat}% on repeat orders. You agree to the terms before you submit.`, // CONFIRM: commission figures
+    a: `Applying is free and listing is free. Independent brands pay ${MARKETPLACE_COMMISSION.first}% commission on each buyer's first order and ${MARKETPLACE_COMMISSION.repeat}% on that buyer's later orders, and 0% on buyers they invite themselves. Curated sellers pay no commission: we pay the price they asked for. You accept the Seller Agreement before you submit.`,
   },
   {
     q: 'How does pricing work?',

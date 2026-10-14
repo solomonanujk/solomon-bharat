@@ -24,6 +24,9 @@ function buildUser(overrides: Partial<User> = {}): User {
 function buildMockRepo(): AdminRepository {
   return {
     countPendingSellerApplications: vi.fn(),
+    countCheckoutsAwaitingPayment: vi.fn().mockResolvedValue(2),
+    countNewRfqs: vi.fn().mockResolvedValue(3),
+    countRefundsToApprove: vi.fn().mockResolvedValue(1),
     countPendingProductReviews: vi.fn(),
     countActiveOrders: vi.fn(),
     countOrdersAwaitingCollection: vi.fn(),
@@ -80,6 +83,9 @@ describe('AdminService', () => {
       const summary = await service.getDashboard();
 
       expect(summary).toEqual({
+        checkoutsAwaitingPayment: 2,
+        newRfqs: 3,
+        refundsToApprove: 1,
         pendingSellerApplications: 3,
         pendingProductReviews: 5,
         activeOrders: 10,

@@ -1,3 +1,6 @@
+import { PrismaClient } from '@prisma/client';
+import { slugify } from '../../utils/helpers';
+
 /**
  * Indian craft category tree (3 levels), modelled on iTokri's craft-led navigation and
  * Amazon's Handicrafts browse tree. Level-3 names are unique across the whole tree so a
@@ -73,3 +76,34 @@ export const CRAFT_CATEGORY_TREE: Record<string, Record<string, string[]>> = {
     Corporate: ['Corporate Gifts', 'Gift Hampers'],
   },
 };
+
+/**
+ * Creates any missing category from the tree; never changes or deletes existing ones.
+ * Safe to run on every server start. Returns how many were created.
+ */
+export async function seedCraftCategories(db: PrismaClient): Promise<number> {
+  let created = 0;
+  const ensure = async (slug: string, data: { name: string; level: number; parentId?: string; sortOrder: number }) => {
+    const existing = await db.category.findUnique({ where: { slug } });
+    if (existing) return existing;
+    created += 1;
+    return db.category.create({ data: { ...data, slug } });
+  };
+
+  let sortL1 = 0;
+  for (const [l1Name, l2Map] of Object.entries(CRAFT_CATEGORY_TREE)) {
+    // eslint-disable-next-line no-await-in-loop
+    const l1 = await ensure(slugify(l1Name), { name: l1Name, level: 1, sortOrder: sortL1++ });
+    let sortL2 = 0;
+    for (const [l2Name, l3Names] of Object.entries(l2Map)) {
+      // eslint-disable-next-line no-await-in-loop
+      const l2 = await ensure(slugify(`${l1Name}-${l2Name}`), { name: l2Name, level: 2, parentId: l1.id, sortOrder: sortL2++ });
+      let sortL3 = 0;
+      for (const l3Name of l3Names) {
+        // eslint-disable-next-line no-await-in-loop
+        await ensure(slugify(`${l1Name}-${l2Name}-${l3Name}`), { name: l3Name, level: 3, parentId: l2.id, sortOrder: sortL3++ });
+      }
+    }
+  }
+  return created;
+}

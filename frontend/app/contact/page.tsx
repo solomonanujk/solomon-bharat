@@ -1,10 +1,9 @@
-import { StubPage } from '@/components/shared/StubPage'
+import type { Metadata } from 'next'
+import { LegalPage } from '@/components/shared/LegalPage'
+import { CONTACT } from '@/lib/content/helpPages'
 
-export default function ContactPage() {
-  return (
-    <StubPage
-      title="Contact Us"
-      body="Have a question about an order, an application, or the marketplace? Reach us at support@solomonbharat.com and our team will get back to you shortly."
-    />
-  )
+export const metadata: Metadata = { title: `${CONTACT.title} — Solomon Bharat` }
+
+export default function Page() {
+  return <LegalPage doc={CONTACT} />
 }
