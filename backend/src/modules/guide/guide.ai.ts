@@ -11,7 +11,8 @@ let adminGeminiKey = '';
 export function setAdminGeminiKey(key: string): void {
   adminGeminiKey = key;
 }
-const geminiKey = (): string => env.GEMINI_API_KEY || adminGeminiKey;
+// The key entered in Admin → Solomon AI wins over the server's GEMINI_API_KEY.
+const geminiKey = (): string => adminGeminiKey || env.GEMINI_API_KEY;
 /** Solomon AI uses Google Gemini when a Gemini key is available (free tier), otherwise Claude. */
 const useGemini = (): boolean => Boolean(geminiKey());
 
@@ -127,11 +128,31 @@ const EXTRACT_PROMPT = `Transcribe everything useful in this file into plain tex
 Keep every number, price, rate, percentage, unit, code, name, place and date exactly as written. Write tables as rows with "|" between columns.
 Do not summarise away details and do not add anything that is not in the file. Reply with the transcription only.`;
 
+/** Text from a PDF's own text layer, read on the server (no AI, no cost). Empty for scanned PDFs. */
+async function pdfTextLayer(buffer: Buffer): Promise<string> {
+  try {
+    const { extractText, getDocumentProxy } = await import('unpdf');
+    const pdf = await getDocumentProxy(new Uint8Array(buffer));
+    const { text } = await extractText(pdf, { mergePages: false });
+    return (text as string[])
+      .map((page, i) => `--- Page ${i + 1} ---\n${page.trim()}`)
+      .join('\n\n')
+      .trim();
+  } catch (err) {
+    logger.warn({ err }, 'Could not read the PDF text layer; falling back to AI reading');
+    return '';
+  }
+}
+
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
+  const local = await pdfTextLayer(buffer);
+  // A real text layer (not just a few stray characters per page) is used as is.
+  const letters = local.replace(/--- Page \d+ ---|\s/g, '').length;
+  if (letters > 200) return local;
   if (useGemini() && buffer.length > 18 * 1024 * 1024) {
     throw AppError.badRequest('PDFs must be under 18 MB. Split it into smaller files and upload them one by one.');
   }
-  if (useGemini()) return geminiGenerate('', [{ role: 'user', parts: [{ inline_data: { mime_type: 'application/pdf', data: buffer.toString('base64') } }, { text: EXTRACT_PROMPT }] }], false);
+  if (useGemini()) return geminiGenerate('', [{ role: 'user', parts: [{ inline_data: { mime_type: 'application/pdf', data: buffer.toString('base64') } }, { text: EXTRACT_PROMPT }] }], false, { fast: true });
   const message = await getClient()
     .beta.messages.stream({
       model: MODEL,
@@ -154,7 +175,7 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
 
 export async function extractTextFromImage(buffer: Buffer, mediaType: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'): Promise<string> {
   if (useGemini()) {
-    return geminiGenerate('', [{ role: 'user', parts: [{ inline_data: { mime_type: mediaType, data: buffer.toString('base64') } }, { text: `${EXTRACT_PROMPT}\nIf the image is a photo of a product or place rather than a document, describe what it shows that would help a buyer (product type, materials, technique, colours, finish).` }] }], false);
+    return geminiGenerate('', [{ role: 'user', parts: [{ inline_data: { mime_type: mediaType, data: buffer.toString('base64') } }, { text: `${EXTRACT_PROMPT}\nIf the image is a photo of a product or place rather than a document, describe what it shows that would help a buyer (product type, materials, technique, colours, finish).` }] }], false, { fast: true });
   }
   const message = await getClient()
     .beta.messages.stream({
@@ -210,31 +231,53 @@ interface GeminiTurn {
   parts: GeminiPart[];
 }
 
-async function geminiGenerate(system: string, contents: GeminiTurn[], webSearch: boolean): Promise<string> {
+async function geminiGenerate(system: string, contents: GeminiTurn[], webSearch: boolean, opts: { fast?: boolean } = {}): Promise<string> {
   const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-goog-api-key': geminiKey() },
-    body: JSON.stringify({
-      ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-      contents,
-      ...(webSearch ? { tools: [{ google_search: {} }] } : {}),
-    }),
-    signal: AbortSignal.timeout(170_000),
+  const body = JSON.stringify({
+    ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+    contents,
+    ...(webSearch ? { tools: [{ google_search: {} }] } : {}),
+    generationConfig: {
+      maxOutputTokens: 65536,
+      // Reading a file needs no reasoning: skip "thinking" so it is faster and cheaper on the quota.
+      ...(opts.fast ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+    },
   });
-  const data = (await res.json().catch(() => ({}))) as {
-    error?: { code?: number; message?: string };
-    candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
-  };
-  if (!res.ok || data.error) {
-    logger.error({ status: res.status, error: data.error?.message }, 'Gemini request failed');
-    if (res.status === 429) throw new AppError(503, 'Solomon AI is very busy right now. Please try again in a minute.');
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': geminiKey() },
+      body,
+      signal: AbortSignal.timeout(240_000),
+    }).catch((err: unknown) => {
+      logger.error({ err }, 'Gemini request did not complete');
+      return null;
+    });
+    // eslint-disable-next-line no-await-in-loop
+    const data = (res ? await res.json().catch(() => ({})) : {}) as {
+      error?: { code?: number; message?: string };
+      candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+      promptFeedback?: { blockReason?: string };
+    };
+    const status = res?.status ?? 0;
+    if (res?.ok && !data.error) {
+      const text = (data.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('').trim();
+      if (text) return text;
+      logger.warn({ finishReason: data.candidates?.[0]?.finishReason, block: data.promptFeedback?.blockReason }, 'Gemini returned no text');
+      throw new AppError(502, 'Solomon AI could not read or answer this. Try rephrasing, or for a file, try a smaller or clearer copy.');
+    }
+    logger.error({ status, error: data.error?.message }, 'Gemini request failed');
+    // Busy / overloaded / timed out: wait and try again (15s, 30s, 45s).
+    if ((status === 429 || status === 500 || status === 503 || status === 0) && attempt < 3) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => setTimeout(r, 15_000 * (attempt + 1)));
+      continue;
+    }
+    if (status === 429) throw new AppError(503, 'Google limits free use per minute and per day, and that limit is reached. Wait a few minutes and try again.');
+    if (status === 400 && data.error?.message) throw AppError.badRequest(`Google could not process this: ${data.error.message.slice(0, 200)}`);
     throw new AppError(502, 'Solomon AI could not answer just now. Please try again.');
   }
-  const text = (data.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('').trim();
-  if (!text) {
-    logger.warn({ finishReason: data.candidates?.[0]?.finishReason }, 'Gemini returned no text');
-    throw new AppError(502, 'Solomon AI could not answer that. Please rephrase and try again.');
-  }
-  return text;
+  throw new AppError(503, 'Google is busy right now. Please try again in a few minutes.');
 }

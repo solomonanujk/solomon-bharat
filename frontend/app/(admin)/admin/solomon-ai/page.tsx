@@ -255,7 +255,11 @@ function AiConnectionCard() {
   return (
     <div className={cn('rounded-xl p-5 flex flex-col gap-3 border', connected ? 'bg-white border-[#D9E2DA]' : 'bg-[#FFF7E8] border-[#E9A23B]')}>
       <p className="text-[15px] font-[600] text-[#0F241D]">AI connection</p>
-      {data?.source === 'server' && <p className="text-[13px] text-[#3D5248]">Connected to Google Gemini through the server settings (key ending …{data.last4}).</p>}
+      {data?.source === 'server' && (
+        <p className="text-[13px] text-[#3D5248]">
+          Using a Gemini key from the server settings (ending …{data.last4}). If answers or uploads fail, paste your own key below: it takes priority.
+        </p>
+      )}
       {data?.source === 'admin' && (
         <div className="flex flex-col gap-2">
           <p className="text-[13px] text-[#3D5248]">Connected to Google Gemini (key ending …{data.last4}).</p>
@@ -271,7 +275,7 @@ function AiConnectionCard() {
             : 'Not connected yet: Solomon AI cannot answer until you add a key. Paste your Google Gemini API key from Google AI Studio.'}
         </p>
       )}
-      {data?.source !== 'server' && (
+      {data && (
         <form
           className="flex flex-col gap-2"
           onSubmit={(e) => {
@@ -285,7 +289,7 @@ function AiConnectionCard() {
             autoComplete="off"
             value={key}
             onChange={(e) => setKey(e.target.value)}
-            placeholder={data?.source === 'admin' ? 'Paste a new key to replace it' : 'Paste your Gemini API key'}
+            placeholder={data?.source === 'none' ? 'Paste your Gemini API key' : 'Paste a key to use instead'}
             className="h-10 rounded-lg border border-[#D9E2DA] px-3 text-[14px] bg-white focus:outline-none focus:border-[#183D33]"
           />
           <Button type="submit" variant="primary" size="sm" className="self-start" disabled={save.isPending || key.trim().length < 20}>
