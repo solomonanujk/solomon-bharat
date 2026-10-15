@@ -46,7 +46,11 @@ type CheckoutProduct = Awaited<ReturnType<ProductsService['getForCheckout']>>;
 
 type LinePricing =
   | { ok: true; priced: PricedOrderItem }
-  | { ok: false; kind: 'BELOW_MOQ' | 'OPTION_CHANGED' | 'CHOOSE_OPTION' | 'NO_PRICE'; message: string };
+  | {
+      ok: false;
+      kind: 'BELOW_MOQ' | 'OPTION_CHANGED' | 'CHOOSE_OPTION' | 'NO_PRICE' | 'SAMPLE_UNAVAILABLE' | 'ABOVE_SAMPLE_LIMIT';
+      message: string;
+    };
 
 interface FulfilmentGroup {
   /** Brand's SellerProfile id; null for the curated group. */
@@ -117,6 +121,7 @@ function toBuyerOrder(order: OrderWithItems): BuyerOrder {
       productImage: item.product.images[0]?.url ?? null,
       variantLabel: item.variant ? `${item.variant.type}: ${item.variant.value}` : null,
       quantity: item.quantity,
+      isSample: item.isSample,
       unitAdminPrice: item.unitAdminPrice.toString(),
       lineAdminTotal: item.lineAdminTotal.toString(),
       reviewed: !!item.review,
@@ -179,6 +184,7 @@ export function toBrandOrderView(order: BrandOrderRecord): BrandOrderView {
       productImage: item.product.images[0]?.url ?? null,
       variantLabel: item.variant ? `${item.variant.type}: ${item.variant.value}` : null,
       quantity: item.quantity,
+      isSample: item.isSample,
       unitPrice: item.unitAdminPrice.toString(),
       lineGross: item.lineAdminTotal.toString(),
       commissionRate: item.commissionRate != null ? item.commissionRate.toString() : null,
@@ -293,6 +299,7 @@ export class OrdersService {
     item: CheckoutItemInput,
     pricingRole: PricingRole,
   ): LinePricing {
+    if (item.isSample) return this.resolveSamplePrice(product, item);
     if (item.quantity < product.moq) {
       return {
         ok: false,
@@ -386,6 +393,51 @@ export class OrdersService {
     };
   }
 
+  /**
+   * A sample line: the product's sample price per unit, no MOQ, at most sampleMaxQty units.
+   * A brand is paid its own sample price (gross; commission is applied at payment); a curated
+   * seller is paid its usual unit cost, since the admin sets the curated sample price.
+   */
+  private resolveSamplePrice(product: CheckoutProduct, item: CheckoutItemInput): LinePricing {
+    const price = product.samplePrice != null ? Number(product.samplePrice) : 0;
+    if (!product.offersSamples || !(price > 0)) {
+      return { ok: false, kind: 'SAMPLE_UNAVAILABLE', message: `Samples are not available for "${product.name}"` };
+    }
+    const max = Math.max(1, product.sampleMaxQty ?? 1);
+    if (item.quantity > max) {
+      return {
+        ok: false,
+        kind: 'ABOVE_SAMPLE_LIMIT',
+        message: `You can order at most ${max} sample unit${max === 1 ? '' : 's'} of "${product.name}"`,
+      };
+    }
+    if (item.variantId) {
+      const variant = product.variants.find((v) => v.id === item.variantId);
+      if (!variant || variant.status !== 'ACTIVE') {
+        return { ok: false, kind: 'OPTION_CHANGED', message: 'This option is no longer available' };
+      }
+    } else if (product.variants.some((v) => v.status === 'ACTIVE')) {
+      return { ok: false, kind: 'CHOOSE_OPTION', message: `Choose an option for "${product.name}"` };
+    }
+    const lineTotal = Math.round(price * item.quantity * 100) / 100;
+    const sellerUnit = product.brandId ? price : Number(product.sellerPrice);
+    return {
+      ok: true,
+      priced: {
+        productId: product.id,
+        variantId: item.variantId,
+        sellerId: product.sellerId,
+        brandId: product.brandId ?? null,
+        quantity: item.quantity,
+        isSample: true,
+        unitAdminPrice: price,
+        unitSellerPrice: sellerUnit,
+        lineAdminTotal: lineTotal,
+        lineSellerTotal: Math.round(sellerUnit * item.quantity * 100) / 100,
+      },
+    };
+  }
+
   private async priceCheckoutItems(
     items: CheckoutItemInput[],
     pricingRole: PricingRole,
@@ -410,7 +462,8 @@ export class OrdersService {
         productId: item.productId,
         variantId: item.variantId ?? null,
         quantity: item.quantity,
-        moq: entry?.product?.moq ?? 1,
+        isSample: !!item.isSample,
+        moq: item.isSample ? 1 : entry?.product?.moq ?? 1,
       };
       if (!entry || !entry.available || !entry.product) {
         return { ...base, status: 'UNAVAILABLE' as const, message: 'This product is no longer available' };
@@ -462,8 +515,12 @@ export class OrdersService {
     const violations: MinOrderViolation[] = [];
     for (const group of groups) {
       if (!group.brand) continue;
+      // Samples are exempt: a samples-only order skips the minimum, and sample lines never
+      // count toward (or against) the wholesale minimum.
+      const wholesale = group.items.filter((i) => !i.isSample);
+      if (wholesale.length === 0) continue;
       const required = Number(group.brand.minOrderValueInr);
-      const currentPaise = group.items.reduce((sum, i) => sum + toPaise(i.lineAdminTotal), 0);
+      const currentPaise = wholesale.reduce((sum, i) => sum + toPaise(i.lineAdminTotal), 0);
       if (currentPaise < toPaise(required)) {
         violations.push({
           brandId: group.brand.id,

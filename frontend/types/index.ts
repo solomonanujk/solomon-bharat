@@ -557,6 +557,7 @@ export interface OrderItem {
   productId: string
   productName?: string
   quantity: number
+  isSample?: boolean
   unitAdminPrice: number
   lineAdminTotal: number
   unitSellerPrice?: number
@@ -755,19 +756,30 @@ export interface CartItem {
   variantId?: string
   variantLabel?: string
   leadTime?: string | null
+  /** A sample purchase: sample price, exempt from MOQ and the brand minimum, at most sampleMaxQty units. */
+  isSample?: boolean
+  sampleMaxQty?: number
   /** Marketplace brand this line belongs to (min order value is enforced per brand); null/absent for curated items. */
   brand?: { id: string; name: string; slug: string; minOrderValueInr: number } | null
 }
 
 // ─── Cart quote (POST /orders/quote) ─────────────────────────────────────────
 
-export type QuoteLineStatus = 'OK' | 'UNAVAILABLE' | 'OPTION_CHANGED' | 'CHOOSE_OPTION' | 'BELOW_MOQ'
+export type QuoteLineStatus =
+  | 'OK'
+  | 'UNAVAILABLE'
+  | 'OPTION_CHANGED'
+  | 'CHOOSE_OPTION'
+  | 'BELOW_MOQ'
+  | 'SAMPLE_UNAVAILABLE'
+  | 'ABOVE_SAMPLE_LIMIT'
 
 /** Server-priced cart line — OK lines carry exactly what checkout will charge (INR). */
 export interface QuoteLine {
   productId: string
   variantId: string | null
   quantity: number
+  isSample?: boolean
   status: QuoteLineStatus
   message?: string
   unitPriceInr?: number

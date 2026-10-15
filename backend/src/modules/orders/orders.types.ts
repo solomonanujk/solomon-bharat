@@ -7,14 +7,24 @@ export interface CheckoutItemInput {
   quantity: number;
   /** Which variant of the product, if it has any — pricing is per-variant, not per-product. */
   variantId?: string;
+  /** Buy as a sample: sample price, no MOQ / minimum order value, up to the sample limit. */
+  isSample?: boolean;
 }
 
-export type QuoteLineStatus = 'OK' | 'UNAVAILABLE' | 'OPTION_CHANGED' | 'CHOOSE_OPTION' | 'BELOW_MOQ';
+export type QuoteLineStatus =
+  | 'OK'
+  | 'UNAVAILABLE'
+  | 'OPTION_CHANGED'
+  | 'CHOOSE_OPTION'
+  | 'BELOW_MOQ'
+  | 'SAMPLE_UNAVAILABLE'
+  | 'ABOVE_SAMPLE_LIMIT';
 
 export interface QuoteLine {
   productId: string;
   variantId: string | null;
   quantity: number;
+  isSample: boolean;
   status: QuoteLineStatus;
   message?: string;
   unitPriceInr?: number;
@@ -34,6 +44,7 @@ export interface PricedOrderItem {
   /** Set for marketplace-brand products; null = Solomon-curated. */
   brandId: string | null;
   quantity: number;
+  isSample?: boolean;
   unitAdminPrice: number;
   unitSellerPrice: number;
   lineAdminTotal: number;
@@ -123,6 +134,7 @@ export interface BuyerOrder {
     productName: string;
     productImage: string | null;
     variantLabel: string | null;
+    isSample: boolean;
     quantity: number;
     unitAdminPrice: string;
     lineAdminTotal: string;
@@ -190,6 +202,7 @@ export interface BrandOrderView {
     productName: string;
     productImage: string | null;
     variantLabel: string | null;
+    isSample: boolean;
     quantity: number;
     unitPrice: string;
     lineGross: string;

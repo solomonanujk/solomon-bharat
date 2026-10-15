@@ -35,6 +35,12 @@ export function CartLineNotice({ resolved, productSlug, onRemove, onSetQuantity 
     case 'BELOW_MOQ':
       text = `Minimum order is ${resolved.moq ?? ''}`.trim()
       break
+    case 'SAMPLE_UNAVAILABLE':
+      text = 'Samples are no longer offered for this product'
+      break
+    case 'ABOVE_SAMPLE_LIMIT':
+      text = resolved.message ?? 'Too many sample units'
+      break
   }
 
   const removeButton = onRemove ? (
@@ -58,7 +64,7 @@ export function CartLineNotice({ resolved, productSlug, onRemove, onSetQuantity 
             {removeButton}
           </>
         )}
-        {status === 'UNAVAILABLE' && removeButton}
+        {(status === 'UNAVAILABLE' || status === 'SAMPLE_UNAVAILABLE' || status === 'ABOVE_SAMPLE_LIMIT') && removeButton}
         {status === 'BELOW_MOQ' && resolved.moq != null && onSetQuantity && (
           <button type="button" onClick={() => onSetQuantity(resolved.moq as number)} className={ACTION_CLASS}>
             Set to {resolved.moq}

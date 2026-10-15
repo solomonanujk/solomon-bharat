@@ -66,6 +66,8 @@ describe('OrdersRepository', () => {
     expect(arg.data.items.create).toEqual([
       {
         productId: 'p1',
+        variantId: undefined,
+        isSample: false,
         sellerId: 's1',
         quantity: 2,
         unitAdminPrice: 50,

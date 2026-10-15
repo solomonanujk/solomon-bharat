@@ -235,6 +235,7 @@ function OrderDetail({ order }: { order: BrandOrderView }) {
                       <td className="py-3 pr-3">
                         <p className="font-[600] text-ink">{it.productName}</p>
                         {it.variantLabel && <p className="text-[12px] text-muted">{it.variantLabel}</p>}
+                        {it.isSample && <p className="text-[12px] font-[600] text-forest">Sample order</p>}
                         <p className="text-[12px] text-muted">{money(it.unitPrice)} each</p>
                       </td>
                       <td className="py-3 pr-3 tabular-nums">{it.quantity}</td>

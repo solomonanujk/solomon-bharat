@@ -7,6 +7,7 @@ export const checkoutSchema = z.object({
         productId: z.string().uuid(),
         quantity: z.coerce.number().int().min(1),
         variantId: z.string().uuid().optional(),
+        isSample: z.boolean().optional(),
       }),
     )
     .min(1),

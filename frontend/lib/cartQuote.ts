@@ -6,6 +6,8 @@ export interface QuotableItem {
   variantId?: string
   quantity: number
   unitAdminPriceInr: number
+  /** A sample line (sample price, no MOQ / brand minimum). */
+  isSample?: boolean
 }
 
 /** 'PENDING' = no quote line for the cart's current quantity yet (first load or a just-changed quantity). */
@@ -24,21 +26,24 @@ export interface ResolvedLine {
   quoted: boolean
 }
 
-export function lineKey(productId: string, variantId?: string | null): string {
-  return `${productId}:${variantId ?? ''}`
+export function lineKey(productId: string, variantId?: string | null, isSample?: boolean): string {
+  return `${productId}:${variantId ?? ''}${isSample ? ':sample' : ''}`
 }
 
 /** Stable key for a set of cart lines: product/variant/quantity triples only (never prices). */
 export function quoteKey(items: QuotableItem[]): string {
-  return items.map((i) => `${lineKey(i.productId, i.variantId)}:${i.quantity}`).join('|')
+  return items.map((i) => `${lineKey(i.productId, i.variantId, i.isSample)}:${i.quantity}`).join('|')
 }
 
 export function findQuoteLine(
   quote: CartQuote | undefined,
   productId: string,
-  variantId?: string | null
+  variantId?: string | null,
+  isSample?: boolean
 ): QuoteLine | undefined {
-  return quote?.lines.find((l) => l.productId === productId && (l.variantId ?? null) === (variantId ?? null))
+  return quote?.lines.find(
+    (l) => l.productId === productId && (l.variantId ?? null) === (variantId ?? null) && !!l.isSample === !!isSample
+  )
 }
 
 /**
@@ -78,7 +83,7 @@ export function resolveAll<T extends QuotableItem>(
   items: T[],
   quote: CartQuote | undefined
 ): { item: T; resolved: ResolvedLine }[] {
-  return items.map((item) => ({ item, resolved: resolveLine(item, findQuoteLine(quote, item.productId, item.variantId)) }))
+  return items.map((item) => ({ item, resolved: resolveLine(item, findQuoteLine(quote, item.productId, item.variantId, item.isSample)) }))
 }
 
 /** True when some line has a definitive non-OK quote status. */
@@ -90,6 +95,7 @@ export function hasBlockingLine(resolved: ResolvedLine[]): boolean {
 export interface QuotedSync {
   productId: string
   variantId?: string
+  isSample?: boolean
   unitPriceInr?: number
   moq: number
 }
@@ -97,11 +103,12 @@ export interface QuotedSync {
 export function quoteSyncUpdates(items: QuotableItem[], quote: CartQuote | undefined): QuotedSync[] {
   const out: QuotedSync[] = []
   for (const item of items) {
-    const q = findQuoteLine(quote, item.productId, item.variantId)
+    const q = findQuoteLine(quote, item.productId, item.variantId, item.isSample)
     if (!q || q.quantity !== item.quantity) continue
     out.push({
       productId: item.productId,
       variantId: item.variantId,
+      isSample: item.isSample,
       unitPriceInr: q.status === 'OK' ? q.unitPriceInr : undefined,
       moq: q.moq,
     })

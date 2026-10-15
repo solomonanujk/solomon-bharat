@@ -11,8 +11,21 @@ import type { CartGroup } from '@/types/brand-orders'
 export function BrandMinOrderNotice({ group }: { group: CartGroup }) {
   const fmt = useFormatPrice()
   if (!group.brand || group.minOrderValueInr <= 0) return null
+  // Samples are exempt from the shop minimum; only wholesale lines count toward it.
+  const wholesale = group.items.filter((i) => !i.isSample)
+  if (wholesale.length === 0) {
+    return (
+      <div role="status" className="mt-3 rounded border border-line bg-ivory px-3 py-2.5">
+        <p className="flex items-start gap-2 text-[13px] font-sans text-ink">
+          <CheckCircle2 size={15} className="mt-0.5 flex-shrink-0 text-forest" aria-hidden="true" />
+          <span>Samples don&apos;t need {group.brand.name}&apos;s minimum order.</span>
+        </p>
+      </div>
+    )
+  }
   const met = group.shortfallInr <= 0
-  const pct = Math.min(100, Math.round((group.subtotalInr / group.minOrderValueInr) * 100))
+  const wholesaleTotal = group.minOrderValueInr - group.shortfallInr
+  const pct = met ? 100 : Math.min(100, Math.round((wholesaleTotal / group.minOrderValueInr) * 100))
 
   return (
     <div role="status" className="mt-3 rounded border border-line bg-ivory px-3 py-2.5">
