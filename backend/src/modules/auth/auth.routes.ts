@@ -33,7 +33,6 @@ export const authRouter = Router();
  */
 authRouter.get(
   '/check-email',
-  authRateLimiter,
   validate(checkEmailQuerySchema, 'query'),
   asyncHandler(authController.checkEmail),
 );
@@ -53,7 +52,6 @@ authRouter.get(
  */
 authRouter.post(
   '/signup',
-  authRateLimiter,
   validate(signupBuyerSchema),
   asyncHandler(authController.signup),
 );

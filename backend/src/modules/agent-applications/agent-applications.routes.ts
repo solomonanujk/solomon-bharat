@@ -12,7 +12,6 @@ import {
 import { paginationQuerySchema } from '../../utils/pagination';
 import { validate } from '../../middleware/validate';
 import { requireAdmin, requireAgent, requireAuth } from '../../middleware/auth';
-import { authRateLimiter } from '../../middleware/rateLimiter';
 import { asyncHandler } from '../../utils/asyncHandler';
 
 export const agentApplicationsRouter = Router();
@@ -30,7 +29,6 @@ export const agentApplicationsRouter = Router();
  */
 agentApplicationsRouter.post(
   '/apply',
-  authRateLimiter,
   validate(submitAgentApplicationSchema),
   asyncHandler(agentApplicationsController.submitApplication),
 );
