@@ -93,6 +93,7 @@ export type SubmitApplicationDto = z.infer<typeof submitApplicationSchema>;
 
 export const applicationListQuerySchema = paginationQuerySchema.extend({
   status: z.nativeEnum(SellerApplicationStatus).optional(),
+  search: z.string().trim().max(200).optional(),
 });
 export type ApplicationListQueryDto = z.infer<typeof applicationListQuerySchema>;
 

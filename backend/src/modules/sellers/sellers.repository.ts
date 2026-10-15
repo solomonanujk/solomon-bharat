@@ -29,7 +29,19 @@ export class SellersRepository {
     filter: ApplicationListFilter,
     pagination: PaginationQuery,
   ): Promise<{ data: SellerApplication[]; total: number }> {
-    const where = filter.status ? { status: filter.status } : {};
+    // With no status chosen, approved applications are left out: they live in Sellers now.
+    const where: Prisma.SellerApplicationWhereInput = {
+      status: filter.status ?? { not: 'APPROVED' },
+      ...(filter.search
+        ? {
+            OR: [
+              { businessName: { contains: filter.search, mode: 'insensitive' } },
+              { contactName: { contains: filter.search, mode: 'insensitive' } },
+              { email: { contains: filter.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
     const [data, total] = await Promise.all([
       this.db.sellerApplication.findMany({
         where,
@@ -39,6 +51,26 @@ export class SellersRepository {
       this.db.sellerApplication.count({ where }),
     ]);
     return { data, total };
+  }
+
+  /** Lower-cased emails that already have a seller application or any account. */
+  async findExistingEmails(emails: string[]): Promise<Set<string>> {
+    if (emails.length === 0) return new Set();
+    const [apps, users] = await Promise.all([
+      this.db.sellerApplication.findMany({
+        where: { OR: emails.map((e) => ({ email: { equals: e, mode: 'insensitive' as const } })) },
+        select: { email: true },
+      }),
+      this.db.user.findMany({
+        where: { OR: emails.map((e) => ({ email: { equals: e, mode: 'insensitive' as const } })) },
+        select: { email: true },
+      }),
+    ]);
+    return new Set([...apps, ...users].map((r) => r.email.toLowerCase()));
+  }
+
+  createImportedApplication(data: Prisma.SellerApplicationCreateInput): Promise<SellerApplication> {
+    return this.db.sellerApplication.create({ data });
   }
 
   async deleteApplication(id: string): Promise<void> {
