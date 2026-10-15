@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { ClipboardList, Search, Mail, Phone, MapPin, CalendarDays, MessageSquare, StickyNote, ChevronDown, ChevronUp } from 'lucide-react'
+import { ClipboardList, Search, Mail, Phone, MapPin, CalendarDays, MessageSquare, StickyNote, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import {
   useSellerApplications,
   useApproveSellerApplication,
   useRejectSellerApplication,
   useRequestMoreInfo,
   useAddApplicationNote,
+  useDeleteSellerApplication,
 } from '@/hooks/queries/useSellers'
 import type { SellerApplication, SellerApplicationStatus } from '@/types'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -283,6 +284,8 @@ function ApplicationCard({
   )
 
   const canAct = application.status === 'PENDING' || application.status === 'MORE_INFO_REQUESTED'
+  const deleteApplication = useDeleteSellerApplication()
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   return (
     <div className="bg-white border border-[#D9E2DA] rounded-xl p-5 hover:border-[#6B7E6B] transition-colors">
@@ -374,8 +377,44 @@ function ApplicationCard({
             Notes
             {expanded ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
           </Button>
+          {/* Approved applications belong to a live seller account and are never deletable. */}
+          {application.status !== 'APPROVED' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setConfirmDelete(true)}
+              className="gap-1.5 text-error hover:text-error"
+            >
+              <Trash2 size={12} aria-hidden="true" />
+              Delete
+            </Button>
+          )}
         </div>
       </div>
+
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this application?</DialogTitle>
+            <DialogDescription>
+              {application.businessName} ({application.email}) will be removed permanently. This cannot be undone. The
+              deletion is recorded in the audit log.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmDelete(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteApplication.isPending}
+              onClick={() => deleteApplication.mutate(application.id, { onSuccess: () => setConfirmDelete(false) })}
+            >
+              {deleteApplication.isPending ? 'Deleting…' : 'Delete permanently'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {detailsExpanded && <ApplicationDetailsPanel application={application} />}
       {expanded && <NotesPanel application={application} />}

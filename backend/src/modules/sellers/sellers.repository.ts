@@ -41,6 +41,10 @@ export class SellersRepository {
     return { data, total };
   }
 
+  async deleteApplication(id: string): Promise<void> {
+    await this.db.sellerApplication.delete({ where: { id } });
+  }
+
   updateApplication(
     id: string,
     data: Partial<

@@ -61,3 +61,26 @@ describe('SellersService.switchSellerType', () => {
     await expect(harness(null).service.switchSellerType('admin', 'sp1', SellerType.CURATED)).rejects.toThrow(/not found/);
   });
 });
+
+describe('SellersService.deleteApplication', () => {
+  function appHarness(status: string) {
+    const repo = {
+      findApplicationById: vi.fn().mockResolvedValue({ id: 'a1', status, businessName: 'T', email: 't@x.com' }),
+      deleteApplication: vi.fn().mockResolvedValue(undefined),
+    } as unknown as SellersRepository;
+    return { repo, service: new SellersService(repo) };
+  }
+
+  it('deletes a rejected application and audit-logs it', async () => {
+    const { repo, service } = appHarness('REJECTED');
+    await service.deleteApplication('a1', 'admin');
+    expect(repo.deleteApplication).toHaveBeenCalledWith('a1');
+    expect(writeAuditLog).toHaveBeenCalledWith('admin', 'SELLER_APPLICATION_DELETED', 'SellerApplication', 'a1', expect.any(Object));
+  });
+
+  it('never deletes an approved application', async () => {
+    const { repo, service } = appHarness('APPROVED');
+    await expect(service.deleteApplication('a1', 'admin')).rejects.toThrow(/cannot be deleted/);
+    expect(repo.deleteApplication).not.toHaveBeenCalled();
+  });
+});

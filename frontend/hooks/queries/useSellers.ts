@@ -117,6 +117,20 @@ export function useAddApplicationNote() {
   })
 }
 
+/** Admin: permanently delete a non-approved application (spam, tests, duplicates). */
+export function useDeleteSellerApplication() {
+  const qc = useQueryClient()
+  return useMutation<unknown, Error, string>({
+    mutationFn: (id) => api.delete(`/sellers/applications/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['seller-applications'] })
+      qc.invalidateQueries({ queryKey: ['admin-dashboard'] })
+      toast.success('Application deleted.')
+    },
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
 // ─── Admin: approved sellers directory ───────────────────────────────────────
 
 export function useAdminSellers(params?: { page?: number; limit?: number; enabled?: boolean }) {
