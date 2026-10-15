@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Building2, User, Phone, MapPin, Landmark, Bell, CalendarDays, AlertTriangle, RotateCcw, Package, Upload } from 'lucide-react'
-import { useSetSellerInternalRating, useAdminSeller } from '@/hooks/queries/useSellers'
+import { useSetSellerInternalRating, useAdminSeller, useSwitchSellerType } from '@/hooks/queries/useSellers'
 import { useSuspendUser, useReactivateUser } from '@/hooks/queries/useAdmin'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
@@ -176,6 +176,12 @@ export default function AdminSellerDetailPage() {
           )}
         </InfoCard>
 
+        <SellingModelCard
+          sellerId={seller.id}
+          sellerType={seller.sellerType === 'MARKETPLACE' ? 'MARKETPLACE' : 'CURATED'}
+          defaultBrandName={seller.brand?.name ?? seller.businessName}
+        />
+
         <InfoCard title="Catalog">
           <Link
             href={`/admin/products?sellerId=${seller.id}`}
@@ -223,6 +229,92 @@ export default function AdminSellerDetailPage() {
               {confirmAction === 'suspend'
                 ? suspendUser.isPending ? 'Suspending…' : 'Confirm suspend'
                 : reactivateUser.isPending ? 'Reactivating…' : 'Confirm reactivate'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+const MODEL_LABEL = { CURATED: 'Curated by Solomon', MARKETPLACE: 'Marketplace brand' } as const
+
+/** Admin switch between Curated and Marketplace, with what will happen spelled out first. */
+function SellingModelCard({
+  sellerId,
+  sellerType,
+  defaultBrandName,
+}: {
+  sellerId: string
+  sellerType: 'CURATED' | 'MARKETPLACE'
+  defaultBrandName: string
+}) {
+  const switchType = useSwitchSellerType()
+  const [open, setOpen] = useState(false)
+  const [brandName, setBrandName] = useState(defaultBrandName)
+  const target = sellerType === 'CURATED' ? 'MARKETPLACE' : 'CURATED'
+
+  return (
+    <div className="bg-white border border-[#D9E2DA] rounded-xl p-5 sm:col-span-2">
+      <p className="text-[15px] font-[600] font-sans text-[#0F241D]">Selling model</p>
+      <p className="text-[13px] font-sans text-[#183D33B3] mt-1">
+        Currently <strong className="text-[#0F241D]">{MODEL_LABEL[sellerType]}</strong>. Only admins can change this.
+      </p>
+      <Button variant="secondary" className="mt-4" onClick={() => setOpen(true)}>
+        Switch to {MODEL_LABEL[target]}
+      </Button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Switch to {MODEL_LABEL[target]}?</DialogTitle>
+            <DialogDescription>Here is what changes for this seller.</DialogDescription>
+          </DialogHeader>
+          <div className="px-6 flex flex-col gap-4">
+              <div className="text-[13px] leading-[20px] space-y-2 text-[#183D33]">
+                {target === 'MARKETPLACE' ? (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>The seller becomes a brand with its own shop page and sets its own prices.</li>
+                    <li>All their products move to the brand. The buyer price you set becomes the brand&apos;s price; agent prices are removed (agents can&apos;t buy brand products).</li>
+                    <li>Products stay live. The brand must set its minimum order value when it next signs in.</li>
+                    <li>From now on the brand ships its own orders and pays commission.</li>
+                  </ul>
+                ) : (
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>The brand shop page is hidden (kept, in case you switch back).</li>
+                    <li>All products are unpublished and go back to <strong>Pending review</strong>. You set the buyer and agent prices and approve them again.</li>
+                    <li>From now on Solomon fulfils their orders and the seller sees no buyer details.</li>
+                  </ul>
+                )}
+                <p>Not possible while the seller has orders in progress. The seller is notified by email.</p>
+              </div>
+          {target === 'MARKETPLACE' && (
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[13px] font-[600] text-[#0F241D]">Brand name</span>
+              <input
+                value={brandName}
+                onChange={(e) => setBrandName(e.target.value)}
+                maxLength={100}
+                className="h-10 rounded border border-[#D9E2DA] px-3 text-[14px] focus:outline-none focus:border-[#183D33]"
+              />
+            </label>
+          )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="accent"
+              disabled={switchType.isPending || (target === 'MARKETPLACE' && !brandName.trim())}
+              onClick={() =>
+                switchType.mutate(
+                  { id: sellerId, sellerType: target, ...(target === 'MARKETPLACE' ? { brandName: brandName.trim() } : {}) },
+                  { onSuccess: () => setOpen(false) }
+                )
+              }
+            >
+              {switchType.isPending ? 'Switching…' : `Switch to ${MODEL_LABEL[target]}`}
             </Button>
           </DialogFooter>
         </DialogContent>

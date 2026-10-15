@@ -10,6 +10,7 @@ import {
   updateSellerProfileSchema,
   approveApplicationSchema,
   internalRatingSchema,
+  switchSellerTypeSchema,
 } from './sellers.validation';
 import { paginationQuerySchema } from '../../utils/pagination';
 import { validate } from '../../middleware/validate';
@@ -215,6 +216,22 @@ sellersRouter.patch(
   validate(idParamSchema, 'params'),
   validate(internalRatingSchema),
   asyncHandler(sellersController.setInternalRating),
+);
+
+/**
+ * @openapi
+ * /sellers/{id}/seller-type:
+ *   patch:
+ *     summary: Switch an approved seller between CURATED and MARKETPLACE (SUPER_ADMIN only)
+ *     tags: [Sellers]
+ */
+sellersRouter.patch(
+  '/:id/seller-type',
+  requireAuth,
+  requireAdmin,
+  validate(idParamSchema, 'params'),
+  validate(switchSellerTypeSchema),
+  asyncHandler(sellersController.switchSellerType),
 );
 
 sellersRouter.get(

@@ -136,3 +136,9 @@ export const internalRatingSchema = z.object({
   internalNotes: z.string().max(5000).nullable().optional(),
 });
 export type InternalRatingDto = z.infer<typeof internalRatingSchema>;
+
+export const switchSellerTypeSchema = z.object({
+  sellerType: z.nativeEnum(SellerType),
+  /** Marketplace only: the brand name (defaults to the existing brand or business name). */
+  brandName: z.string().trim().min(1).max(100).optional(),
+});
