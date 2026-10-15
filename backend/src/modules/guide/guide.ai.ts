@@ -5,6 +5,9 @@ import { logger } from '../../config/logger';
 import { AppError } from '../../utils/errors';
 
 const MODEL = 'claude-opus-5-5';
+
+/** Solomon AI uses Google Gemini when GEMINI_API_KEY is set (free tier), otherwise Claude. */
+const useGemini = (): boolean => Boolean(env.GEMINI_API_KEY);
 const FALLBACK = { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const };
 
 let client: Anthropic | null = null;
@@ -52,6 +55,16 @@ export async function guideReply(
   history: ChatTurn[],
   allowWebSearch: boolean,
 ): Promise<string> {
+  if (useGemini()) {
+    const systemText = `${PERSONA.replace('{{WEB}}', allowWebSearch ? WEB_RULE : '').replace('{{WEBOR}}', allowWebSearch ? ' nor a web search' : '')}\n\n${
+      knowledge ? `SOLOMON KNOWLEDGE:\n\n${knowledge}` : 'SOLOMON KNOWLEDGE: nothing has been added yet. Rely on careful reasoning and web search, and say where figures come from.'
+    }`;
+    const turns = history.map((t, i) => ({
+      role: t.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: i === 0 ? `[Visitor: ${visitor}]\n\n${t.content}` : t.content }],
+    }));
+    return geminiGenerate(systemText, turns, allowWebSearch);
+  }
   const system = [
     { type: 'text' as const, text: PERSONA.replace('{{WEB}}', allowWebSearch ? WEB_RULE : '').replace('{{WEBOR}}', allowWebSearch ? ' nor a web search' : '') },
     {
@@ -100,6 +113,10 @@ Keep every number, price, rate, percentage, unit, code, name, place and date exa
 Do not summarise away details and do not add anything that is not in the file. Reply with the transcription only.`;
 
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
+  if (useGemini() && buffer.length > 18 * 1024 * 1024) {
+    throw AppError.badRequest('PDFs must be under 18 MB. Split it into smaller files and upload them one by one.');
+  }
+  if (useGemini()) return geminiGenerate('', [{ role: 'user', parts: [{ inline_data: { mime_type: 'application/pdf', data: buffer.toString('base64') } }, { text: EXTRACT_PROMPT }] }], false);
   const message = await getClient()
     .beta.messages.stream({
       model: MODEL,
@@ -121,6 +138,9 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
 }
 
 export async function extractTextFromImage(buffer: Buffer, mediaType: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'): Promise<string> {
+  if (useGemini()) {
+    return geminiGenerate('', [{ role: 'user', parts: [{ inline_data: { mime_type: mediaType, data: buffer.toString('base64') } }, { text: `${EXTRACT_PROMPT}\nIf the image is a photo of a product or place rather than a document, describe what it shows that would help a buyer (product type, materials, technique, colours, finish).` }] }], false);
+  }
   const message = await getClient()
     .beta.messages.stream({
       model: MODEL,
@@ -149,21 +169,57 @@ export async function extractTextFromImage(buffer: Buffer, mediaType: 'image/png
 const COVERAGE = `The guide must answer, for 9 countries (UK, US, Canada, Australia, Singapore, Netherlands, South Africa, Thailand, Scandinavia) and 12 categories (home decor, textiles and scarves, jewellery, rugs and carpets, art and paintings, eco/bamboo, leather, pottery and ceramics, food and spices, wooden handicrafts, brassware and metal craft, embroidery):
 trend / India export data by HS code; India product cost and MOQ; shipping rates India to each country by weight; customs duty and VAT/GST by category and country; landed cost and selling prices; where to sell (marketplaces and their fees); who buys (consumer profiles); how to market; supplier cities and lead times; business registration steps per country; licences, certifications and labelling rules; documents (India export side and import side); payment methods and terms; competitors and their prices; Solomon Bharat's own services, process and pricing.`;
 
+const SUGGEST_SYSTEM =
+  'You help a non-technical founder build the knowledge base for an AI business guide. Be specific and practical. Write in plain English for someone who is not technical.';
+
 export async function suggestUploads(overview: string): Promise<string> {
+  const ask = `${COVERAGE}\n\nHere is what has been uploaded so far (title, type and the start of each item):\n\n${overview || '(nothing yet)'}\n\nList the 6 to 8 most valuable things to upload next, most important first, so the guide can answer more from Solomon's own material and needs web search less. For each: one line saying exactly what to upload (and a likely place to get it, e.g. DGFT, UK Trade Tariff, a courier rate card), then one short line on why it helps. Start with one sentence on what is already well covered. Use "- " bullets, no headings, no tables.`;
+  if (useGemini()) return geminiGenerate(SUGGEST_SYSTEM, [{ role: 'user', parts: [{ text: ask }] }], false);
   const response = await getClient().beta.messages.create({
     model: MODEL,
     max_tokens: 4000,
     output_config: { effort: 'medium' },
     ...FALLBACK,
-    system:
-      'You help a non-technical founder build the knowledge base for an AI business guide. Be specific and practical. Write in plain English for someone who is not technical.',
-    messages: [
-      {
-        role: 'user',
-        content: `${COVERAGE}\n\nHere is what has been uploaded so far (title, type and the start of each item):\n\n${overview || '(nothing yet)'}\n\nList the 6 to 8 most valuable things to upload next, most important first, so the guide can answer more from Solomon's own material and needs web search less. For each: one line saying exactly what to upload (and a likely place to get it, e.g. DGFT, UK Trade Tariff, a courier rate card), then one short line on why it helps. Start with one sentence on what is already well covered. Use "- " bullets, no headings, no tables.`,
-      },
-    ],
+    system: SUGGEST_SYSTEM,
+    messages: [{ role: 'user', content: ask }],
   });
   if (response.stop_reason === 'refusal') return '';
   return textOf(response.content);
+}
+
+// ─── Google Gemini (REST) ────────────────────────────────────────────────────
+
+type GeminiPart = { text: string } | { inline_data: { mime_type: string; data: string } };
+interface GeminiTurn {
+  role: string;
+  parts: GeminiPart[];
+}
+
+async function geminiGenerate(system: string, contents: GeminiTurn[], webSearch: boolean): Promise<string> {
+  const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+    body: JSON.stringify({
+      ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+      contents,
+      ...(webSearch ? { tools: [{ google_search: {} }] } : {}),
+    }),
+    signal: AbortSignal.timeout(170_000),
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    error?: { code?: number; message?: string };
+    candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+  };
+  if (!res.ok || data.error) {
+    logger.error({ status: res.status, error: data.error?.message }, 'Gemini request failed');
+    if (res.status === 429) throw new AppError(503, 'Solomon AI is very busy right now. Please try again in a minute.');
+    throw new AppError(502, 'Solomon AI could not answer just now. Please try again.');
+  }
+  const text = (data.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('').trim();
+  if (!text) {
+    logger.warn({ finishReason: data.candidates?.[0]?.finishReason }, 'Gemini returned no text');
+    throw new AppError(502, 'Solomon AI could not answer that. Please rephrase and try again.');
+  }
+  return text;
 }

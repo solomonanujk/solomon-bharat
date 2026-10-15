@@ -30,6 +30,8 @@ const envSchema = z.object({
   RESEND_FROM_EMAIL: z.string().default('Solomon Bharat <no-reply@solomonbharat.com>'),
 
   GEMINI_API_KEY: z.string().default(''),
+  /** Gemini model for Solomon AI when GEMINI_API_KEY is set. */
+  GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
 
   PORT: z.coerce.number().default(4000),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
