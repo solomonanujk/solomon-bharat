@@ -148,3 +148,42 @@ export function useGuideConversation(id: string | null) {
     enabled: !!id,
   })
 }
+
+// ─── AI connection (Gemini key entered by the admin) ─────────────────────────
+
+export interface GuideAiKeyStatus {
+  source: 'server' | 'admin' | 'none'
+  last4: string | null
+  provider: 'gemini' | 'claude' | 'none'
+}
+
+export function useGuideAiKey() {
+  return useQuery<GuideAiKeyStatus>({
+    queryKey: ['guide-ai-key'],
+    queryFn: async () => (await api.get('/guide/admin/ai-key')).data.data,
+  })
+}
+
+export function useSaveGuideAiKey() {
+  const qc = useQueryClient()
+  return useMutation<GuideAiKeyStatus, Error, string>({
+    mutationFn: async (key) => (await api.put('/guide/admin/ai-key', { key })).data.data,
+    onSuccess: (data) => {
+      qc.setQueryData(['guide-ai-key'], data)
+      toast.success('Connected. Solomon AI is ready to answer.')
+    },
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
+export function useRemoveGuideAiKey() {
+  const qc = useQueryClient()
+  return useMutation<GuideAiKeyStatus, Error, void>({
+    mutationFn: async () => (await api.delete('/guide/admin/ai-key')).data.data,
+    onSuccess: (data) => {
+      qc.setQueryData(['guide-ai-key'], data)
+      toast.success('Key removed.')
+    },
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}

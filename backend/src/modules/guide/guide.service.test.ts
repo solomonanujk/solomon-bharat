@@ -7,6 +7,8 @@ vi.mock('./guide.ai', () => ({
   suggestUploads: vi.fn().mockResolvedValue('- Upload shipping rates'),
   extractTextFromPdf: vi.fn().mockResolvedValue('PDF text'),
   extractTextFromImage: vi.fn().mockResolvedValue('Image text'),
+  setAdminGeminiKey: vi.fn(),
+  verifyGeminiKey: vi.fn(async (k: string) => k.startsWith('good')),
 }));
 vi.mock('../../utils/auditLog', () => ({ writeAuditLog: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('../../providers/storage', () => ({ storageProvider: { uploadFile: vi.fn().mockResolvedValue({ url: 'https://files/x' }) } }));
@@ -82,5 +84,15 @@ describe('GuideService', () => {
     await expect(
       new GuideService(db as never).addFile('admin', { buffer: Buffer.from('x'), originalname: 'a.docx', mimetype: 'application/octet-stream', size: 1 }),
     ).rejects.toThrow(/save as PDF/);
+  });
+
+  it('saveAiKey() refuses a key Google rejects, and stores an accepted key encrypted (never in plain text)', async () => {
+    const db = makeDb();
+    const svc = new GuideService(db as never);
+    await expect(svc.saveAiKey('admin', 'bad-key-xxxxxxxxxxxxxxxxxxxx')).rejects.toThrow(/did not accept/);
+    await svc.saveAiKey('admin', 'good-key-1234567890abcdefWXYZ');
+    const stored = JSON.stringify(db.platformSetting.upsert.mock.calls[0][0].create.value);
+    expect(stored).not.toContain('good-key');
+    expect(stored).toContain('encrypted');
   });
 });
