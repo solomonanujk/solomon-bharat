@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
+  Sparkles,
   Building2,
   Clock,
   Users,
@@ -63,6 +64,12 @@ function useNavGroups(): NavGroup[] {
         { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
         { href: '/admin/rfqs', label: 'Custom Requirements', icon: MessageSquareQuote, badge: stats?.newRfqs ?? null },
         { href: '/admin/payouts', label: 'Payouts', icon: CreditCard },
+      ],
+    },
+    {
+      label: 'Solomon AI',
+      items: [
+        { href: '/admin/solomon-ai', label: 'Solomon AI', icon: Sparkles },
       ],
     },
     {

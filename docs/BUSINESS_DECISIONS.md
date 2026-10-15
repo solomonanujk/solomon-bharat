@@ -112,3 +112,8 @@ Recommended: video, the story of the craft.
 - The sign-up page uses a designed pattern/map panel, not a photo.
 - Samples can be ordered directly like a wholesale order (cart → checkout). Sample lines use the sample price, ignore MOQ and the brand's minimum order value, and are capped at the sample limit.
 - Admins can switch an approved seller between Curated and Marketplace at any time (not while orders are in progress).
+
+## 13. Solomon AI (15 Oct 2026)
+- Public AI guide at /guide; visitors must give name, email and phone before chatting; no account needed.
+- The AI learns from what the admin uploads (PDF, images, spreadsheets, text), answers in its own words, and uses web search when needed (on by default, switchable in admin).
+- The admin section suggests what to upload next.
