@@ -105,6 +105,20 @@ guideRouter.put('/admin/settings', requireAuth, requireAdmin, validate(settingsS
   sendSuccess(res, await guideService.updateSettings(req.user!.id, req.body), 'Saved');
 }));
 
+const aiKeySchema = z.object({ key: z.string().trim().min(20, 'Paste the full key').max(300) });
+
+guideRouter.get('/admin/ai-key', requireAuth, requireAdmin, asyncHandler(async (_req, res) => {
+  sendSuccess(res, await guideService.getAiKeyStatus());
+}));
+
+guideRouter.put('/admin/ai-key', requireAuth, requireAdmin, validate(aiKeySchema), asyncHandler(async (req, res) => {
+  sendSuccess(res, await guideService.saveAiKey(req.user!.id, req.body.key), 'Connected');
+}));
+
+guideRouter.delete('/admin/ai-key', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  sendSuccess(res, await guideService.removeAiKey(req.user!.id), 'Removed');
+}));
+
 guideRouter.get('/admin/conversations', requireAuth, requireAdmin, validate(paginationQuerySchema, 'query'), asyncHandler(async (req, res) => {
   const q = req.query as unknown as PaginationQuery;
   const { rows, total } = await guideService.listConversations(q.page, q.limit);

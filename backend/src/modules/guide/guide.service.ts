@@ -1,4 +1,5 @@
-import { randomBytes } from 'crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
+import { env } from '../../config/env';
 import { GuideKnowledgeKind, Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { logger } from '../../config/logger';
@@ -6,7 +7,7 @@ import { AppError } from '../../utils/errors';
 import { writeAuditLog } from '../../utils/auditLog';
 import { storageProvider } from '../../providers/storage';
 import { readSpreadsheet } from '../product-import/parsers/spreadsheet';
-import { ChatTurn, extractTextFromImage, extractTextFromPdf, guideReply, suggestUploads } from './guide.ai';
+import { ChatTurn, extractTextFromImage, extractTextFromPdf, guideReply, setAdminGeminiKey, suggestUploads, verifyGeminiKey } from './guide.ai';
 
 /** Longest single chat, in visitor messages, before the guide asks them to talk to the team. */
 export const MAX_VISITOR_MESSAGES = 60;
@@ -14,6 +15,26 @@ export const MAX_VISITOR_MESSAGES = 60;
 const KNOWLEDGE_BUDGET_CHARS = 900_000;
 const SETTINGS_KEY = 'guide_settings';
 const SUGGESTIONS_KEY = 'guide_upload_suggestions';
+const AI_KEY_SETTING = 'guide_gemini_key';
+
+// The admin-entered Gemini key is stored encrypted (AES-256-GCM, key derived from JWT_SECRET).
+const cipherKey = (): Buffer => createHash('sha256').update(`${env.JWT_SECRET}:guide-ai-key`).digest();
+function encrypt(plain: string): string {
+  const iv = randomBytes(12);
+  const c = createCipheriv('aes-256-gcm', cipherKey(), iv);
+  const data = Buffer.concat([c.update(plain, 'utf8'), c.final()]);
+  return [iv, c.getAuthTag(), data].map((b) => b.toString('base64')).join('.');
+}
+function decrypt(stored: string): string {
+  try {
+    const [iv, tag, data] = stored.split('.').map((p) => Buffer.from(p, 'base64'));
+    const d = createDecipheriv('aes-256-gcm', cipherKey(), iv);
+    d.setAuthTag(tag);
+    return Buffer.concat([d.update(data), d.final()]).toString('utf8');
+  } catch {
+    return '';
+  }
+}
 
 export interface GuideSettings {
   allowWebSearch: boolean;
@@ -28,6 +49,47 @@ const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif
 
 export class GuideService {
   constructor(private readonly db: PrismaClient = prisma) {}
+
+  // ─── AI key (admin-entered Gemini key) ─────────────────────────────────────
+
+  private keyLoadedAt = 0;
+
+  /** Loads the saved key into the AI module; re-read at most once a minute. */
+  async loadAiKey(force = false): Promise<void> {
+    if (!force && Date.now() - this.keyLoadedAt < 60_000) return;
+    const row = await this.db.platformSetting.findUnique({ where: { key: AI_KEY_SETTING } });
+    const stored = (row?.value as { encrypted?: string } | null)?.encrypted;
+    setAdminGeminiKey(stored ? decrypt(stored) : '');
+    this.keyLoadedAt = Date.now();
+  }
+
+  async getAiKeyStatus(): Promise<{ source: 'server' | 'admin' | 'none'; last4: string | null; provider: 'gemini' | 'claude' | 'none' }> {
+    if (env.GEMINI_API_KEY) return { source: 'server', last4: env.GEMINI_API_KEY.slice(-4), provider: 'gemini' };
+    const row = await this.db.platformSetting.findUnique({ where: { key: AI_KEY_SETTING } });
+    const stored = (row?.value as { encrypted?: string } | null)?.encrypted;
+    const key = stored ? decrypt(stored) : '';
+    if (key) return { source: 'admin', last4: key.slice(-4), provider: 'gemini' };
+    return { source: 'none', last4: null, provider: env.ANTHROPIC_API_KEY ? 'claude' : 'none' };
+  }
+
+  async saveAiKey(adminId: string, key: string) {
+    const clean = key.trim();
+    if (!(await verifyGeminiKey(clean))) {
+      throw AppError.badRequest('Google did not accept this key. Copy it again from Google AI Studio and check it has the Gemini API enabled.');
+    }
+    const value = { encrypted: encrypt(clean) };
+    await this.db.platformSetting.upsert({ where: { key: AI_KEY_SETTING }, create: { key: AI_KEY_SETTING, value }, update: { value } });
+    await this.loadAiKey(true);
+    await writeAuditLog(adminId, 'GUIDE_AI_KEY_SAVED', 'PlatformSetting', AI_KEY_SETTING, { last4: clean.slice(-4) });
+    return this.getAiKeyStatus();
+  }
+
+  async removeAiKey(adminId: string) {
+    await this.db.platformSetting.deleteMany({ where: { key: AI_KEY_SETTING } });
+    await this.loadAiKey(true);
+    await writeAuditLog(adminId, 'GUIDE_AI_KEY_REMOVED', 'PlatformSetting', AI_KEY_SETTING, {});
+    return this.getAiKeyStatus();
+  }
 
   // ─── Settings ──────────────────────────────────────────────────────────────
 
@@ -65,6 +127,7 @@ export class GuideService {
 
   /** Reads the file into text the AI can learn from, keeps the original, and stores both. */
   async addFile(adminId: string, file: IncomingFile, title?: string) {
+    await this.loadAiKey();
     const name = file.originalname;
     const lower = name.toLowerCase();
     let kind: GuideKnowledgeKind;
@@ -145,6 +208,7 @@ export class GuideService {
   /** Asks the AI what is still missing. Runs in the background after every change. */
   async refreshSuggestions(): Promise<{ text: string; updatedAt: Date | null }> {
     try {
+      await this.loadAiKey();
       const rows = await this.db.guideKnowledge.findMany({ orderBy: { createdAt: 'asc' }, select: { title: true, kind: true, content: true } });
       const overview = rows.map((r) => `- ${r.title} (${r.kind}): ${r.content.slice(0, 600).replace(/\s+/g, ' ')}`).join('\n');
       const text = await suggestUploads(overview);
@@ -194,7 +258,7 @@ export class GuideService {
     }
     messages.push({ role: 'user', content: message.trim(), at: new Date().toISOString() });
 
-    const [knowledge, settings] = await Promise.all([this.knowledgeText(), this.getSettings()]);
+    const [knowledge, settings] = await Promise.all([this.knowledgeText(), this.getSettings(), this.loadAiKey()]);
     const visitor = `${c.name}${c.country ? `, lives in ${c.country}` : ''}`;
     // The last 40 turns are plenty of context and keep each answer affordable.
     const recent = messages.slice(-40).map(({ role, content }) => ({ role, content }));

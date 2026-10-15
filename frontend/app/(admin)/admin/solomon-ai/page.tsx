@@ -11,6 +11,9 @@ import {
   type GuideKnowledgeItem,
   useAddGuideText,
   useDeleteGuideKnowledge,
+  useGuideAiKey,
+  useSaveGuideAiKey,
+  useRemoveGuideAiKey,
   useGuideConversation,
   useGuideConversations,
   useGuideKnowledge,
@@ -243,6 +246,58 @@ function KnowledgeList() {
   )
 }
 
+function AiConnectionCard() {
+  const { data } = useGuideAiKey()
+  const save = useSaveGuideAiKey()
+  const remove = useRemoveGuideAiKey()
+  const [key, setKey] = useState('')
+  const connected = data && data.provider !== 'none'
+  return (
+    <div className={cn('rounded-xl p-5 flex flex-col gap-3 border', connected ? 'bg-white border-[#D9E2DA]' : 'bg-[#FFF7E8] border-[#E9A23B]')}>
+      <p className="text-[15px] font-[600] text-[#0F241D]">AI connection</p>
+      {data?.source === 'server' && <p className="text-[13px] text-[#3D5248]">Connected to Google Gemini through the server settings (key ending …{data.last4}).</p>}
+      {data?.source === 'admin' && (
+        <div className="flex flex-col gap-2">
+          <p className="text-[13px] text-[#3D5248]">Connected to Google Gemini (key ending …{data.last4}).</p>
+          <button type="button" onClick={() => remove.mutate()} disabled={remove.isPending} className="self-start text-[12.5px] font-[600] text-error hover:underline">
+            Remove key
+          </button>
+        </div>
+      )}
+      {data?.source === 'none' && (
+        <p className="text-[13px] text-[#3D5248]">
+          {data.provider === 'claude'
+            ? 'Using Claude through the server settings. Add a Google Gemini key below to use Gemini instead.'
+            : 'Not connected yet: Solomon AI cannot answer until you add a key. Paste your Google Gemini API key from Google AI Studio.'}
+        </p>
+      )}
+      {data?.source !== 'server' && (
+        <form
+          className="flex flex-col gap-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            save.mutate(key, { onSuccess: () => setKey('') })
+          }}
+        >
+          <input
+            id="guide-ai-key"
+            type="password"
+            autoComplete="off"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder={data?.source === 'admin' ? 'Paste a new key to replace it' : 'Paste your Gemini API key'}
+            className="h-10 rounded-lg border border-[#D9E2DA] px-3 text-[14px] bg-white focus:outline-none focus:border-[#183D33]"
+          />
+          <Button type="submit" variant="primary" size="sm" className="self-start" disabled={save.isPending || key.trim().length < 20}>
+            {save.isPending ? 'Checking with Google…' : 'Save and connect'}
+          </Button>
+          <p className="text-[11.5px] text-[#6B7E6B]">The key is checked with Google, stored encrypted, and never shown again.</p>
+        </form>
+      )}
+    </div>
+  )
+}
+
 function SettingsCard() {
   const { data } = useGuideSettings()
   const update = useUpdateGuideSettings()
@@ -386,6 +441,7 @@ export default function SolomonAiPage() {
             </div>
           </div>
           <div className="flex flex-col gap-5">
+            <AiConnectionCard />
             <SuggestionsCard />
             <SettingsCard />
           </div>

@@ -6,8 +6,23 @@ import { AppError } from '../../utils/errors';
 
 const MODEL = 'claude-opus-5-5';
 
-/** Solomon AI uses Google Gemini when GEMINI_API_KEY is set (free tier), otherwise Claude. */
-const useGemini = (): boolean => Boolean(env.GEMINI_API_KEY);
+/** Gemini key saved by the admin in Solomon AI settings (used when the server has no GEMINI_API_KEY). */
+let adminGeminiKey = '';
+export function setAdminGeminiKey(key: string): void {
+  adminGeminiKey = key;
+}
+const geminiKey = (): string => env.GEMINI_API_KEY || adminGeminiKey;
+/** Solomon AI uses Google Gemini when a Gemini key is available (free tier), otherwise Claude. */
+const useGemini = (): boolean => Boolean(geminiKey());
+
+/** Checks a Gemini key with Google before it is saved. */
+export async function verifyGeminiKey(key: string): Promise<boolean> {
+  const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1', {
+    headers: { 'x-goog-api-key': key },
+    signal: AbortSignal.timeout(20_000),
+  }).catch(() => null);
+  return Boolean(res?.ok);
+}
 const FALLBACK = { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const };
 
 let client: Anthropic | null = null;
@@ -199,7 +214,7 @@ async function geminiGenerate(system: string, contents: GeminiTurn[], webSearch:
   const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+    headers: { 'content-type': 'application/json', 'x-goog-api-key': geminiKey() },
     body: JSON.stringify({
       ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
       contents,
