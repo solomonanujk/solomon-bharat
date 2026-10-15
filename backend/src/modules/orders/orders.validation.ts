@@ -21,6 +21,7 @@ export const quoteSchema = z.object({
       z.object({
         productId: z.string().uuid(),
         variantId: z.string().uuid().optional(),
+        isSample: z.boolean().optional(),
         quantity: z.coerce.number().int().min(1),
       }),
     )

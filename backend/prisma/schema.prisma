@@ -765,6 +765,9 @@ model OrderItem {
   /// lineSellerTotal above are then the NET after this commission.
   commissionRate   Decimal?        @db.Decimal(5, 2)
   commissionAmount Decimal?        @db.Decimal(12, 2)
+  /// A sample purchase: priced at the product's sample price, exempt from MOQ and the
+  /// brand's minimum order value, limited to the product's sample quantity.
+  isSample         Boolean         @default(false)
   createdAt        DateTime        @default(now())
 
   payout Payout?

@@ -73,6 +73,7 @@ export class OrdersRepository {
             unitSellerPrice: item.unitSellerPrice,
             lineAdminTotal: item.lineAdminTotal,
             lineSellerTotal: item.lineSellerTotal,
+            isSample: item.isSample ?? false,
           })),
         },
       },

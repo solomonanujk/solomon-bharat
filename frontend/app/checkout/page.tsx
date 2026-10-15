@@ -310,7 +310,7 @@ export default function CheckoutPage() {
   const itemCount = getTotalItems()
   const { quote, isActive, isFetching, isInitialLoading, isError } = useCartQuote(items)
   const groups = groupCartLines(items, quote)
-  const resolvedLines = items.map((i) => resolveLine(i, findQuoteLine(quote, i.productId, i.variantId)))
+  const resolvedLines = items.map((i) => resolveLine(i, findQuoteLine(quote, i.productId, i.variantId, i.isSample)))
   const total = resolvedLines.reduce((sum, r) => sum + r.lineTotalInr, 0)
   const hasBadLine = resolvedLines.some((r) => r.status !== 'OK' && r.status !== 'PENDING')
   const pricesUpdating = isActive && !isError && (isFetching || isInitialLoading)
@@ -356,7 +356,12 @@ export default function CheckoutPage() {
 
       checkout.mutate(
         {
-          items: items.map((i) => ({ productId: i.productId, quantity: i.quantity, variantId: i.variantId })),
+          items: items.map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+            variantId: i.variantId,
+            ...(i.isSample ? { isSample: true } : {}),
+          })),
           shippingAddressId: selectedAddressId,
           currency: currency !== 'INR' ? currency : undefined,
         },
@@ -447,10 +452,10 @@ export default function CheckoutPage() {
                       {group.brand && <BrandMinOrderNotice group={group} />}
                       <div className="flex flex-col gap-4 mt-3">
                         {group.items.map((item) => {
-                          const resolved = resolveLine(item, findQuoteLine(quote, item.productId, item.variantId))
+                          const resolved = resolveLine(item, findQuoteLine(quote, item.productId, item.variantId, item.isSample))
                           const notOk = resolved.status !== 'OK' && resolved.status !== 'PENDING'
                           return (
-                          <div key={`${item.productId}-${item.variantId ?? ''}`} className="flex flex-wrap gap-3 items-start pb-4 border-b border-border-warm last:border-b-0 last:pb-0">
+                          <div key={`${item.productId}-${item.variantId ?? ''}-${item.isSample ? 's' : 'w'}`} className="flex flex-wrap gap-3 items-start pb-4 border-b border-border-warm last:border-b-0 last:pb-0">
                       <button
                         type="button"
                         onClick={() => openLightbox(item.image, item.productName)}
@@ -467,6 +472,7 @@ export default function CheckoutPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-[13.5px] font-[600] font-sans text-product-text leading-snug">
                           {item.productName}
+                          {item.isSample && <span className="ml-1.5 text-[11px] font-[700] text-forest">· Sample</span>}
                         </p>
                         {item.variantLabel && (
                           <p className="text-[11px] font-sans text-muted-text mt-0.5">{item.variantLabel}</p>

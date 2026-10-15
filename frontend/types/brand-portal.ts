@@ -42,6 +42,7 @@ export interface BrandOrderItemView {
   productName: string
   productImage: string | null
   variantLabel: string | null
+  isSample?: boolean
   quantity: number
   unitPrice: string
   lineGross: string

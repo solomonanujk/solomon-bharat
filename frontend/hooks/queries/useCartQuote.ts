@@ -44,6 +44,7 @@ export function useCartQuote(items: QuotableItem[]) {
         items: request.map((i) => ({
           productId: i.productId,
           ...(i.variantId ? { variantId: i.variantId } : {}),
+          ...(i.isSample ? { isSample: true } : {}),
           quantity: i.quantity,
         })),
       })

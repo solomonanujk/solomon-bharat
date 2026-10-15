@@ -12,6 +12,7 @@ const CURATED_KEY = 'curated'
  */
 export function groupCartLines(items: CartLine[], quote?: CartQuote): CartGroup[] {
   const map = new Map<string, CartGroup>()
+  const wholesaleByKey = new Map<string, { has: boolean; subtotal: number }>()
   for (const item of items) {
     const brand = item.brand ?? null
     const key = brand ? `brand:${brand.id}` : CURATED_KEY
@@ -26,13 +27,23 @@ export function groupCartLines(items: CartLine[], quote?: CartQuote): CartGroup[
         shortfallInr: 0,
       }
       map.set(key, group)
+      wholesaleByKey.set(key, { has: false, subtotal: 0 })
     }
     group.items.push(item)
-    group.subtotalInr += resolveLine(item, findQuoteLine(quote, item.productId, item.variantId)).lineTotalInr
+    const lineTotal = resolveLine(item, findQuoteLine(quote, item.productId, item.variantId, item.isSample)).lineTotalInr
+    group.subtotalInr += lineTotal
+    if (!item.isSample) {
+      const w = wholesaleByKey.get(key)!
+      w.has = true
+      w.subtotal += lineTotal
+    }
   }
   const groups = [...map.values()]
   for (const g of groups) {
-    g.shortfallInr = g.minOrderValueInr > 0 ? Math.max(0, g.minOrderValueInr - g.subtotalInr) : 0
+    // Samples are exempt from a brand's minimum: only wholesale lines count, and a
+    // samples-only order has no minimum.
+    const w = wholesaleByKey.get(g.key)!
+    g.shortfallInr = g.minOrderValueInr > 0 && w.has ? Math.max(0, g.minOrderValueInr - w.subtotal) : 0
   }
   return groups.sort((a, b) => (a.brand === null ? -1 : 0) - (b.brand === null ? -1 : 0))
 }

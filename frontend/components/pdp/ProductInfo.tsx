@@ -431,7 +431,7 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
 
   const activeVariant = findMatchingVariant(variants, selectedAttrs)
   const activeVariantId = activeVariant?.id
-  const cartItem = cartItems.find((i) => i.productId === id && i.variantId === activeVariantId)
+  const cartItem = cartItems.find((i) => i.productId === id && i.variantId === activeVariantId && !i.isSample)
   const selectionUnavailable = axes.length > 0 && (!activeVariant || activeVariant.status === 'OUT_OF_STOCK')
 
   // A selected variant's own weight/dimensions (when set) take priority over
@@ -536,6 +536,32 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
         quantity,
         unitAdminPriceInr: unitPrice,
         moq,
+        variantId: activeVariantId,
+        variantLabel,
+        leadTime,
+        brand: brand ? { id: brand.id, name: brand.name, slug: brand.slug, minOrderValueInr: brand.minOrderValueInr, logoUrl: brand.logoUrl ?? null } : null,
+      })
+    }, 'add_to_cart')
+  }
+
+  // A sample goes through the normal cart and checkout: sample price, no MOQ, and it does
+  // not count toward (or need) the brand's minimum order value.
+  function handleAddSampleToCart() {
+    if (variants.length > 0 && !activeVariantId) return
+    requireAuth(() => {
+      const variantLabel = axes.length
+        ? axes.map((a) => `${a.type}: ${selectedAttrs[a.type]}`).join(' / ')
+        : undefined
+      addItem({
+        productId: id,
+        productSlug: product.slug,
+        productName: name,
+        image: images?.[0]?.url ?? '',
+        quantity: sampleQty,
+        unitAdminPriceInr: Number(samplePrice),
+        moq: 1,
+        isSample: true,
+        sampleMaxQty: sampleMax,
         variantId: activeVariantId,
         variantLabel,
         leadTime,
@@ -885,16 +911,41 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
                   step={1}
                 />
               </div>
-              <Link
-                href={`/custom-requirement?product=${id}&name=${encodeURIComponent(name)}&sample=${sampleQty}`}
-                className="inline-flex items-center justify-center min-h-12 px-5 rounded-[4px] bg-forest text-white font-[600] text-[16px] hover:bg-[#0F241D] transition-colors"
-              >
-                Request {sampleQty} sample{sampleQty === 1 ? '' : 's'}
-                {samplePrice ? ` · ${formatPrice(Number(samplePrice) * sampleQty)}` : ''}
-              </Link>
-              <p className="type-caption text-muted">
-                Our team confirms the total with shipping and sends payment details by email.
-              </p>
+              {samplePrice && Number(samplePrice) > 0 ? (
+                <>
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    className="w-full"
+                    onClick={handleAddSampleToCart}
+                    disabled={selectionUnavailable}
+                  >
+                    <ShoppingCart size={16} aria-hidden="true" />
+                    Add {sampleQty} sample{sampleQty === 1 ? '' : 's'} to cart · {formatPrice(Number(samplePrice) * sampleQty)}
+                  </Button>
+                  <p className="type-caption text-muted">
+                    Checks out like any order. No minimum order quantity or shop minimum applies to samples.{' '}
+                    <Link
+                      href={`/custom-requirement?product=${id}&name=${encodeURIComponent(name)}&sample=${sampleQty}`}
+                      className="font-[600] text-forest underline underline-offset-4"
+                    >
+                      Or ask our team
+                    </Link>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href={`/custom-requirement?product=${id}&name=${encodeURIComponent(name)}&sample=${sampleQty}`}
+                    className="inline-flex items-center justify-center min-h-12 px-5 rounded-[4px] bg-forest text-white font-[600] text-[16px] hover:bg-[#0F241D] transition-colors"
+                  >
+                    Request {sampleQty} sample{sampleQty === 1 ? '' : 's'}
+                  </Link>
+                  <p className="type-caption text-muted">
+                    Our team confirms the price with shipping and sends payment details by email.
+                  </p>
+                </>
+              )}
             </div>
           ) : (
           <>
