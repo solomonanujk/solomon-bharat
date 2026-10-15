@@ -166,6 +166,23 @@ export class SellersService {
     return { user: toSafeUser(user), profile };
   }
 
+  /**
+   * Permanently removes a seller application (spam, tests, duplicates). Approved applications
+   * are linked to a live seller account and can never be deleted here.
+   */
+  async deleteApplication(id: string, adminId: string): Promise<void> {
+    const application = await this.getApplicationOrThrow(id);
+    if (application.status === SellerApplicationStatus.APPROVED) {
+      throw AppError.badRequest('Approved applications belong to a live seller account and cannot be deleted');
+    }
+    await this.repo.deleteApplication(id);
+    await writeAuditLog(adminId, 'SELLER_APPLICATION_DELETED', 'SellerApplication', id, {
+      businessName: application.businessName,
+      email: application.email,
+      status: application.status,
+    });
+  }
+
   async rejectApplication(id: string, reason: string, adminId: string): Promise<SellerApplication> {
     const application = await this.getApplicationOrThrow(id);
     this.assertApplicationIsOpen(application);

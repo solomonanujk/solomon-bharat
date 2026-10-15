@@ -65,6 +65,11 @@ export const sellersController = {
     sendSuccess(res, seller);
   },
 
+  async deleteApplication(req: Request, res: Response): Promise<void> {
+    await sellersService.deleteApplication(req.params.id, req.user!.id);
+    sendSuccess(res, null, 'Application deleted');
+  },
+
   async switchSellerType(req: Request, res: Response): Promise<void> {
     const result = await sellersService.switchSellerType(req.user!.id, req.params.id, req.body.sellerType, req.body.brandName);
     sendSuccess(res, result, 'Seller type changed');

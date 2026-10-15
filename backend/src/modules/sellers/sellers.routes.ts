@@ -138,6 +138,21 @@ sellersRouter.post(
  *     responses:
  *       200: { description: Note added }
  */
+/**
+ * @openapi
+ * /sellers/applications/{id}:
+ *   delete:
+ *     summary: Permanently delete a non-approved seller application (SUPER_ADMIN only)
+ *     tags: [Sellers]
+ */
+sellersRouter.delete(
+  '/applications/:id',
+  requireAuth,
+  requireAdmin,
+  validate(idParamSchema, 'params'),
+  asyncHandler(sellersController.deleteApplication),
+);
+
 sellersRouter.post(
   '/applications/:id/notes',
   requireAuth,
