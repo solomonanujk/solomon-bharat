@@ -2354,6 +2354,7 @@ Data model additions: `Rfq` (+ `RfqStatus`), `BrandOwnBuyer`, `BrandEmailInvite`
 
 | Date | Change |
 |---|---|
+| 15 Oct 2026 | Fix: public forms (e.g. seller apply) no longer fail with "Invalid or missing CSRF token" for logged-out visitors with a stale cookie; the CSRF check now applies only to signed-in (Bearer) requests. |
 | 15 Oct 2026 | v3.13: admin can permanently delete non-approved seller applications (audit-logged). |
 | 15 Oct 2026 | v3.12: admin can switch an approved seller between Curated and Marketplace (Selling model card), with products, prices and brand page handled automatically; blocked while orders are in progress. |
 | 15 Oct 2026 | v3.11: samples can be ordered directly through cart and checkout, at the sample price, exempt from MOQ and the brand minimum, capped at the sample limit. |
