@@ -5,6 +5,9 @@ import { hashPassword } from '../../utils/bcrypt';
 import { generateTempPassword, slugify, uniqueSlugSuffix } from '../../utils/helpers';
 import { BrandSummaryDto, toBrandSummary } from '../../utils/brandSummary';
 import { writeAuditLog } from '../../utils/auditLog';
+import { readSpreadsheet } from '../product-import/parsers/spreadsheet';
+import type { SpreadsheetKind } from '../../middleware/upload';
+import { mapImportRow } from './applicationImport';
 import { cache, bumpVersion } from '../../utils/cache';
 import { SafeUser, toSafeUser } from '../../utils/safeUser';
 import { mailProvider } from '../../providers/mail';
@@ -164,6 +167,70 @@ export class SellersService {
     });
 
     return { user: toSafeUser(user), profile };
+  }
+
+  /**
+   * One-off import of applications from the old backend's export (.xlsx/.csv). Inserts only:
+   * rows whose email already has an application or account are skipped, never overwritten.
+   */
+  async importApplications(
+    buffer: Buffer,
+    kind: SpreadsheetKind,
+    adminId: string,
+  ): Promise<{
+    inserted: number;
+    skippedDuplicates: { brand: string; email: string }[];
+    skippedOther: { brand: string; reason: string }[];
+    failed: { row: number; brand: string; reason: string }[];
+  }> {
+    const sheet = await readSpreadsheet(buffer, kind);
+    for (const col of ['brand', 'founder', 'email', 'phone']) {
+      if (!sheet.headers.includes(col)) throw AppError.badRequest(`This file has no "${col}" column`);
+    }
+    const now = new Date();
+    const mapped = sheet.rows.map((r) => mapImportRow(r.rowNumber, r.cells, now));
+    const emails = mapped.flatMap((m) => (m.kind === 'ok' ? [m.email] : []));
+    const existing = await this.repo.findExistingEmails([...new Set(emails)]);
+
+    const report = {
+      inserted: 0,
+      skippedDuplicates: [] as { brand: string; email: string }[],
+      skippedOther: [] as { brand: string; reason: string }[],
+      failed: [] as { row: number; brand: string; reason: string }[],
+    };
+    const seen = new Set<string>();
+    for (const [i, m] of mapped.entries()) {
+      if (m.kind === 'skip') {
+        report.skippedOther.push({ brand: m.brand, reason: m.reason });
+        continue;
+      }
+      if (m.kind === 'fail') {
+        report.failed.push({ row: m.rowNumber, brand: m.brand, reason: m.reason });
+        continue;
+      }
+      if (existing.has(m.email) || seen.has(m.email)) {
+        report.skippedDuplicates.push({ brand: m.brand, email: m.email });
+        continue;
+      }
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await this.repo.createImportedApplication(m.data);
+        seen.add(m.email);
+        report.inserted += 1;
+      } catch (err) {
+        report.failed.push({
+          row: sheet.rows[i].rowNumber,
+          brand: m.brand,
+          reason: err instanceof Error ? err.message.split('\n').pop()!.slice(0, 200) : 'Unknown error',
+        });
+      }
+    }
+    await writeAuditLog(adminId, 'SELLER_APPLICATIONS_IMPORTED', 'SellerApplication', 'import', {
+      inserted: report.inserted,
+      skippedDuplicates: report.skippedDuplicates.length,
+      failed: report.failed.length,
+    });
+    return report;
   }
 
   /**

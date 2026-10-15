@@ -54,6 +54,8 @@ export interface UpdateSellerProfileInput {
 
 export interface ApplicationListFilter {
   status?: SellerApplicationStatus;
+  /** Matches business name, founder or email (case-insensitive). */
+  search?: string;
 }
 
 export type { BrandSummaryDto } from '../../utils/brandSummary';

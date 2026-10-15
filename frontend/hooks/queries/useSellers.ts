@@ -52,7 +52,7 @@ export function useUpdateMySellerProfile() {
 
 // ─── Admin: seller applications ───────────────────────────────────────────────
 
-export function useSellerApplications(params?: { status?: SellerApplicationStatus; page?: number; limit?: number }) {
+export function useSellerApplications(params?: { status?: SellerApplicationStatus; search?: string; page?: number; limit?: number }) {
   return useQuery<PaginatedResult<SellerApplication>>({
     queryKey: ['seller-applications', params],
     queryFn: async () => toPaginated<SellerApplication>(await api.get('/sellers/applications', { params })),
@@ -113,6 +113,31 @@ export function useAddApplicationNote() {
   return useMutation<unknown, Error, { id: string; note: string }>({
     mutationFn: ({ id, note }) => api.post(`/sellers/applications/${id}/notes`, { note }),
     onSuccess: (_, vars) => invalidateApplication(qc, vars.id),
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
+export interface ApplicationImportReport {
+  inserted: number
+  skippedDuplicates: { brand: string; email: string }[]
+  skippedOther: { brand: string; reason: string }[]
+  failed: { row: number; brand: string; reason: string }[]
+}
+
+/** Admin: one-off import of applications from the old backend's Excel export. */
+export function useImportSellerApplications() {
+  const qc = useQueryClient()
+  return useMutation<ApplicationImportReport, Error, File>({
+    mutationFn: async (file) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await api.post('/sellers/applications/import', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      return res.data.data as ApplicationImportReport
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['seller-applications'] })
+      qc.invalidateQueries({ queryKey: ['admin-dashboard'] })
+    },
     onError: (err) => toast.error(getApiError(err)),
   })
 }

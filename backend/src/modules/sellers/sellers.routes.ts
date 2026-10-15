@@ -1,3 +1,4 @@
+import { uploadSpreadsheet } from '../../middleware/upload';
 import { Router } from 'express';
 import { sellersController } from './sellers.controller';
 import {
@@ -145,6 +146,14 @@ sellersRouter.post(
  *     summary: Permanently delete a non-approved seller application (SUPER_ADMIN only)
  *     tags: [Sellers]
  */
+sellersRouter.post(
+  '/applications/import',
+  requireAuth,
+  requireAdmin,
+  uploadSpreadsheet,
+  asyncHandler(sellersController.importApplications),
+);
+
 sellersRouter.delete(
   '/applications/:id',
   requireAuth,
