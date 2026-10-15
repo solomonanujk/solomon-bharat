@@ -839,6 +839,13 @@ function MobileNavDrawer({ open, onClose }: { open: boolean; onClose: () => void
                   Sign in
                 </Button>
                 <Link
+                  href="/guide"
+                  onClick={onClose}
+                  className="inline-flex items-center justify-center min-h-11 text-[14px] font-[600] font-sans text-forest underline underline-offset-4 hover:text-forest-hover"
+                >
+                  ✦ Ask Solomon AI
+                </Link>
+                <Link
                   href="/custom-requirement"
                   onClick={onClose}
                   className="inline-flex items-center justify-center min-h-11 text-[14px] font-[600] font-sans text-forest underline underline-offset-4 hover:text-forest-hover"
@@ -908,6 +915,15 @@ export function NavBar({ transparent = false, initialSearchQuery }: NavBarProps)
           <NavSearchBar ghost={ghost} initialQuery={initialSearchQuery} className="flex-1 mx-1" />
 
           <div className="flex items-center gap-1 flex-shrink-0">
+            <Link
+              href="/guide"
+              className={cn(
+                'inline-flex items-center gap-1 h-11 px-2.5 whitespace-nowrap text-[14px] leading-[20px] font-[600] font-sans underline-offset-4 hover:underline',
+                ghost ? 'text-white' : 'text-forest',
+              )}
+            >
+              ✦ Solomon AI
+            </Link>
             <Link
               href="/custom-requirement"
               className={cn(

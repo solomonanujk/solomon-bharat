@@ -6,6 +6,7 @@ import { useAuthStore } from '@/lib/store/useAuthStore'
 import { NavBar } from '@/components/shared/NavBar'
 import { Footer } from '@/components/shared/Footer'
 import { HeroSection } from '@/components/homepage/HeroSection'
+import { SolomonAiSection } from '@/components/homepage/SolomonAiSection'
 import { CategorySection } from '@/components/homepage/CategorySection'
 import { RetailerHighlightSection } from '@/components/homepage/RetailerHighlightSection'
 import { HowItWorksSection } from '@/components/homepage/HowItWorksSection'
@@ -59,6 +60,7 @@ export default function HomePage() {
           // until there are real, permissioned buyer quotes.
           <>
             <HeroSection />
+            <SolomonAiSection />
             <TrustBar />
             <CategorySection />
             <BestsellersSection />

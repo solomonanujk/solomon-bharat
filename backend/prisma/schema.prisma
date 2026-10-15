@@ -1052,3 +1052,50 @@ model Rfq {
   @@index([userId])
   @@map("rfqs")
 }
+
+// ─── Solomon AI (public business guide) ─────────────────────────────────────
+
+enum GuideKnowledgeKind {
+  TEXT
+  PDF
+  IMAGE
+  SPREADSHEET
+}
+
+/// Material the admin feeds the Solomon AI guide. `content` is the text the AI reads
+/// (typed text, or text read out of a PDF / image / spreadsheet at upload).
+model GuideKnowledge {
+  id          String             @id @default(uuid())
+  title       String
+  kind        GuideKnowledgeKind
+  content     String
+  fileUrl     String?
+  fileName    String?
+  sizeBytes   Int?
+  createdById String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([createdAt])
+  @@map("guide_knowledge")
+}
+
+/// One visitor's chat with the guide. Name, email and phone are required before chatting.
+model GuideConversation {
+  id           String   @id @default(uuid())
+  /// Secret the visitor's browser holds to continue this chat.
+  token        String   @unique
+  name         String
+  email        String
+  phone        String
+  country      String?
+  /// [{ role: 'user' | 'assistant', content: string, at: ISO date }]
+  messages     Json     @default("[]")
+  messageCount Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([email])
+  @@map("guide_conversations")
+}
