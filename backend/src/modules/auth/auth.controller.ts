@@ -21,8 +21,16 @@ export const authController = {
 
   async signup(req: Request, res: Response): Promise<void> {
     const dto = req.body as SignupBuyerDto;
-    const user = await authService.signupBuyer(dto);
-    sendCreated(res, { user }, 'Account created. Please check your email to verify your address.');
+    await authService.signupBuyer(dto);
+    // Sign the new buyer in straight away (login does not require a verified email), so the
+    // frontend gets a real session and the buyer sees wholesale prices immediately.
+    const { user, tokens } = await authService.login({ email: dto.email, password: dto.password });
+    setAuthCookies(res, tokens.refreshToken, tokens.csrfToken);
+    sendCreated(
+      res,
+      { user, accessToken: tokens.accessToken, csrfToken: tokens.csrfToken },
+      'Account created. Please check your email to verify your address.',
+    );
   },
 
   async login(req: Request, res: Response): Promise<void> {

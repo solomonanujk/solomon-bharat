@@ -64,7 +64,7 @@ export default function AboutPage() {
               </p>
               <div className="mt-8 flex flex-col sm:flex-row gap-3">
                 <Button asChild variant="primary" size="lg" className="w-full sm:w-auto">
-                  <Link href="/collections">Browse products</Link>
+                  <Link href="/products">Browse products</Link>
                 </Button>
                 <Button asChild variant="secondary" size="lg" className="w-full sm:w-auto">
                   <Link href="/sell">Apply as a seller</Link>

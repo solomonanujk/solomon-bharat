@@ -8,6 +8,7 @@ import { CatalogueTray } from "@/components/shared/CatalogueTray";
 import { AppInitialiser } from "@/components/shared/AppInitialiser";
 import { AuthModal } from "@/components/shared/AuthModal";
 import { CookieConsent } from "@/components/shared/CookieConsent";
+import { AuthQuerySync } from "./AuthQuerySync";
 import { Toaster } from "sonner";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -28,6 +29,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <AppInitialiser />
+      <AuthQuerySync />
       {children}
       <AuthModal />
       <AddedToCartPopup />

@@ -45,6 +45,10 @@ describe('auth controller', () => {
   describe('POST /api/v1/auth/signup', () => {
     it('creates a buyer account and returns 201', async () => {
       vi.mocked(authService.signupBuyer).mockResolvedValue({ id: 'u1', email: 'a@b.com' } as never);
+      vi.mocked(authService.login).mockResolvedValue({
+        user: { id: 'u1', email: 'a@b.com', role: 'BUYER' },
+        tokens: { accessToken: 'acc', refreshToken: 'ref', csrfToken: 'csrf' },
+      } as never);
 
       const res = await request(app).post('/api/v1/auth/signup').send({
         email: 'a@b.com',
@@ -56,6 +60,10 @@ describe('auth controller', () => {
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
       expect(authService.signupBuyer).toHaveBeenCalled();
+      // The new buyer is signed in straight away, so prices show immediately.
+      expect(authService.login).toHaveBeenCalledWith({ email: 'a@b.com', password: 'password123' });
+      expect(res.body.data.accessToken).toBe('acc');
+      expect(res.body.data.csrfToken).toBe('csrf');
     });
 
     it('rejects an invalid email with 422', async () => {

@@ -103,3 +103,10 @@ Recommended: video, the story of the craft.
 ## 11. Samples (as built)
 - Marketplace brands must say on every product whether they offer samples; if yes, the maximum sample quantity and the price per sample unit. Admins can set the same for curated products.
 - Buyers see "Samples available" on the product page (price after sign-up) and use "Order a sample". It arrives in the admin's Custom Requirements inbox marked "Sample order"; the team emails the total with shipping and bank details.
+
+## 12. Round 4 decisions (15 Oct 2026, as built)
+- Product pages show every detail the seller enters (including packaging) in a table, plus the craft story and, for brands, the brand story.
+- Buyers choose "Wholesale order" or "Order a sample" on the product page.
+- Marketplace brands must enter their minimum order value in a pop-up as soon as they sign in.
+- "Browse products" opens an all-products page (`/products`).
+- The sign-up page uses a designed pattern/map panel, not a photo.

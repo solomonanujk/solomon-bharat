@@ -1,6 +1,6 @@
 **Solomon Bharat**
 Product Requirements Document
-Version 3.9  |  Status: Draft  |  14 October 2026
+Version 3.10  |  Status: Draft  |  15 October 2026
 *Confidentiality: Internal Use Only*
 **Solomon Bharat Private Limited**
 B2B Wholesale Export Marketplace — Indian Artisan & Handmade Products
@@ -1828,6 +1828,7 @@ These exist in the shipped code and are now documented in the body of this PRD a
 | 3.6 | September 2026 | As-built pass: reconciled the PRD against the actual codebase. Added §15 Implementation Status & As-Built Reference (full API/schema/route inventory, deployment architecture, testing status, documentation debt). Documented features that exist in code but were previously undocumented: Product Pricing & Variant Change Requests (§8.9, §10.5a), Reviews & Ratings (§6.10, §7.8), AI Content Polish (§8.5a), buyer-facing multi-currency price display (§6.11), Admin User Management / Audit Log / Platform Settings (§10.11–10.13). Corrected typography tokens (§12.3: actual fonts are Fraunces + Hanken Grotesk, not Playfair Display / Public Sans) and the frontend folder structure (§13.3) to match the real `frontend/app/`, `components/`, `hooks/queries/`, `lib/store/` layout — there is no `frontend/src/modules/` tree and no `(buyer)`/`(agent)` route groups in the actual build. Expanded §13.7 data models and §13.9 env vars to match the real 28-model Prisma schema and `.env.example` files. |
 | 3.7 | September 2026 | Faire-parity Submit New Product rebuild reconciled against §8.5, which is now a full rewrite: progressive reveal, category typeahead, product video upload (new `ProductVideo` model), controlled-vocabulary eco-attribute tags, a seller-settable bestseller flag, and a redesigned per-row variant table (SKU/price/inventory/weight/dimensions/tariff-code/status, focal-point color-swatch cropping) — plus a documented narrowing of scope (MOQ/Order Step/Lead Time/Handmade/GI Tagged/Tags/How It's Made/Artisan Name/volume pricing no longer collected, three of them force-reset on save; §8.5, §15.8). Documented the real Draft product status (§8.4, §8.5) and added §8.4a for the rebuilt seller-facing Product Detail View page. Updated §6.6 Product Detail Page for the matching buyer-facing additions (bestseller/handmade/GI-tagged badges, eco tags, "How it's made," per-variant weight/dimensions, HS/tariff code, video playback) and a correctness fix to the variant selector (previously read only a variant's primary axis, silently hiding a second axis like Color). Expanded §13.7/§15.3 for the new `Product`/`ProductVariant`/`ProductVideo` fields and corrected the schema's real size (805 lines, 14 enums, 33 models — was stated as 772/11/28). Updated §13.3's component/lib folder listings (`ListingScore` was never built; added `CategoryTypeahead`, `ColorSwatchModal`, `ColorSwatchPromptModal`, `ProductOptionsModal`, `ProductVideoStrip`, `ecoAttributes.ts`, `indianPlaces.ts`). Added four new §15.8 documentation-debt entries surfaced during this pass (a "Product language" variant-axis option contradicting §16.4, a video-size helper-text mismatch, the field-reset behavior above, and a pricing-change-request gap around the new per-variant fields). |
 | 3.8 | October 2026 | Marketplace brands: second seller type with onboarding question, brand profiles and storefronts, direct pricing with quantity tiers, brand-level minimum order value, per-brand orders in a single checkout, 25%/15% commission with per-brand overrides, split payments for marketplace orders (curated orders unsplit), brand portal and admin brand management, and Shopify/WooCommerce spreadsheet product import. New §17; contradicting statements in §1, §6 and §16 updated. |
+| 3.10 | 15 October 2026 | Owner feedback round: new-buyer price fix, sign-up design, full product details and story on the product page, sample/wholesale switch, brand minimum-order pop-up, All products page (§18.7, §18.9, §18.16). |
 | 3.9 | 14 October 2026 | Owner decisions and October build, new §18: UK-first launch; admin assigns seller type; manual bank-transfer payments; Solomon collects all payments (no split); new order lifecycle (Quality checked, Refunded, 24h brand acceptance, dispatch photos, payout on dispatch); brand invite links and own buyers at 0% commission with instant payout; custom requests (RFQ) and samples; craft category tree; mandatory craft fields; brand shop minimum required; admin price editor on every curated product; vacation mode and internal seller rating; commercial invoice and packing list PDFs; WhatsApp notifications; "Draft with AI"; legal pages and cookie consent; help content; mobile responsiveness; demo data purged. Updated §15, §16 and §17 where they conflicted. |
 
 ## 16.2 Glossary
@@ -1899,12 +1900,13 @@ These exist in the shipped code and are now documented in the body of this PRD a
 ## 16.4 Out of Scope
 
 - Global search
-- All Products / Shop page
+- ~~All Products / Shop page~~ (in scope as of v3.10 — `/products`, §18.7)
 - Automated payout processing
 - Returns or dispute resolution (damage claims with photos are in scope as of v3.9 — §18.3)
 - Seller-to-buyer messaging
 - Achievement system, buyer referral program
 - General buyer-facing share links (product sharing exists only inside the Agent Portal — §9.7 — not on the public marketplace or in the Buyer Workspace)
+- ~~All Products / Shop page~~ — **in scope as of v3.10:** `/products` (§18.7)
 - ~~Drop-ship~~ — **in scope as of v3.9:** an agent can ship to a named end customer (§18.9)
 - Sub-admin roles (Content Manager, Finance Manager, etc.)
 - Mobile native apps (Phase 1)
@@ -2279,9 +2281,12 @@ New order fields: `paidAt`, `dispatchPhotos`, `brandOwnBuyer`, `refundedAt`, `re
 - No customisation on standard listings; customisation goes through a custom request.
 - **"Draft with AI"** writes product description drafts for sellers (`POST /products/description-draft`, needs `ANTHROPIC_API_KEY`).
 - **Admin price editor (curated):** the admin product page always shows editable **Buyer Price** and **Agent Price (optional)** for every tier and variant tier. A product with no tiers shows one base row built from its MOQ and seller price; saving creates that tier. During review the admin uses **"Approve & publish with these prices"** or **Reject**; after approval, **"Save prices"** updates them.
-- **Brand shop minimum:** a brand cannot add or publish products until its shop minimum order value is set (above 0). The brand dashboard shows a banner linking to the setting, and checkout below the minimum is refused.
+- **Brand shop minimum:** a brand cannot add or publish products until its shop minimum order value is set (above 0). As soon as a marketplace brand signs in to the portal without one, a **pop-up that cannot be dismissed** asks for it (v3.10); the dashboard also shows a banner, and checkout below the minimum is refused.
 - **Price privacy:** guests never receive prices from the API, including the **sample price**.
 - One-time Shopify/WooCommerce import is merged and live (§17.14).
+- **Product page shows everything the seller entered** (v3.10), as a bordered spec table grouped into *Specifications* (materials, product type, dimensions, weight, each option list, care), *Craft & origin* (technique, region, handmade, GI tag, maker name for brands only), *Ordering & shipping* (MOQ, availability, lead time, samples, HS code, brand return policy) and *Sustainability & packaging* (eco materials, packaging, production — each its own row). Products with options also get an **"Options at a glance"** table (SKU, weight, size, HS code, stock per option). The seller's craft story shows as **"The story behind this product"**, and a brand product shows **"About <brand>"** with the brand's story.
+- **Sample or wholesale on the product page** (v3.10): when a product offers samples, signed-in buyers get a *Wholesale order / Order a sample* switch in the price panel. Sample mode shows the sample price, a quantity picker up to the sample limit, and "Request N samples", which opens the sample request (§18.6).
+- **All products page** `/products` (v3.10): every published product with the full catalogue filters. The homepage hero and About page "Browse products" buttons go here (previously Collections). This replaces the old "no all-products page" rule (§16.4).
 
 ### 18.8 Brand invites and own buyers
 - Each brand has a **personal invite link** (`/invite/<code>`; `GET /brands/me/invite`, `GET /brands/invites/:code`, `POST /brands/invites/:code/accept`).
@@ -2290,7 +2295,9 @@ New order fields: `paidAt`, `dispatchPhotos`, `brandOwnBuyer`, `refundedAt`, `re
 - Orders from own buyers: 0% commission, flagged `brandOwnBuyer`, paid out immediately.
 
 ### 18.9 Buyers and agents
-- Prices are visible after sign-up. Business verification is deferred.
+- Prices are visible after sign-up. **Sign-up signs the buyer in immediately** (the API returns a session), so a new buyer sees admin-set prices straight away (v3.10 fix: new buyers previously saw ₹0). An expired or invalid login token on a public page now returns 401 so the site refreshes the session instead of quietly showing the guest (price-less) view; if the session cannot be refreshed the page reloads as a guest. Cached pages are refetched whenever the signed-in user changes.
+- The sign-up page shows a designed panel (faded block-print pattern, map grid and trade routes from Jaipur to London, New York, Dubai, Singapore, Tokyo and Sydney) instead of a photo.
+- Business verification is deferred.
 - Team accounts and multiple addresses are allowed; no VIP or custom price lists.
 - **Agents** buy curated products only, at the admin-set agent price, and can ship to a named end customer. The catalogue PDF is **white-label**: no Solomon Bharat branding, no prices, and it carries the agent's company name, phone and email (required before creating a catalogue). No referral commission for now.
 
@@ -2340,6 +2347,7 @@ Data model additions: `Rfq` (+ `RfqStatus`), `BrandOwnBuyer`, `BrandEmailInvite`
 
 | Date | Change |
 |---|---|
+| 15 Oct 2026 | v3.10: fixed new buyers seeing ₹0 (sign-up now signs in; expired tokens refresh instead of silently showing guest data); designed sign-up panel replaces the photo; full product spec table, options table, craft story and brand story on the product page; Wholesale/Sample switch; mandatory minimum-order pop-up for brands; `/products` all-products page as the "Browse products" target. |
 | 14 Oct 2026 | Admin price editor on every curated product (base tier); brand shop minimum required before listing; sample price hidden from guests. |
 | Oct 2026 | Demo data purge; mobile responsiveness; UK-first homepage; help content. |
 | Oct 2026 | Admin-assigned seller type; Seller Agreement; craft fields; vacation mode; internal rating; export documents; WhatsApp; Draft with AI; samples. |
