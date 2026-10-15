@@ -2311,7 +2311,7 @@ New order fields: `paidAt`, `dispatchPhotos`, `brandOwnBuyer`, `refundedAt`, `re
 - Notifications by **email** and **WhatsApp** (Twilio: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`; WhatsApp is skipped when these are unset). English only.
 - Published pages: **Terms**, **Privacy**, **Cookie Policy**, **Seller Agreement** (versioned), plus a GDPR **cookie consent banner**.
 - Help, FAQs and Export guide have real content.
-- Google Analytics planned; site runs on free hosting tiers for now.
+- **Analytics:** Google Analytics (when `NEXT_PUBLIC_GA_ID` is set) and **Microsoft Clarity** (project `yy0gg7k3v8`, overridable with `NEXT_PUBLIC_CLARITY_ID`; heatmaps and session recordings). Both load **only after the visitor accepts analytics cookies** in the cookie banner (UK GDPR/PECR); the Cookie Policy lists the Clarity cookies. Site runs on free hosting tiers for now.
 
 ### 18.12 Mobile
 - All admin, brand, buyer and public pages fit a 390px phone screen.
@@ -2347,6 +2347,7 @@ Data model additions: `Rfq` (+ `RfqStatus`), `BrandOwnBuyer`, `BrandEmailInvite`
 
 | Date | Change |
 |---|---|
+| 15 Oct 2026 | Microsoft Clarity tracking added, loaded only after analytics-cookie consent; Cookie Policy updated. |
 | 15 Oct 2026 | v3.10: fixed new buyers seeing ₹0 (sign-up now signs in; expired tokens refresh instead of silently showing guest data); designed sign-up panel replaces the photo; full product spec table, options table, craft story and brand story on the product page; Wholesale/Sample switch; mandatory minimum-order pop-up for brands; `/products` all-products page as the "Browse products" target. |
 | 14 Oct 2026 | Admin price editor on every curated product (base tier); brand shop minimum required before listing; sample price hidden from guests. |
 | Oct 2026 | Demo data purge; mobile responsiveness; UK-first homepage; help content. |
