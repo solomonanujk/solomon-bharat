@@ -61,13 +61,14 @@ export interface SignupInput {
 /** Buyer self-signup only — SELLER accounts are created via /sellers/apply → admin approval. */
 export function useSignup() {
   const setUser = useAuthStore((s) => s.setUser)
-  return useMutation<{ user: User; accessToken: string }, Error, SignupInput>({
+  return useMutation<{ user: User; accessToken: string; csrfToken: string }, Error, SignupInput>({
     mutationFn: async (body) => {
       const res = await api.post('/auth/signup', body)
       return res.data.data
     },
     onSuccess: (data) => {
       localStorage.setItem(TOKEN_KEY, data.accessToken)
+      localStorage.setItem(CSRF_TOKEN_KEY, data.csrfToken)
       setUser(data.user)
       toast.success('Account created — check your email to verify your address.')
     },

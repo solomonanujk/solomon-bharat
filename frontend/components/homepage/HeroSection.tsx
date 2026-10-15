@@ -103,7 +103,7 @@ export function HeroSection() {
             Sign up to buy
           </Button>
           <Button asChild variant="outlineOnForest" size="lg" className="w-full sm:w-auto">
-            <Link href="/collections">Browse products</Link>
+            <Link href="/products">Browse products</Link>
           </Button>
         </div>
       </div>

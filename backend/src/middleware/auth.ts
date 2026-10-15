@@ -85,7 +85,10 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction): 
     const payload = verifyAccessToken(token);
     req.user = { id: payload.sub, role: payload.role };
   } catch {
-    // ignore invalid token for optional auth
+    // A signed-in user whose access token expired must not silently get the guest view
+    // (no prices). 401 makes the client refresh its token and retry.
+    next(AppError.unauthorized('Session expired'));
+    return;
   }
   next();
 }

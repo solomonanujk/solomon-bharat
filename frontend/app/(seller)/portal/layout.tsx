@@ -7,6 +7,7 @@ import { Bell, Search, LayoutDashboard, Package, ShoppingBag, Wallet, Settings, 
 import { PortalSidebar } from '@/components/seller-portal/PortalSidebar'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { useMySellerProfile } from '@/hooks/queries/useSellers'
+import { BrandMinimumOrderModal } from '@/components/seller-portal/BrandMinimumOrderModal'
 
 const MOBILE_TABS = [
   { href: '/portal', label: 'Dashboard', icon: LayoutDashboard },
@@ -58,6 +59,7 @@ export default function SellerPortalLayout({
 
   return (
     <div className="flex min-h-screen bg-[#E7EDE7]">
+      <BrandMinimumOrderModal enabled={profile?.sellerType === 'MARKETPLACE'} />
       {/* Sidebar — hidden on mobile */}
       <div className="hidden lg:block">
         <PortalSidebar />

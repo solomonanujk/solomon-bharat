@@ -125,6 +125,13 @@ api.interceptors.response.use(
       processQueue(refreshError, null)
 
       useAuthStore.getState().logout()
+
+      // A read (e.g. a product page) still works for a guest: retry it signed-out
+      // instead of throwing the visitor off the page.
+      if ((originalRequest.method || 'get').toLowerCase() === 'get') {
+        if (originalRequest.headers) delete (originalRequest.headers as Record<string, string>).Authorization
+        return api(originalRequest)
+      }
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('sb_session_expired', '1')
         window.location.href = '/'

@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Image from 'next/image'
+import { TradeRoutesArt } from '@/components/signup/TradeRoutesArt'
 import { ChevronLeft } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { useSignup } from '@/hooks/queries/useAuth'
@@ -17,16 +17,13 @@ import {
 } from '@/components/signup/wizardSteps'
 
 // ─── Buyer signup page ─────────────────────────────────────────────────────────
-// Two equal columns on desktop (decorative photo left, form right, max 440px);
+// Two equal columns on desktop (decorative trade-routes art left, form right, max 440px);
 // form only on mobile. Step 1 (email) is shown inline when the page is visited
 // directly; when arriving from the AuthModal shortcut the email is already in
 // the URL (?email=) and the wizard starts at step 2.
 // `?next=` (validated to a same-origin relative path) is where the buyer
 // returns after creating an account or signing in.
 
-// Illustrative photo — reused from the homepage retailer section.
-const SIGNUP_PHOTO =
-  'https://res.cloudinary.com/dxnqyvcdl/image/upload/v1788845176/homepage/1788845110281-retailer-storefront.png'
 
 function SignupPageInner() {
   const router = useRouter()
@@ -97,15 +94,8 @@ function SignupPageInner() {
       <main className="flex-1 py-12 lg:py-16">
         <div className="sb-container grid grid-cols-1 lg:grid-cols-2 lg:gap-[72px] items-start">
           {/* Decorative photo panel — desktop only */}
-          <div className="hidden lg:block relative w-full aspect-[4/5] overflow-hidden rounded-[6px] border border-line bg-white">
-            <Image
-              src={SIGNUP_PHOTO}
-              alt=""
-              fill
-              sizes="(min-width: 1024px) 50vw, 0px"
-              className="object-cover"
-              priority
-            />
+          <div className="hidden lg:block relative w-full aspect-[4/5] overflow-hidden rounded-[6px] border border-line bg-forest">
+            <TradeRoutesArt />
           </div>
 
           <div className="w-full max-w-[440px] mx-auto lg:mx-0">
