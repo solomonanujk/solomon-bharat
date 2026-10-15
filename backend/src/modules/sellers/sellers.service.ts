@@ -1,10 +1,11 @@
-import { SellerApplication, SellerApplicationStatus, SellerProfile, SellerType } from '@prisma/client';
+import { NotificationType, SellerApplication, SellerApplicationStatus, SellerProfile, SellerType } from '@prisma/client';
 import { env } from '../../config/env';
 import { AppError } from '../../utils/errors';
 import { hashPassword } from '../../utils/bcrypt';
 import { generateTempPassword, slugify, uniqueSlugSuffix } from '../../utils/helpers';
 import { BrandSummaryDto, toBrandSummary } from '../../utils/brandSummary';
 import { writeAuditLog } from '../../utils/auditLog';
+import { cache, bumpVersion } from '../../utils/cache';
 import { SafeUser, toSafeUser } from '../../utils/safeUser';
 import { mailProvider } from '../../providers/mail';
 import { PaginationQuery } from '../../utils/pagination';
@@ -288,6 +289,72 @@ export class SellersService {
   }
 
   /** Admin-only internal performance rating; never exposed to the seller. */
+  /**
+   * Admin moves an approved seller between Curated and Marketplace. Blocked while the seller
+   * has orders in progress, so no order changes fulfilment model halfway. See the repository
+   * methods for what happens to products and prices.
+   */
+  async switchSellerType(
+    adminId: string,
+    sellerProfileId: string,
+    sellerType: SellerType,
+    brandName?: string,
+  ): Promise<{ sellerType: SellerType; productCount: number; brandId?: string }> {
+    const seller = await this.repo.findSellerWithBrand(sellerProfileId);
+    if (!seller) throw AppError.notFound('Seller not found');
+    if (seller.sellerType === sellerType) {
+      throw AppError.badRequest(`This seller is already ${sellerType === SellerType.CURATED ? 'Curated' : 'Marketplace'}`);
+    }
+    const openOrders = await this.repo.countOpenOrdersForSeller(sellerProfileId);
+    if (openOrders > 0) {
+      throw AppError.badRequest(
+        `This seller has ${openOrders} order${openOrders === 1 ? '' : 's'} in progress. Finish or cancel them before switching.`,
+      );
+    }
+
+    let result: { sellerType: SellerType; productCount: number; brandId?: string };
+    if (sellerType === SellerType.MARKETPLACE) {
+      const name = (brandName?.trim() || seller.brand?.name || seller.businessName).slice(0, 100);
+      const { brandId, productCount } = await this.repo.switchToMarketplace(
+        sellerProfileId,
+        seller.brand
+          ? { existingId: seller.brand.id, name }
+          : { name, slug: await this.generateUniqueBrandSlug(name) },
+      );
+      result = { sellerType, productCount, brandId };
+    } else {
+      const { productCount } = await this.repo.switchToCurated(sellerProfileId, seller.brand?.id ?? null);
+      result = { sellerType, productCount };
+    }
+
+    await bumpVersion(cache, 'products:published-list');
+    await writeAuditLog(adminId, 'SELLER_TYPE_SWITCHED', 'SellerProfile', sellerProfileId, {
+      from: seller.sellerType,
+      to: sellerType,
+      productCount: result.productCount,
+      ...(result.brandId ? { brandId: result.brandId } : {}),
+    });
+
+    const toMarketplace = sellerType === SellerType.MARKETPLACE;
+    const message = toMarketplace
+      ? 'You now sell as a marketplace brand: you set your own prices and ship orders yourself. Set your minimum order value in the seller portal.'
+      : 'You now sell through Solomon Bharat (Curated). Your products are back in review; our team will set prices and publish them.';
+    try {
+      await notificationsService.notify(seller.userId, NotificationType.SELLER_APPLICATION_APPROVED, 'Your selling model has changed', message, '/portal');
+      const user = await this.repo.findUserById(seller.userId);
+      if (user) {
+        await mailProvider.sendMail({
+          to: user.email,
+          subject: 'Your Solomon Bharat selling model has changed',
+          html: `<p>${message}</p><p><a href="${env.APP_URL}/portal">Open the seller portal</a></p>`,
+        });
+      }
+    } catch {
+      // The switch itself succeeded; a failed notice must not undo it.
+    }
+    return result;
+  }
+
   async setInternalRating(
     adminId: string,
     sellerProfileId: string,

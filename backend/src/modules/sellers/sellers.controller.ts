@@ -65,6 +65,11 @@ export const sellersController = {
     sendSuccess(res, seller);
   },
 
+  async switchSellerType(req: Request, res: Response): Promise<void> {
+    const result = await sellersService.switchSellerType(req.user!.id, req.params.id, req.body.sellerType, req.body.brandName);
+    sendSuccess(res, result, 'Seller type changed');
+  },
+
   async setInternalRating(req: Request, res: Response): Promise<void> {
     const profile = await sellersService.setInternalRating(req.user!.id, req.params.id, req.body);
     sendSuccess(res, profile, 'Internal rating saved');

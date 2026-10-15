@@ -111,3 +111,4 @@ Recommended: video, the story of the craft.
 - "Browse products" opens an all-products page (`/products`).
 - The sign-up page uses a designed pattern/map panel, not a photo.
 - Samples can be ordered directly like a wholesale order (cart → checkout). Sample lines use the sample price, ignore MOQ and the brand's minimum order value, and are capped at the sample limit.
+- Admins can switch an approved seller between Curated and Marketplace at any time (not while orders are in progress).

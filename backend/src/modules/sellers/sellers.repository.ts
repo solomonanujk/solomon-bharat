@@ -50,6 +50,10 @@ export class SellersRepository {
     return this.db.sellerApplication.update({ where: { id }, data });
   }
 
+  findUserById(id: string): Promise<User | null> {
+    return this.db.user.findUnique({ where: { id } });
+  }
+
   findUserByEmail(email: string): Promise<User | null> {
     return this.db.user.findUnique({ where: { email } });
   }
@@ -102,6 +106,77 @@ export class SellersRepository {
     });
     const profile = user.sellerProfile as SellerProfile & { brand: Brand | null };
     return { user, profile, brand: profile.brand ?? null };
+  }
+
+  /** Orders still in progress for this seller (as a brand, or as the supplier of any item). */
+  countOpenOrdersForSeller(sellerProfileId: string): Promise<number> {
+    return this.db.order.count({
+      where: {
+        deletedAt: null,
+        status: { in: ['PENDING_PAYMENT', 'PAYMENT_RECEIVED', 'CONFIRMED', 'PROCURING', 'COLLECTED', 'QUALITY_CHECKED', 'IN_TRANSIT'] },
+        OR: [{ sellerProfileId }, { items: { some: { sellerId: sellerProfileId } } }],
+      },
+    });
+  }
+
+  findSellerWithBrand(sellerProfileId: string) {
+    return this.db.sellerProfile.findFirst({
+      where: { id: sellerProfileId, deletedAt: null },
+      include: { brand: true },
+    });
+  }
+
+  /**
+   * Curated -> marketplace. The brand (new, or the seller's earlier one, reactivated) takes
+   * over every product. The buyer price the admin set becomes the brand's own price (gross),
+   * falling back to the seller's price where the admin never priced a tier; agent prices
+   * are dropped (agents never buy brand products). Products keep their published state.
+   */
+  async switchToMarketplace(
+    sellerProfileId: string,
+    brand: { existingId?: string; name: string; slug?: string },
+  ): Promise<{ brandId: string; productCount: number }> {
+    return this.db.$transaction(async (tx) => {
+      const brandRow = brand.existingId
+        ? await tx.brand.update({ where: { id: brand.existingId }, data: { status: 'ACTIVE' } })
+        : await tx.brand.create({ data: { sellerProfileId, name: brand.name, slug: brand.slug! } });
+      await tx.sellerProfile.update({ where: { id: sellerProfileId }, data: { sellerType: SellerType.MARKETPLACE } });
+
+      await tx.$executeRaw`
+        UPDATE product_price_tiers t SET "adminPrice" = COALESCE(t."adminPrice", t."sellerPrice"),
+          "sellerPrice" = COALESCE(t."adminPrice", t."sellerPrice"), "agentPrice" = NULL
+        FROM products p WHERE t."productId" = p.id AND p."sellerId" = ${sellerProfileId}`;
+      await tx.$executeRaw`
+        UPDATE variant_price_tiers t SET "adminPrice" = COALESCE(t."adminPrice", t."sellerPrice"),
+          "sellerPrice" = COALESCE(t."adminPrice", t."sellerPrice"), "agentPrice" = NULL
+        FROM product_variants v JOIN products p ON v."productId" = p.id
+        WHERE t."variantId" = v.id AND p."sellerId" = ${sellerProfileId}`;
+      const productCount = await tx.$executeRaw`
+        UPDATE products SET "brandId" = ${brandRow.id},
+          "adminPrice" = COALESCE("adminPrice", "sellerPrice"), "sellerPrice" = COALESCE("adminPrice", "sellerPrice"),
+          "agentPrice" = NULL,
+          "approvalStatus" = CASE WHEN "approvalStatus" = 'DRAFT' THEN 'DRAFT'::"ProductApprovalStatus" ELSE 'APPROVED'::"ProductApprovalStatus" END
+        WHERE "sellerId" = ${sellerProfileId} AND "deletedAt" IS NULL`;
+      return { brandId: brandRow.id, productCount };
+    });
+  }
+
+  /**
+   * Marketplace -> curated. The brand page is suspended (kept for history and in case the
+   * seller is switched back). Every product leaves the brand, is unpublished and goes back to
+   * admin review: the brand's price stays as the seller price, and the admin sets the buyer
+   * and agent prices before it is live again.
+   */
+  async switchToCurated(sellerProfileId: string, brandId: string | null): Promise<{ productCount: number }> {
+    return this.db.$transaction(async (tx) => {
+      if (brandId) await tx.brand.update({ where: { id: brandId }, data: { status: 'SUSPENDED' } });
+      await tx.sellerProfile.update({ where: { id: sellerProfileId }, data: { sellerType: SellerType.CURATED } });
+      const productCount = await tx.$executeRaw`
+        UPDATE products SET "brandId" = NULL, "isPublished" = false,
+          "approvalStatus" = CASE WHEN "approvalStatus" = 'DRAFT' THEN 'DRAFT'::"ProductApprovalStatus" ELSE 'PENDING'::"ProductApprovalStatus" END
+        WHERE "sellerId" = ${sellerProfileId} AND "deletedAt" IS NULL`;
+      return { productCount };
+    });
   }
 
   async brandSlugExists(slug: string): Promise<boolean> {
