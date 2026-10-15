@@ -64,11 +64,11 @@ export class GuideService {
   }
 
   async getAiKeyStatus(): Promise<{ source: 'server' | 'admin' | 'none'; last4: string | null; provider: 'gemini' | 'claude' | 'none' }> {
-    if (env.GEMINI_API_KEY) return { source: 'server', last4: env.GEMINI_API_KEY.slice(-4), provider: 'gemini' };
     const row = await this.db.platformSetting.findUnique({ where: { key: AI_KEY_SETTING } });
     const stored = (row?.value as { encrypted?: string } | null)?.encrypted;
     const key = stored ? decrypt(stored) : '';
     if (key) return { source: 'admin', last4: key.slice(-4), provider: 'gemini' };
+    if (env.GEMINI_API_KEY) return { source: 'server', last4: env.GEMINI_API_KEY.slice(-4), provider: 'gemini' };
     return { source: 'none', last4: null, provider: env.ANTHROPIC_API_KEY ? 'claude' : 'none' };
   }
 
