@@ -16,7 +16,6 @@ import {
 import { paginationQuerySchema } from '../../utils/pagination';
 import { validate } from '../../middleware/validate';
 import { requireAdmin, requireAuth, requireSeller } from '../../middleware/auth';
-import { authRateLimiter } from '../../middleware/rateLimiter';
 import { asyncHandler } from '../../utils/asyncHandler';
 
 export const sellersRouter = Router();
@@ -34,7 +33,6 @@ export const sellersRouter = Router();
  */
 sellersRouter.post(
   '/apply',
-  authRateLimiter,
   validate(submitApplicationSchema),
   asyncHandler(sellersController.submitApplication),
 );

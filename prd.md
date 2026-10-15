@@ -2357,6 +2357,7 @@ Data model additions: `Rfq` (+ `RfqStatus`), `BrandOwnBuyer`, `BrandEmailInvite`
 
 | Date | Change |
 |---|---|
+| 15 Oct 2026 | Rate limits: removed the site-wide limit and the limits on sign-up, check-email and seller/agent applications (they counted every visitor as one IP behind Render's proxy, so busy moments blocked everyone with "Too many requests"). Login, forgot-password and reset-password keep a 20-per-15-minutes limit, now per real visitor IP (`trust proxy`). |
 | 15 Oct 2026 | v3.14: Import seller applications from the old backend's Excel export (insert-only, duplicates skipped, report shown); approved applications leave the open list (they are in Sellers); server-side application search. |
 | 15 Oct 2026 | Fix: public forms (e.g. seller apply) no longer fail with "Invalid or missing CSRF token" for logged-out visitors with a stale cookie; the CSRF check now applies only to signed-in (Bearer) requests. |
 | 15 Oct 2026 | v3.13: admin can permanently delete non-approved seller applications (audit-logged). |
