@@ -269,6 +269,14 @@ export class GuideService {
     this.suggestionsTimer.unref?.();
   }
 
+  /** Removes every knowledge item (and the old upload suggestions). Visitor chats are kept. */
+  async deleteAllKnowledge(adminId: string): Promise<{ removed: number }> {
+    const { count } = await this.db.guideKnowledge.deleteMany({});
+    await this.db.platformSetting.deleteMany({ where: { key: SUGGESTIONS_KEY } });
+    await writeAuditLog(adminId, 'GUIDE_KNOWLEDGE_CLEARED', 'GuideKnowledge', 'all', { removed: count });
+    return { removed: count };
+  }
+
   async deleteKnowledge(adminId: string, id: string): Promise<void> {
     const row = await this.db.guideKnowledge.findUnique({ where: { id } });
     if (!row) throw AppError.notFound('Item not found');

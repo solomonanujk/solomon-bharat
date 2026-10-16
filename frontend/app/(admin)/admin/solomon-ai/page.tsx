@@ -12,6 +12,7 @@ import {
   type GuideKnowledgeItem,
   useAddGuideText,
   useDeleteGuideKnowledge,
+  useDeleteAllGuideKnowledge,
   useGuideAiKey,
   useSaveGuideAiKey,
   useRemoveGuideAiKey,
@@ -202,6 +203,36 @@ function StatusChip({ item }: { item: GuideKnowledgeItem }) {
     return <span className="inline-flex items-center gap-1 text-[11.5px] font-[600] text-error"><AlertCircle size={11} aria-hidden="true" /> Failed</span>
   }
   return <span className="inline-flex items-center gap-1 text-[11.5px] font-[600] text-[#183D33]"><CheckCircle2 size={11} aria-hidden="true" /> Learned</span>
+}
+
+function RemoveAllButton() {
+  const { data } = useGuideKnowledge()
+  const removeAll = useDeleteAllGuideKnowledge()
+  const [open, setOpen] = useState(false)
+  if (!data?.length) return null
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 text-[12.5px] font-[600] text-error hover:underline">
+        <Trash2 size={13} aria-hidden="true" /> Remove all
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove all {data.length} items?</DialogTitle>
+            <DialogDescription>
+              Solomon AI will forget everything uploaded here, straight away. Visitor chats are kept. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button variant="destructive" disabled={removeAll.isPending} onClick={() => removeAll.mutate(undefined, { onSuccess: () => setOpen(false) })}>
+              {removeAll.isPending ? 'Removing…' : 'Remove all'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
 }
 
 function KnowledgeList() {
@@ -507,7 +538,10 @@ export default function SolomonAiPage() {
             <UploadArea />
             <AddTextCard />
             <div className="flex flex-col gap-2">
-              <p className="text-[15px] font-[600] text-[#0F241D]">What Solomon AI knows</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[15px] font-[600] text-[#0F241D]">What Solomon AI knows</p>
+                <RemoveAllButton />
+              </div>
               <KnowledgeList />
             </div>
           </div>
