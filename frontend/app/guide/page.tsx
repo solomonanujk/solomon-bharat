@@ -22,10 +22,9 @@ interface Turn {
 }
 
 const STARTERS = [
-  "I'm just exploring the idea",
-  'I want to start selling Indian products',
-  'I already run a shop or online store',
-  'I have a product in mind',
+  "I'm looking for the next big product for my brand",
+  'I want to start a business with a set budget',
+  "I'm curious about business ideas and unique products",
 ]
 
 const WHATSAPP_URL = `https://wa.me/919588007925?text=${encodeURIComponent('Hi Pranjal, I was chatting with Solomon AI and would like help sourcing products from India.')}`
@@ -191,7 +190,7 @@ function Chat({ token, name, onReset }: { token: string; name: string; onReset: 
         <div className="flex gap-3 items-start">
           <Avatar size={30} />
           <div className="bg-[#1C3428] border border-[#2A473A] rounded-2xl rounded-tl-sm px-4 py-3 text-[15px] text-[#EEF2EC] max-w-[85%]">
-            Hi {visitorName.split(' ')[0]} 👋 Lovely to meet you. Before I suggest anything, I&apos;d like to understand you a little. What got you interested in Indian handmade products?
+            Hi {visitorName.split(' ')[0]} 👋 Lovely to meet you. Before I suggest anything, I&apos;d like to understand you a little. What brings you here: are you looking for the next big product for your brand, starting a business with a certain budget, or just curious about business ideas and unique products?
           </div>
         </div>
         {turns.length === 0 && (
