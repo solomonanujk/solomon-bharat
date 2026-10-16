@@ -108,6 +108,19 @@ export function useDeleteGuideKnowledge() {
   })
 }
 
+export function useDeleteAllGuideKnowledge() {
+  const qc = useQueryClient()
+  return useMutation<{ removed: number }, Error, void>({
+    mutationFn: async () => (await api.delete('/guide/admin/knowledge')).data.data,
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ['guide-knowledge'] })
+      qc.invalidateQueries({ queryKey: ['guide-suggestions'] })
+      toast.success(`Removed ${r.removed} item${r.removed === 1 ? '' : 's'}. Solomon AI no longer uses them.`)
+    },
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
 export function useGuideSuggestions() {
   return useQuery<{ text: string; updatedAt: string | null }>({
     queryKey: ['guide-suggestions'],

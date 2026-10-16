@@ -27,10 +27,12 @@ function makeDb(conversation: Record<string, unknown> | null = null, settings: u
       findMany: vi.fn().mockResolvedValue([{ title: 'Shipping', content: 'UK air £1.60/kg', kind: 'TEXT' }]),
       create: vi.fn(async ({ data }) => ({ id: 'k1', ...data })),
       update: vi.fn().mockResolvedValue({}),
+      deleteMany: vi.fn().mockResolvedValue({ count: 7 }),
     },
     platformSetting: {
       findUnique: vi.fn().mockResolvedValue(settings),
       upsert: vi.fn().mockResolvedValue({}),
+      deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
   };
 }
@@ -120,5 +122,12 @@ describe('GuideService', () => {
     const stored = JSON.stringify(db.platformSetting.upsert.mock.calls[0][0].create.value);
     expect(stored).not.toContain('good-key');
     expect(stored).toContain('encrypted');
+  });
+
+  it('deleteAllKnowledge() removes every item and the old suggestions, but not visitor chats', async () => {
+    const db = makeDb();
+    expect(await new GuideService(db as never).deleteAllKnowledge('admin')).toEqual({ removed: 7 });
+    expect(db.guideKnowledge.deleteMany).toHaveBeenCalledWith({});
+    expect(db.platformSetting.deleteMany).toHaveBeenCalledWith({ where: { key: 'guide_upload_suggestions' } });
   });
 });

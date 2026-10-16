@@ -84,6 +84,10 @@ guideRouter.post('/admin/knowledge/file', requireAuth, requireAdmin, uploadGuide
   sendCreated(res, await guideService.addFile(req.user!.id, req.file, title), 'Added');
 }));
 
+guideRouter.delete('/admin/knowledge', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  sendSuccess(res, await guideService.deleteAllKnowledge(req.user!.id), 'All items removed');
+}));
+
 guideRouter.get('/admin/knowledge/:id', requireAuth, requireAdmin, validate(idParamSchema, 'params'), asyncHandler(async (req, res) => {
   sendSuccess(res, await guideService.getKnowledgeItem(req.params.id));
 }));
