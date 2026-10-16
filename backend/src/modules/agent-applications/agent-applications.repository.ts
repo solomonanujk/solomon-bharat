@@ -62,6 +62,7 @@ export class AgentApplicationsRepository {
       data: {
         email: application.email,
         passwordHash,
+        mustChangePassword: true,
         role: Role.AGENT,
         emailVerifiedAt: new Date(),
         agentProfile: {

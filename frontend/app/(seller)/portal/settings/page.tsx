@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useMySellerProfile, useUpdateMySellerProfile } from '@/hooks/queries/useSellers'
 import { useMe, useForgotPassword } from '@/hooks/queries/useAuth'
+import { ChangePasswordForm } from '@/components/shared/ChangePasswordForm'
 
 const INPUT_CLS =
   'w-full h-10 px-3.5 rounded-lg border border-[#D9E2DA] bg-[#E7EDE7] text-[14px] font-sans text-[#0F241D] placeholder:text-[#6B7E6B] focus:outline-none focus:border-[#183D33] transition-colors'
@@ -256,21 +257,13 @@ export default function SettingsPage() {
 
       {/* Security */}
       <Section title="Security" description="Manage your login credentials." icon={Shield}>
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-[14px] font-[500] font-sans text-[#0F241D]">Password</p>
-            <p className="text-[12.5px] font-sans text-[#183D33B3] mt-0.5">
-              {me?.email
-                ? `We’ll email a reset link to ${me.email}.`
-                : 'Send a password reset link to your account email.'}
-            </p>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleSendResetLink}
-            disabled={forgotPassword.isPending || !me?.email}
-          >
+        <p className="text-[14px] font-[500] font-sans text-[#0F241D] mb-3">Change password</p>
+        <ChangePasswordForm askCurrent={!me?.mustChangePassword} />
+        <div className="flex items-center justify-between gap-4 mt-5 pt-4 border-t border-[#D9E2DA]">
+          <p className="text-[12.5px] font-sans text-[#183D33B3]">
+            {me?.email ? `Forgot your current password? We’ll email a reset link to ${me.email}.` : 'Forgot your current password? We’ll email you a reset link.'}
+          </p>
+          <Button variant="ghost" size="sm" onClick={handleSendResetLink} disabled={forgotPassword.isPending || !me?.email}>
             {forgotPassword.isPending ? 'Sending…' : 'Send Reset Link'}
           </Button>
         </div>

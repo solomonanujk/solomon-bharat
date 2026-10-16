@@ -117,6 +117,20 @@ export function useForgotPassword() {
   })
 }
 
+export function useChangePassword() {
+  const patchUser = useAuthStore((s) => s.patchUser)
+  const qc = useQueryClient()
+  return useMutation<User, Error, { currentPassword?: string; newPassword: string }>({
+    mutationFn: async (body) => (await api.post('/auth/change-password', body)).data.data.user,
+    onSuccess: (user) => {
+      patchUser({ mustChangePassword: false })
+      qc.setQueryData(['me'], user)
+      toast.success('Password changed.')
+    },
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
 export function useResetPassword() {
   return useMutation<unknown, Error, { id: string; token: string; password: string }>({
     mutationFn: (body) => api.post('/auth/reset-password', body),

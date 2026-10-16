@@ -78,6 +78,7 @@ function buildUser(overrides: Partial<User> = {}): User {
     role: Role.SELLER,
     status: UserStatus.ACTIVE,
     emailVerifiedAt: new Date(),
+    mustChangePassword: false,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,

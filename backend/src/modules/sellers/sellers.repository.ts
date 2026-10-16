@@ -109,6 +109,7 @@ export class SellersRepository {
       data: {
         email: application.email,
         passwordHash,
+        mustChangePassword: true,
         role: Role.SELLER,
         emailVerifiedAt: new Date(),
         sellerProfile: {

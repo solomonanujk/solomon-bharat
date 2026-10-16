@@ -62,7 +62,7 @@ describe('AuthRepository', () => {
   it('updateUserPassword updates the passwordHash field', async () => {
     db.user.update.mockResolvedValue({ id: 'u1' });
     await repo.updateUserPassword('u1', 'newhash');
-    expect(db.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { passwordHash: 'newhash' } });
+    expect(db.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { passwordHash: 'newhash', mustChangePassword: false } });
   });
 
   it('markEmailVerified sets emailVerifiedAt', async () => {

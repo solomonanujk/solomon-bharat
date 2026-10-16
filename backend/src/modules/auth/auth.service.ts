@@ -242,6 +242,23 @@ export class AuthService {
     await this.repo.revokeAllRefreshTokensForUser(record.userId);
   }
 
+  /** Signed-in password change. Right after first login (temporary password) the current
+   *  password is not asked again; otherwise it must match. */
+  async changePassword(userId: string, currentPassword: string | undefined, newPassword: string): Promise<SessionUser> {
+    const user = await this.repo.findUserById(userId);
+    if (!user) throw AppError.notFound('User not found');
+    if (!user.mustChangePassword) {
+      if (!currentPassword || !(await comparePassword(currentPassword, user.passwordHash))) {
+        throw AppError.badRequest('Your current password is incorrect');
+      }
+    }
+    if (await comparePassword(newPassword, user.passwordHash)) {
+      throw AppError.badRequest('Choose a password different from your current one');
+    }
+    const updated = await this.repo.updateUserPassword(userId, await hashPassword(newPassword));
+    return this.toSessionUser(updated);
+  }
+
   async getMe(userId: string): Promise<SessionUser> {
     const user = await this.repo.findUserById(userId);
     if (!user) {

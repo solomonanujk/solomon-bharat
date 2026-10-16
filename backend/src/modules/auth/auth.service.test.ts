@@ -17,6 +17,7 @@ function buildUser(overrides: Partial<User> = {}): User {
     role: Role.BUYER,
     status: UserStatus.ACTIVE,
     emailVerifiedAt: null,
+    mustChangePassword: false,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -250,6 +251,23 @@ describe('AuthService', () => {
       vi.mocked(repo.findUserById).mockResolvedValue(buildUser({ status: UserStatus.SUSPENDED }));
 
       await expect(service.validateSession(`rt-1:${rawSecret}:${jwt}`)).rejects.toMatchObject({ statusCode: 401 });
+    });
+  });
+
+  describe('changePassword', () => {
+    it('lets a user on a temporary password set a new one without re-entering it', async () => {
+      vi.mocked(repo.findUserById).mockResolvedValue(buildUser({ mustChangePassword: true, passwordHash: await hashPassword('Temp-1234') }));
+      vi.mocked(repo.updateUserPassword).mockResolvedValue(buildUser({ mustChangePassword: false }));
+      const user = await service.changePassword('user-1', undefined, 'my-new-password');
+      expect(repo.updateUserPassword).toHaveBeenCalledWith('user-1', expect.any(String));
+      expect(user.mustChangePassword).toBe(false);
+    });
+
+    it('otherwise requires the correct current password', async () => {
+      vi.mocked(repo.findUserById).mockResolvedValue(buildUser({ passwordHash: await hashPassword('old-password1') }));
+      await expect(service.changePassword('user-1', 'wrong-pass', 'my-new-password')).rejects.toMatchObject({ statusCode: 400 });
+      await expect(service.changePassword('user-1', undefined, 'my-new-password')).rejects.toMatchObject({ statusCode: 400 });
+      expect(repo.updateUserPassword).not.toHaveBeenCalled();
     });
   });
 
