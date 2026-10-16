@@ -19,6 +19,41 @@ interface Turn {
   content: string
   followUps?: string[]
   whatsapp?: boolean
+  products?: ProductCard[]
+}
+
+interface ProductCard {
+  slug: string
+  name: string
+  image: string | null
+  category: string
+}
+
+function ProductCards({ products }: { products: ProductCard[] }) {
+  return (
+    <div className="mt-3 grid grid-cols-2 gap-2.5">
+      {products.map((p) => (
+        <a
+          key={p.slug}
+          href={`/products/${p.slug}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group block overflow-hidden rounded-xl border border-[#2A473A] bg-[#15291F] hover:border-[#E9A23B] transition-colors"
+        >
+          <div className="aspect-square bg-[#0F241D] overflow-hidden">
+            {p.image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={p.image} alt={p.name} loading="lazy" className="h-full w-full object-cover group-hover:scale-[1.03] transition-transform" />
+            ) : null}
+          </div>
+          <div className="px-2.5 py-2">
+            <p className="text-[13px] leading-snug text-[#EEF2EC] line-clamp-2">{p.name}</p>
+            <p className="text-[11.5px] text-[#9DB3A6] mt-0.5">{p.category}</p>
+          </div>
+        </a>
+      ))}
+    </div>
+  )
 }
 
 const STARTERS = [
@@ -143,7 +178,7 @@ function Chat({ token, name, onReset }: { token: string; name: string; onReset: 
       .get('/guide/history', { params: { token } })
       .then((res) => {
         setVisitorName(res.data.data.name)
-        setTurns(res.data.data.messages.map((m: Turn) => ({ role: m.role, content: m.content, followUps: m.followUps, whatsapp: m.whatsapp })))
+        setTurns(res.data.data.messages.map((m: Turn) => ({ role: m.role, content: m.content, followUps: m.followUps, whatsapp: m.whatsapp, products: m.products })))
       })
       .catch(() => onReset())
   }, [token, onReset])
@@ -161,7 +196,7 @@ function Chat({ token, name, onReset }: { token: string; name: string; onReset: 
     setBusy(true)
     try {
       const res = await api.post('/guide/chat', { token, message }, { timeout: 3 * 60 * 1000 })
-      setTurns((t) => [...t, { role: 'assistant', content: res.data.data.reply, followUps: res.data.data.followUps, whatsapp: res.data.data.whatsapp }])
+      setTurns((t) => [...t, { role: 'assistant', content: res.data.data.reply, followUps: res.data.data.followUps, whatsapp: res.data.data.whatsapp, products: res.data.data.products }])
     } catch (err) {
       setError(getApiError(err))
       setTurns((t) => t.slice(0, -1))
@@ -212,6 +247,7 @@ function Chat({ token, name, onReset }: { token: string; name: string; onReset: 
               <Avatar size={30} />
               <div className="bg-[#1C3428] border border-[#2A473A] rounded-2xl rounded-tl-sm px-4 py-3 text-[15px] leading-[1.6] text-[#EEF2EC] max-w-[85%] min-w-0 break-words">
                 <GuideMarkdown text={t.content} />
+                {!!t.products?.length && <ProductCards products={t.products} />}
                 {t.whatsapp && <WhatsAppButton />}
               </div>
             </div>

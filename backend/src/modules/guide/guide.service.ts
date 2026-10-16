@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
 import { env } from '../../config/env';
-import { GuideKnowledgeKind, GuideKnowledgeStatus, Prisma, PrismaClient } from '@prisma/client';
+import { BrandStatus, GuideKnowledgeKind, GuideKnowledgeStatus, Prisma, PrismaClient, ProductApprovalStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { logger } from '../../config/logger';
 import { AppError } from '../../utils/errors';
@@ -61,12 +61,22 @@ interface StoredTurn extends ChatTurn {
   followUps?: string[];
   /** The visitor showed buying intent: show the WhatsApp button. */
   whatsapp?: boolean;
+  /** Catalogue products shown as picture cards under the message. */
+  products?: GuideProductCard[];
+}
+
+export interface GuideProductCard {
+  slug: string;
+  name: string;
+  image: string | null;
+  category: string;
 }
 
 /** Splits the hidden <<FOLLOWUPS>> / <<WHATSAPP>> lines off a model reply. */
-export function parseGuideReply(raw: string): { content: string; followUps: string[]; whatsapp: boolean } {
+export function parseGuideReply(raw: string): { content: string; followUps: string[]; whatsapp: boolean; productSlugs: string[] } {
   let followUps: string[] = [];
   let whatsapp = false;
+  let productSlugs: string[] = [];
   const kept: string[] = [];
   for (const line of raw.split('\n')) {
     const t = line.trim().replace(/^[*_`]+|[*_`]+$/g, '');
@@ -77,10 +87,27 @@ export function parseGuideReply(raw: string): { content: string; followUps: stri
         .map((f) => f.replace(/[*_`"]/g, '').trim().replace(/^[-•\s]+/, ''))
         .filter((f) => f && f.length <= 90)
         .slice(0, 3);
+    } else if (/^<<\s*PRODUCTS\s*>>/i.test(t)) {
+      productSlugs = t
+        .replace(/^<<\s*PRODUCTS\s*>>:?/i, '')
+        .split(/[|,]/)
+        .map((p) => p.trim())
+        .filter(Boolean)
+        .slice(0, 4);
     } else if (/^<<\s*WHATSAPP\s*>>/i.test(t)) whatsapp = true;
+    else if (/^\s*([-*_]\s*){3,}$/.test(line)) continue;
     else kept.push(line);
   }
-  return { content: kept.join('\n').trim(), followUps, whatsapp };
+  // Plain text only: drop markdown emphasis and heading marks that make replies look machine-made.
+  const content = kept
+    .join('\n')
+    .replace(/\*+/g, '')
+    .replace(/(^|\s)_([^_\n]+)_(?=\s|[.,!?]|$)/g, '$1$2')
+    .replace(/^#+\s*/gm, '')
+    .replace(/`/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return { content, followUps, whatsapp, productSlugs };
 }
 
 type IncomingFile = { buffer: Buffer; originalname: string; mimetype: string; size: number };
@@ -392,7 +419,31 @@ export class GuideService {
     return { name: c.name, messages: (c.messages as unknown as StoredTurn[]) ?? [] };
   }
 
-  async chat(token: string, message: string): Promise<{ reply: string; followUps: string[]; whatsapp: boolean; messages: StoredTurn[] }> {
+  /** Compact list of live catalogue products the guide may show, refreshed every 10 minutes. */
+  private catalogueCache: { at: number; text: string; bySlug: Map<string, GuideProductCard> } | null = null;
+  private async catalogue() {
+    if (this.catalogueCache && Date.now() - this.catalogueCache.at < 10 * 60 * 1000) return this.catalogueCache;
+    const rows = await this.db.product.findMany({
+      where: {
+        deletedAt: null,
+        isPublished: true,
+        approvalStatus: ProductApprovalStatus.APPROVED,
+        OR: [{ brandId: null }, { brand: { status: BrandStatus.ACTIVE } }],
+      },
+      orderBy: [{ isFeatured: 'desc' }, { publishedAt: 'desc' }],
+      take: 400,
+      select: { slug: true, name: true, materials: true, category: { select: { name: true } }, images: { orderBy: { sortOrder: 'asc' }, take: 1, select: { url: true } } },
+    });
+    const bySlug = new Map<string, GuideProductCard>();
+    const lines = rows.map((r) => {
+      bySlug.set(r.slug, { slug: r.slug, name: r.name, image: r.images[0]?.url ?? null, category: r.category.name });
+      return `${r.slug}: ${r.name} (${r.category.name}${r.materials ? `; ${r.materials.slice(0, 60)}` : ''})`;
+    });
+    this.catalogueCache = { at: Date.now(), text: lines.join('\n'), bySlug };
+    return this.catalogueCache;
+  }
+
+  async chat(token: string, message: string): Promise<{ reply: string; followUps: string[]; whatsapp: boolean; products: GuideProductCard[]; messages: StoredTurn[] }> {
     const c = await this.findByToken(token);
     const messages = ((c.messages as unknown as StoredTurn[]) ?? []).slice();
     const visitorTurns = messages.filter((m) => m.role === 'user').length;
@@ -401,19 +452,38 @@ export class GuideService {
     }
     messages.push({ role: 'user', content: message.trim(), at: new Date().toISOString() });
 
-    const [knowledge, settings] = await Promise.all([this.knowledgeText(), this.getSettings(), this.loadAiKey()]);
+    const [knowledgeOnly, settings, catalogue] = await Promise.all([
+      this.knowledgeText(),
+      this.getSettings(),
+      this.catalogue().catch((err) => {
+        logger.warn({ err }, 'Guide catalogue unavailable');
+        return null;
+      }),
+      this.loadAiKey(),
+    ]);
+    const knowledge = catalogue?.text
+      ? `${knowledgeOnly}\n\nSOLOMON CATALOGUE (product code: name (category; materials)):\n${catalogue.text}`
+      : knowledgeOnly;
     const visitor = `${c.name}${c.country ? `, lives in ${c.country}` : ''}`;
     // The last 40 turns are plenty of context and keep each answer affordable.
     const recent = messages.slice(-40).map(({ role, content }) => ({ role, content }));
     if (recent[0]?.role !== 'user') recent.shift();
-    const { content: reply, followUps, whatsapp } = parseGuideReply(await guideReply(knowledge, visitor, recent, settings.allowWebSearch));
+    const { content: reply, followUps, whatsapp, productSlugs } = parseGuideReply(await guideReply(knowledge, visitor, recent, settings.allowWebSearch));
+    const products = productSlugs.map((slug) => catalogue?.bySlug.get(slug)).filter((p): p is GuideProductCard => Boolean(p));
 
-    messages.push({ role: 'assistant', content: reply, at: new Date().toISOString(), ...(followUps.length ? { followUps } : {}), ...(whatsapp ? { whatsapp } : {}) });
+    messages.push({
+      role: 'assistant',
+      content: reply,
+      at: new Date().toISOString(),
+      ...(followUps.length ? { followUps } : {}),
+      ...(whatsapp ? { whatsapp } : {}),
+      ...(products.length ? { products } : {}),
+    });
     await this.db.guideConversation.update({
       where: { id: c.id },
       data: { messages: messages as unknown as Prisma.InputJsonValue, messageCount: messages.length },
     });
-    return { reply, followUps, whatsapp, messages };
+    return { reply, followUps, whatsapp, products, messages };
   }
 
   // ─── Admin: conversations ──────────────────────────────────────────────────
