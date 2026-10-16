@@ -57,6 +57,30 @@ export interface GuideSettings {
 }
 interface StoredTurn extends ChatTurn {
   at: string;
+  /** Suggested next replies, shown as tappable buttons under an answer. */
+  followUps?: string[];
+  /** The visitor showed buying intent: show the WhatsApp button. */
+  whatsapp?: boolean;
+}
+
+/** Splits the hidden <<FOLLOWUPS>> / <<WHATSAPP>> lines off a model reply. */
+export function parseGuideReply(raw: string): { content: string; followUps: string[]; whatsapp: boolean } {
+  let followUps: string[] = [];
+  let whatsapp = false;
+  const kept: string[] = [];
+  for (const line of raw.split('\n')) {
+    const t = line.trim().replace(/^[*_`]+|[*_`]+$/g, '');
+    if (/^<<\s*FOLLOW-?UPS\s*>>/i.test(t)) {
+      followUps = t
+        .replace(/^<<\s*FOLLOW-?UPS\s*>>:?/i, '')
+        .split('|')
+        .map((f) => f.replace(/[*_`"]/g, '').trim().replace(/^[-•\s]+/, ''))
+        .filter((f) => f && f.length <= 90)
+        .slice(0, 3);
+    } else if (/^<<\s*WHATSAPP\s*>>/i.test(t)) whatsapp = true;
+    else kept.push(line);
+  }
+  return { content: kept.join('\n').trim(), followUps, whatsapp };
 }
 
 type IncomingFile = { buffer: Buffer; originalname: string; mimetype: string; size: number };
@@ -368,7 +392,7 @@ export class GuideService {
     return { name: c.name, messages: (c.messages as unknown as StoredTurn[]) ?? [] };
   }
 
-  async chat(token: string, message: string): Promise<{ reply: string; messages: StoredTurn[] }> {
+  async chat(token: string, message: string): Promise<{ reply: string; followUps: string[]; whatsapp: boolean; messages: StoredTurn[] }> {
     const c = await this.findByToken(token);
     const messages = ((c.messages as unknown as StoredTurn[]) ?? []).slice();
     const visitorTurns = messages.filter((m) => m.role === 'user').length;
@@ -382,14 +406,14 @@ export class GuideService {
     // The last 40 turns are plenty of context and keep each answer affordable.
     const recent = messages.slice(-40).map(({ role, content }) => ({ role, content }));
     if (recent[0]?.role !== 'user') recent.shift();
-    const reply = await guideReply(knowledge, visitor, recent, settings.allowWebSearch);
+    const { content: reply, followUps, whatsapp } = parseGuideReply(await guideReply(knowledge, visitor, recent, settings.allowWebSearch));
 
-    messages.push({ role: 'assistant', content: reply, at: new Date().toISOString() });
+    messages.push({ role: 'assistant', content: reply, at: new Date().toISOString(), ...(followUps.length ? { followUps } : {}), ...(whatsapp ? { whatsapp } : {}) });
     await this.db.guideConversation.update({
       where: { id: c.id },
       data: { messages: messages as unknown as Prisma.InputJsonValue, messageCount: messages.length },
     });
-    return { reply, messages };
+    return { reply, followUps, whatsapp, messages };
   }
 
   // ─── Admin: conversations ──────────────────────────────────────────────────
