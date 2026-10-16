@@ -30,6 +30,11 @@ function makeDb(conversation: Record<string, unknown> | null = null, settings: u
       update: vi.fn().mockResolvedValue({}),
       deleteMany: vi.fn().mockResolvedValue({ count: 7 }),
     },
+    product: {
+      findMany: vi.fn().mockResolvedValue([
+        { slug: 'jute-tote', name: 'Block-print jute tote', materials: 'Jute', category: { name: 'Bags' }, images: [{ url: 'https://img/tote.jpg' }] },
+      ]),
+    },
     platformSetting: {
       findUnique: vi.fn().mockResolvedValue(settings),
       upsert: vi.fn().mockResolvedValue({}),
@@ -135,9 +140,18 @@ describe('GuideService', () => {
 
   it('parseGuideReply() turns the hidden lines into follow-up buttons and the WhatsApp flag', () => {
     expect(parseGuideReply('Nice! Where do you live?\n<<FOLLOWUPS>> I live in the UK | **Just exploring**\n')).toEqual({
-      content: 'Nice! Where do you live?', followUps: ['I live in the UK', 'Just exploring'], whatsapp: false,
+      content: 'Nice! Where do you live?', followUps: ['I live in the UK', 'Just exploring'], whatsapp: false, productSlugs: [],
     });
     expect(parseGuideReply('Great choice.\n<<FOLLOWUPS>> How do samples work?\n<<WHATSAPP>>').whatsapp).toBe(true);
-    expect(parseGuideReply('Plain answer')).toEqual({ content: 'Plain answer', followUps: [], whatsapp: false });
+    expect(parseGuideReply('Plain answer')).toEqual({ content: 'Plain answer', followUps: [], whatsapp: false, productSlugs: [] });
+  });
+
+  it('chat() shows catalogue products as picture cards and strips asterisks', async () => {
+    vi.mocked(guideReply).mockResolvedValueOnce('A **lovely** pick for France.\n<<PRODUCTS>> jute-tote | made-up-slug\n<<FOLLOWUPS>> Tell me more');
+    const db = makeDb({ id: 'c1', name: 'Asha', country: 'France', messages: [] });
+    const r = await new GuideService(db as never).chat('t'.repeat(48), 'Bags under 30 euros?');
+    expect(vi.mocked(guideReply).mock.calls[0][0]).toContain('jute-tote: Block-print jute tote (Bags; Jute)');
+    expect(r.reply).toBe('A lovely pick for France.');
+    expect(r.products).toEqual([{ slug: 'jute-tote', name: 'Block-print jute tote', image: 'https://img/tote.jpg', category: 'Bags' }]);
   });
 });
