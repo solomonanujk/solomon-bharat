@@ -60,6 +60,27 @@ guideRouter.get(
   }),
 );
 
+const savedSchema = z.object({
+  token: z.string().min(20).max(100),
+  item: z.object({
+    key: z.string().min(1).max(100),
+    name: z.string().min(1).max(120),
+    image: z.string().max(1000).nullable(),
+    link: z.string().max(1000).nullable(),
+  }),
+  kind: z.enum(['liked', 'saved']),
+  on: z.boolean(),
+});
+
+guideRouter.post(
+  '/saved',
+  validate(savedSchema),
+  asyncHandler(async (req, res) => {
+    const { token, item, kind, on } = req.body as z.infer<typeof savedSchema>;
+    sendSuccess(res, await guideService.toggleSaved(token, item, kind, on));
+  }),
+);
+
 guideRouter.post(
   '/chat',
   validate(chatSchema),

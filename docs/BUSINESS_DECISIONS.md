@@ -117,3 +117,6 @@ Recommended: video, the story of the craft.
 - Public AI guide at /guide; visitors must give name, email and phone before chatting; no account needed.
 - The AI learns from what the admin uploads (PDF, images, spreadsheets, text), answers in its own words, and uses web search when needed (on by default, switchable in admin).
 - The admin section suggests what to upload next.
+- (16 Oct 2026) Solomon AI starts with 4 tap-to-answer questions (what they do, who they sell to, categories, selling price), then recommends 3 products at a time as cards with photo, story, why it fits, and an estimated cost breakdown (India price, shipping, duty and VAT, landed cost, suggested retail), followed by short advice on who to target, how to position and where to sell. Visitors can like and save products into a shortlist.
+- (16 Oct 2026) Exception to "prices visible after sign-up": Solomon AI may show an indicative "from ₹X" buyer price for catalogue products to visitors who have given their name, email and phone to start the chat. Shipping, duty and landed figures are marked as estimates.
+- (16 Oct 2026) Solomon AI does not promote Solomon Bharat; it shows the WhatsApp button to Pranjal (wa.me/919588007925) only when the visitor shows buying intent.

@@ -72,6 +72,60 @@ interface StoredTurn extends ChatTurn {
   products?: GuideProductCard[];
   /** Example photos from the open web (with credit) for product ideas. */
   photos?: GuideWebPhoto[];
+  /** Recommended products, each with picture, story, fit and cost breakdown. */
+  picks?: GuidePick[];
+  /** Text the model wrote after the picks ("how to sell it"), shown under the cards. */
+  note?: string;
+}
+
+/** One recommended product as the visitor sees it: a catalogue product or an idea shown with a web photo. */
+export interface GuidePick {
+  key: string;
+  source: 'catalogue' | 'idea';
+  name: string;
+  image: string | null;
+  link: string | null;
+  credit?: string;
+  category?: string;
+  origin?: string;
+  moq?: number;
+  story: string;
+  why: string;
+  cost?: string;
+  shipping?: string;
+  duty?: string;
+  landed?: string;
+  sell?: string;
+}
+
+export interface GuideSavedItem {
+  key: string;
+  name: string;
+  image: string | null;
+  link: string | null;
+  liked: boolean;
+  saved: boolean;
+}
+
+interface CatalogueEntry extends GuideProductCard {
+  story: string;
+  origin: string | null;
+  moq: number;
+  fromInr: number | null;
+}
+
+/** A <<PICK>> line's JSON, as written by the model. */
+interface RawPick {
+  code?: string;
+  name?: string;
+  photo?: string;
+  story?: string;
+  why?: string;
+  cost?: string;
+  shipping?: string;
+  duty?: string;
+  landed?: string;
+  sell?: string;
 }
 
 export interface GuideProductCard {
@@ -82,12 +136,14 @@ export interface GuideProductCard {
 }
 
 /** Splits the hidden <<FOLLOWUPS>> / <<WHATSAPP>> lines off a model reply. */
-export function parseGuideReply(raw: string): { content: string; followUps: string[]; whatsapp: boolean; productSlugs: string[]; imageQueries: string[] } {
+export function parseGuideReply(raw: string): { content: string; note: string; followUps: string[]; whatsapp: boolean; productSlugs: string[]; imageQueries: string[]; picks: RawPick[] } {
   let followUps: string[] = [];
   let whatsapp = false;
   let productSlugs: string[] = [];
   let imageQueries: string[] = [];
+  const picks: RawPick[] = [];
   const kept: string[] = [];
+  const after: string[] = [];
   for (const line of raw.split('\n')) {
     const t = line.trim().replace(/^[*_`]+|[*_`]+$/g, '');
     if (/^<<\s*FOLLOW-?UPS\s*>>/i.test(t)) {
@@ -104,6 +160,15 @@ export function parseGuideReply(raw: string): { content: string; followUps: stri
         .map((p) => p.trim())
         .filter(Boolean)
         .slice(0, 4);
+    } else if (/^<<\s*PICK\s*>>/i.test(line.trim())) {
+      const json = line.trim().replace(/^<<\s*PICK\s*>>:?/i, '').trim();
+      try {
+        const v = JSON.parse(json) as RawPick;
+        if (v && typeof v === 'object' && (v.code || v.name)) picks.push(v);
+        // Anything written after the first pick is the "how to sell it" note shown under the cards.
+      } catch {
+        // A malformed pick is skipped rather than shown as text.
+      }
     } else if (/^<<\s*IMAGES\s*>>/i.test(t)) {
       imageQueries = t
         .replace(/^<<\s*IMAGES\s*>>:?/i, '')
@@ -113,18 +178,19 @@ export function parseGuideReply(raw: string): { content: string; followUps: stri
         .slice(0, 4);
     } else if (/^<<\s*WHATSAPP\s*>>/i.test(t)) whatsapp = true;
     else if (/^\s*([-*_]\s*){3,}$/.test(line)) continue;
-    else kept.push(line);
+    else (picks.length ? after : kept).push(line);
   }
   // Plain text only: drop markdown emphasis and heading marks that make replies look machine-made.
-  const content = kept
-    .join('\n')
-    .replace(/\*+/g, '')
-    .replace(/(^|\s)_([^_\n]+)_(?=\s|[.,!?]|$)/g, '$1$2')
-    .replace(/^#+\s*/gm, '')
-    .replace(/`/g, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-  return { content, followUps, whatsapp, productSlugs, imageQueries };
+  const plain = (lines: string[]) =>
+    lines
+      .join('\n')
+      .replace(/\*+/g, '')
+      .replace(/(^|\s)_([^_\n]+)_(?=\s|[.,!?]|$)/g, '$1$2')
+      .replace(/^#+\s*/gm, '')
+      .replace(/`/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  return { content: plain(kept), note: plain(after), followUps, whatsapp, productSlugs, imageQueries, picks: picks.slice(0, 4) };
 }
 
 type IncomingFile = { buffer: Buffer; originalname: string; mimetype: string; size: number };
@@ -440,11 +506,11 @@ export class GuideService {
 
   async history(token: string) {
     const c = await this.findByToken(token);
-    return { name: c.name, messages: (c.messages as unknown as StoredTurn[]) ?? [] };
+    return { name: c.name, country: c.country, messages: (c.messages as unknown as StoredTurn[]) ?? [], saved: (c.saved as unknown as GuideSavedItem[]) ?? [] };
   }
 
   /** Compact list of live catalogue products the guide may show, refreshed every 10 minutes. */
-  private catalogueCache: { at: number; text: string; bySlug: Map<string, GuideProductCard> } | null = null;
+  private catalogueCache: { at: number; text: string; bySlug: Map<string, CatalogueEntry> } | null = null;
   private async catalogue() {
     if (this.catalogueCache && Date.now() - this.catalogueCache.at < 10 * 60 * 1000) return this.catalogueCache;
     const rows = await this.db.product.findMany({
@@ -455,19 +521,101 @@ export class GuideService {
         OR: [{ brandId: null }, { brand: { status: BrandStatus.ACTIVE } }],
       },
       orderBy: [{ isFeatured: 'desc' }, { publishedAt: 'desc' }],
-      take: 400,
-      select: { slug: true, name: true, materials: true, category: { select: { name: true } }, images: { orderBy: { sortOrder: 'asc' }, take: 1, select: { url: true } } },
+      take: 300,
+      select: {
+        slug: true, name: true, materials: true, description: true, howItIsMade: true, placeOfOrigin: true, moq: true, adminPrice: true,
+        category: { select: { name: true } },
+        images: { orderBy: { sortOrder: 'asc' }, take: 1, select: { url: true } },
+        priceTiers: { select: { adminPrice: true } },
+      },
     });
-    const bySlug = new Map<string, GuideProductCard>();
+    const bySlug = new Map<string, CatalogueEntry>();
     const lines = rows.map((r) => {
-      bySlug.set(r.slug, { slug: r.slug, name: r.name, image: r.images[0]?.url ?? null, category: r.category.name });
-      return `${r.slug}: ${r.name} (${r.category.name}${r.materials ? `; ${r.materials.slice(0, 60)}` : ''})`;
+      const prices = [r.adminPrice, ...r.priceTiers.map((t) => t.adminPrice)].map((d) => (d ? Number(d) : 0)).filter((n) => n > 0);
+      const fromInr = prices.length ? Math.min(...prices) : null;
+      const story = (r.howItIsMade || r.description || '').replace(/\s+/g, ' ').trim().slice(0, 220);
+      bySlug.set(r.slug, {
+        slug: r.slug, name: r.name, image: r.images[0]?.url ?? null, category: r.category.name,
+        story, origin: r.placeOfOrigin, moq: r.moq, fromInr,
+      });
+      return [
+        `${r.slug}: ${r.name}`,
+        r.category.name,
+        r.materials?.slice(0, 50),
+        fromInr ? `from INR ${Math.round(fromInr)} per piece, MOQ ${r.moq}` : `MOQ ${r.moq}`,
+        r.placeOfOrigin,
+        story.slice(0, 120),
+      ].filter(Boolean).join(' | ');
     });
     this.catalogueCache = { at: Date.now(), text: lines.join('\n'), bySlug };
     return this.catalogueCache;
   }
 
-  async chat(token: string, message: string): Promise<{ reply: string; followUps: string[]; whatsapp: boolean; products: GuideProductCard[]; photos: GuideWebPhoto[]; messages: StoredTurn[] }> {
+  /** Turns the model's picks into cards: real catalogue data where it exists, a web photo for ideas. */
+  private async buildPicks(raw: RawPick[], bySlug: Map<string, CatalogueEntry> | undefined): Promise<GuidePick[]> {
+    const ideaQueries = raw.filter((r) => !(r.code && bySlug?.has(r.code))).map((r) => r.photo || r.name || '');
+    const photos = ideaQueries.length ? await findWebPhotos(ideaQueries) : [];
+    const photoFor = new Map(photos.map((p) => [p.query, p]));
+    const clean = (v?: string) => (v ? String(v).replace(/[*_`]/g, '').trim().slice(0, 300) : undefined);
+    const picks: GuidePick[] = [];
+    for (const r of raw) {
+      const entry = r.code ? bySlug?.get(r.code) : undefined;
+      if (entry) {
+        picks.push({
+          key: `p:${entry.slug}`,
+          source: 'catalogue',
+          name: entry.name,
+          image: entry.image,
+          link: `/products/${entry.slug}`,
+          category: entry.category,
+          origin: entry.origin ?? undefined,
+          moq: entry.moq,
+          story: clean(r.story) || entry.story,
+          why: clean(r.why) ?? '',
+          cost: entry.fromInr ? `from ₹${Math.round(entry.fromInr).toLocaleString('en-IN')}` : clean(r.cost),
+          shipping: clean(r.shipping),
+          duty: clean(r.duty),
+          landed: clean(r.landed),
+          sell: clean(r.sell),
+        });
+        continue;
+      }
+      if (!r.name) continue;
+      const q = (r.photo || r.name).toLowerCase().replace(/[^a-z0-9 -]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+      const photo = photoFor.get(q);
+      picks.push({
+        key: `i:${r.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60)}`,
+        source: 'idea',
+        name: clean(r.name)!.slice(0, 80),
+        image: photo?.image ?? null,
+        link: photo?.link ?? null,
+        credit: photo ? `${photo.credit}, ${photo.license}` : undefined,
+        story: clean(r.story) ?? '',
+        why: clean(r.why) ?? '',
+        cost: clean(r.cost),
+        shipping: clean(r.shipping),
+        duty: clean(r.duty),
+        landed: clean(r.landed),
+        sell: clean(r.sell),
+      });
+    }
+    return picks;
+  }
+
+  /** Like or save a recommended product (stored on the chat so the team can see what the visitor liked). */
+  async toggleSaved(token: string, item: { key: string; name: string; image: string | null; link: string | null }, kind: 'liked' | 'saved', on: boolean) {
+    const c = await this.findByToken(token);
+    const list = ((c.saved as unknown as GuideSavedItem[]) ?? []).slice();
+    const at = list.findIndex((s) => s.key === item.key);
+    const current = at >= 0 ? list[at] : { ...item, liked: false, saved: false };
+    const next = { ...current, [kind]: on };
+    if (at >= 0) list.splice(at, 1);
+    if (next.liked || next.saved) list.unshift(next);
+    await this.db.guideConversation.update({ where: { id: c.id }, data: { saved: list.slice(0, 60) as unknown as Prisma.InputJsonValue } });
+    return list;
+  }
+
+  async chat(token: string, message: string): Promise<{ reply: string; followUps: string[]; whatsapp: boolean; products: GuideProductCard[]; photos: GuideWebPhoto[]; picks: GuidePick[]; note: string; messages: StoredTurn[] }> {
     const c = await this.findByToken(token);
     const messages = ((c.messages as unknown as StoredTurn[]) ?? []).slice();
     const visitorTurns = messages.filter((m) => m.role === 'user').length;
@@ -486,15 +634,26 @@ export class GuideService {
       this.loadAiKey(),
     ]);
     const knowledge = catalogue?.text
-      ? `${knowledgeOnly}\n\nSOLOMON CATALOGUE (product code: name (category; materials)):\n${catalogue.text}`
+      ? `${knowledgeOnly}\n\nSOLOMON CATALOGUE (code: name | category | materials | buyer price in India | origin | story):\n${catalogue.text}`
       : knowledgeOnly;
-    const visitor = `${c.name}${c.country ? `, lives in ${c.country}` : ''}`;
+    const saved = (c.saved as unknown as GuideSavedItem[]) ?? [];
+    const liked = saved.filter((s) => s.liked || s.saved).map((s) => s.name);
+    const visitor = `${c.name}${c.country ? `, lives in ${c.country}` : ''}${liked.length ? `. Products they liked or saved so far: ${liked.slice(0, 12).join(', ')}` : ''}`;
     // The last 40 turns are plenty of context and keep each answer affordable.
     const recent = messages.slice(-40).map(({ role, content }) => ({ role, content }));
     if (recent[0]?.role !== 'user') recent.shift();
-    const { content: reply, followUps, whatsapp, productSlugs, imageQueries } = parseGuideReply(await guideReply(knowledge, visitor, recent, settings.allowWebSearch));
-    const products = productSlugs.map((slug) => catalogue?.bySlug.get(slug)).filter((p): p is GuideProductCard => Boolean(p));
-    const photos = imageQueries.length ? await findWebPhotos(imageQueries) : [];
+    const parsed = parseGuideReply(await guideReply(knowledge, visitor, recent, settings.allowWebSearch));
+    const { followUps, whatsapp, productSlugs, imageQueries } = parsed;
+    // If picks failed to resolve, keep the note in the main text so nothing is lost.
+    const reply = parsed.picks.length ? parsed.content : [parsed.content, parsed.note].filter(Boolean).join('\n\n');
+    const products = productSlugs
+      .map((slug) => catalogue?.bySlug.get(slug))
+      .filter((p): p is CatalogueEntry => Boolean(p))
+      .map(({ slug, name, image, category }) => ({ slug, name, image, category }));
+    const [photos, picks] = await Promise.all([
+      imageQueries.length ? findWebPhotos(imageQueries) : Promise.resolve([] as GuideWebPhoto[]),
+      parsed.picks.length ? this.buildPicks(parsed.picks, catalogue?.bySlug) : Promise.resolve([] as GuidePick[]),
+    ]);
 
     messages.push({
       role: 'assistant',
@@ -504,12 +663,14 @@ export class GuideService {
       ...(whatsapp ? { whatsapp } : {}),
       ...(products.length ? { products } : {}),
       ...(photos.length ? { photos } : {}),
+      ...(picks.length ? { picks } : {}),
+      ...(picks.length && parsed.note ? { note: parsed.note } : {}),
     });
     await this.db.guideConversation.update({
       where: { id: c.id },
       data: { messages: messages as unknown as Prisma.InputJsonValue, messageCount: messages.length },
     });
-    return { reply, followUps, whatsapp, products, photos, messages };
+    return { reply, note: picks.length ? parsed.note : '', followUps, whatsapp, products, photos, picks, messages };
   }
 
   // ─── Admin: conversations ──────────────────────────────────────────────────
