@@ -1,13 +1,13 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
 import { env } from '../../config/env';
-import { GuideKnowledgeKind, Prisma, PrismaClient } from '@prisma/client';
+import { GuideKnowledgeKind, GuideKnowledgeStatus, Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { logger } from '../../config/logger';
 import { AppError } from '../../utils/errors';
 import { writeAuditLog } from '../../utils/auditLog';
 import { storageProvider } from '../../providers/storage';
 import { readSpreadsheet } from '../product-import/parsers/spreadsheet';
-import { ChatTurn, extractTextFromImage, extractTextFromPdf, guideReply, setAdminGeminiKey, suggestUploads, verifyGeminiKey } from './guide.ai';
+import { ChatTurn, extractTextFromImage, extractTextFromPdf, guideReply, setAdminGeminiKey, suggestUploads, summarizeKnowledge, verifyGeminiKey } from './guide.ai';
 
 /** Longest single chat, in visitor messages, before the guide asks them to talk to the team. */
 export const MAX_VISITOR_MESSAGES = 60;
@@ -109,11 +109,32 @@ export class GuideService {
 
   // ─── Knowledge ─────────────────────────────────────────────────────────────
 
-  listKnowledge() {
-    return this.db.guideKnowledge.findMany({
+  async listKnowledge() {
+    const rows = await this.db.guideKnowledge.findMany({
       orderBy: { createdAt: 'desc' },
-      select: { id: true, title: true, kind: true, fileUrl: true, fileName: true, sizeBytes: true, createdAt: true, content: true },
-    }).then((rows) => rows.map(({ content, ...r }) => ({ ...r, characters: content.length, preview: content.slice(0, 400) })));
+      select: {
+        id: true, title: true, kind: true, status: true, error: true, summary: true,
+        fileUrl: true, fileName: true, sizeBytes: true, createdAt: true, updatedAt: true, content: true,
+      },
+    });
+    const staleBefore = Date.now() - 20 * 60 * 1000;
+    return rows.map(({ content, ...r }) => {
+      // A job lost to a server restart never finishes; show it as failed so it can be re-uploaded.
+      const interrupted = r.status === GuideKnowledgeStatus.PROCESSING && r.updatedAt.getTime() < staleBefore;
+      return {
+        ...r,
+        status: interrupted ? GuideKnowledgeStatus.FAILED : r.status,
+        error: interrupted ? 'Reading was interrupted. Remove it and upload the file again.' : r.error,
+        characters: content.length,
+      };
+    });
+  }
+
+  /** Full text of one item, for "See what it learned". */
+  async getKnowledgeItem(id: string) {
+    const row = await this.db.guideKnowledge.findUnique({ where: { id } });
+    if (!row) throw AppError.notFound('Item not found');
+    return row;
   }
 
   async addText(adminId: string, title: string, text: string) {
@@ -121,58 +142,98 @@ export class GuideService {
       data: { title: title.trim(), kind: GuideKnowledgeKind.TEXT, content: text.trim(), createdById: adminId },
     });
     await writeAuditLog(adminId, 'GUIDE_KNOWLEDGE_ADDED', 'GuideKnowledge', row.id, { title: row.title, kind: row.kind });
-    void this.refreshSuggestions();
+    this.enqueue(() => this.summarize(row.id, row.title, row.content));
     return row;
   }
 
-  /** Reads the file into text the AI can learn from, keeps the original, and stores both. */
+  /** Files are read in the background one at a time, so uploads return at once and big
+   *  files never time out the request or exhaust memory by running in parallel. */
+  private queue: Promise<void> = Promise.resolve();
+  private enqueue(job: () => Promise<void>): void {
+    this.queue = this.queue.then(job).catch((err) => logger.error({ err }, 'Guide background job failed'));
+  }
+
+  private kindOf(file: IncomingFile): GuideKnowledgeKind {
+    const lower = file.originalname.toLowerCase();
+    if (file.mimetype === 'application/pdf' || lower.endsWith('.pdf')) return GuideKnowledgeKind.PDF;
+    if (IMAGE_TYPES.has(file.mimetype)) return GuideKnowledgeKind.IMAGE;
+    if (lower.endsWith('.xlsx') || lower.endsWith('.csv')) return GuideKnowledgeKind.SPREADSHEET;
+    if (lower.endsWith('.txt') || lower.endsWith('.md') || file.mimetype.startsWith('text/')) return GuideKnowledgeKind.TEXT;
+    throw AppError.badRequest('Upload a PDF, an image (PNG, JPG, WebP), a spreadsheet (.xlsx, .csv) or a text file. For Word files, save as PDF first.');
+  }
+
   async addFile(adminId: string, file: IncomingFile, title?: string) {
-    await this.loadAiKey();
+    const kind = this.kindOf(file);
     const name = file.originalname;
-    const lower = name.toLowerCase();
-    let kind: GuideKnowledgeKind;
-    let content: string;
-
-    if (file.mimetype === 'application/pdf' || lower.endsWith('.pdf')) {
-      kind = GuideKnowledgeKind.PDF;
-      content = await extractTextFromPdf(file.buffer);
-    } else if (IMAGE_TYPES.has(file.mimetype)) {
-      kind = GuideKnowledgeKind.IMAGE;
-      content = await extractTextFromImage(file.buffer, file.mimetype as 'image/png');
-    } else if (lower.endsWith('.xlsx') || lower.endsWith('.csv')) {
-      kind = GuideKnowledgeKind.SPREADSHEET;
-      const sheet = await readSpreadsheet(file.buffer, lower.endsWith('.csv') ? 'csv' : 'xlsx');
-      content = [sheet.headers.join(' | '), ...sheet.rows.map((r) => sheet.headers.map((h) => r.cells[h] ?? '').join(' | '))].join('\n');
-    } else if (lower.endsWith('.txt') || lower.endsWith('.md') || file.mimetype.startsWith('text/')) {
-      kind = GuideKnowledgeKind.TEXT;
-      content = file.buffer.toString('utf8');
-    } else {
-      throw AppError.badRequest('Upload a PDF, an image (PNG, JPG, WebP), a spreadsheet (.xlsx, .csv) or a text file. For Word files, save as PDF first.');
-    }
-    content = content.trim();
-    if (!content) throw AppError.badRequest('Nothing readable was found in this file.');
-
-    let fileUrl: string | null = null;
-    try {
-      fileUrl = (await storageProvider.uploadFile(file.buffer, name, 'guide-knowledge')).url;
-    } catch (err) {
-      logger.error({ err }, 'Could not store the original guide file; keeping the extracted text only');
-    }
-
     const row = await this.db.guideKnowledge.create({
       data: {
         title: (title?.trim() || name.replace(/\.[^.]+$/, '')).slice(0, 200),
         kind,
-        content,
-        fileUrl,
+        content: '',
+        status: GuideKnowledgeStatus.PROCESSING,
         fileName: name,
         sizeBytes: file.size,
         createdById: adminId,
       },
     });
-    await writeAuditLog(adminId, 'GUIDE_KNOWLEDGE_ADDED', 'GuideKnowledge', row.id, { title: row.title, kind: row.kind });
-    void this.refreshSuggestions();
+    await writeAuditLog(adminId, 'GUIDE_KNOWLEDGE_ADDED', 'GuideKnowledge', row.id, { title: row.title, kind });
+    const buffer = file.buffer;
+    const mimetype = file.mimetype;
+    this.enqueue(() => this.readFile(row.id, row.title, kind, name, mimetype, buffer));
     return row;
+  }
+
+  private async readFile(id: string, title: string, kind: GuideKnowledgeKind, name: string, mimetype: string, buffer: Buffer) {
+    try {
+      await this.loadAiKey();
+      let content: string;
+      if (kind === GuideKnowledgeKind.PDF) content = await extractTextFromPdf(buffer);
+      else if (kind === GuideKnowledgeKind.IMAGE) content = await extractTextFromImage(buffer, mimetype as 'image/png');
+      else if (kind === GuideKnowledgeKind.SPREADSHEET) {
+        const sheet = await readSpreadsheet(buffer, name.toLowerCase().endsWith('.csv') ? 'csv' : 'xlsx');
+        content = [sheet.headers.join(' | '), ...sheet.rows.map((r) => sheet.headers.map((h) => r.cells[h] ?? '').join(' | '))].join('\n');
+      } else content = buffer.toString('utf8');
+      content = content.trim();
+      if (!content) throw AppError.badRequest('Nothing readable was found in this file.');
+
+      let fileUrl: string | null = null;
+      try {
+        fileUrl = (await storageProvider.uploadFile(buffer, name, 'guide-knowledge')).url;
+      } catch (err) {
+        logger.warn({ err }, 'Could not store the original guide file; keeping the text only');
+      }
+      await this.db.guideKnowledge.update({ where: { id }, data: { content, fileUrl, status: GuideKnowledgeStatus.READY, error: null } });
+      await this.summarize(id, title, content);
+    } catch (err) {
+      logger.error({ err, id }, 'Reading a guide file failed');
+      const message = err instanceof AppError ? err.message : 'This file could not be read. Try a smaller or clearer copy.';
+      await this.db.guideKnowledge.update({ where: { id }, data: { status: GuideKnowledgeStatus.FAILED, error: message } }).catch(() => undefined);
+    }
+  }
+
+  /** Writes the "what it learned" summary, then refreshes the upload suggestions. */
+  private async summarize(id: string, title: string, content: string) {
+    try {
+      await this.loadAiKey();
+      const summary = await summarizeKnowledge(title, content);
+      if (summary) await this.db.guideKnowledge.update({ where: { id }, data: { summary } });
+    } catch (err) {
+      logger.warn({ err, id }, 'Guide summary failed');
+    }
+    this.scheduleSuggestions();
+  }
+
+  /** "What to upload next" runs once after a batch of uploads settles, not after every file. */
+  private suggestionsTimer: NodeJS.Timeout | null = null;
+  private scheduleSuggestions(): void {
+    if (this.suggestionsTimer) clearTimeout(this.suggestionsTimer);
+    this.suggestionsTimer = setTimeout(() => {
+      this.suggestionsTimer = null;
+      this.enqueue(async () => {
+        await this.refreshSuggestions();
+      });
+    }, 20_000);
+    this.suggestionsTimer.unref?.();
   }
 
   async deleteKnowledge(adminId: string, id: string): Promise<void> {
@@ -180,11 +241,15 @@ export class GuideService {
     if (!row) throw AppError.notFound('Item not found');
     await this.db.guideKnowledge.delete({ where: { id } });
     await writeAuditLog(adminId, 'GUIDE_KNOWLEDGE_DELETED', 'GuideKnowledge', id, { title: row.title });
-    void this.refreshSuggestions();
+    this.scheduleSuggestions();
   }
 
   private async knowledgeText(): Promise<string> {
-    const rows = await this.db.guideKnowledge.findMany({ orderBy: { createdAt: 'asc' }, select: { title: true, content: true } });
+    const rows = await this.db.guideKnowledge.findMany({
+      where: { status: GuideKnowledgeStatus.READY },
+      orderBy: { createdAt: 'asc' },
+      select: { title: true, content: true },
+    });
     let out = '';
     for (const r of rows) {
       const block = `### ${r.title}\n${r.content}\n\n`;
@@ -209,8 +274,14 @@ export class GuideService {
   async refreshSuggestions(): Promise<{ text: string; updatedAt: Date | null }> {
     try {
       await this.loadAiKey();
-      const rows = await this.db.guideKnowledge.findMany({ orderBy: { createdAt: 'asc' }, select: { title: true, kind: true, content: true } });
-      const overview = rows.map((r) => `- ${r.title} (${r.kind}): ${r.content.slice(0, 600).replace(/\s+/g, ' ')}`).join('\n');
+      const rows = await this.db.guideKnowledge.findMany({
+        where: { status: GuideKnowledgeStatus.READY },
+        orderBy: { createdAt: 'asc' },
+        select: { title: true, kind: true, content: true, summary: true },
+      });
+      const overview = rows
+        .map((r) => `- ${r.title} (${r.kind}): ${(r.summary || r.content.slice(0, 600)).replace(/\s+/g, ' ').slice(0, 900)}`)
+        .join('\n');
       const text = await suggestUploads(overview);
       if (text) {
         const value = { text } as Prisma.InputJsonValue;

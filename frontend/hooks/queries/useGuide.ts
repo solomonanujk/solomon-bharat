@@ -14,7 +14,10 @@ export interface GuideKnowledgeItem {
   sizeBytes: number | null
   createdAt: string
   characters: number
-  preview: string
+  status: 'PROCESSING' | 'READY' | 'FAILED'
+  error: string | null
+  /** AI summary of the key points learned. */
+  summary: string | null
 }
 
 export interface GuideTurn {
@@ -40,6 +43,18 @@ export function useGuideKnowledge() {
   return useQuery<GuideKnowledgeItem[]>({
     queryKey: ['guide-knowledge'],
     queryFn: async () => (await api.get('/guide/admin/knowledge')).data.data,
+    // While files are being read (or summaries written), check again every 5 seconds.
+    refetchInterval: (q) =>
+      q.state.data?.some((i) => i.status === 'PROCESSING' || (i.status === 'READY' && !i.summary)) ? 5000 : false,
+  })
+}
+
+/** Full text of one item, loaded when the admin opens "See what it learned". */
+export function useGuideKnowledgeItem(id: string | null) {
+  return useQuery<{ id: string; content: string; summary: string | null }>({
+    queryKey: ['guide-knowledge-item', id],
+    queryFn: async () => (await api.get(`/guide/admin/knowledge/${id}`)).data.data,
+    enabled: !!id,
   })
 }
 
@@ -73,13 +88,10 @@ export function useUploadGuideFile() {
       if (title) fd.append('title', title)
       return api.post('/guide/admin/knowledge/file', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 5 * 60 * 1000,
+        timeout: 3 * 60 * 1000,
       })
     },
-    onSuccess: (_, { file }) => {
-      done()
-      toast.success(`${file.name} added. Solomon AI will use it from the next answer.`)
-    },
+    onSuccess: () => done(),
     onError: (err, { file }) => toast.error(`${file.name}: ${getApiError(err)}`),
   })
 }

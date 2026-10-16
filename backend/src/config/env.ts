@@ -31,7 +31,7 @@ const envSchema = z.object({
 
   GEMINI_API_KEY: z.string().default(''),
   /** Gemini model for Solomon AI when GEMINI_API_KEY is set. */
-  GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
+  GEMINI_MODEL: z.string().default(''),
 
   PORT: z.coerce.number().default(4000),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),

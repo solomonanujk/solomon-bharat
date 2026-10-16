@@ -133,11 +133,19 @@ async function pdfTextLayer(buffer: Buffer): Promise<string> {
   try {
     const { extractText, getDocumentProxy } = await import('unpdf');
     const pdf = await getDocumentProxy(new Uint8Array(buffer));
-    const { text } = await extractText(pdf, { mergePages: false });
-    return (text as string[])
-      .map((page, i) => `--- Page ${i + 1} ---\n${page.trim()}`)
-      .join('\n\n')
-      .trim();
+    try {
+      const { text, totalPages } = await extractText(pdf, { mergePages: false });
+      const pages = text as string[];
+      const letters = pages.join('').replace(/\s/g, '').length;
+      // Scanned PDFs have little or no text layer: let the AI read those instead.
+      if (letters < 200 || letters / Math.max(1, totalPages) < 120) return '';
+      return pages
+        .map((page, i) => `--- Page ${i + 1} ---\n${page.trim()}`)
+        .join('\n\n')
+        .trim();
+    } finally {
+      await pdf.loadingTask.destroy().catch(() => undefined);
+    }
   } catch (err) {
     logger.warn({ err }, 'Could not read the PDF text layer; falling back to AI reading');
     return '';
@@ -146,9 +154,7 @@ async function pdfTextLayer(buffer: Buffer): Promise<string> {
 
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   const local = await pdfTextLayer(buffer);
-  // A real text layer (not just a few stray characters per page) is used as is.
-  const letters = local.replace(/--- Page \d+ ---|\s/g, '').length;
-  if (letters > 200) return local;
+  if (local) return local;
   if (useGemini() && buffer.length > 18 * 1024 * 1024) {
     throw AppError.badRequest('PDFs must be under 18 MB. Split it into smaller files and upload them one by one.');
   }
@@ -200,6 +206,22 @@ export async function extractTextFromImage(buffer: Buffer, mediaType: 'image/png
   return textOf(message.content);
 }
 
+// ─── Summary of what was learned ─────────────────────────────────────────────
+
+/** Short list of the key points the guide learned from one item (shown to the admin). */
+export async function summarizeKnowledge(title: string, content: string): Promise<string> {
+  const ask = `This is "${title}", added to the knowledge of an AI export guide for people who want to source Indian handmade products and sell them abroad.\n\n${content.slice(0, 120_000)}\n\nIn 5 to 10 short "- " bullets, list the most useful things the guide learned from it: key facts, figures (with units), rules, countries, products and recommendations. Plain English, no headings, no preamble.`;
+  if (useGemini()) return geminiGenerate('', [{ role: 'user', parts: [{ text: ask }] }], false, { fast: true });
+  const response = await getClient().beta.messages.create({
+    model: MODEL,
+    max_tokens: 3000,
+    output_config: { effort: 'low' },
+    ...FALLBACK,
+    messages: [{ role: 'user', content: ask }],
+  });
+  return response.stop_reason === 'refusal' ? '' : textOf(response.content);
+}
+
 // ─── What to upload next ─────────────────────────────────────────────────────
 
 const COVERAGE = `The guide must answer, for 9 countries (UK, US, Canada, Australia, Singapore, Netherlands, South Africa, Thailand, Scandinavia) and 12 categories (home decor, textiles and scarves, jewellery, rugs and carpets, art and paintings, eco/bamboo, leather, pottery and ceramics, food and spices, wooden handicrafts, brassware and metal craft, embroidery):
@@ -231,53 +253,67 @@ interface GeminiTurn {
   parts: GeminiPart[];
 }
 
+/** Models tried in order: each has its own free daily allowance, so when one is used up
+ *  (or busy, or retired) the next one answers. GEMINI_MODEL, if set, goes first. */
+function geminiModels(): string[] {
+  const list = [env.GEMINI_MODEL, 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-3.5-flash-lite'].filter(Boolean) as string[];
+  return [...new Set(list)];
+}
+
+type GeminiData = {
+  error?: { code?: number; message?: string };
+  candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+  promptFeedback?: { blockReason?: string };
+};
+
+async function geminiCall(model: string, body: unknown): Promise<{ status: number; data: GeminiData }> {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-goog-api-key': geminiKey() },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(240_000),
+  }).catch((err: unknown) => {
+    logger.error({ err, model }, 'Gemini request did not complete');
+    return null;
+  });
+  const data = (res ? await res.json().catch(() => ({})) : {}) as GeminiData;
+  return { status: res?.status ?? 0, data };
+}
+
 async function geminiGenerate(system: string, contents: GeminiTurn[], webSearch: boolean, opts: { fast?: boolean } = {}): Promise<string> {
-  const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
-  const body = JSON.stringify({
+  const base = {
     ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
     contents,
-    ...(webSearch ? { tools: [{ google_search: {} }] } : {}),
     generationConfig: {
       maxOutputTokens: 65536,
-      // Reading a file needs no reasoning: skip "thinking" so it is faster and cheaper on the quota.
+      // Reading a file needs no reasoning: skip "thinking" so it is faster and lighter on the quota.
       ...(opts.fast ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
     },
-  });
-
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    // eslint-disable-next-line no-await-in-loop
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': geminiKey() },
-      body,
-      signal: AbortSignal.timeout(240_000),
-    }).catch((err: unknown) => {
-      logger.error({ err }, 'Gemini request did not complete');
-      return null;
-    });
-    // eslint-disable-next-line no-await-in-loop
-    const data = (res ? await res.json().catch(() => ({})) : {}) as {
-      error?: { code?: number; message?: string };
-      candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
-      promptFeedback?: { blockReason?: string };
-    };
-    const status = res?.status ?? 0;
-    if (res?.ok && !data.error) {
-      const text = (data.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('').trim();
-      if (text) return text;
-      logger.warn({ finishReason: data.candidates?.[0]?.finishReason, block: data.promptFeedback?.blockReason }, 'Gemini returned no text');
-      throw new AppError(502, 'Solomon AI could not read or answer this. Try rephrasing, or for a file, try a smaller or clearer copy.');
-    }
-    logger.error({ status, error: data.error?.message }, 'Gemini request failed');
-    // Busy / overloaded / timed out: wait and try again (15s, 30s, 45s).
-    if ((status === 429 || status === 500 || status === 503 || status === 0) && attempt < 3) {
+  };
+  let lastStatus = 0;
+  let lastMessage = '';
+  for (const model of geminiModels()) {
+    // With web search first; if Google refuses the search (its own free limit), answer without it.
+    const variants = webSearch ? [true, false] : [false];
+    for (const withSearch of variants) {
       // eslint-disable-next-line no-await-in-loop
-      await new Promise((r) => setTimeout(r, 15_000 * (attempt + 1)));
-      continue;
+      const { status, data } = await geminiCall(model, withSearch ? { ...base, tools: [{ google_search: {} }] } : base);
+      if (status === 200 && !data.error) {
+        const text = (data.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('').trim();
+        if (text) return text;
+        logger.warn({ model, finishReason: data.candidates?.[0]?.finishReason, block: data.promptFeedback?.blockReason }, 'Gemini returned no text');
+        throw new AppError(502, 'Solomon AI could not read or answer this. Try rephrasing, or for a file, try a smaller or clearer copy.');
+      }
+      lastStatus = status;
+      lastMessage = data.error?.message ?? '';
+      logger.warn({ model, withSearch, status, error: lastMessage.slice(0, 300) }, 'Gemini request failed');
+      if (status === 400) throw AppError.badRequest(`Google could not process this: ${lastMessage.slice(0, 200)}`);
+      // 429 with search on: retry the same model without search. Anything else: next model.
+      if (!(status === 429 && withSearch)) break;
     }
-    if (status === 429) throw new AppError(503, 'Google limits free use per minute and per day, and that limit is reached. Wait a few minutes and try again.');
-    if (status === 400 && data.error?.message) throw AppError.badRequest(`Google could not process this: ${data.error.message.slice(0, 200)}`);
-    throw new AppError(502, 'Solomon AI could not answer just now. Please try again.');
+  }
+  if (lastStatus === 429) {
+    throw new AppError(503, "Solomon AI has used today's free Google allowance. It resets daily; to remove the limit, turn on billing for the Gemini key in Google AI Studio.");
   }
   throw new AppError(503, 'Google is busy right now. Please try again in a few minutes.');
 }

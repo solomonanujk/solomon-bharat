@@ -8,6 +8,7 @@ vi.mock('./guide.ai', () => ({
   extractTextFromPdf: vi.fn().mockResolvedValue('PDF text'),
   extractTextFromImage: vi.fn().mockResolvedValue('Image text'),
   setAdminGeminiKey: vi.fn(),
+  summarizeKnowledge: vi.fn().mockResolvedValue('- Duty UK 12%'),
   verifyGeminiKey: vi.fn(async (k: string) => k.startsWith('good')),
 }));
 vi.mock('../../utils/auditLog', () => ({ writeAuditLog: vi.fn().mockResolvedValue(undefined) }));
@@ -23,6 +24,7 @@ function makeDb(conversation: Record<string, unknown> | null = null, settings: u
     guideKnowledge: {
       findMany: vi.fn().mockResolvedValue([{ title: 'Shipping', content: 'UK air £1.60/kg', kind: 'TEXT' }]),
       create: vi.fn(async ({ data }) => ({ id: 'k1', ...data })),
+      update: vi.fn().mockResolvedValue({}),
     },
     platformSetting: {
       findUnique: vi.fn().mockResolvedValue(settings),
@@ -69,14 +71,36 @@ describe('GuideService', () => {
     await expect(new GuideService(makeDb(null) as never).chat('t'.repeat(48), 'hi')).rejects.toThrow(/expired/);
   });
 
-  it('addFile() turns a spreadsheet into text rows and refreshes the suggestions', async () => {
+  it('addFile() returns at once, then reads a spreadsheet in the background, summarises it and refreshes suggestions', async () => {
     const db = makeDb();
+    const svc = new GuideService(db as never);
     const csv = Buffer.from('country,rate\nUK,12%\nUS,6%\n');
-    const row = await new GuideService(db as never).addFile('admin', { buffer: csv, originalname: 'duty.csv', mimetype: 'text/csv', size: csv.length });
-    expect(row).toMatchObject({ kind: 'SPREADSHEET', title: 'duty', fileUrl: 'https://files/x' });
-    expect(String(row.content)).toContain('UK | 12%');
-    await new Promise((r) => setTimeout(r, 0));
-    expect(suggestUploads).toHaveBeenCalled();
+    const row = await svc.addFile('admin', { buffer: csv, originalname: 'duty.csv', mimetype: 'text/csv', size: csv.length });
+    expect(row).toMatchObject({ kind: 'SPREADSHEET', title: 'duty', status: 'PROCESSING' });
+    await (svc as unknown as { queue: Promise<void> }).queue;
+    const updates = db.guideKnowledge.update.mock.calls.map((c) => c[0].data);
+    expect(updates[0]).toMatchObject({ status: 'READY', fileUrl: 'https://files/x' });
+    expect(String(updates[0].content)).toContain('UK | 12%');
+    expect(updates[1]).toEqual({ summary: '- Duty UK 12%' });
+    // Suggestions run once, 20 s after the batch settles.
+    expect(suggestUploads).not.toHaveBeenCalled();
+    vi.useFakeTimers();
+    try {
+      (svc as unknown as { scheduleSuggestions: () => void }).scheduleSuggestions();
+      vi.advanceTimersByTime(20_000);
+    } finally {
+      vi.useRealTimers();
+    }
+    await (svc as unknown as { queue: Promise<void> }).queue;
+    expect(suggestUploads).toHaveBeenCalledTimes(1);
+  });
+
+  it('a file that cannot be read is marked FAILED with the reason', async () => {
+    const db = makeDb();
+    const svc = new GuideService(db as never);
+    await svc.addFile('admin', { buffer: Buffer.from('   '), originalname: 'empty.txt', mimetype: 'text/plain', size: 3 });
+    await (svc as unknown as { queue: Promise<void> }).queue;
+    expect(db.guideKnowledge.update.mock.calls[0][0].data).toMatchObject({ status: 'FAILED', error: 'Nothing readable was found in this file.' });
   });
 
   it('addFile() refuses unsupported files such as Word documents', async () => {

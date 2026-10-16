@@ -54,7 +54,7 @@ export function HeroSection() {
 
   return (
     <section
-      className="on-forest relative overflow-hidden min-h-[600px] lg:min-h-[560px] flex items-center"
+      className="on-forest relative overflow-hidden min-h-[max(600px,calc(100svh-117px))] flex items-center"
       style={{ background: HERO_FALLBACK_GRADIENT }}
       aria-labelledby="home-hero-heading"
     >
