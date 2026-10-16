@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GuideService, MAX_VISITOR_MESSAGES } from './guide.service';
+import { GuideService, MAX_VISITOR_MESSAGES, parseGuideReply } from './guide.service';
 import { guideReply, suggestUploads } from './guide.ai';
 
 vi.mock('./guide.ai', () => ({
@@ -131,5 +131,13 @@ describe('GuideService', () => {
     expect(await new GuideService(db as never).deleteAllKnowledge('admin')).toEqual({ removed: 7 });
     expect(db.guideKnowledge.deleteMany).toHaveBeenCalledWith({});
     expect(db.platformSetting.deleteMany).toHaveBeenCalledWith({ where: { key: 'guide_upload_suggestions' } });
+  });
+
+  it('parseGuideReply() turns the hidden lines into follow-up buttons and the WhatsApp flag', () => {
+    expect(parseGuideReply('Nice! Where do you live?\n<<FOLLOWUPS>> I live in the UK | **Just exploring**\n')).toEqual({
+      content: 'Nice! Where do you live?', followUps: ['I live in the UK', 'Just exploring'], whatsapp: false,
+    });
+    expect(parseGuideReply('Great choice.\n<<FOLLOWUPS>> How do samples work?\n<<WHATSAPP>>').whatsapp).toBe(true);
+    expect(parseGuideReply('Plain answer')).toEqual({ content: 'Plain answer', followUps: [], whatsapp: false });
   });
 });

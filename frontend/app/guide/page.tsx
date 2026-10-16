@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ArrowUp, RotateCcw } from 'lucide-react'
+import { ArrowUp, MessageCircle, RotateCcw } from 'lucide-react'
 import { NavBar } from '@/components/shared/NavBar'
 import { GuideMarkdown } from '@/components/guide/GuideMarkdown'
 import { COUNTRIES } from '@/lib/countries'
@@ -17,14 +17,31 @@ const TOKEN_KEY = 'sb_guide_token'
 interface Turn {
   role: 'user' | 'assistant'
   content: string
+  followUps?: string[]
+  whatsapp?: boolean
 }
 
 const STARTERS = [
-  'I live in the UK and have about £2,000. What could I sell?',
-  'How do I import Indian block-print textiles to the US?',
-  'What does it cost to ship 50 cushion covers to Australia?',
-  'Which Indian products sell well in Singapore gift shops?',
+  "I'm just exploring the idea",
+  'I want to start selling Indian products',
+  'I already run a shop or online store',
+  'I have a product in mind',
 ]
+
+const WHATSAPP_URL = `https://wa.me/919588007925?text=${encodeURIComponent('Hi Pranjal, I was chatting with Solomon AI and would like help sourcing products from India.')}`
+
+function WhatsAppButton() {
+  return (
+    <a
+      href={WHATSAPP_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-2 text-[13.5px] font-[600] text-[#08301A] hover:brightness-95"
+    >
+      <MessageCircle size={16} aria-hidden="true" /> Chat with Pranjal on WhatsApp
+    </a>
+  )
+}
 
 function readToken(): string | null {
   try {
@@ -127,7 +144,7 @@ function Chat({ token, name, onReset }: { token: string; name: string; onReset: 
       .get('/guide/history', { params: { token } })
       .then((res) => {
         setVisitorName(res.data.data.name)
-        setTurns(res.data.data.messages.map((m: Turn) => ({ role: m.role, content: m.content })))
+        setTurns(res.data.data.messages.map((m: Turn) => ({ role: m.role, content: m.content, followUps: m.followUps, whatsapp: m.whatsapp })))
       })
       .catch(() => onReset())
   }, [token, onReset])
@@ -145,7 +162,7 @@ function Chat({ token, name, onReset }: { token: string; name: string; onReset: 
     setBusy(true)
     try {
       const res = await api.post('/guide/chat', { token, message }, { timeout: 3 * 60 * 1000 })
-      setTurns((t) => [...t, { role: 'assistant', content: res.data.data.reply }])
+      setTurns((t) => [...t, { role: 'assistant', content: res.data.data.reply, followUps: res.data.data.followUps, whatsapp: res.data.data.whatsapp }])
     } catch (err) {
       setError(getApiError(err))
       setTurns((t) => t.slice(0, -1))
@@ -174,7 +191,7 @@ function Chat({ token, name, onReset }: { token: string; name: string; onReset: 
         <div className="flex gap-3 items-start">
           <Avatar size={30} />
           <div className="bg-[#1C3428] border border-[#2A473A] rounded-2xl rounded-tl-sm px-4 py-3 text-[15px] text-[#EEF2EC] max-w-[85%]">
-            Hi {visitorName.split(' ')[0]}, I&apos;m Solomon AI. I can help you choose Indian handmade products to sell, work out what they cost to land in your country, and plan how to start. What would you like to do?
+            Hi {visitorName.split(' ')[0]} 👋 Lovely to meet you. Before I suggest anything, I&apos;d like to understand you a little. What got you interested in Indian handmade products?
           </div>
         </div>
         {turns.length === 0 && (
@@ -196,14 +213,28 @@ function Chat({ token, name, onReset }: { token: string; name: string; onReset: 
               <Avatar size={30} />
               <div className="bg-[#1C3428] border border-[#2A473A] rounded-2xl rounded-tl-sm px-4 py-3 text-[15px] leading-[1.6] text-[#EEF2EC] max-w-[85%] min-w-0 break-words">
                 <GuideMarkdown text={t.content} />
+                {t.whatsapp && <WhatsAppButton />}
               </div>
             </div>
           ),
         )}
+        {!busy && (() => {
+          const last = turns[turns.length - 1]
+          if (last?.role !== 'assistant' || !last.followUps?.length) return null
+          return (
+            <div className="flex flex-wrap gap-2 pl-[42px]">
+              {last.followUps.map((f) => (
+                <button key={f} type="button" onClick={() => void send(f)} className="text-left text-[13px] px-3 py-2 rounded-full border border-[#2A473A] text-[#C9D6CC] hover:border-[#E9A23B] hover:text-[#E9A23B] transition-colors">
+                  {f}
+                </button>
+              ))}
+            </div>
+          )
+        })()}
         {busy && (
           <div className="flex gap-3 items-center">
             <Avatar size={30} />
-            <span className="text-[13px] text-[#9DB3A6]">Solomon AI is thinking… detailed answers can take up to a minute.</span>
+            <span className="text-[13px] text-[#9DB3A6]">Solomon AI is typing…</span>
           </div>
         )}
         <div ref={endRef} />
