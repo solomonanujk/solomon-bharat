@@ -44,4 +44,11 @@ export const resetPasswordSchema = z.object({
   token: z.string().min(1),
   password: z.string().min(8).max(128),
 });
+export const changePasswordSchema = z.object({
+  /** Optional only while the account still has its emailed temporary password. */
+  currentPassword: z.string().max(128).optional(),
+  newPassword: z.string().min(8).max(128),
+});
+export type ChangePasswordDto = z.infer<typeof changePasswordSchema>;
+
 export type ResetPasswordDto = z.infer<typeof resetPasswordSchema>;

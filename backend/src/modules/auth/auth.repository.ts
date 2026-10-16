@@ -68,7 +68,7 @@ export class AuthRepository {
   }
 
   updateUserPassword(userId: string, passwordHash: string): Promise<User> {
-    return this.db.user.update({ where: { id: userId }, data: { passwordHash } });
+    return this.db.user.update({ where: { id: userId }, data: { passwordHash, mustChangePassword: false } });
   }
 
   markEmailVerified(userId: string): Promise<User> {

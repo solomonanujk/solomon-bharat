@@ -81,6 +81,7 @@ describe('SellersRepository', () => {
         passwordHash: 'hashed',
         role: Role.SELLER,
         emailVerifiedAt: expect.any(Date),
+        mustChangePassword: true,
         sellerProfile: {
           create: {
             applicationId: 'app-1',

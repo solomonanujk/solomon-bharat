@@ -103,7 +103,7 @@ export class AgentApplicationsService {
       html: `<p>Congratulations — your agent application has been approved.</p>
 <p>You can now sign in at <a href="${env.APP_URL}">${env.APP_URL}</a> — click "Sign In" in the top navigation — with:</p>
 <p>Email: ${user.email}<br/>Temporary password: <strong>${tempPassword}</strong></p>
-<p>Please change your password after your first login.</p>`,
+<p>When you first sign in you will be asked to choose your own password.</p>`,
     });
 
     return { user: toSafeUser(user), profile };

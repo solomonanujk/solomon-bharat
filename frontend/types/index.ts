@@ -43,6 +43,8 @@ export interface User {
   role: Role
   status: UserStatus
   emailVerifiedAt: string | null
+  /** True while the account still uses the temporary password emailed on approval. */
+  mustChangePassword?: boolean
   createdAt: string
   updatedAt: string
 }

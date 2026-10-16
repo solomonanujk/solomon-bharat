@@ -8,6 +8,7 @@ import {
   ForgotPasswordDto,
   LoginDto,
   ResetPasswordDto,
+  ChangePasswordDto,
   SignupBuyerDto,
   VerifyEmailQueryDto,
 } from './auth.validation';
@@ -76,6 +77,12 @@ export const authController = {
     const dto = req.body as ResetPasswordDto;
     await authService.resetPassword(dto.id, dto.token, dto.password);
     sendSuccess(res, null, 'Password reset successfully');
+  },
+
+  async changePassword(req: Request, res: Response): Promise<void> {
+    const dto = req.body as ChangePasswordDto;
+    const user = await authService.changePassword(req.user!.id, dto.currentPassword, dto.newPassword);
+    sendSuccess(res, { user }, 'Password changed');
   },
 
   async me(req: Request, res: Response): Promise<void> {
