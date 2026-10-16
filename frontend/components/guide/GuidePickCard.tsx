@@ -15,6 +15,7 @@ export interface GuidePick {
   category?: string
   origin?: string
   moq?: number
+  weightKg?: number
   story: string
   why: string
   cost?: string
@@ -57,7 +58,7 @@ export function GuidePickCard({
   const liked = !!state?.liked
   const saved = !!state?.saved
   const hasCosts = pick.cost || pick.shipping || pick.duty || pick.landed || pick.sell
-  const meta = [pick.category, pick.moq ? `MOQ ${pick.moq}` : null].filter(Boolean).join(' · ')
+  const meta = [pick.category, pick.moq ? `MOQ ${pick.moq}` : null, pick.weightKg ? `${pick.weightKg < 1 ? `${Math.round(pick.weightKg * 1000)} g` : `${+pick.weightKg.toFixed(2)} kg`}` : null].filter(Boolean).join(' · ')
 
   return (
     <article className="shrink-0 w-[272px] sm:w-[300px] snap-start rounded-2xl bg-white border border-[#E3E8E1] overflow-hidden flex flex-col shadow-[0_8px_24px_-16px_rgba(15,36,29,0.35)]">

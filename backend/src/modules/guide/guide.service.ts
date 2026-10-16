@@ -89,6 +89,7 @@ export interface GuidePick {
   category?: string;
   origin?: string;
   moq?: number;
+  weightKg?: number;
   story: string;
   why: string;
   cost?: string;
@@ -107,8 +108,20 @@ export interface GuideSavedItem {
   saved: boolean;
 }
 
+/** "400 g", "0.5kg", "1.2 kgs" → kilograms; null when there is no usable weight. */
+export function weightKg(raw: string | number | null | undefined, unit?: string | null): number | null {
+  if (raw === null || raw === undefined || raw === '') return null;
+  const text = `${raw} ${unit ?? ''}`.toLowerCase();
+  const n = parseFloat(text.replace(',', '.'));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  if (/\bg(ram)?s?\b|\dg\b/.test(text) && !/kg/.test(text)) return n / 1000;
+  if (/lb/.test(text)) return n * 0.4536;
+  return n;
+}
+
 interface CatalogueEntry extends GuideProductCard {
   story: string;
+  weightKg: number | null;
   origin: string | null;
   moq: number;
   fromInr: number | null;
@@ -439,6 +452,9 @@ export class GuideService {
       orderBy: { createdAt: 'asc' },
       select: { title: true, content: true },
     });
+    // Rate sheets (shipping, freight, duty, VAT) go first so they are never the part cut off.
+    const isRates = (t: string) => /ship|freight|courier|cargo|logistic|rate|tariff|duty|vat|gst|customs/i.test(t);
+    rows.sort((a, b) => Number(isRates(b.title)) - Number(isRates(a.title)));
     let out = '';
     for (const r of rows) {
       const block = `### ${r.title}\n${r.content}\n\n`;
@@ -524,6 +540,8 @@ export class GuideService {
       take: 300,
       select: {
         slug: true, name: true, materials: true, description: true, howItIsMade: true, placeOfOrigin: true, moq: true, adminPrice: true,
+        weight: true, dimensions: true,
+        variants: { take: 1, select: { weight: true, weightUnit: true } },
         category: { select: { name: true } },
         images: { orderBy: { sortOrder: 'asc' }, take: 1, select: { url: true } },
         priceTiers: { select: { adminPrice: true } },
@@ -534,15 +552,18 @@ export class GuideService {
       const prices = [r.adminPrice, ...r.priceTiers.map((t) => t.adminPrice)].map((d) => (d ? Number(d) : 0)).filter((n) => n > 0);
       const fromInr = prices.length ? Math.min(...prices) : null;
       const story = (r.howItIsMade || r.description || '').replace(/\s+/g, ' ').trim().slice(0, 220);
+      const kg = weightKg(r.weight) ?? weightKg(r.variants[0]?.weight?.toString(), r.variants[0]?.weightUnit);
       bySlug.set(r.slug, {
         slug: r.slug, name: r.name, image: r.images[0]?.url ?? null, category: r.category.name,
-        story, origin: r.placeOfOrigin, moq: r.moq, fromInr,
+        story, origin: r.placeOfOrigin, moq: r.moq, fromInr, weightKg: kg,
       });
       return [
         `${r.slug}: ${r.name}`,
         r.category.name,
         r.materials?.slice(0, 50),
         fromInr ? `from INR ${Math.round(fromInr)} per piece, MOQ ${r.moq}` : `MOQ ${r.moq}`,
+        kg ? `weight ${+kg.toFixed(3)} kg` : null,
+        r.dimensions ? `size ${r.dimensions.slice(0, 40)}` : null,
         r.placeOfOrigin,
         story.slice(0, 120),
       ].filter(Boolean).join(' | ');
@@ -570,6 +591,7 @@ export class GuideService {
           category: entry.category,
           origin: entry.origin ?? undefined,
           moq: entry.moq,
+          weightKg: entry.weightKg ?? undefined,
           story: clean(r.story) || entry.story,
           why: clean(r.why) ?? '',
           cost: entry.fromInr ? `from ₹${Math.round(entry.fromInr).toLocaleString('en-IN')}` : clean(r.cost),
@@ -634,7 +656,7 @@ export class GuideService {
       this.loadAiKey(),
     ]);
     const knowledge = catalogue?.text
-      ? `${knowledgeOnly}\n\nSOLOMON CATALOGUE (code: name | category | materials | buyer price in India | origin | story):\n${catalogue.text}`
+      ? `${knowledgeOnly}\n\nSOLOMON CATALOGUE (code: name | category | materials | buyer price in India | weight | size | origin | story):\n${catalogue.text}`
       : knowledgeOnly;
     const saved = (c.saved as unknown as GuideSavedItem[]) ?? [];
     const liked = saved.filter((s) => s.liked || s.saved).map((s) => s.name);
