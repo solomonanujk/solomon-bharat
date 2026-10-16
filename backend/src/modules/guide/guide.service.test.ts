@@ -13,6 +13,9 @@ vi.mock('./guide.ai', () => ({
   summarizeKnowledge: vi.fn().mockResolvedValue('- Duty UK 12%'),
   verifyGeminiKey: vi.fn(async (k: string) => k.startsWith('good')),
 }));
+vi.mock('./guide.images', () => ({
+  findWebPhotos: vi.fn(async (qs: string[]) => qs.map((q) => ({ query: q, title: q, image: `https://photos/${q}`, link: 'https://src', credit: 'A', license: 'CC BY' }))),
+}));
 vi.mock('../../utils/auditLog', () => ({ writeAuditLog: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('../../providers/storage', () => ({ storageProvider: { uploadFile: vi.fn().mockResolvedValue({ url: 'https://files/x' }) } }));
 
@@ -140,10 +143,10 @@ describe('GuideService', () => {
 
   it('parseGuideReply() turns the hidden lines into follow-up buttons and the WhatsApp flag', () => {
     expect(parseGuideReply('Nice! Where do you live?\n<<FOLLOWUPS>> I live in the UK | **Just exploring**\n')).toEqual({
-      content: 'Nice! Where do you live?', followUps: ['I live in the UK', 'Just exploring'], whatsapp: false, productSlugs: [],
+      content: 'Nice! Where do you live?', followUps: ['I live in the UK', 'Just exploring'], whatsapp: false, productSlugs: [], imageQueries: [],
     });
     expect(parseGuideReply('Great choice.\n<<FOLLOWUPS>> How do samples work?\n<<WHATSAPP>>').whatsapp).toBe(true);
-    expect(parseGuideReply('Plain answer')).toEqual({ content: 'Plain answer', followUps: [], whatsapp: false, productSlugs: [] });
+    expect(parseGuideReply('Plain answer')).toEqual({ content: 'Plain answer', followUps: [], whatsapp: false, productSlugs: [], imageQueries: [] });
   });
 
   it('chat() shows catalogue products as picture cards and strips asterisks', async () => {
@@ -153,5 +156,12 @@ describe('GuideService', () => {
     expect(vi.mocked(guideReply).mock.calls[0][0]).toContain('jute-tote: Block-print jute tote (Bags; Jute)');
     expect(r.reply).toBe('A lovely pick for France.');
     expect(r.products).toEqual([{ slug: 'jute-tote', name: 'Block-print jute tote', image: 'https://img/tote.jpg', category: 'Bags' }]);
+  });
+
+  it('chat() turns <<IMAGES>> searches into credited web photos', async () => {
+    vi.mocked(guideReply).mockResolvedValueOnce('Some ideas.\n<<IMAGES>> raffia bucket bag | sari silk pouch');
+    const db = makeDb({ id: 'c1', name: 'Asha', country: 'France', messages: [] });
+    const r = await new GuideService(db as never).chat('t'.repeat(48), 'Ideas?');
+    expect(r.photos.map((p) => p.image)).toEqual(['https://photos/raffia bucket bag', 'https://photos/sari silk pouch']);
   });
 });
