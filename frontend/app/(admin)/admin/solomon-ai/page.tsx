@@ -323,6 +323,11 @@ function KnowledgeList() {
 
 const PROVIDERS = [
   {
+    id: 'anthropic' as const,
+    name: 'Claude by Anthropic (best quality, paid)',
+    hint: 'When connected, Claude answers every visitor first: the most natural, accurate conversations. Pay as you go: create a key at console.anthropic.com → API keys and add credit (about $5 to $20 a month for a few hundred chats).',
+  },
+  {
     id: 'openrouter' as const,
     name: 'OpenRouter (free models)',
     hint: 'Answers chats, writes summaries and reads images. Get a key at openrouter.ai → Keys. Adding $10 of credit once raises the free limit from about 50 to about 1,000 requests a day.',
@@ -385,7 +390,7 @@ function AiConnectionCard() {
   const label = {
     openrouter: 'OpenRouter free models answer first, with Gemini as the backup.',
     gemini: 'Google Gemini is answering. Add an OpenRouter key for a much bigger free allowance.',
-    claude: 'Claude is answering (server settings).',
+    claude: 'Claude is answering visitors, with the free models as backup.',
     none: 'Not connected yet: Solomon AI cannot answer until you add a key.',
   }[data?.active ?? 'none']
   return (

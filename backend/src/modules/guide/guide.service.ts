@@ -13,7 +13,9 @@ import {
   extractTextFromImage,
   extractTextFromPdf,
   guideReply,
+  setAdminAnthropicKey,
   setAdminGeminiKey,
+  verifyAnthropicKey,
   setAdminOpenRouterKey,
   suggestUploads,
   summarizeKnowledge,
@@ -27,8 +29,12 @@ export const MAX_VISITOR_MESSAGES = 60;
 const KNOWLEDGE_BUDGET_CHARS = 900_000;
 const SETTINGS_KEY = 'guide_settings';
 const SUGGESTIONS_KEY = 'guide_upload_suggestions';
-export type AiProvider = 'gemini' | 'openrouter';
-const AI_KEY_SETTINGS: Record<AiProvider, string> = { gemini: 'guide_gemini_key', openrouter: 'guide_openrouter_key' };
+export type AiProvider = 'gemini' | 'openrouter' | 'anthropic';
+const AI_KEY_SETTINGS: Record<AiProvider, string> = {
+  gemini: 'guide_gemini_key',
+  openrouter: 'guide_openrouter_key',
+  anthropic: 'guide_anthropic_key',
+};
 interface KeyStatus {
   source: 'server' | 'admin' | 'none';
   last4: string | null;
@@ -141,33 +147,40 @@ export class GuideService {
   /** Loads the saved keys into the AI module; re-read at most once a minute. */
   async loadAiKey(force = false): Promise<void> {
     if (!force && Date.now() - this.keyLoadedAt < 60_000) return;
-    const [gemini, openrouter] = await Promise.all([this.readKey('gemini'), this.readKey('openrouter')]);
+    const [gemini, openrouter, anthropic] = await Promise.all([this.readKey('gemini'), this.readKey('openrouter'), this.readKey('anthropic')]);
     setAdminGeminiKey(gemini);
     setAdminOpenRouterKey(openrouter);
+    setAdminAnthropicKey(anthropic);
     this.keyLoadedAt = Date.now();
   }
 
-  async getAiKeyStatus(): Promise<{ active: 'openrouter' | 'gemini' | 'claude' | 'none'; openrouter: KeyStatus; gemini: KeyStatus }> {
+  async getAiKeyStatus(): Promise<{ active: 'openrouter' | 'gemini' | 'claude' | 'none'; openrouter: KeyStatus; gemini: KeyStatus; anthropic: KeyStatus }> {
     const status = async (provider: AiProvider, serverKey: string): Promise<KeyStatus> => {
       const key = await this.readKey(provider);
       if (key) return { source: 'admin', last4: key.slice(-4) };
       if (serverKey) return { source: 'server', last4: serverKey.slice(-4) };
       return { source: 'none', last4: null };
     };
-    const [openrouter, gemini] = await Promise.all([status('openrouter', env.OPENROUTER_API_KEY), status('gemini', env.GEMINI_API_KEY)]);
+    const [openrouter, gemini, anthropic] = await Promise.all([
+      status('openrouter', env.OPENROUTER_API_KEY),
+      status('gemini', env.GEMINI_API_KEY),
+      status('anthropic', env.ANTHROPIC_API_KEY),
+    ]);
     const active =
-      openrouter.source !== 'none' ? 'openrouter' : gemini.source !== 'none' ? 'gemini' : env.ANTHROPIC_API_KEY ? 'claude' : 'none';
-    return { active, openrouter, gemini };
+      anthropic.source !== 'none' ? 'claude' : openrouter.source !== 'none' ? 'openrouter' : gemini.source !== 'none' ? 'gemini' : 'none';
+    return { active, openrouter, gemini, anthropic };
   }
 
   async saveAiKey(adminId: string, key: string, provider: AiProvider = 'gemini') {
     const clean = key.trim();
-    const ok = provider === 'openrouter' ? await verifyOpenRouterKey(clean) : await verifyGeminiKey(clean);
-    if (!ok) {
+    const verify = { openrouter: verifyOpenRouterKey, gemini: verifyGeminiKey, anthropic: verifyAnthropicKey }[provider];
+    if (!(await verify(clean))) {
       throw AppError.badRequest(
-        provider === 'openrouter'
-          ? 'OpenRouter did not accept this key. Copy it again from openrouter.ai → Keys.'
-          : 'Google did not accept this key. Copy it again from Google AI Studio and check it has the Gemini API enabled.',
+        {
+          openrouter: 'OpenRouter did not accept this key. Copy it again from openrouter.ai → Keys.',
+          gemini: 'Google did not accept this key. Copy it again from Google AI Studio and check it has the Gemini API enabled.',
+          anthropic: 'Anthropic did not accept this key. Copy it again from console.anthropic.com → API keys, and check the account has credit.',
+        }[provider],
       );
     }
     const settingKey = AI_KEY_SETTINGS[provider];

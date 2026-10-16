@@ -5,6 +5,24 @@ import { logger } from '../../config/logger';
 import { AppError } from '../../utils/errors';
 
 const MODEL = 'claude-opus-5-5';
+/** Visitor chat: fast, natural and affordable for a public chat. */
+const CHAT_MODEL = 'claude-sonnet-5-5';
+
+/** Anthropic key saved by the admin (wins over the server's ANTHROPIC_API_KEY). With it, Claude answers visitors first. */
+let adminAnthropicKey = '';
+export function setAdminAnthropicKey(key: string): void {
+  adminAnthropicKey = key;
+}
+const anthropicKey = (): string => adminAnthropicKey || env.ANTHROPIC_API_KEY;
+
+/** Checks an Anthropic key before it is saved. */
+export async function verifyAnthropicKey(key: string): Promise<boolean> {
+  const res = await fetch('https://api.anthropic.com/v1/models?limit=1', {
+    headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+    signal: AbortSignal.timeout(20_000),
+  }).catch(() => null);
+  return Boolean(res?.ok);
+}
 
 /** Gemini key saved by the admin in Solomon AI settings (used when the server has no GEMINI_API_KEY). */
 let adminGeminiKey = '';
@@ -32,7 +50,7 @@ export async function verifyOpenRouterKey(key: string): Promise<boolean> {
 
 /** Solomon AI uses Google Gemini when a Gemini key is available (free tier), otherwise Claude. */
 const useGemini = (): boolean => Boolean(geminiKey());
-const hasBackup = (): boolean => useGemini() || Boolean(env.ANTHROPIC_API_KEY);
+const hasBackup = (): boolean => useGemini() || Boolean(anthropicKey());
 
 /** Runs the OpenRouter version first; if OpenRouter is out of free requests or busy and
  *  Gemini or Claude is configured, the existing path answers instead. */
@@ -57,11 +75,12 @@ export async function verifyGeminiKey(key: string): Promise<boolean> {
 }
 const FALLBACK = { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const };
 
-let client: Anthropic | null = null;
+let client: { key: string; sdk: Anthropic } | null = null;
 function getClient(): Anthropic {
-  if (!env.ANTHROPIC_API_KEY) throw new AppError(503, 'Solomon AI is not configured yet');
-  client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-  return client;
+  const key = anthropicKey();
+  if (!key) throw new AppError(503, 'Solomon AI is not configured yet');
+  if (client?.key !== key) client = { key, sdk: new Anthropic({ apiKey: key }) };
+  return client.sdk;
 }
 
 function textOf(content: BetaContentBlock[]): string {
@@ -100,6 +119,7 @@ YOUR KNOWLEDGE:
 SHOWING PRODUCTS:
 - When you talk about specific products, show them instead of describing them. Pick up to 4 that genuinely fit from the SOLOMON CATALOGUE list below and put their codes on a <<PRODUCTS>> line. In the message itself just say one short line, like "Here are a few that could work for you, which one catches your eye?"
 - Only use codes that appear in the catalogue list.
+- Every time you name a product, craft or technique the visitor may not know (for example potli bags, Ajrakh, kantha, dhurrie, dokra, block-printed quilts), you MUST show it: use catalogue codes when they fit, otherwise web photos. Never describe how something looks in words when a picture can show it.
 - For product ideas that are not in the catalogue (or to show a style or trend), show example photos from the web instead: put 2 to 4 short photo searches on an <<IMAGES>> line, each 2 to 4 plain words naming the product, e.g. "jute tote bag | raffia bucket bag | sari silk pouch". Never describe the photos at length; just a short line, then let the visitor react.
 
 AT THE END OF EVERY REPLY add these hidden lines (they are turned into buttons, the visitor never sees them as text):
@@ -123,6 +143,20 @@ export async function guideReply(
   history: ChatTurn[],
   allowWebSearch: boolean,
 ): Promise<string> {
+  // With an Anthropic key, Claude answers first; the free models only step in if it fails.
+  if (anthropicKey()) {
+    try {
+      return await claudeGuideReply(knowledge, visitor, history, allowWebSearch, CHAT_MODEL);
+    } catch (err) {
+      if (!useOpenRouter() && !useGemini()) throw err;
+      logger.warn({ err: err instanceof Error ? err.message : err }, 'Claude failed; using the free models');
+      return freeGuideReply(knowledge, visitor, history, allowWebSearch);
+    }
+  }
+  return freeGuideReply(knowledge, visitor, history, allowWebSearch);
+}
+
+function freeGuideReply(knowledge: string, visitor: string, history: ChatTurn[], allowWebSearch: boolean): Promise<string> {
   return viaOpenRouter(
     () => {
       // OpenRouter's free models have no web search: the persona says so by leaving the rule out.
@@ -147,6 +181,10 @@ async function guideReplyBackup(knowledge: string, visitor: string, history: Cha
     }));
     return geminiGenerate(systemText, turns, allowWebSearch);
   }
+  return claudeGuideReply(knowledge, visitor, history, allowWebSearch, MODEL);
+}
+
+async function claudeGuideReply(knowledge: string, visitor: string, history: ChatTurn[], allowWebSearch: boolean, model: string): Promise<string> {
   const system = [
     { type: 'text' as const, text: PERSONA.replace('{{WEB}}', allowWebSearch ? WEB_RULE : '').replace('{{WEBOR}}', allowWebSearch ? ' nor a web search' : '') },
     {
@@ -164,9 +202,9 @@ async function guideReplyBackup(knowledge: string, visitor: string, history: Cha
   for (let attempt = 0; attempt < 4; attempt += 1) {
     // eslint-disable-next-line no-await-in-loop
     const response = await getClient().beta.messages.create({
-      model: MODEL,
-      max_tokens: 8000,
-      output_config: { effort: 'medium' },
+      model,
+      max_tokens: 4000,
+      output_config: { effort: 'low' },
       ...FALLBACK,
       system,
       ...(allowWebSearch ? { tools: [{ type: 'web_search_20260209' as const, name: 'web_search' as const, max_uses: 5 }] } : {}),

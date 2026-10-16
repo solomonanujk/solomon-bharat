@@ -115,9 +115,9 @@ guideRouter.put('/admin/settings', requireAuth, requireAdmin, validate(settingsS
 
 const aiKeySchema = z.object({
   key: z.string().trim().min(20, 'Paste the full key').max(300),
-  provider: z.enum(['gemini', 'openrouter']).default('gemini'),
+  provider: z.enum(['gemini', 'openrouter', 'anthropic']).default('gemini'),
 });
-const providerQuerySchema = z.object({ provider: z.enum(['gemini', 'openrouter']).default('gemini') });
+const providerQuerySchema = z.object({ provider: z.enum(['gemini', 'openrouter', 'anthropic']).default('gemini') });
 
 guideRouter.get('/admin/ai-key', requireAuth, requireAdmin, asyncHandler(async (_req, res) => {
   sendSuccess(res, await guideService.getAiKeyStatus());
@@ -128,7 +128,7 @@ guideRouter.put('/admin/ai-key', requireAuth, requireAdmin, validate(aiKeySchema
 }));
 
 guideRouter.delete('/admin/ai-key', requireAuth, requireAdmin, validate(providerQuerySchema, 'query'), asyncHandler(async (req, res) => {
-  sendSuccess(res, await guideService.removeAiKey(req.user!.id, String(req.query.provider) as 'gemini' | 'openrouter'), 'Removed');
+  sendSuccess(res, await guideService.removeAiKey(req.user!.id, String(req.query.provider) as 'gemini' | 'openrouter' | 'anthropic'), 'Removed');
 }));
 
 guideRouter.get('/admin/conversations', requireAuth, requireAdmin, validate(paginationQuerySchema, 'query'), asyncHandler(async (req, res) => {
