@@ -175,7 +175,7 @@ export class GuideService {
       data: { title: title.trim(), kind: GuideKnowledgeKind.TEXT, content: text.trim(), createdById: adminId },
     });
     await writeAuditLog(adminId, 'GUIDE_KNOWLEDGE_ADDED', 'GuideKnowledge', row.id, { title: row.title, kind: row.kind });
-    this.enqueue(() => this.summarize(row.id, row.title, row.content));
+    this.enqueueSummary(() => this.summarize(row.id, row.title, row.content));
     return row;
   }
 
@@ -184,6 +184,11 @@ export class GuideService {
   private queue: Promise<void> = Promise.resolve();
   private enqueue(job: () => Promise<void>): void {
     this.queue = this.queue.then(job).catch((err) => logger.error({ err }, 'Guide background job failed'));
+  }
+  /** Summaries (slow AI calls) run on their own line so they never hold up reading the next file. */
+  private summaryQueue: Promise<void> = Promise.resolve();
+  private enqueueSummary(job: () => Promise<void>): void {
+    this.summaryQueue = this.summaryQueue.then(job).catch((err) => logger.error({ err }, 'Guide summary job failed'));
   }
 
   private kindOf(file: IncomingFile): GuideKnowledgeKind {
@@ -218,6 +223,8 @@ export class GuideService {
 
   private async readFile(id: string, title: string, kind: GuideKnowledgeKind, name: string, mimetype: string, buffer: Buffer) {
     try {
+      // Skip files the admin removed while they were waiting in line.
+      if (!(await this.db.guideKnowledge.findUnique({ where: { id }, select: { id: true } }))) return;
       await this.loadAiKey();
       let content: string;
       if (kind === GuideKnowledgeKind.PDF) content = await extractTextFromPdf(buffer);
@@ -236,7 +243,7 @@ export class GuideService {
         logger.warn({ err }, 'Could not store the original guide file; keeping the text only');
       }
       await this.db.guideKnowledge.update({ where: { id }, data: { content, fileUrl, status: GuideKnowledgeStatus.READY, error: null } });
-      await this.summarize(id, title, content);
+      this.enqueueSummary(() => this.summarize(id, title, content));
     } catch (err) {
       logger.error({ err, id }, 'Reading a guide file failed');
       const message = err instanceof AppError ? err.message : 'This file could not be read. Try a smaller or clearer copy.';
@@ -262,7 +269,7 @@ export class GuideService {
     if (this.suggestionsTimer) clearTimeout(this.suggestionsTimer);
     this.suggestionsTimer = setTimeout(() => {
       this.suggestionsTimer = null;
-      this.enqueue(async () => {
+      this.enqueueSummary(async () => {
         await this.refreshSuggestions();
       });
     }, 20_000);
