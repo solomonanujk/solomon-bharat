@@ -34,7 +34,8 @@ async function openverse(query: string): Promise<GuideWebPhoto | null> {
   return {
     query,
     title: hit.title?.slice(0, 80) || query,
-    image: hit.thumbnail || hit.url!,
+    // Wikimedia files load reliably from their own servers; Openverse's thumbnail proxy often fails for them.
+    image: hit.url && /wikimedia\.org/.test(hit.url) ? hit.url : hit.thumbnail || hit.url!,
     link: hit.foreign_landing_url || hit.url || '',
     credit: hit.creator?.slice(0, 60) || 'Unknown',
     license: `CC ${(hit.license ?? '').toUpperCase()}${hit.license_version ? ` ${hit.license_version}` : ''}`.trim(),

@@ -37,7 +37,7 @@ function makeDb(conversation: Record<string, unknown> | null = null, settings: u
     },
     product: {
       findMany: vi.fn().mockResolvedValue([
-        { slug: 'jute-tote', name: 'Block-print jute tote', materials: 'Jute', category: { name: 'Bags' }, images: [{ url: 'https://img/tote.jpg' }] },
+        { slug: 'jute-tote', name: 'Block-print jute tote', materials: 'Jute', description: 'Hand block printed in Bagru.', howItIsMade: null, placeOfOrigin: 'Bagru, Rajasthan', moq: 10, adminPrice: null, priceTiers: [{ adminPrice: 450 }, { adminPrice: 380 }], category: { name: 'Bags' }, images: [{ url: 'https://img/tote.jpg' }] },
       ]),
     },
     platformSetting: {
@@ -145,17 +145,17 @@ describe('GuideService', () => {
 
   it('parseGuideReply() turns the hidden lines into follow-up buttons and the WhatsApp flag', () => {
     expect(parseGuideReply('Nice! Where do you live?\n<<FOLLOWUPS>> I live in the UK | **Just exploring**\n')).toEqual({
-      content: 'Nice! Where do you live?', followUps: ['I live in the UK', 'Just exploring'], whatsapp: false, productSlugs: [], imageQueries: [],
+      content: 'Nice! Where do you live?', followUps: ['I live in the UK', 'Just exploring'], whatsapp: false, productSlugs: [], imageQueries: [], picks: [], note: '',
     });
     expect(parseGuideReply('Great choice.\n<<FOLLOWUPS>> How do samples work?\n<<WHATSAPP>>').whatsapp).toBe(true);
-    expect(parseGuideReply('Plain answer')).toEqual({ content: 'Plain answer', followUps: [], whatsapp: false, productSlugs: [], imageQueries: [] });
+    expect(parseGuideReply('Plain answer')).toEqual({ content: 'Plain answer', followUps: [], whatsapp: false, productSlugs: [], imageQueries: [], picks: [], note: '' });
   });
 
   it('chat() shows catalogue products as picture cards and strips asterisks', async () => {
     vi.mocked(guideReply).mockResolvedValueOnce('A **lovely** pick for France.\n<<PRODUCTS>> jute-tote | made-up-slug\n<<FOLLOWUPS>> Tell me more');
     const db = makeDb({ id: 'c1', name: 'Asha', country: 'France', messages: [] });
     const r = await new GuideService(db as never).chat('t'.repeat(48), 'Bags under 30 euros?');
-    expect(vi.mocked(guideReply).mock.calls[0][0]).toContain('jute-tote: Block-print jute tote (Bags; Jute)');
+    expect(vi.mocked(guideReply).mock.calls[0][0]).toContain('jute-tote: Block-print jute tote | Bags | Jute | from INR 380 per piece, MOQ 10 | Bagru, Rajasthan');
     expect(r.reply).toBe('A lovely pick for France.');
     expect(r.products).toEqual([{ slug: 'jute-tote', name: 'Block-print jute tote', image: 'https://img/tote.jpg', category: 'Bags' }]);
   });
@@ -165,5 +165,32 @@ describe('GuideService', () => {
     const db = makeDb({ id: 'c1', name: 'Asha', country: 'France', messages: [] });
     const r = await new GuideService(db as never).chat('t'.repeat(48), 'Ideas?');
     expect(r.photos.map((p) => p.image)).toEqual(['https://photos/raffia bucket bag', 'https://photos/sari silk pouch']);
+  });
+
+  it('chat() turns <<PICK>> lines into product cards with real catalogue price, story and a web photo for ideas', async () => {
+    vi.mocked(guideReply).mockResolvedValueOnce(
+      'Got it, here is where I would start.\n' +
+        '<<PICK>> {"code":"jute-tote","why":"Eco shoppers love it","shipping":"~€1.20","duty":"~€1.10","landed":"~€6.50","sell":"€22–28"}\n' +
+        '<<PICK>> {"name":"Sari silk potli","photo":"sari silk pouch","story":"Made from old saris.","why":"Gift buyers","sell":"€18–25"}\n' +
+        '<<PICK>> {not json}\nSell them on Instagram first.\n<<FOLLOWUPS>> Show me more products',
+    );
+    const db = makeDb({ id: 'c1', name: 'Asha', country: 'France', messages: [], saved: [{ key: 'p:x', name: 'Brass bell', liked: true, saved: false }] });
+    const r = await new GuideService(db as never).chat('t'.repeat(48), 'About me');
+    expect(r.reply).toBe('Got it, here is where I would start.');
+    expect(r.note).toBe('Sell them on Instagram first.');
+    expect(vi.mocked(guideReply).mock.calls[0][1]).toContain('liked or saved so far: Brass bell');
+    expect(r.picks).toHaveLength(2);
+    expect(r.picks[0]).toMatchObject({ key: 'p:jute-tote', source: 'catalogue', image: 'https://img/tote.jpg', link: '/products/jute-tote', cost: 'from ₹380', story: 'Hand block printed in Bagru.', origin: 'Bagru, Rajasthan', landed: '~€6.50' });
+    expect(r.picks[1]).toMatchObject({ source: 'idea', name: 'Sari silk potli', image: 'https://photos/sari silk pouch', story: 'Made from old saris.' });
+  });
+
+  it('toggleSaved() likes, saves and unlikes items on the chat', async () => {
+    const db = makeDb({ id: 'c1', name: 'Asha', messages: [], saved: [] });
+    const svc = new GuideService(db as never);
+    const item = { key: 'p:jute-tote', name: 'Jute tote', image: null, link: '/products/jute-tote' };
+    const list = await svc.toggleSaved('t'.repeat(48), item, 'liked', true);
+    expect(list).toEqual([{ ...item, liked: true, saved: false }]);
+    db.guideConversation.findUnique.mockResolvedValueOnce({ id: 'c1', saved: list });
+    expect(await svc.toggleSaved('t'.repeat(48), item, 'liked', false)).toEqual([]);
   });
 });

@@ -1,9 +1,11 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ArrowUp, Compass, MessageCircle, RotateCcw, Sparkles, Wallet } from 'lucide-react'
+import { ArrowUp, Heart, MessageCircle, RotateCcw } from 'lucide-react'
 import { NavBar } from '@/components/shared/NavBar'
 import { GuideMarkdown } from '@/components/guide/GuideMarkdown'
+import { GuidePickCard, type GuidePick, type GuideSavedItem } from '@/components/guide/GuidePickCard'
+import { useCategoryTree } from '@/hooks/queries/useCategories'
 import { COUNTRIES } from '@/lib/countries'
 import { getApiError } from '@/lib/getApiError'
 import api from '@/lib/api'
@@ -22,6 +24,8 @@ interface Turn {
   whatsapp?: boolean
   products?: ProductCard[]
   photos?: WebPhoto[]
+  picks?: GuidePick[]
+  note?: string
 }
 
 interface WebPhoto {
@@ -198,14 +202,17 @@ function DetailsForm({ onStarted }: { onStarted: (token: string, name: string) =
   )
 }
 
-function TypingBubble() {
+function TypingBubble({ label }: { label?: string }) {
   return (
     <div className="flex gap-2.5 items-end guide-in">
       <Avatar size={28} />
-      <div className="bg-[#F1F3EF] rounded-2xl rounded-bl-md px-4 py-3.5 flex gap-1.5" aria-label="Solomon AI is typing">
-        {[0, 1, 2].map((d) => (
-          <span key={d} className="w-2 h-2 rounded-full bg-[#6B7E72] animate-bounce" style={{ animationDelay: `${d * 150}ms` }} />
-        ))}
+      <div className="bg-[#F1F3EF] rounded-2xl rounded-bl-md px-4 py-3.5 flex items-center gap-2" aria-label="Solomon AI is typing">
+        <span className="flex gap-1.5">
+          {[0, 1, 2].map((d) => (
+            <span key={d} className="w-2 h-2 rounded-full bg-[#8D9B92] animate-bounce" style={{ animationDelay: `${d * 150}ms` }} />
+          ))}
+        </span>
+        {label && <span className="text-[12.5px] text-[#6B7E72]">{label}</span>}
       </div>
     </div>
   )
@@ -217,38 +224,197 @@ function timeOf(at?: string) {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-const PATHS = [
-  { icon: Sparkles, title: 'Find the next big product', text: 'for the brand or shop I already run', message: "I'm looking for the next big product for my brand" },
-  { icon: Wallet, title: 'Start a business', text: 'with a budget I have in mind', message: 'I want to start a business with a set budget' },
-  { icon: Compass, title: 'Just exploring', text: 'curious about ideas and unique products', message: "I'm curious about business ideas and unique products" },
-]
+function BotBubble({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex gap-2.5 items-end guide-in">
+      <Avatar size={28} />
+      <div className="bg-[#F1F3EF] rounded-2xl rounded-bl-md px-4 py-2.5 text-[15px] leading-[1.55] text-[#0F241D] max-w-[80%]">{children}</div>
+    </div>
+  )
+}
+
+function UserBubble({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="self-end max-w-[80%] bg-[#183D33] text-white rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] leading-[1.55] whitespace-pre-wrap break-words guide-in">
+      {children}
+    </div>
+  )
+}
+
+// ─── Intake: a few tap-to-answer questions before the first recommendation ───
+
+const CURRENCY: Record<string, string> = {
+  'United Kingdom': '£', 'United States': '$', Canada: 'C$', Australia: 'A$', 'New Zealand': 'NZ$', Singapore: 'S$',
+  'United Arab Emirates': 'AED ', India: '₹', Japan: '¥', Switzerland: 'CHF ', 'South Africa': 'R', Thailand: '฿',
+  Sweden: 'SEK ', Norway: 'NOK ', Denmark: 'DKK ',
+}
+const EURO = ['France', 'Germany', 'Netherlands', 'Belgium', 'Italy', 'Spain', 'Portugal', 'Ireland', 'Austria', 'Finland', 'Greece', 'Luxembourg']
+const currencyFor = (country: string | null) => (country && (CURRENCY[country] ?? (EURO.includes(country) ? '€' : null))) || '$'
+
+const FALLBACK_CATEGORIES = ['Home Décor', 'Home Textiles', 'Kitchen & Dining', 'Pottery & Ceramics', 'Bags & Accessories', 'Jewellery', 'Wood Crafts', 'Metal Crafts', 'Baskets & Natural Fibres', 'Furniture']
+
+interface IntakeStep {
+  id: 'role' | 'audience' | 'categories' | 'price'
+  ask: (first: string) => string
+  multi: boolean
+  options: string[]
+}
+
+function buildSteps(categories: string[], cur: string): IntakeStep[] {
+  return [
+    {
+      id: 'role',
+      ask: (first) => `Hi ${first} 👋 I'll ask you 4 quick questions so I can suggest products that genuinely fit you. First, what do you do?`,
+      multi: false,
+      options: ['I run my own brand', 'I have a shop or boutique', 'I sell online', 'I want to start a business', "I'm just exploring"],
+    },
+    {
+      id: 'audience',
+      ask: () => 'Nice. Who would you love to sell to? Pick as many as you like.',
+      multi: true,
+      options: ['Young professionals', 'Premium and luxury buyers', 'Eco-conscious shoppers', 'Gift buyers', 'Home and interior lovers', 'Hotels, cafés and offices', 'Not sure yet'],
+    },
+    {
+      id: 'categories',
+      ask: () => 'Which kinds of products are you drawn to?',
+      multi: true,
+      options: categories.length ? categories : FALLBACK_CATEGORIES,
+    },
+    {
+      id: 'price',
+      ask: () => 'Last one: roughly what price would you like to sell each piece at?',
+      multi: false,
+      options: [`Under ${cur}20`, `${cur}20 to ${cur}50`, `${cur}50 to ${cur}100`, `Over ${cur}100`, 'Not sure yet'],
+    },
+  ]
+}
+
+function profileMessage(answers: Record<string, string[]>, country: string | null) {
+  return [
+    `About me: ${answers.role?.[0] ?? ''}${country ? `, based in ${country}` : ''}.`,
+    `I want to sell to: ${(answers.audience ?? []).join(', ')}.`,
+    `Products I like: ${(answers.categories ?? []).join(', ')}.`,
+    `Selling price per piece: ${answers.price?.[0] ?? 'not sure'}.`,
+    'What should I sell?',
+  ].join('\n')
+}
+
+function OptionChips({ step, onDone }: { step: IntakeStep; onDone: (values: string[]) => void }) {
+  const [picked, setPicked] = useState<string[]>([])
+  return (
+    <div className="pl-[38px] flex flex-col gap-2.5 guide-in">
+      <div className="flex flex-wrap gap-2">
+        {step.options.map((o) => {
+          const on = picked.includes(o)
+          return (
+            <button
+              key={o}
+              type="button"
+              aria-pressed={step.multi ? on : undefined}
+              onClick={() => (step.multi ? setPicked((p) => (on ? p.filter((x) => x !== o) : [...p, o])) : onDone([o]))}
+              className={cn(
+                'text-[13.5px] px-3.5 py-2 rounded-full border transition-colors',
+                on ? 'bg-[#183D33] border-[#183D33] text-white' : 'bg-white border-[#D5DDD5] text-[#183D33] hover:border-[#183D33]',
+              )}
+            >
+              {on && '✓ '}
+              {o}
+            </button>
+          )
+        })}
+      </div>
+      {step.multi && (
+        <button
+          type="button"
+          disabled={!picked.length}
+          onClick={() => onDone(picked)}
+          className="self-start h-10 px-5 rounded-full bg-[#183D33] text-white text-[14px] font-[600] hover:bg-[#24503F] disabled:opacity-35 transition-colors"
+        >
+          Continue{picked.length ? ` (${picked.length})` : ''}
+        </button>
+      )}
+    </div>
+  )
+}
+
+function SavedPanel({ items, onClose }: { items: GuideSavedItem[]; onClose: () => void }) {
+  return (
+    <div className="absolute right-3 top-[60px] z-20 w-[300px] max-h-[60vh] overflow-y-auto rounded-2xl bg-white border border-[#E3E8E1] shadow-[0_20px_50px_-20px_rgba(15,36,29,0.4)] p-3 guide-in">
+      <div className="flex items-center justify-between px-1 pb-2">
+        <p className="text-[14px] font-[600] text-[#0F241D]">Your shortlist</p>
+        <button type="button" onClick={onClose} className="text-[12.5px] text-[#6B7E72] hover:text-[#0F241D]">Close</button>
+      </div>
+      {items.length === 0 ? (
+        <p className="px-1 pb-2 text-[13px] text-[#6B7E72]">Tap ♥ or the bookmark on any product to keep it here.</p>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {items.map((it) => (
+            <li key={it.key}>
+              <a href={it.link ?? undefined} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 rounded-xl p-1.5 hover:bg-[#F5F5F0]">
+                <span className="w-11 h-11 rounded-lg bg-[#EEF1EC] overflow-hidden shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  {it.image && <img src={it.image} alt="" className="w-full h-full object-cover" />}
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[13px] text-[#0F241D] truncate">{it.name}</span>
+                  <span className="text-[11.5px] text-[#6B7E72]">{[it.liked && '♥ Liked', it.saved && 'Saved'].filter(Boolean).join(' · ')}</span>
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
 
 function Chat({ token, name, onReset }: { token: string; name: string; onReset: () => void }) {
   const [turns, setTurns] = useState<Turn[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [visitorName, setVisitorName] = useState(name)
+  const [country, setCountry] = useState<string | null>(null)
+  const [saved, setSaved] = useState<GuideSavedItem[]>([])
+  const [showSaved, setShowSaved] = useState(false)
+  const [answers, setAnswers] = useState<Record<string, string[]>>({})
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const { data: tree } = useCategoryTree()
 
   useEffect(() => {
     api
       .get('/guide/history', { params: { token } })
       .then((res) => {
-        setVisitorName(res.data.data.name)
-        setTurns(res.data.data.messages)
+        const d = res.data.data
+        setVisitorName(d.name)
+        setCountry(d.country ?? null)
+        setTurns(d.messages)
+        setSaved(d.saved ?? [])
+        setLoaded(true)
       })
       .catch(() => onReset())
   }, [token, onReset])
 
-  useEffect(() => {
-    // Scroll only the message list, never the page, so the header stays in view.
-    const el = scrollRef.current
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
-  }, [turns, busy])
+  const steps = buildSteps((tree ?? []).filter((c) => c.productCount > 0).map((c) => c.name).slice(0, 12), currencyFor(country))
+  const stepIndex = steps.findIndex((st) => !answers[st.id])
+  const inIntake = loaded && turns.length === 0 && stepIndex !== -1
 
-  // The message box grows with the text, up to about six lines.
+  useEffect(() => {
+    // Scroll only the message list, never the page. A new answer with product cards is shown
+    // from its top, so the visitor reads the intro and sees the photos first.
+    const el = scrollRef.current
+    if (!el) return
+    const lastTurn = turns[turns.length - 1]
+    const anchor = el.querySelector<HTMLElement>('[data-last-answer]')
+    if (!busy && lastTurn?.role === 'assistant' && lastTurn.picks?.length && anchor) {
+      el.scrollTo({ top: anchor.offsetTop - 16, behavior: 'smooth' })
+    } else {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    }
+  }, [turns, busy, answers])
+
   useEffect(() => {
     const el = inputRef.current
     if (!el) return
@@ -268,7 +434,7 @@ function Chat({ token, name, onReset }: { token: string; name: string; onReset: 
       const d = res.data.data
       setTurns((t) => [
         ...t,
-        { role: 'assistant', content: d.reply, followUps: d.followUps, whatsapp: d.whatsapp, products: d.products, photos: d.photos, at: new Date().toISOString() },
+        { role: 'assistant', content: d.reply, followUps: d.followUps, whatsapp: d.whatsapp, products: d.products, photos: d.photos, picks: d.picks, note: d.note, at: new Date().toISOString() },
       ])
     } catch (err) {
       setError(getApiError(err))
@@ -276,19 +442,43 @@ function Chat({ token, name, onReset }: { token: string; name: string; onReset: 
       setInput(message)
     } finally {
       setBusy(false)
-      inputRef.current?.focus()
+    }
+  }
+
+  function answer(step: IntakeStep, values: string[]) {
+    const next = { ...answers, [step.id]: values }
+    setAnswers(next)
+    if (steps.every((st) => next[st.id])) void send(profileMessage(next, country))
+  }
+
+  async function toggle(pick: GuidePick, kind: 'liked' | 'saved', on: boolean) {
+    const item = { key: pick.key, name: pick.name, image: pick.image, link: pick.link }
+    // Update at once; the server confirms in the background.
+    setSaved((list) => {
+      const cur = list.find((x) => x.key === pick.key) ?? { ...item, liked: false, saved: false }
+      const nextItem = { ...cur, [kind]: on }
+      const rest = list.filter((x) => x.key !== pick.key)
+      return nextItem.liked || nextItem.saved ? [nextItem, ...rest] : rest
+    })
+    try {
+      const res = await api.post('/guide/saved', { token, item, kind, on })
+      setSaved(res.data.data)
+    } catch {
+      // Keep the local state; it will sync next time.
     }
   }
 
   const first = visitorName.split(' ')[0]
   const last = turns[turns.length - 1]
   const chips = !busy && last?.role === 'assistant' ? last.followUps ?? [] : []
+  const savedByKey = new Map(saved.map((x) => [x.key, x]))
+  const shortlist = saved.filter((x) => x.liked || x.saved)
 
   return (
-    <div className="w-full max-w-[760px] flex flex-col flex-1 min-h-0 bg-[#FFFFFF] sm:border sm:border-[#E3E8E1] sm:rounded-3xl overflow-hidden sm:shadow-[0_20px_60px_-30px_rgba(15,36,29,0.35)]">
-      <style>{`@keyframes guideIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}.guide-in{animation:guideIn .25s ease-out both}.guide-scroll::-webkit-scrollbar{display:none}`}</style>
+    <div className="relative w-full max-w-[860px] flex flex-col flex-1 min-h-0 bg-white sm:border sm:border-[#E3E8E1] sm:rounded-3xl overflow-hidden sm:shadow-[0_20px_60px_-30px_rgba(15,36,29,0.35)]">
+      <style>{`@keyframes guideIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}.guide-in{animation:guideIn .25s ease-out both}.guide-scroll::-webkit-scrollbar{display:none}.guide-scroll{scrollbar-width:none}`}</style>
 
-      <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-[#E3E8E1] bg-[#FFFFFF]">
+      <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-[#E3E8E1] bg-white">
         <div className="flex items-center gap-3">
           <span className="relative">
             <Avatar size={40} />
@@ -296,73 +486,83 @@ function Chat({ token, name, onReset }: { token: string; name: string; onReset: 
           </span>
           <div>
             <p className="font-[600] text-[15px] text-[#0F241D] leading-tight">Solomon AI</p>
-            <p className="text-[12px] text-[#6B7E72]">{busy ? 'typing…' : 'Online · India sourcing guide'}</p>
+            <p className="text-[12px] text-[#6B7E72]">{busy ? 'typing…' : 'Online'}</p>
           </div>
         </div>
-        <button type="button" onClick={onReset} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12.5px] text-[#3D5248] border border-[#E3E8E1] hover:border-[#183D33] hover:text-[#183D33] transition-colors">
-          <RotateCcw size={13} aria-hidden="true" /> New chat
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowSaved((v) => !v)}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12.5px] text-[#183D33] border border-[#E3E8E1] hover:border-[#183D33] transition-colors"
+          >
+            <Heart size={13} className={shortlist.length ? 'fill-[#E0475B] text-[#E0475B]' : ''} aria-hidden="true" />
+            <span className="hidden sm:inline">Shortlist</span>
+            {shortlist.length ? <span className="sm:ml-0.5">{shortlist.length}</span> : null}
+          </button>
+          <button type="button" onClick={onReset} aria-label="New chat" className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12.5px] text-[#3D5248] border border-[#E3E8E1] hover:border-[#183D33] hover:text-[#183D33] transition-colors">
+            <RotateCcw size={13} aria-hidden="true" /> <span className="hidden sm:inline">New chat</span>
+          </button>
+        </div>
       </header>
+      {showSaved && <SavedPanel items={shortlist} onClose={() => setShowSaved(false)} />}
 
-      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 sm:px-5 py-5 flex flex-col gap-3" aria-live="polite">
-        <div className="flex gap-2.5 items-end guide-in">
-          <Avatar size={28} />
-          <div className="bg-[#F1F3EF] rounded-2xl rounded-bl-md px-4 py-2.5 text-[15px] leading-[1.55] text-[#0F241D] max-w-[80%]">
-            Hi {first}&nbsp;👋 Lovely to meet you. Before I suggest anything, I&apos;d love to understand you a little. What brings you here?
-          </div>
-        </div>
-
-        {turns.length === 0 && (
-          <div className="grid sm:grid-cols-3 gap-2.5 pl-[38px] guide-in">
-            {PATHS.map(({ icon: Icon, title, text, message }) => (
-              <button
-                key={title}
-                type="button"
-                onClick={() => void send(message)}
-                className="text-left rounded-2xl border border-[#E3E8E1] bg-[#FFFFFF] p-3.5 hover:border-[#183D33] hover:bg-[#F6F8F4] transition-colors"
-              >
-                <span className="grid place-items-center w-9 h-9 rounded-xl bg-[#FBF3E4]"><Icon size={18} className="text-[#B8862F]" aria-hidden="true" /></span>
-                <p className="mt-2.5 text-[14px] font-[600] text-[#0F241D] leading-snug">{title}</p>
-                <p className="text-[12.5px] text-[#6B7E72] mt-0.5 leading-snug">{text}</p>
-              </button>
-            ))}
-          </div>
-        )}
+      <div ref={scrollRef} className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 sm:px-5 py-5 flex flex-col gap-3" aria-live="polite">
+        {turns.length === 0 &&
+          steps.map((st, i) => {
+            if (!loaded || (stepIndex !== -1 && i > stepIndex)) return null
+            const done = answers[st.id]
+            return (
+              <div key={st.id} className="flex flex-col gap-3">
+                <BotBubble>{st.ask(first)}</BotBubble>
+                {done ? <UserBubble>{done.join(', ')}</UserBubble> : <OptionChips step={st} onDone={(v) => answer(st, v)} />}
+              </div>
+            )
+          })}
 
         {turns.map((t, i) => {
           const showTime = i === turns.length - 1 || turns[i + 1]?.role !== t.role
           return t.role === 'user' ? (
             <div key={i} className="self-end flex flex-col items-end max-w-[80%] guide-in">
-              <div className="bg-[#183D33] text-white rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] leading-[1.55] whitespace-pre-wrap break-words">
-                {t.content}
-              </div>
+              <div className="bg-[#183D33] text-white rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] leading-[1.55] whitespace-pre-wrap break-words">{t.content}</div>
               {showTime && <span className="text-[10.5px] text-[#8D9B92] mt-1">{timeOf(t.at)}</span>}
             </div>
           ) : (
-            <div key={i} className="flex gap-2.5 items-end guide-in">
-              <Avatar size={28} />
-              <div className="flex flex-col min-w-0 max-w-[85%]">
+            <div key={i} data-last-answer={i === turns.length - 1 ? '' : undefined} className="flex gap-2.5 items-start guide-in">
+              <span className="mt-auto"><Avatar size={28} /></span>
+              <div className="flex flex-col gap-2.5 min-w-0 flex-1">
                 {t.content && (
-                  <div className="self-start bg-[#F1F3EF] rounded-2xl rounded-bl-md px-4 py-2.5 text-[15px] leading-[1.55] text-[#0F241D] break-words">
+                  <div className="self-start max-w-[92%] sm:max-w-[80%] bg-[#F1F3EF] rounded-2xl rounded-bl-md px-4 py-2.5 text-[15px] leading-[1.55] text-[#0F241D] break-words">
                     <GuideMarkdown text={t.content} />
+                  </div>
+                )}
+                {!!t.picks?.length && (
+                  <div className="guide-scroll -mr-3 sm:-mr-5 pr-3 sm:pr-5 flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2">
+                    {t.picks.map((pk) => (
+                      <GuidePickCard key={pk.key} pick={pk} state={savedByKey.get(pk.key)} onToggle={toggle} />
+                    ))}
+                  </div>
+                )}
+                {t.note && (
+                  <div className="self-start max-w-[92%] sm:max-w-[80%] bg-[#F1F3EF] rounded-2xl rounded-bl-md px-4 py-2.5 text-[15px] leading-[1.55] text-[#0F241D] break-words">
+                    <GuideMarkdown text={t.note} />
                   </div>
                 )}
                 {!!t.products?.length && <ProductCards products={t.products} />}
                 {!!t.photos?.length && <WebPhotos photos={t.photos} />}
                 {t.whatsapp && <WhatsAppButton />}
-                {showTime && <span className="text-[10.5px] text-[#8D9B92] mt-1">{timeOf(t.at)}</span>}
+                {showTime && <span className="text-[10.5px] text-[#8D9B92]">{timeOf(t.at)}</span>}
               </div>
             </div>
           )
         })}
-        {busy && <TypingBubble />}
+        {busy && <TypingBubble label={turns.length <= 1 ? 'Finding products that fit you…' : undefined} />}
       </div>
 
-      <div className="border-t border-[#E3E8E1] bg-[#FFFFFF] px-3 sm:px-4 pt-2.5 pb-3">
+      <div className="border-t border-[#E3E8E1] bg-white px-3 sm:px-4 pt-2.5 pb-3">
         {chips.length > 0 && (
           <div className="guide-scroll flex gap-2 overflow-x-auto pb-2.5 -mx-1 px-1">
             {chips.map((f) => (
-              <button key={f} type="button" onClick={() => void send(f)} className="shrink-0 text-[13px] px-3.5 py-1.5 rounded-full bg-[#F1F3EF] text-[#183D33] hover:border-[#183D33] hover:text-[#183D33] transition-colors">
+              <button key={f} type="button" onClick={() => void send(f)} className="shrink-0 text-[13px] px-3.5 py-1.5 rounded-full bg-[#F1F3EF] text-[#183D33] hover:bg-[#E6EBE5] transition-colors">
                 {f}
               </button>
             ))}
@@ -389,7 +589,7 @@ function Chat({ token, name, onReset }: { token: string; name: string; onReset: 
             }}
             rows={1}
             maxLength={2000}
-            placeholder="Type a message"
+            placeholder={inIntake ? 'Tap an answer above, or type your own' : 'Type a message'}
             aria-label="Your message"
             className="flex-1 resize-none rounded-3xl bg-[#F5F5F0] border border-[#E3E8E1] px-4 py-2.5 text-[15px] leading-[1.45] text-[#0F241D] placeholder:text-[#8D9B92] focus:outline-none focus:border-[#183D33] focus:ring-2 focus:ring-[#183D33]/10"
           />
@@ -397,7 +597,7 @@ function Chat({ token, name, onReset }: { token: string; name: string; onReset: 
             <ArrowUp size={19} />
           </button>
         </form>
-        <p className="text-[10.5px] text-[#8D9B92] mt-2 text-center">AI guide. Double-check important figures like duty rates.</p>
+        <p className="text-[10.5px] text-[#8D9B92] mt-2 text-center">Costs are estimates. Double-check duty rates before you order.</p>
       </div>
     </div>
   )
