@@ -45,15 +45,15 @@ function WebPhotos({ photos }: { photos: WebPhoto[] }) {
           href={p.link}
           target="_blank"
           rel="noopener noreferrer"
-          className="group shrink-0 w-[150px] sm:w-[170px] snap-start block overflow-hidden rounded-2xl border border-[#2A473A] bg-[#15291F] hover:border-[#E9A23B] transition-colors"
+          className="group shrink-0 w-[150px] sm:w-[170px] snap-start block overflow-hidden rounded-2xl border border-[#E3E8E1] bg-[#FFFFFF] hover:border-[#183D33] transition-colors"
         >
-          <div className="aspect-square bg-[#0F241D] overflow-hidden">
+          <div className="aspect-square bg-[#EEF1EC] overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.image} alt={p.query} loading="lazy" onError={() => setBroken((b) => new Set(b).add(p.image))} className="h-full w-full object-cover group-hover:scale-[1.03] transition-transform" />
           </div>
           <div className="px-2.5 py-2">
-            <p className="text-[13px] leading-snug text-[#EEF2EC] capitalize line-clamp-1">{p.query}</p>
-            <p className="text-[10.5px] text-[#6F8A7C] mt-0.5 line-clamp-1">Photo: {p.credit}, {p.license}</p>
+            <p className="text-[13px] leading-snug text-[#0F241D] capitalize line-clamp-1">{p.query}</p>
+            <p className="text-[10.5px] text-[#8D9B92] mt-0.5 line-clamp-1">Photo: {p.credit}, {p.license}</p>
           </div>
         </a>
       ))}
@@ -77,17 +77,17 @@ function ProductCards({ products }: { products: ProductCard[] }) {
           href={`/products/${p.slug}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="group shrink-0 w-[150px] sm:w-[170px] snap-start block overflow-hidden rounded-2xl border border-[#2A473A] bg-[#15291F] hover:border-[#E9A23B] transition-colors"
+          className="group shrink-0 w-[150px] sm:w-[170px] snap-start block overflow-hidden rounded-2xl border border-[#E3E8E1] bg-[#FFFFFF] hover:border-[#183D33] transition-colors"
         >
-          <div className="aspect-square bg-[#0F241D] overflow-hidden">
+          <div className="aspect-square bg-[#EEF1EC] overflow-hidden">
             {p.image ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={p.image} alt={p.name} loading="lazy" className="h-full w-full object-cover group-hover:scale-[1.03] transition-transform" />
             ) : null}
           </div>
           <div className="px-2.5 py-2">
-            <p className="text-[13px] leading-snug text-[#EEF2EC] line-clamp-2">{p.name}</p>
-            <p className="text-[11.5px] text-[#9DB3A6] mt-0.5">{p.category}</p>
+            <p className="text-[13px] leading-snug text-[#0F241D] line-clamp-2">{p.name}</p>
+            <p className="text-[11.5px] text-[#6B7E72] mt-0.5">{p.category}</p>
           </div>
         </a>
       ))}
@@ -131,7 +131,7 @@ function Avatar({ size = 36 }: { size?: number }) {
     <span
       aria-hidden="true"
       style={{ width: size, height: size }}
-      className="shrink-0 rounded-full grid place-items-center font-[600] text-[#1A1206] bg-[radial-gradient(circle_at_35%_35%,#F4C77A,#E9A23B_55%,#9C5F12)]"
+      className="shrink-0 rounded-full grid place-items-center font-[600] text-white bg-[radial-gradient(circle_at_30%_30%,#3F7F67,#183D33_60%,#0F241D)]"
     >
       S
     </span>
@@ -160,40 +160,40 @@ function DetailsForm({ onStarted }: { onStarted: (token: string, name: string) =
     }
   }
 
-  const field = 'h-12 rounded-lg border border-[#2A473A] bg-[#0E1D18] px-4 text-[15px] text-[#EEF2EC] placeholder:text-[#6F8A7C] focus:outline-none focus:border-[#E9A23B]'
+  const field = 'h-12 rounded-lg border border-[#E3E8E1] bg-[#F5F5F0] px-4 text-[15px] text-[#0F241D] placeholder:text-[#8D9B92] focus:outline-none focus:border-[#183D33] focus:ring-2 focus:ring-[#183D33]/10'
   return (
-    <form onSubmit={submit} className="w-full max-w-[460px] bg-[#15291F] border border-[#2A473A] rounded-2xl p-6 sm:p-8 flex flex-col gap-4">
+    <form onSubmit={submit} className="w-full max-w-[460px] bg-[#FFFFFF] border border-[#E3E8E1] rounded-2xl p-6 sm:p-8 flex flex-col gap-4">
       <div className="flex items-center gap-3">
         <Avatar size={44} />
         <div>
-          <p className="font-[600] text-[#EEF2EC]">Solomon AI</p>
-          <p className="text-[13px] text-[#9DB3A6]">Your India sourcing and export guide</p>
+          <p className="font-[600] text-[#0F241D]">Solomon AI</p>
+          <p className="text-[13px] text-[#6B7E72]">Your India sourcing and export guide</p>
         </div>
       </div>
-      <p className="text-[14px] text-[#C9D6CC]">Tell us who you are and start chatting. It&apos;s free, and our team can follow up if you want help sourcing.</p>
+      <p className="text-[14px] text-[#3D5248]">Tell us who you are and start chatting. It&apos;s free, and our team can follow up if you want help sourcing.</p>
       <label className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-[600] text-[#C9D6CC]">Your name *</span>
+        <span className="text-[13px] font-[600] text-[#3D5248]">Your name *</span>
         <input id="guide-name" required minLength={2} value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className={field} autoComplete="name" />
       </label>
       <label className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-[600] text-[#C9D6CC]">Email *</span>
+        <span className="text-[13px] font-[600] text-[#3D5248]">Email *</span>
         <input id="guide-email" required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" className={field} autoComplete="email" />
       </label>
       <label className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-[600] text-[#C9D6CC]">Phone / WhatsApp *</span>
+        <span className="text-[13px] font-[600] text-[#3D5248]">Phone / WhatsApp *</span>
         <input id="guide-phone" required type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+44 7700 900123" className={field} autoComplete="tel" />
       </label>
       <label className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-[600] text-[#C9D6CC]">Where do you live?</span>
+        <span className="text-[13px] font-[600] text-[#3D5248]">Where do you live?</span>
         <select id="guide-country" value={country} onChange={(e) => setCountry(e.target.value)} className={field}>
           {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
       </label>
-      {error && <p className="text-[13px] text-[#F2A79B]" role="alert">{error}</p>}
-      <button type="submit" disabled={busy} className="h-12 rounded-lg bg-[#E9A23B] text-[#1A1206] font-[700] text-[15px] hover:bg-[#F0B256] transition-colors disabled:opacity-60">
+      {error && <p className="text-[13px] text-[#B42318]" role="alert">{error}</p>}
+      <button type="submit" disabled={busy} className="h-12 rounded-lg bg-[#183D33] text-white font-[700] text-[15px] hover:bg-[#24503F] transition-colors disabled:opacity-60">
         {busy ? 'Starting…' : 'Start chatting'}
       </button>
-      <p className="text-[12px] text-[#6F8A7C]">By continuing you agree to our Terms and Privacy Policy. We use your details to reply and follow up about your enquiry.</p>
+      <p className="text-[12px] text-[#8D9B92]">By continuing you agree to our Terms and Privacy Policy. We use your details to reply and follow up about your enquiry.</p>
     </form>
   )
 }
@@ -202,9 +202,9 @@ function TypingBubble() {
   return (
     <div className="flex gap-2.5 items-end guide-in">
       <Avatar size={28} />
-      <div className="bg-[#1C3428] border border-[#2A473A] rounded-2xl rounded-bl-md px-4 py-3.5 flex gap-1.5" aria-label="Solomon AI is typing">
+      <div className="bg-[#F1F3EF] rounded-2xl rounded-bl-md px-4 py-3.5 flex gap-1.5" aria-label="Solomon AI is typing">
         {[0, 1, 2].map((d) => (
-          <span key={d} className="w-2 h-2 rounded-full bg-[#9DB3A6] animate-bounce" style={{ animationDelay: `${d * 150}ms` }} />
+          <span key={d} className="w-2 h-2 rounded-full bg-[#6B7E72] animate-bounce" style={{ animationDelay: `${d * 150}ms` }} />
         ))}
       </div>
     </div>
@@ -285,21 +285,21 @@ function Chat({ token, name, onReset }: { token: string; name: string; onReset: 
   const chips = !busy && last?.role === 'assistant' ? last.followUps ?? [] : []
 
   return (
-    <div className="w-full max-w-[760px] flex flex-col flex-1 min-h-0 bg-[#12251D] sm:border sm:border-[#2A473A] sm:rounded-3xl overflow-hidden sm:shadow-[0_24px_80px_-24px_rgba(0,0,0,0.6)]">
+    <div className="w-full max-w-[760px] flex flex-col flex-1 min-h-0 bg-[#FFFFFF] sm:border sm:border-[#E3E8E1] sm:rounded-3xl overflow-hidden sm:shadow-[0_20px_60px_-30px_rgba(15,36,29,0.35)]">
       <style>{`@keyframes guideIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}.guide-in{animation:guideIn .25s ease-out both}.guide-scroll::-webkit-scrollbar{display:none}`}</style>
 
-      <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-[#2A473A] bg-[#15291F]">
+      <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-[#E3E8E1] bg-[#FFFFFF]">
         <div className="flex items-center gap-3">
           <span className="relative">
             <Avatar size={40} />
-            <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-[#3DDC84] ring-2 ring-[#15291F]" aria-hidden="true" />
+            <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-[#3DDC84] ring-2 ring-white" aria-hidden="true" />
           </span>
           <div>
-            <p className="font-[600] text-[15px] text-[#EEF2EC] leading-tight">Solomon AI</p>
-            <p className="text-[12px] text-[#9DB3A6]">{busy ? 'typing…' : 'Online · India sourcing guide'}</p>
+            <p className="font-[600] text-[15px] text-[#0F241D] leading-tight">Solomon AI</p>
+            <p className="text-[12px] text-[#6B7E72]">{busy ? 'typing…' : 'Online · India sourcing guide'}</p>
           </div>
         </div>
-        <button type="button" onClick={onReset} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12.5px] text-[#C9D6CC] border border-[#2A473A] hover:border-[#E9A23B] hover:text-[#E9A23B] transition-colors">
+        <button type="button" onClick={onReset} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12.5px] text-[#3D5248] border border-[#E3E8E1] hover:border-[#183D33] hover:text-[#183D33] transition-colors">
           <RotateCcw size={13} aria-hidden="true" /> New chat
         </button>
       </header>
@@ -307,7 +307,7 @@ function Chat({ token, name, onReset }: { token: string; name: string; onReset: 
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 sm:px-5 py-5 flex flex-col gap-3" aria-live="polite">
         <div className="flex gap-2.5 items-end guide-in">
           <Avatar size={28} />
-          <div className="bg-[#1C3428] border border-[#2A473A] rounded-2xl rounded-bl-md px-4 py-2.5 text-[15px] leading-[1.55] text-[#EEF2EC] max-w-[80%]">
+          <div className="bg-[#F1F3EF] rounded-2xl rounded-bl-md px-4 py-2.5 text-[15px] leading-[1.55] text-[#0F241D] max-w-[80%]">
             Hi {first}&nbsp;👋 Lovely to meet you. Before I suggest anything, I&apos;d love to understand you a little. What brings you here?
           </div>
         </div>
@@ -319,11 +319,11 @@ function Chat({ token, name, onReset }: { token: string; name: string; onReset: 
                 key={title}
                 type="button"
                 onClick={() => void send(message)}
-                className="text-left rounded-2xl border border-[#2A473A] bg-[#15291F] p-3.5 hover:border-[#E9A23B] hover:bg-[#1A3226] transition-colors"
+                className="text-left rounded-2xl border border-[#E3E8E1] bg-[#FFFFFF] p-3.5 hover:border-[#183D33] hover:bg-[#F6F8F4] transition-colors"
               >
-                <Icon size={18} className="text-[#E9A23B]" aria-hidden="true" />
-                <p className="mt-2 text-[14px] font-[600] text-[#EEF2EC] leading-snug">{title}</p>
-                <p className="text-[12.5px] text-[#9DB3A6] mt-0.5 leading-snug">{text}</p>
+                <span className="grid place-items-center w-9 h-9 rounded-xl bg-[#FBF3E4]"><Icon size={18} className="text-[#B8862F]" aria-hidden="true" /></span>
+                <p className="mt-2.5 text-[14px] font-[600] text-[#0F241D] leading-snug">{title}</p>
+                <p className="text-[12.5px] text-[#6B7E72] mt-0.5 leading-snug">{text}</p>
               </button>
             ))}
           </div>
@@ -333,24 +333,24 @@ function Chat({ token, name, onReset }: { token: string; name: string; onReset: 
           const showTime = i === turns.length - 1 || turns[i + 1]?.role !== t.role
           return t.role === 'user' ? (
             <div key={i} className="self-end flex flex-col items-end max-w-[80%] guide-in">
-              <div className="bg-[#E9A23B] text-[#1A1206] rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] leading-[1.55] whitespace-pre-wrap break-words">
+              <div className="bg-[#183D33] text-white rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] leading-[1.55] whitespace-pre-wrap break-words">
                 {t.content}
               </div>
-              {showTime && <span className="text-[10.5px] text-[#6F8A7C] mt-1">{timeOf(t.at)}</span>}
+              {showTime && <span className="text-[10.5px] text-[#8D9B92] mt-1">{timeOf(t.at)}</span>}
             </div>
           ) : (
             <div key={i} className="flex gap-2.5 items-end guide-in">
               <Avatar size={28} />
               <div className="flex flex-col min-w-0 max-w-[85%]">
                 {t.content && (
-                  <div className="self-start bg-[#1C3428] border border-[#2A473A] rounded-2xl rounded-bl-md px-4 py-2.5 text-[15px] leading-[1.55] text-[#EEF2EC] break-words">
+                  <div className="self-start bg-[#F1F3EF] rounded-2xl rounded-bl-md px-4 py-2.5 text-[15px] leading-[1.55] text-[#0F241D] break-words">
                     <GuideMarkdown text={t.content} />
                   </div>
                 )}
                 {!!t.products?.length && <ProductCards products={t.products} />}
                 {!!t.photos?.length && <WebPhotos photos={t.photos} />}
                 {t.whatsapp && <WhatsAppButton />}
-                {showTime && <span className="text-[10.5px] text-[#6F8A7C] mt-1">{timeOf(t.at)}</span>}
+                {showTime && <span className="text-[10.5px] text-[#8D9B92] mt-1">{timeOf(t.at)}</span>}
               </div>
             </div>
           )
@@ -358,17 +358,17 @@ function Chat({ token, name, onReset }: { token: string; name: string; onReset: 
         {busy && <TypingBubble />}
       </div>
 
-      <div className="border-t border-[#2A473A] bg-[#15291F] px-3 sm:px-4 pt-2.5 pb-3">
+      <div className="border-t border-[#E3E8E1] bg-[#FFFFFF] px-3 sm:px-4 pt-2.5 pb-3">
         {chips.length > 0 && (
           <div className="guide-scroll flex gap-2 overflow-x-auto pb-2.5 -mx-1 px-1">
             {chips.map((f) => (
-              <button key={f} type="button" onClick={() => void send(f)} className="shrink-0 text-[13px] px-3.5 py-1.5 rounded-full bg-[#1C3428] border border-[#2A473A] text-[#E7EDE8] hover:border-[#E9A23B] hover:text-[#E9A23B] transition-colors">
+              <button key={f} type="button" onClick={() => void send(f)} className="shrink-0 text-[13px] px-3.5 py-1.5 rounded-full bg-[#F1F3EF] text-[#183D33] hover:border-[#183D33] hover:text-[#183D33] transition-colors">
                 {f}
               </button>
             ))}
           </div>
         )}
-        {error && <p className="text-[13px] text-[#F2A79B] pb-2" role="alert">{error}</p>}
+        {error && <p className="text-[13px] text-[#B42318] pb-2" role="alert">{error}</p>}
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -391,13 +391,13 @@ function Chat({ token, name, onReset }: { token: string; name: string; onReset: 
             maxLength={2000}
             placeholder="Type a message"
             aria-label="Your message"
-            className="flex-1 resize-none rounded-3xl bg-[#0E1D18] border border-[#2A473A] px-4 py-2.5 text-[15px] leading-[1.45] text-[#EEF2EC] placeholder:text-[#6F8A7C] focus:outline-none focus:border-[#E9A23B]"
+            className="flex-1 resize-none rounded-3xl bg-[#F5F5F0] border border-[#E3E8E1] px-4 py-2.5 text-[15px] leading-[1.45] text-[#0F241D] placeholder:text-[#8D9B92] focus:outline-none focus:border-[#183D33] focus:ring-2 focus:ring-[#183D33]/10"
           />
-          <button type="submit" disabled={busy || !input.trim()} aria-label="Send" className="w-11 h-11 shrink-0 rounded-full bg-[#E9A23B] text-[#1A1206] grid place-items-center hover:bg-[#F0B256] transition-colors disabled:opacity-40">
+          <button type="submit" disabled={busy || !input.trim()} aria-label="Send" className="w-11 h-11 shrink-0 rounded-full bg-[#183D33] text-white grid place-items-center hover:bg-[#24503F] transition-colors disabled:opacity-40">
             <ArrowUp size={19} />
           </button>
         </form>
-        <p className="text-[10.5px] text-[#6F8A7C] mt-2 text-center">AI guide. Double-check important figures like duty rates.</p>
+        <p className="text-[10.5px] text-[#8D9B92] mt-2 text-center">AI guide. Double-check important figures like duty rates.</p>
       </div>
     </div>
   )
@@ -416,18 +416,18 @@ export default function GuidePage() {
   }, [])
 
   return (
-    <div className={cn('bg-[#0E1D18] flex flex-col', session ? 'h-[100svh] overflow-hidden' : 'min-h-screen')}>
+    <div className={cn('bg-[#F5F5F0] flex flex-col', session ? 'h-[100svh] overflow-hidden' : 'min-h-screen')}>
       <NavBar />
       <main className={cn('flex-1 flex flex-col items-center', session ? 'min-h-0 sm:px-4 sm:py-5' : 'px-4 py-8 sm:py-12')}>
         {!session && (
           <div className="w-full max-w-[1040px] grid lg:grid-cols-[1fr_460px] gap-10 items-center">
             <div className="flex flex-col gap-4">
-              <p className="text-[12px] tracking-[0.14em] uppercase font-[700] text-[#E9A23B]">Solomon AI</p>
-              <h1 className="font-display text-[34px] sm:text-[44px] leading-[1.1] text-[#EEF2EC]">Plan your Indian craft business with an AI export guide.</h1>
-              <p className="text-[16px] text-[#C9D6CC] max-w-[520px]">
+              <p className="text-[12px] tracking-[0.14em] uppercase font-[700] text-[#B8862F]">Solomon AI</p>
+              <h1 className="font-display text-[34px] sm:text-[44px] leading-[1.1] text-[#0F241D]">Plan your Indian craft business with an AI export guide.</h1>
+              <p className="text-[16px] text-[#3D5248] max-w-[520px]">
                 Ask what to sell in your country, what it costs to bring it over (product, shipping, duty and VAT), where to sell it, and what to register. Answers are based on Solomon Bharat&apos;s own sourcing knowledge from Jaipur.
               </p>
-              <ul className="flex flex-col gap-2 text-[14px] text-[#9DB3A6]">
+              <ul className="flex flex-col gap-2 text-[14px] text-[#6B7E72]">
                 <li>✓ Product ideas for your budget and goal</li>
                 <li>✓ Landed cost and margin, explained simply</li>
                 <li>✓ Marketplaces, registration and documents for your country</li>
