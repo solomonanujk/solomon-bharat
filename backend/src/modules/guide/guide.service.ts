@@ -6,6 +6,7 @@ import { logger } from '../../config/logger';
 import { AppError } from '../../utils/errors';
 import { writeAuditLog } from '../../utils/auditLog';
 import { storageProvider } from '../../providers/storage';
+import { findWebPhotos, GuideWebPhoto } from './guide.images';
 import { readSpreadsheet } from '../product-import/parsers/spreadsheet';
 import {
   ChatTurn,
@@ -63,6 +64,8 @@ interface StoredTurn extends ChatTurn {
   whatsapp?: boolean;
   /** Catalogue products shown as picture cards under the message. */
   products?: GuideProductCard[];
+  /** Example photos from the open web (with credit) for product ideas. */
+  photos?: GuideWebPhoto[];
 }
 
 export interface GuideProductCard {
@@ -73,10 +76,11 @@ export interface GuideProductCard {
 }
 
 /** Splits the hidden <<FOLLOWUPS>> / <<WHATSAPP>> lines off a model reply. */
-export function parseGuideReply(raw: string): { content: string; followUps: string[]; whatsapp: boolean; productSlugs: string[] } {
+export function parseGuideReply(raw: string): { content: string; followUps: string[]; whatsapp: boolean; productSlugs: string[]; imageQueries: string[] } {
   let followUps: string[] = [];
   let whatsapp = false;
   let productSlugs: string[] = [];
+  let imageQueries: string[] = [];
   const kept: string[] = [];
   for (const line of raw.split('\n')) {
     const t = line.trim().replace(/^[*_`]+|[*_`]+$/g, '');
@@ -94,6 +98,13 @@ export function parseGuideReply(raw: string): { content: string; followUps: stri
         .map((p) => p.trim())
         .filter(Boolean)
         .slice(0, 4);
+    } else if (/^<<\s*IMAGES\s*>>/i.test(t)) {
+      imageQueries = t
+        .replace(/^<<\s*IMAGES\s*>>:?/i, '')
+        .split('|')
+        .map((q) => q.replace(/["*_`]/g, '').trim())
+        .filter(Boolean)
+        .slice(0, 4);
     } else if (/^<<\s*WHATSAPP\s*>>/i.test(t)) whatsapp = true;
     else if (/^\s*([-*_]\s*){3,}$/.test(line)) continue;
     else kept.push(line);
@@ -107,7 +118,7 @@ export function parseGuideReply(raw: string): { content: string; followUps: stri
     .replace(/`/g, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-  return { content, followUps, whatsapp, productSlugs };
+  return { content, followUps, whatsapp, productSlugs, imageQueries };
 }
 
 type IncomingFile = { buffer: Buffer; originalname: string; mimetype: string; size: number };
@@ -443,7 +454,7 @@ export class GuideService {
     return this.catalogueCache;
   }
 
-  async chat(token: string, message: string): Promise<{ reply: string; followUps: string[]; whatsapp: boolean; products: GuideProductCard[]; messages: StoredTurn[] }> {
+  async chat(token: string, message: string): Promise<{ reply: string; followUps: string[]; whatsapp: boolean; products: GuideProductCard[]; photos: GuideWebPhoto[]; messages: StoredTurn[] }> {
     const c = await this.findByToken(token);
     const messages = ((c.messages as unknown as StoredTurn[]) ?? []).slice();
     const visitorTurns = messages.filter((m) => m.role === 'user').length;
@@ -468,8 +479,9 @@ export class GuideService {
     // The last 40 turns are plenty of context and keep each answer affordable.
     const recent = messages.slice(-40).map(({ role, content }) => ({ role, content }));
     if (recent[0]?.role !== 'user') recent.shift();
-    const { content: reply, followUps, whatsapp, productSlugs } = parseGuideReply(await guideReply(knowledge, visitor, recent, settings.allowWebSearch));
+    const { content: reply, followUps, whatsapp, productSlugs, imageQueries } = parseGuideReply(await guideReply(knowledge, visitor, recent, settings.allowWebSearch));
     const products = productSlugs.map((slug) => catalogue?.bySlug.get(slug)).filter((p): p is GuideProductCard => Boolean(p));
+    const photos = imageQueries.length ? await findWebPhotos(imageQueries) : [];
 
     messages.push({
       role: 'assistant',
@@ -478,12 +490,13 @@ export class GuideService {
       ...(followUps.length ? { followUps } : {}),
       ...(whatsapp ? { whatsapp } : {}),
       ...(products.length ? { products } : {}),
+      ...(photos.length ? { photos } : {}),
     });
     await this.db.guideConversation.update({
       where: { id: c.id },
       data: { messages: messages as unknown as Prisma.InputJsonValue, messageCount: messages.length },
     });
-    return { reply, followUps, whatsapp, products, messages };
+    return { reply, followUps, whatsapp, products, photos, messages };
   }
 
   // ─── Admin: conversations ──────────────────────────────────────────────────

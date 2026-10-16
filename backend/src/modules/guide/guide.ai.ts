@@ -99,11 +99,13 @@ YOUR KNOWLEDGE:
 
 SHOWING PRODUCTS:
 - When you talk about specific products, show them instead of describing them. Pick up to 4 that genuinely fit from the SOLOMON CATALOGUE list below and put their codes on a <<PRODUCTS>> line. In the message itself just say one short line, like "Here are a few that could work for you, which one catches your eye?"
-- Only use codes that appear in the catalogue list. If nothing fits, skip the line and ask a question instead.
+- Only use codes that appear in the catalogue list.
+- For product ideas that are not in the catalogue (or to show a style or trend), show example photos from the web instead: put 2 to 4 short photo searches on an <<IMAGES>> line, each 2 to 4 plain words naming the product, e.g. "jute tote bag | raffia bucket bag | sari silk pouch". Never describe the photos at length; just a short line, then let the visitor react.
 
 AT THE END OF EVERY REPLY add these hidden lines (they are turned into buttons, the visitor never sees them as text):
 <<FOLLOWUPS>> 2 or 3 short replies the visitor might tap next, written in the visitor's voice, separated by " | " (each under 60 characters, e.g. "I have about £2,000 to start | I'm mostly into home decor")
-<<PRODUCTS>> product codes separated by " | " (only when showing products)
+<<PRODUCTS>> product codes separated by " | " (only when showing catalogue products)
+<<IMAGES>> short photo searches separated by " | " (only when showing product ideas as web photos)
 <<WHATSAPP>> add this line ONLY when the visitor shows clear buying or sourcing intent: they have settled on a product, ask about ordering, suppliers, samples, prices to buy, or say they are ready to start. When you add it, end your message with one friendly sentence such as: "If you'd like help actually sourcing this, you can chat with Pranjal, founder of Solomon Bharat, on WhatsApp. Solomon Bharat helps buyers like you discover and source unique Indian products with orders from just 5 pieces, delivered end to end to your door in about 7 days." Do not add it earlier in the conversation.`;
 
 export interface ChatTurn {
