@@ -13,8 +13,39 @@ export function setAdminGeminiKey(key: string): void {
 }
 // The key entered in Admin → Solomon AI wins over the server's GEMINI_API_KEY.
 const geminiKey = (): string => adminGeminiKey || env.GEMINI_API_KEY;
+let adminOpenRouterKey = '';
+export function setAdminOpenRouterKey(key: string): void {
+  adminOpenRouterKey = key;
+}
+const openRouterKey = (): string => adminOpenRouterKey || env.OPENROUTER_API_KEY;
+/** OpenRouter (free models) is tried first when its key is set; Gemini, then Claude, back it up. */
+const useOpenRouter = (): boolean => Boolean(openRouterKey());
+
+/** Checks an OpenRouter key before it is saved. */
+export async function verifyOpenRouterKey(key: string): Promise<boolean> {
+  const res = await fetch('https://openrouter.ai/api/v1/key', {
+    headers: { authorization: `Bearer ${key}` },
+    signal: AbortSignal.timeout(20_000),
+  }).catch(() => null);
+  return Boolean(res?.ok);
+}
+
 /** Solomon AI uses Google Gemini when a Gemini key is available (free tier), otherwise Claude. */
 const useGemini = (): boolean => Boolean(geminiKey());
+const hasBackup = (): boolean => useGemini() || Boolean(env.ANTHROPIC_API_KEY);
+
+/** Runs the OpenRouter version first; if OpenRouter is out of free requests or busy and
+ *  Gemini or Claude is configured, the existing path answers instead. */
+async function viaOpenRouter(primary: () => Promise<string>, backup: () => Promise<string>): Promise<string> {
+  if (!useOpenRouter()) return backup();
+  try {
+    return await primary();
+  } catch (err) {
+    if (!hasBackup()) throw err;
+    logger.warn({ err: err instanceof Error ? err.message : err }, 'OpenRouter failed; using the backup AI');
+    return backup();
+  }
+}
 
 /** Checks a Gemini key with Google before it is saved. */
 export async function verifyGeminiKey(key: string): Promise<boolean> {
@@ -71,6 +102,20 @@ export async function guideReply(
   history: ChatTurn[],
   allowWebSearch: boolean,
 ): Promise<string> {
+  return viaOpenRouter(
+    () => {
+      // OpenRouter's free models have no web search: the persona says so by leaving the rule out.
+      const systemText = `${PERSONA.replace('{{WEB}}', '').replace('{{WEBOR}}', '')}\n\n${
+        knowledge ? `SOLOMON KNOWLEDGE:\n\n${knowledge}` : 'SOLOMON KNOWLEDGE: nothing has been added yet. Explain that the guide is still being set up and offer to connect them with the Solomon Bharat team.'
+      }`;
+      const messages = history.map((t, i) => ({ role: t.role, content: i === 0 ? `[Visitor: ${visitor}]\n\n${t.content}` : t.content }));
+      return openRouterChat(systemText, messages);
+    },
+    () => guideReplyBackup(knowledge, visitor, history, allowWebSearch),
+  );
+}
+
+async function guideReplyBackup(knowledge: string, visitor: string, history: ChatTurn[], allowWebSearch: boolean): Promise<string> {
   if (useGemini()) {
     const systemText = `${PERSONA.replace('{{WEB}}', allowWebSearch ? WEB_RULE : '').replace('{{WEBOR}}', allowWebSearch ? ' nor a web search' : '')}\n\n${
       knowledge ? `SOLOMON KNOWLEDGE:\n\n${knowledge}` : 'SOLOMON KNOWLEDGE: nothing has been added yet. Rely on careful reasoning and web search, and say where figures come from.'
@@ -155,6 +200,9 @@ async function pdfTextLayer(buffer: Buffer): Promise<string> {
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   const local = await pdfTextLayer(buffer);
   if (local) return local;
+  if (!hasBackup()) {
+    throw AppError.badRequest('This looks like a scanned PDF (no text inside). Add a Gemini key to read scanned PDFs, or upload a text version of the file.');
+  }
   if (useGemini() && buffer.length > 18 * 1024 * 1024) {
     throw AppError.badRequest('PDFs must be under 18 MB. Split it into smaller files and upload them one by one.');
   }
@@ -180,6 +228,14 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
 }
 
 export async function extractTextFromImage(buffer: Buffer, mediaType: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'): Promise<string> {
+  const ask = `${EXTRACT_PROMPT}\nIf the image is a photo of a product or place rather than a document, describe what it shows that would help a buyer (product type, materials, technique, colours, finish).`;
+  return viaOpenRouter(
+    () => openRouterChat('', [{ role: 'user', content: [{ type: 'image_url', image_url: { url: `data:${mediaType};base64,${buffer.toString('base64')}` } }, { type: 'text', text: ask }] }], { vision: true }),
+    () => extractTextFromImageBackup(buffer, mediaType),
+  );
+}
+
+async function extractTextFromImageBackup(buffer: Buffer, mediaType: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'): Promise<string> {
   if (useGemini()) {
     return geminiGenerate('', [{ role: 'user', parts: [{ inline_data: { mime_type: mediaType, data: buffer.toString('base64') } }, { text: `${EXTRACT_PROMPT}\nIf the image is a photo of a product or place rather than a document, describe what it shows that would help a buyer (product type, materials, technique, colours, finish).` }] }], false, { fast: true });
   }
@@ -211,6 +267,13 @@ export async function extractTextFromImage(buffer: Buffer, mediaType: 'image/png
 /** Short list of the key points the guide learned from one item (shown to the admin). */
 export async function summarizeKnowledge(title: string, content: string): Promise<string> {
   const ask = `This is "${title}", added to the knowledge of an AI export guide for people who want to source Indian handmade products and sell them abroad.\n\n${content.slice(0, 120_000)}\n\nIn 5 to 10 short "- " bullets, list the most useful things the guide learned from it: key facts, figures (with units), rules, countries, products and recommendations. Plain English, no headings, no preamble.`;
+  return viaOpenRouter(
+    () => openRouterChat('', [{ role: 'user', content: ask }]),
+    () => summarizeKnowledgeBackup(ask),
+  );
+}
+
+async function summarizeKnowledgeBackup(ask: string): Promise<string> {
   if (useGemini()) return geminiGenerate('', [{ role: 'user', parts: [{ text: ask }] }], false, { fast: true });
   const response = await getClient().beta.messages.create({
     model: MODEL,
@@ -232,6 +295,13 @@ const SUGGEST_SYSTEM =
 
 export async function suggestUploads(overview: string): Promise<string> {
   const ask = `${COVERAGE}\n\nHere is what has been uploaded so far (title, type and the start of each item):\n\n${overview || '(nothing yet)'}\n\nList the 6 to 8 most valuable things to upload next, most important first, so the guide can answer more from Solomon's own material and needs web search less. For each: one line saying exactly what to upload (and a likely place to get it, e.g. DGFT, UK Trade Tariff, a courier rate card), then one short line on why it helps. Start with one sentence on what is already well covered. Use "- " bullets, no headings, no tables.`;
+  return viaOpenRouter(
+    () => openRouterChat(SUGGEST_SYSTEM, [{ role: 'user', content: ask }]),
+    () => suggestUploadsBackup(ask),
+  );
+}
+
+async function suggestUploadsBackup(ask: string): Promise<string> {
   if (useGemini()) return geminiGenerate(SUGGEST_SYSTEM, [{ role: 'user', parts: [{ text: ask }] }], false);
   const response = await getClient().beta.messages.create({
     model: MODEL,
@@ -316,4 +386,56 @@ async function geminiGenerate(system: string, contents: GeminiTurn[], webSearch:
     throw new AppError(503, "Solomon AI has used today's free Google allowance. It resets daily; to remove the limit, turn on billing for the Gemini key in Google AI Studio.");
   }
   throw new AppError(503, 'Google is busy right now. Please try again in a few minutes.');
+}
+
+// ─── OpenRouter (free models, OpenAI-style chat API) ─────────────────────────
+
+// Inkling's free tier is limited to agent apps on OpenRouter, so it is not used here.
+const OPENROUTER_TEXT_MODELS = ['nvidia/nemotron-3-super-120b-a12b:free', 'dots-studio/dots-3-note-preview:free', 'google/gemma-4-31b-it:free'];
+const OPENROUTER_VISION_MODELS = ['dots-studio/dots-3-note-preview:free', 'google/gemma-4-31b-it:free', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'];
+
+type OpenRouterContent = string | ({ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } })[];
+interface OpenRouterMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: OpenRouterContent;
+}
+
+async function openRouterChat(system: string, messages: OpenRouterMessage[], opts: { vision?: boolean } = {}): Promise<string> {
+  const configured = (env.OPENROUTER_MODELS || '').split(',').map((m) => m.trim()).filter(Boolean);
+  // OpenRouter tries these in order when one is busy, rate-limited or unavailable.
+  const models = (configured.length ? configured : opts.vision ? OPENROUTER_VISION_MODELS : OPENROUTER_TEXT_MODELS).slice(0, 3);
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${openRouterKey()}`,
+      'HTTP-Referer': env.APP_URL,
+      'X-Title': 'Solomon Bharat - Solomon AI',
+    },
+    body: JSON.stringify({
+      models,
+      messages: [...(system ? [{ role: 'system', content: system }] : []), ...messages],
+      max_tokens: 8000,
+    }),
+    signal: AbortSignal.timeout(240_000),
+  }).catch((err: unknown) => {
+    logger.error({ err }, 'OpenRouter request did not complete');
+    return null;
+  });
+  const data = (res ? await res.json().catch(() => ({})) : {}) as {
+    error?: { code?: number; message?: string };
+    model?: string;
+    choices?: { message?: { content?: string | null }; finish_reason?: string; error?: { message?: string } }[];
+  };
+  const status = res?.status ?? 0;
+  const text = (data.choices?.[0]?.message?.content ?? '').trim();
+  if (status === 200 && !data.error && text) return text;
+  const reason = data.error?.message ?? data.choices?.[0]?.error?.message ?? '';
+  logger.warn({ status, model: data.model, reason: reason.slice(0, 300) }, 'OpenRouter request failed');
+  if (status === 429 || /rate limit|free-models-per-day/i.test(reason)) {
+    throw new AppError(503, "Solomon AI has used today's free OpenRouter requests. Adding $10 of credit on OpenRouter once raises the free limit to about 1,000 a day.");
+  }
+  if (status === 401 || status === 403) throw new AppError(503, 'The OpenRouter key was not accepted. Add it again in Admin → Solomon AI.');
+  if (status === 200) throw new AppError(502, 'Solomon AI could not answer that. Please rephrase and try again.');
+  throw new AppError(503, 'The free AI models are busy right now. Please try again in a minute.');
 }

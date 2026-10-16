@@ -30,6 +30,10 @@ const envSchema = z.object({
   RESEND_FROM_EMAIL: z.string().default('Solomon Bharat <no-reply@solomonbharat.com>'),
 
   GEMINI_API_KEY: z.string().default(''),
+  /** Solomon AI: OpenRouter key (free models); tried before Gemini/Claude when set. */
+  OPENROUTER_API_KEY: z.string().default(''),
+  /** Optional comma-separated OpenRouter model ids, tried in order (max 3). */
+  OPENROUTER_MODELS: z.string().default(''),
   /** Gemini model for Solomon AI when GEMINI_API_KEY is set. */
   GEMINI_MODEL: z.string().default(''),
 

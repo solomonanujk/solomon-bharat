@@ -7,7 +7,18 @@ import { AppError } from '../../utils/errors';
 import { writeAuditLog } from '../../utils/auditLog';
 import { storageProvider } from '../../providers/storage';
 import { readSpreadsheet } from '../product-import/parsers/spreadsheet';
-import { ChatTurn, extractTextFromImage, extractTextFromPdf, guideReply, setAdminGeminiKey, suggestUploads, summarizeKnowledge, verifyGeminiKey } from './guide.ai';
+import {
+  ChatTurn,
+  extractTextFromImage,
+  extractTextFromPdf,
+  guideReply,
+  setAdminGeminiKey,
+  setAdminOpenRouterKey,
+  suggestUploads,
+  summarizeKnowledge,
+  verifyGeminiKey,
+  verifyOpenRouterKey,
+} from './guide.ai';
 
 /** Longest single chat, in visitor messages, before the guide asks them to talk to the team. */
 export const MAX_VISITOR_MESSAGES = 60;
@@ -15,7 +26,12 @@ export const MAX_VISITOR_MESSAGES = 60;
 const KNOWLEDGE_BUDGET_CHARS = 900_000;
 const SETTINGS_KEY = 'guide_settings';
 const SUGGESTIONS_KEY = 'guide_upload_suggestions';
-const AI_KEY_SETTING = 'guide_gemini_key';
+export type AiProvider = 'gemini' | 'openrouter';
+const AI_KEY_SETTINGS: Record<AiProvider, string> = { gemini: 'guide_gemini_key', openrouter: 'guide_openrouter_key' };
+interface KeyStatus {
+  source: 'server' | 'admin' | 'none';
+  last4: string | null;
+}
 
 // The admin-entered Gemini key is stored encrypted (AES-256-GCM, key derived from JWT_SECRET).
 const cipherKey = (): Buffer => createHash('sha256').update(`${env.JWT_SECRET}:guide-ai-key`).digest();
@@ -50,44 +66,61 @@ const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif
 export class GuideService {
   constructor(private readonly db: PrismaClient = prisma) {}
 
-  // ─── AI key (admin-entered Gemini key) ─────────────────────────────────────
+  // ─── AI keys (admin-entered OpenRouter / Gemini keys) ───────────────────────
 
   private keyLoadedAt = 0;
 
-  /** Loads the saved key into the AI module; re-read at most once a minute. */
+  private async readKey(provider: AiProvider): Promise<string> {
+    const row = await this.db.platformSetting.findUnique({ where: { key: AI_KEY_SETTINGS[provider] } });
+    const stored = (row?.value as { encrypted?: string } | null)?.encrypted;
+    return stored ? decrypt(stored) : '';
+  }
+
+  /** Loads the saved keys into the AI module; re-read at most once a minute. */
   async loadAiKey(force = false): Promise<void> {
     if (!force && Date.now() - this.keyLoadedAt < 60_000) return;
-    const row = await this.db.platformSetting.findUnique({ where: { key: AI_KEY_SETTING } });
-    const stored = (row?.value as { encrypted?: string } | null)?.encrypted;
-    setAdminGeminiKey(stored ? decrypt(stored) : '');
+    const [gemini, openrouter] = await Promise.all([this.readKey('gemini'), this.readKey('openrouter')]);
+    setAdminGeminiKey(gemini);
+    setAdminOpenRouterKey(openrouter);
     this.keyLoadedAt = Date.now();
   }
 
-  async getAiKeyStatus(): Promise<{ source: 'server' | 'admin' | 'none'; last4: string | null; provider: 'gemini' | 'claude' | 'none' }> {
-    const row = await this.db.platformSetting.findUnique({ where: { key: AI_KEY_SETTING } });
-    const stored = (row?.value as { encrypted?: string } | null)?.encrypted;
-    const key = stored ? decrypt(stored) : '';
-    if (key) return { source: 'admin', last4: key.slice(-4), provider: 'gemini' };
-    if (env.GEMINI_API_KEY) return { source: 'server', last4: env.GEMINI_API_KEY.slice(-4), provider: 'gemini' };
-    return { source: 'none', last4: null, provider: env.ANTHROPIC_API_KEY ? 'claude' : 'none' };
+  async getAiKeyStatus(): Promise<{ active: 'openrouter' | 'gemini' | 'claude' | 'none'; openrouter: KeyStatus; gemini: KeyStatus }> {
+    const status = async (provider: AiProvider, serverKey: string): Promise<KeyStatus> => {
+      const key = await this.readKey(provider);
+      if (key) return { source: 'admin', last4: key.slice(-4) };
+      if (serverKey) return { source: 'server', last4: serverKey.slice(-4) };
+      return { source: 'none', last4: null };
+    };
+    const [openrouter, gemini] = await Promise.all([status('openrouter', env.OPENROUTER_API_KEY), status('gemini', env.GEMINI_API_KEY)]);
+    const active =
+      openrouter.source !== 'none' ? 'openrouter' : gemini.source !== 'none' ? 'gemini' : env.ANTHROPIC_API_KEY ? 'claude' : 'none';
+    return { active, openrouter, gemini };
   }
 
-  async saveAiKey(adminId: string, key: string) {
+  async saveAiKey(adminId: string, key: string, provider: AiProvider = 'gemini') {
     const clean = key.trim();
-    if (!(await verifyGeminiKey(clean))) {
-      throw AppError.badRequest('Google did not accept this key. Copy it again from Google AI Studio and check it has the Gemini API enabled.');
+    const ok = provider === 'openrouter' ? await verifyOpenRouterKey(clean) : await verifyGeminiKey(clean);
+    if (!ok) {
+      throw AppError.badRequest(
+        provider === 'openrouter'
+          ? 'OpenRouter did not accept this key. Copy it again from openrouter.ai → Keys.'
+          : 'Google did not accept this key. Copy it again from Google AI Studio and check it has the Gemini API enabled.',
+      );
     }
+    const settingKey = AI_KEY_SETTINGS[provider];
     const value = { encrypted: encrypt(clean) };
-    await this.db.platformSetting.upsert({ where: { key: AI_KEY_SETTING }, create: { key: AI_KEY_SETTING, value }, update: { value } });
+    await this.db.platformSetting.upsert({ where: { key: settingKey }, create: { key: settingKey, value }, update: { value } });
     await this.loadAiKey(true);
-    await writeAuditLog(adminId, 'GUIDE_AI_KEY_SAVED', 'PlatformSetting', AI_KEY_SETTING, { last4: clean.slice(-4) });
+    await writeAuditLog(adminId, 'GUIDE_AI_KEY_SAVED', 'PlatformSetting', settingKey, { provider, last4: clean.slice(-4) });
     return this.getAiKeyStatus();
   }
 
-  async removeAiKey(adminId: string) {
-    await this.db.platformSetting.deleteMany({ where: { key: AI_KEY_SETTING } });
+  async removeAiKey(adminId: string, provider: AiProvider = 'gemini') {
+    const settingKey = AI_KEY_SETTINGS[provider];
+    await this.db.platformSetting.deleteMany({ where: { key: settingKey } });
     await this.loadAiKey(true);
-    await writeAuditLog(adminId, 'GUIDE_AI_KEY_REMOVED', 'PlatformSetting', AI_KEY_SETTING, {});
+    await writeAuditLog(adminId, 'GUIDE_AI_KEY_REMOVED', 'PlatformSetting', settingKey, { provider });
     return this.getAiKeyStatus();
   }
 
