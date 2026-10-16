@@ -163,10 +163,18 @@ export function useGuideConversation(id: string | null) {
 
 // ─── AI connection (Gemini key entered by the admin) ─────────────────────────
 
-export interface GuideAiKeyStatus {
+export type GuideAiProvider = 'openrouter' | 'gemini'
+
+export interface GuideKeyStatus {
   source: 'server' | 'admin' | 'none'
   last4: string | null
-  provider: 'gemini' | 'claude' | 'none'
+}
+
+export interface GuideAiKeyStatus {
+  /** Which AI answers first. */
+  active: 'openrouter' | 'gemini' | 'claude' | 'none'
+  openrouter: GuideKeyStatus
+  gemini: GuideKeyStatus
 }
 
 export function useGuideAiKey() {
@@ -178,8 +186,8 @@ export function useGuideAiKey() {
 
 export function useSaveGuideAiKey() {
   const qc = useQueryClient()
-  return useMutation<GuideAiKeyStatus, Error, string>({
-    mutationFn: async (key) => (await api.put('/guide/admin/ai-key', { key })).data.data,
+  return useMutation<GuideAiKeyStatus, Error, { provider: GuideAiProvider; key: string }>({
+    mutationFn: async (body) => (await api.put('/guide/admin/ai-key', body)).data.data,
     onSuccess: (data) => {
       qc.setQueryData(['guide-ai-key'], data)
       toast.success('Connected. Solomon AI is ready to answer.')
@@ -190,8 +198,8 @@ export function useSaveGuideAiKey() {
 
 export function useRemoveGuideAiKey() {
   const qc = useQueryClient()
-  return useMutation<GuideAiKeyStatus, Error, void>({
-    mutationFn: async () => (await api.delete('/guide/admin/ai-key')).data.data,
+  return useMutation<GuideAiKeyStatus, Error, GuideAiProvider>({
+    mutationFn: async (provider) => (await api.delete('/guide/admin/ai-key', { params: { provider } })).data.data,
     onSuccess: (data) => {
       qc.setQueryData(['guide-ai-key'], data)
       toast.success('Key removed.')

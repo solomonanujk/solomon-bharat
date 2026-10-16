@@ -8,6 +8,8 @@ vi.mock('./guide.ai', () => ({
   extractTextFromPdf: vi.fn().mockResolvedValue('PDF text'),
   extractTextFromImage: vi.fn().mockResolvedValue('Image text'),
   setAdminGeminiKey: vi.fn(),
+  setAdminOpenRouterKey: vi.fn(),
+  verifyOpenRouterKey: vi.fn(async (k: string) => k.startsWith('good')),
   summarizeKnowledge: vi.fn().mockResolvedValue('- Duty UK 12%'),
   verifyGeminiKey: vi.fn(async (k: string) => k.startsWith('good')),
 }));

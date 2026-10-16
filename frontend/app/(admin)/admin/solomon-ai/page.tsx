@@ -290,58 +290,81 @@ function KnowledgeList() {
   )
 }
 
-function AiConnectionCard() {
+const PROVIDERS = [
+  {
+    id: 'openrouter' as const,
+    name: 'OpenRouter (free models)',
+    hint: 'Answers chats, writes summaries and reads images. Get a key at openrouter.ai → Keys. Adding $10 of credit once raises the free limit from about 50 to about 1,000 requests a day.',
+  },
+  {
+    id: 'gemini' as const,
+    name: 'Google Gemini (backup)',
+    hint: 'Used when OpenRouter is busy or out of free requests, and to read scanned PDFs. Get a key at aistudio.google.com.',
+  },
+]
+
+function ProviderKeyRow({ provider }: { provider: (typeof PROVIDERS)[number] }) {
   const { data } = useGuideAiKey()
   const save = useSaveGuideAiKey()
   const remove = useRemoveGuideAiKey()
   const [key, setKey] = useState('')
-  const connected = data && data.provider !== 'none'
+  const status = data?.[provider.id]
   return (
-    <div className={cn('rounded-xl p-5 flex flex-col gap-3 border', connected ? 'bg-white border-[#D9E2DA]' : 'bg-[#FFF7E8] border-[#E9A23B]')}>
-      <p className="text-[15px] font-[600] text-[#0F241D]">AI connection</p>
-      {data?.source === 'server' && (
-        <p className="text-[13px] text-[#3D5248]">
-          Using a Gemini key from the server settings (ending …{data.last4}). If answers or uploads fail, paste your own key below: it takes priority.
-        </p>
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[13.5px] font-[600] text-[#0F241D]">{provider.name}</p>
+        {status && (
+          <span className={cn('text-[11.5px] font-[600]', status.source === 'none' ? 'text-[#B8862F]' : 'text-[#183D33]')}>
+            {status.source === 'none' ? 'Not connected' : `Connected …${status.last4}${status.source === 'server' ? ' (server)' : ''}`}
+          </span>
+        )}
+      </div>
+      <p className="text-[12px] text-[#6B7E6B]">{provider.hint}</p>
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault()
+          save.mutate({ provider: provider.id, key }, { onSuccess: () => setKey('') })
+        }}
+      >
+        <input
+          id={`guide-key-${provider.id}`}
+          type="password"
+          autoComplete="off"
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          placeholder={status?.source === 'none' ? 'Paste the API key' : 'Paste a key to replace it'}
+          className="flex-1 min-w-0 h-9 rounded-lg border border-[#D9E2DA] px-3 text-[13.5px] bg-white focus:outline-none focus:border-[#183D33]"
+        />
+        <Button type="submit" variant="primary" size="sm" disabled={save.isPending || key.trim().length < 20}>
+          {save.isPending ? 'Checking…' : 'Save'}
+        </Button>
+      </form>
+      {status?.source === 'admin' && (
+        <button type="button" onClick={() => remove.mutate(provider.id)} disabled={remove.isPending} className="self-start text-[12px] font-[600] text-error hover:underline">
+          Remove key
+        </button>
       )}
-      {data?.source === 'admin' && (
-        <div className="flex flex-col gap-2">
-          <p className="text-[13px] text-[#3D5248]">Connected to Google Gemini (key ending …{data.last4}).</p>
-          <button type="button" onClick={() => remove.mutate()} disabled={remove.isPending} className="self-start text-[12.5px] font-[600] text-error hover:underline">
-            Remove key
-          </button>
-        </div>
-      )}
-      {data?.source === 'none' && (
-        <p className="text-[13px] text-[#3D5248]">
-          {data.provider === 'claude'
-            ? 'Using Claude through the server settings. Add a Google Gemini key below to use Gemini instead.'
-            : 'Not connected yet: Solomon AI cannot answer until you add a key. Paste your Google Gemini API key from Google AI Studio.'}
-        </p>
-      )}
-      {data && (
-        <form
-          className="flex flex-col gap-2"
-          onSubmit={(e) => {
-            e.preventDefault()
-            save.mutate(key, { onSuccess: () => setKey('') })
-          }}
-        >
-          <input
-            id="guide-ai-key"
-            type="password"
-            autoComplete="off"
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            placeholder={data?.source === 'none' ? 'Paste your Gemini API key' : 'Paste a key to use instead'}
-            className="h-10 rounded-lg border border-[#D9E2DA] px-3 text-[14px] bg-white focus:outline-none focus:border-[#183D33]"
-          />
-          <Button type="submit" variant="primary" size="sm" className="self-start" disabled={save.isPending || key.trim().length < 20}>
-            {save.isPending ? 'Checking with Google…' : 'Save and connect'}
-          </Button>
-          <p className="text-[11.5px] text-[#6B7E6B]">The key is checked with Google, stored encrypted, and never shown again.</p>
-        </form>
-      )}
+    </div>
+  )
+}
+
+function AiConnectionCard() {
+  const { data } = useGuideAiKey()
+  const label = {
+    openrouter: 'OpenRouter free models answer first, with Gemini as the backup.',
+    gemini: 'Google Gemini is answering. Add an OpenRouter key for a much bigger free allowance.',
+    claude: 'Claude is answering (server settings).',
+    none: 'Not connected yet: Solomon AI cannot answer until you add a key.',
+  }[data?.active ?? 'none']
+  return (
+    <div className={cn('rounded-xl p-5 flex flex-col gap-4 border', data && data.active !== 'none' ? 'bg-white border-[#D9E2DA]' : 'bg-[#FFF7E8] border-[#E9A23B]')}>
+      <div>
+        <p className="text-[15px] font-[600] text-[#0F241D]">AI connection</p>
+        <p className="text-[13px] text-[#3D5248] mt-1">{label}</p>
+      </div>
+      {PROVIDERS.map((p) => <ProviderKeyRow key={p.id} provider={p} />)}
+      <p className="text-[11.5px] text-[#6B7E6B]">Keys are checked before saving, stored encrypted, and never shown again.</p>
     </div>
   )
 }
