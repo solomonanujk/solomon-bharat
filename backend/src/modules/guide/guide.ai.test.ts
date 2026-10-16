@@ -21,7 +21,7 @@ describe('Solomon AI provider routing', () => {
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe('https://openrouter.ai/api/v1/chat/completions');
     const body = JSON.parse(String(init.body));
-    expect(body.models).toEqual(['thinkingmachines/inkling:free', 'nvidia/nemotron-3-super-120b-a12b:free', 'google/gemma-4-31b-it:free']);
+    expect(body.models).toEqual(['nvidia/nemotron-3-super-120b-a12b:free', 'dots-studio/dots-3-note-preview:free', 'google/gemma-4-31b-it:free']);
     expect(body.messages[0].content).toContain('MOQ 50');
     expect(body.messages[1].content).toContain('[Visitor: Priya]');
   });

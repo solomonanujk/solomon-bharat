@@ -390,8 +390,9 @@ async function geminiGenerate(system: string, contents: GeminiTurn[], webSearch:
 
 // ─── OpenRouter (free models, OpenAI-style chat API) ─────────────────────────
 
-const OPENROUTER_TEXT_MODELS = ['thinkingmachines/inkling:free', 'nvidia/nemotron-3-super-120b-a12b:free', 'google/gemma-4-31b-it:free'];
-const OPENROUTER_VISION_MODELS = ['thinkingmachines/inkling:free', 'google/gemma-4-31b-it:free'];
+// Inkling's free tier is limited to agent apps on OpenRouter, so it is not used here.
+const OPENROUTER_TEXT_MODELS = ['nvidia/nemotron-3-super-120b-a12b:free', 'dots-studio/dots-3-note-preview:free', 'google/gemma-4-31b-it:free'];
+const OPENROUTER_VISION_MODELS = ['dots-studio/dots-3-note-preview:free', 'google/gemma-4-31b-it:free', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'];
 
 type OpenRouterContent = string | ({ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } })[];
 interface OpenRouterMessage {
