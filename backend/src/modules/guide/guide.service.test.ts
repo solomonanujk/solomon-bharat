@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GuideService, MAX_VISITOR_MESSAGES, parseGuideReply } from './guide.service';
+import { GuideService, MAX_VISITOR_MESSAGES, parseGuideReply, weightKg } from './guide.service';
 import { guideReply, suggestUploads } from './guide.ai';
 
 vi.mock('./guide.ai', () => ({
@@ -37,7 +37,7 @@ function makeDb(conversation: Record<string, unknown> | null = null, settings: u
     },
     product: {
       findMany: vi.fn().mockResolvedValue([
-        { slug: 'jute-tote', name: 'Block-print jute tote', materials: 'Jute', description: 'Hand block printed in Bagru.', howItIsMade: null, placeOfOrigin: 'Bagru, Rajasthan', moq: 10, adminPrice: null, priceTiers: [{ adminPrice: 450 }, { adminPrice: 380 }], category: { name: 'Bags' }, images: [{ url: 'https://img/tote.jpg' }] },
+        { slug: 'jute-tote', name: 'Block-print jute tote', materials: 'Jute', description: 'Hand block printed in Bagru.', howItIsMade: null, placeOfOrigin: 'Bagru, Rajasthan', moq: 10, adminPrice: null, weight: '400 g', dimensions: null, variants: [], priceTiers: [{ adminPrice: 450 }, { adminPrice: 380 }], category: { name: 'Bags' }, images: [{ url: 'https://img/tote.jpg' }] },
       ]),
     },
     platformSetting: {
@@ -155,7 +155,7 @@ describe('GuideService', () => {
     vi.mocked(guideReply).mockResolvedValueOnce('A **lovely** pick for France.\n<<PRODUCTS>> jute-tote | made-up-slug\n<<FOLLOWUPS>> Tell me more');
     const db = makeDb({ id: 'c1', name: 'Asha', country: 'France', messages: [] });
     const r = await new GuideService(db as never).chat('t'.repeat(48), 'Bags under 30 euros?');
-    expect(vi.mocked(guideReply).mock.calls[0][0]).toContain('jute-tote: Block-print jute tote | Bags | Jute | from INR 380 per piece, MOQ 10 | Bagru, Rajasthan');
+    expect(vi.mocked(guideReply).mock.calls[0][0]).toContain('jute-tote: Block-print jute tote | Bags | Jute | from INR 380 per piece, MOQ 10 | weight 0.4 kg | Bagru, Rajasthan');
     expect(r.reply).toBe('A lovely pick for France.');
     expect(r.products).toEqual([{ slug: 'jute-tote', name: 'Block-print jute tote', image: 'https://img/tote.jpg', category: 'Bags' }]);
   });
@@ -180,7 +180,7 @@ describe('GuideService', () => {
     expect(r.note).toBe('Sell them on Instagram first.');
     expect(vi.mocked(guideReply).mock.calls[0][1]).toContain('liked or saved so far: Brass bell');
     expect(r.picks).toHaveLength(2);
-    expect(r.picks[0]).toMatchObject({ key: 'p:jute-tote', source: 'catalogue', image: 'https://img/tote.jpg', link: '/products/jute-tote', cost: 'from ₹380', story: 'Hand block printed in Bagru.', origin: 'Bagru, Rajasthan', landed: '~€6.50' });
+    expect(r.picks[0]).toMatchObject({ key: 'p:jute-tote', source: 'catalogue', image: 'https://img/tote.jpg', link: '/products/jute-tote', cost: 'from ₹380', weightKg: 0.4, story: 'Hand block printed in Bagru.', origin: 'Bagru, Rajasthan', landed: '~€6.50' });
     expect(r.picks[1]).toMatchObject({ source: 'idea', name: 'Sari silk potli', image: 'https://photos/sari silk pouch', story: 'Made from old saris.' });
   });
 
@@ -192,5 +192,15 @@ describe('GuideService', () => {
     expect(list).toEqual([{ ...item, liked: true, saved: false }]);
     db.guideConversation.findUnique.mockResolvedValueOnce({ id: 'c1', saved: list });
     expect(await svc.toggleSaved('t'.repeat(48), item, 'liked', false)).toEqual([]);
+  });
+
+  it('weightKg() reads product weights written in grams, kilograms or pounds', () => {
+    expect(weightKg('400 g')).toBe(0.4);
+    expect(weightKg('1.2 kg')).toBe(1.2);
+    expect(weightKg('0,5kg')).toBe(0.5);
+    expect(weightKg('2', 'lb')).toBeCloseTo(0.907, 3);
+    expect(weightKg('1.5', 'kg')).toBe(1.5);
+    expect(weightKg('')).toBeNull();
+    expect(weightKg('n/a')).toBeNull();
   });
 });

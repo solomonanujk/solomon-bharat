@@ -110,7 +110,8 @@ WHEN YOU RECOMMEND (the first reply after the profile, and whenever they ask for
 <<PICK>> {"code":"catalogue-code-if-from-catalogue","name":"Product name (only for ideas)","photo":"2-4 word photo search (only for ideas)","story":"1-2 sentences: who makes it, where, how, what makes it special","why":"one sentence on why it fits THIS visitor","cost":"India price per piece","shipping":"shipping per piece to their country","duty":"duty + VAT per piece","landed":"total landed cost per piece","sell":"suggested retail price range"}
 - Use the visitor's currency for shipping, duty, landed and sell (keep cost in INR with a rough conversion, e.g. "₹450 (about €5)").
 - For catalogue products use the buyer price shown in the catalogue as the India price. For ideas give a realistic India wholesale estimate.
-- Shipping: estimate per piece for a small air shipment from India (weight and size matter). Duty and VAT: use the rates for their country for that product type. Mark everything as an estimate by starting the values with "~".
+- Shipping: ALWAYS work it out from the shipping rates in the SOLOMON KNOWLEDGE (the team's rate sheet, by destination country and weight). Use the product's weight from the catalogue (for ideas, a realistic weight for that product), find the rate for the visitor's country and that weight slab, and divide by the pieces when the rate is per shipment. Show the basis in the value, e.g. "~€1.30 (0.4 kg at €3.20/kg)". Only if the rate sheet has nothing for their country, estimate and say so.
+- Duty and VAT: use the duty and VAT rates in the SOLOMON KNOWLEDGE for their country and product type{{WEBDUTY}}. Mark estimates by starting the values with "~".
 - Keep each value short (e.g. "~€1.80"). Never invent catalogue codes.
 
 STYLE
@@ -159,7 +160,7 @@ function freeGuideReply(knowledge: string, visitor: string, history: ChatTurn[],
   return viaOpenRouter(
     () => {
       // OpenRouter's free models have no web search: the persona says so by leaving the rule out.
-      const systemText = `${PERSONA.replace('{{WEB}}', '').replace('{{WEBOR}}', '')}\n\n${
+      const systemText = `${PERSONA.replace('{{WEB}}', '').replace('{{WEBOR}}', '').replace('{{WEBDUTY}}', '')}\n\n${
         knowledge ? `SOLOMON KNOWLEDGE:\n\n${knowledge}` : 'SOLOMON KNOWLEDGE: nothing has been added yet. Explain that the guide is still being set up and offer to connect them with the Solomon Bharat team.'
       }`;
       const messages = history.map((t, i) => ({ role: t.role, content: i === 0 ? `[Visitor: ${visitor}]\n\n${t.content}` : t.content }));
@@ -171,7 +172,7 @@ function freeGuideReply(knowledge: string, visitor: string, history: ChatTurn[],
 
 async function guideReplyBackup(knowledge: string, visitor: string, history: ChatTurn[], allowWebSearch: boolean): Promise<string> {
   if (useGemini()) {
-    const systemText = `${PERSONA.replace('{{WEB}}', allowWebSearch ? WEB_RULE : '').replace('{{WEBOR}}', allowWebSearch ? ' nor a web search' : '')}\n\n${
+    const systemText = `${PERSONA.replace('{{WEB}}', allowWebSearch ? WEB_RULE : '').replace('{{WEBOR}}', allowWebSearch ? ' nor a web search' : '').replace('{{WEBDUTY}}', allowWebSearch ? ', or search the web for the current rate' : '')}\n\n${
       knowledge ? `SOLOMON KNOWLEDGE:\n\n${knowledge}` : 'SOLOMON KNOWLEDGE: nothing has been added yet. Rely on careful reasoning and web search, and say where figures come from.'
     }`;
     const turns = history.map((t, i) => ({
@@ -185,7 +186,7 @@ async function guideReplyBackup(knowledge: string, visitor: string, history: Cha
 
 async function claudeGuideReply(knowledge: string, visitor: string, history: ChatTurn[], allowWebSearch: boolean, model: string): Promise<string> {
   const system = [
-    { type: 'text' as const, text: PERSONA.replace('{{WEB}}', allowWebSearch ? WEB_RULE : '').replace('{{WEBOR}}', allowWebSearch ? ' nor a web search' : '') },
+    { type: 'text' as const, text: PERSONA.replace('{{WEB}}', allowWebSearch ? WEB_RULE : '').replace('{{WEBOR}}', allowWebSearch ? ' nor a web search' : '').replace('{{WEBDUTY}}', allowWebSearch ? ', or search the web for the current rate' : '') },
     {
       type: 'text' as const,
       text: knowledge
