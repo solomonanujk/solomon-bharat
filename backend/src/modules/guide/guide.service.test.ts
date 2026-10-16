@@ -24,6 +24,7 @@ function makeDb(conversation: Record<string, unknown> | null = null, settings: u
       update: vi.fn().mockResolvedValue({}),
     },
     guideKnowledge: {
+      findUnique: vi.fn().mockResolvedValue({ id: 'k1' }),
       findMany: vi.fn().mockResolvedValue([{ title: 'Shipping', content: 'UK air £1.60/kg', kind: 'TEXT' }]),
       create: vi.fn(async ({ data }) => ({ id: 'k1', ...data })),
       update: vi.fn().mockResolvedValue({}),
@@ -82,6 +83,7 @@ describe('GuideService', () => {
     const row = await svc.addFile('admin', { buffer: csv, originalname: 'duty.csv', mimetype: 'text/csv', size: csv.length });
     expect(row).toMatchObject({ kind: 'SPREADSHEET', title: 'duty', status: 'PROCESSING' });
     await (svc as unknown as { queue: Promise<void> }).queue;
+    await (svc as unknown as { summaryQueue: Promise<void> }).summaryQueue;
     const updates = db.guideKnowledge.update.mock.calls.map((c) => c[0].data);
     expect(updates[0]).toMatchObject({ status: 'READY', fileUrl: 'https://files/x' });
     expect(String(updates[0].content)).toContain('UK | 12%');
@@ -95,7 +97,7 @@ describe('GuideService', () => {
     } finally {
       vi.useRealTimers();
     }
-    await (svc as unknown as { queue: Promise<void> }).queue;
+    await (svc as unknown as { summaryQueue: Promise<void> }).summaryQueue;
     expect(suggestUploads).toHaveBeenCalledTimes(1);
   });
 
