@@ -176,7 +176,7 @@ export function useGuideConversation(id: string | null) {
 
 // ─── AI connection (Gemini key entered by the admin) ─────────────────────────
 
-export type GuideAiProvider = 'openrouter' | 'gemini'
+export type GuideAiProvider = 'anthropic' | 'openrouter' | 'gemini'
 
 export interface GuideKeyStatus {
   source: 'server' | 'admin' | 'none'
@@ -188,6 +188,7 @@ export interface GuideAiKeyStatus {
   active: 'openrouter' | 'gemini' | 'claude' | 'none'
   openrouter: GuideKeyStatus
   gemini: GuideKeyStatus
+  anthropic: GuideKeyStatus
 }
 
 export function useGuideAiKey() {
