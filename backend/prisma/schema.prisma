@@ -1055,6 +1055,12 @@ model Rfq {
 
 // ─── Solomon AI (public business guide) ─────────────────────────────────────
 
+enum GuideKnowledgeStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
 enum GuideKnowledgeKind {
   TEXT
   PDF
@@ -1069,6 +1075,11 @@ model GuideKnowledge {
   title       String
   kind        GuideKnowledgeKind
   content     String
+  /// Uploaded files are read in the background: PROCESSING -> READY or FAILED.
+  status      GuideKnowledgeStatus @default(READY)
+  error       String?
+  /// Short AI summary of what was learned (key points), shown to the admin.
+  summary     String?
   fileUrl     String?
   fileName    String?
   sizeBytes   Int?

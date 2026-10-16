@@ -2,7 +2,8 @@
 
 import { useRef, useState } from 'react'
 import Link from 'next/link'
-import { FileText, ImageIcon, Sheet, Type, Trash2, Upload, Sparkles, RefreshCw, MessageCircle, ExternalLink } from 'lucide-react'
+import { toast } from 'sonner'
+import { Loader2, AlertCircle, CheckCircle2, FileText, ImageIcon, Sheet, Type, Trash2, Upload, Sparkles, RefreshCw, MessageCircle, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { GuideMarkdown } from '@/components/guide/GuideMarkdown'
@@ -17,6 +18,7 @@ import {
   useGuideConversation,
   useGuideConversations,
   useGuideKnowledge,
+  useGuideKnowledgeItem,
   useGuideSettings,
   useGuideSuggestions,
   useRefreshGuideSuggestions,
@@ -46,10 +48,12 @@ function UploadArea() {
     const list = Array.from(files)
     setQueue(list.map((f) => f.name))
     // One at a time: each file is read by the AI before the next starts.
+    let sent = 0
     for (const file of list) {
-      await upload.mutateAsync({ file }).catch(() => {})
+      await upload.mutateAsync({ file }).then(() => { sent += 1 }).catch(() => {})
       setQueue((q) => q.filter((n) => n !== file.name))
     }
+    if (sent > 0) toast.success(`${sent} file${sent === 1 ? '' : 's'} uploaded. Solomon AI is reading ${sent === 1 ? 'it' : 'them'} now.`)
   }
 
   return (
@@ -88,11 +92,11 @@ function UploadArea() {
         }}
       />
       <Button variant="primary" onClick={() => inputRef.current?.click()} disabled={queue.length > 0}>
-        {queue.length > 0 ? 'Reading…' : 'Choose files'}
+        {queue.length > 0 ? 'Uploading…' : 'Choose files'}
       </Button>
       {queue.length > 0 && (
         <p className="text-[13px] text-[#183D33]" role="status">
-          Solomon AI is reading {queue[0]}{queue.length > 1 ? ` (+${queue.length - 1} more)` : ''}. Large PDFs can take a minute.
+          Uploading {queue[0]}{queue.length > 1 ? ` (+${queue.length - 1} more)` : ''}…
         </p>
       )}
     </div>
@@ -165,6 +169,41 @@ function SuggestionsCard() {
   )
 }
 
+function LearnedPanel({ item }: { item: GuideKnowledgeItem }) {
+  const [full, setFull] = useState(false)
+  const { data, isLoading } = useGuideKnowledgeItem(full ? item.id : null)
+  return (
+    <div className="bg-[#F3F6F3] rounded-lg p-3 flex flex-col gap-2 text-[13px] text-[#3D5248]">
+      {item.summary ? (
+        <>
+          <p className="text-[12px] font-[700] uppercase tracking-wide text-[#6B7E6B]">Key points learned</p>
+          <GuideMarkdown text={item.summary} className="flex flex-col gap-1.5" />
+        </>
+      ) : (
+        <p className="flex items-center gap-2"><Loader2 size={13} className="animate-spin" aria-hidden="true" /> Writing a summary of what it learned…</p>
+      )}
+      <button type="button" onClick={() => setFull((f) => !f)} className="self-start text-[12.5px] font-[600] text-[#183D33] hover:underline">
+        {full ? 'Hide the full text' : `Show the full text (${item.characters.toLocaleString()} characters)`}
+      </button>
+      {full && (
+        <div className="max-h-[420px] overflow-y-auto bg-white border border-[#D9E2DA] rounded-lg p-3 whitespace-pre-wrap break-words text-[12.5px] leading-[1.55]">
+          {isLoading ? 'Loading…' : data?.content}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StatusChip({ item }: { item: GuideKnowledgeItem }) {
+  if (item.status === 'PROCESSING') {
+    return <span className="inline-flex items-center gap-1 text-[11.5px] font-[600] text-[#B8862F]"><Loader2 size={11} className="animate-spin" aria-hidden="true" /> Reading…</span>
+  }
+  if (item.status === 'FAILED') {
+    return <span className="inline-flex items-center gap-1 text-[11.5px] font-[600] text-error"><AlertCircle size={11} aria-hidden="true" /> Failed</span>
+  }
+  return <span className="inline-flex items-center gap-1 text-[11.5px] font-[600] text-[#183D33]"><CheckCircle2 size={11} aria-hidden="true" /> Learned</span>
+}
+
 function KnowledgeList() {
   const { data, isLoading } = useGuideKnowledge()
   const del = useDeleteGuideKnowledge()
@@ -179,8 +218,14 @@ function KnowledgeList() {
       </div>
     )
   }
+  const reading = data.filter((i) => i.status === 'PROCESSING').length
   return (
     <div className="bg-white border border-[#D9E2DA] rounded-xl divide-y divide-[#E3EAE4]">
+      {reading > 0 && (
+        <p className="px-4 py-2.5 text-[12.5px] text-[#183D33] bg-[#F3F6F3]" role="status">
+          Reading {reading} file{reading === 1 ? '' : 's'} one at a time. You can leave this page; it carries on.
+        </p>
+      )}
       {data.map((item) => {
         const Icon = KIND_ICON[item.kind]
         return (
@@ -191,11 +236,11 @@ function KnowledgeList() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[14px] font-[600] text-[#0F241D] break-words">{item.title}</p>
-                <p className="text-[12px] text-[#6B7E6B]">
-                  {KIND_LABEL[item.kind]}
-                  {item.fileName ? ` · ${item.fileName}` : ''}
-                  {item.sizeBytes ? ` · ${formatSize(item.sizeBytes)}` : ''} · added {new Date(item.createdAt).toLocaleDateString('en-GB')} · {item.characters.toLocaleString()} characters learned
+                <p className="text-[12px] text-[#6B7E6B] flex flex-wrap items-center gap-x-1.5">
+                  <StatusChip item={item} />
+                  <span>· {KIND_LABEL[item.kind]}{item.fileName ? ` · ${item.fileName}` : ''}{item.sizeBytes ? ` · ${formatSize(item.sizeBytes)}` : ''} · added {new Date(item.createdAt).toLocaleDateString('en-GB')}</span>
                 </p>
+                {item.status === 'FAILED' && item.error && <p className="text-[12.5px] text-error mt-1">{item.error}</p>}
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {item.fileUrl && (
@@ -208,18 +253,17 @@ function KnowledgeList() {
                 </button>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setOpen(open === item.id ? null : item.id)}
-              className="self-start text-[12.5px] font-[600] text-[#183D33] hover:underline"
-            >
-              {open === item.id ? 'Hide what it learned' : 'See what it learned'}
-            </button>
-            {open === item.id && (
-              <p className="text-[12.5px] text-[#3D5248] bg-[#F3F6F3] rounded-lg p-3 whitespace-pre-wrap break-words">
-                {item.preview}
-                {item.characters > item.preview.length ? '…' : ''}
-              </p>
+            {item.status === 'READY' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setOpen(open === item.id ? null : item.id)}
+                  className="self-start text-[12.5px] font-[600] text-[#183D33] hover:underline"
+                >
+                  {open === item.id ? 'Hide what it learned' : 'See what it learned'}
+                </button>
+                {open === item.id && <LearnedPanel item={item} />}
+              </>
             )}
           </div>
         )
