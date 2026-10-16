@@ -209,16 +209,16 @@ function RemoveAllButton() {
   const { data } = useGuideKnowledge()
   const removeAll = useDeleteAllGuideKnowledge()
   const [open, setOpen] = useState(false)
-  if (!data?.length) return null
+  const empty = !data?.length
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 text-[12.5px] font-[600] text-error hover:underline">
+      <button type="button" onClick={() => setOpen(true)} disabled={empty} title={empty ? 'Nothing to remove yet' : undefined} className="inline-flex items-center gap-1.5 text-[12.5px] font-[600] text-error hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed">
         <Trash2 size={13} aria-hidden="true" /> Remove all
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Remove all {data.length} items?</DialogTitle>
+            <DialogTitle>Remove all {(data?.length ?? 0)} items?</DialogTitle>
             <DialogDescription>
               Solomon AI will forget everything uploaded here, straight away. Visitor chats are kept. This cannot be undone.
             </DialogDescription>
