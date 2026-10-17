@@ -39,13 +39,9 @@ function toLine(item: DocumentOrder['items'][number]): ExportDocumentLine {
 }
 
 export function toDocumentInput(order: DocumentOrder): ExportDocumentInput {
-  const brand = order.sellerProfile?.brand;
-  const exporter = order.sellerProfile
-    ? {
-        name: brand?.legalName ?? brand?.name ?? order.sellerProfile.businessName,
-        lines: [order.sellerProfile.businessAddress, brand?.gstin ? `GSTIN: ${brand.gstin}` : '', order.sellerProfile.phone],
-      }
-    : SOLOMON_EXPORTER;
+  // Solomon Bharat is the exporter of record for every order (incl. historical marketplace-brand
+  // orders, which are now fulfilled through the admin pipeline).
+  const exporter = SOLOMON_EXPORTER;
   const a = order.shippingAddress;
   const consignee = {
     name: order.buyer.companyName || order.buyer.contactName,
@@ -59,8 +55,8 @@ export function toDocumentInput(order: DocumentOrder): ExportDocumentInput {
     exporter,
     consignee,
     destinationCountry: a?.country ?? order.buyer.country,
-    // Curated orders are delivered duty paid by Solomon; brands ship under their own terms.
-    incoterm: order.sellerProfileId ? 'DAP' : 'DDP',
+    // Orders are delivered duty paid by Solomon.
+    incoterm: 'DDP',
     trackingNumber: order.trackingNumber,
     lines: order.items.map(toLine),
   };
@@ -69,18 +65,11 @@ export function toDocumentInput(order: DocumentOrder): ExportDocumentInput {
 export class ExportDocumentsService {
   constructor(private readonly repo: OrdersRepository = ordersRepository) {}
 
-  /** Admin: any paid order. Brand: only its own paid orders. */
-  async build(
-    orderId: string,
-    type: ExportDocumentType,
-    actor: { kind: 'admin' } | { kind: 'brand'; sellerProfileId: string },
-  ): Promise<{ filename: string; pdf: Buffer }> {
+  /** Admin only: any paid order. */
+  async build(orderId: string, type: ExportDocumentType): Promise<{ filename: string; pdf: Buffer }> {
     const order = await this.repo.findForDocuments(orderId);
     if (!order || order.deletedAt || order.status === OrderStatus.PENDING_PAYMENT) {
       throw AppError.notFound('Order not found');
-    }
-    if (actor.kind === 'brand' && order.sellerProfileId !== actor.sellerProfileId) {
-      throw AppError.forbidden('You do not have access to this order');
     }
     const input = toDocumentInput(order);
     return { filename: `${type}-${input.orderRef}.pdf`, pdf: await buildExportDocument(type, input) };

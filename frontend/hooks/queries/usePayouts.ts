@@ -5,8 +5,7 @@ import { toast } from 'sonner'
 import api from '@/lib/api'
 import { getApiError } from '@/lib/getApiError'
 import type { PaginatedResult, Payout, PayoutStatus, PayoutSummary } from '@/types'
-import type { BrandPayout } from '@/types/brand-portal'
-import type { AdminPayout } from '@/types/brand-admin'
+import type { AdminPayout } from '@/types/order-extras'
 
 function toPaginated<T>(res: { data: { data: unknown; meta?: { total?: number; page?: number; limit?: number; totalPages?: number } } }): PaginatedResult<T> {
   const items = (res.data.data ?? []) as T[]
@@ -23,9 +22,9 @@ function toPaginated<T>(res: { data: { data: unknown; meta?: { total?: number; p
 // ─── Seller: own payouts ───────────────────────────────────────────────────────
 
 export function useMyPayouts(params?: { status?: PayoutStatus; page?: number; limit?: number }) {
-  return useQuery<PaginatedResult<BrandPayout>>({
+  return useQuery<PaginatedResult<Payout>>({
     queryKey: ['my-payouts', params],
-    queryFn: async () => toPaginated<BrandPayout>(await api.get('/payouts/me', { params })),
+    queryFn: async () => toPaginated<Payout>(await api.get('/payouts/me', { params })),
   })
 }
 

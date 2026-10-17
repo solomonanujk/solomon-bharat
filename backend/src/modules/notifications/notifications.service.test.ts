@@ -35,7 +35,6 @@ function buildMockRepo(): NotificationsRepository {
     countUnread: vi.fn(),
     findUserIdsByRole: vi.fn(),
     findUserPhone: vi.fn().mockResolvedValue(null),
-    findOrderForBrandAlert: vi.fn(),
     findOrderForAdminAlert: vi.fn(),
     findActiveUsersByRole: vi.fn(),
   } as unknown as NotificationsRepository;
@@ -160,66 +159,11 @@ describe('NotificationsService', () => {
     });
   });
 
-  describe('brand notifications', () => {
-    const order = {
-      adminPriceTotal: '1500.00',
-      sellerProfile: { user: { id: 'brand-user-1', email: 'brand@example.com' } },
-      shippingAddress: { city: 'London', country: 'UK' },
-      items: [{ quantity: 3, lineAdminTotal: '1500.00', product: { name: 'Brass <Vase>' } }],
-    };
-
+  describe('order notifications', () => {
     beforeEach(() => {
       sendMailMock.mockReset();
       sendMailMock.mockResolvedValue(undefined);
       vi.mocked(repo.create).mockResolvedValue(buildNotification());
-    });
-
-    it('notifyBrandNewOrder sends an in-app notification and an email without buyer identity', async () => {
-      vi.mocked(repo.findOrderForBrandAlert).mockResolvedValue(order as never);
-
-      await service.notifyBrandNewOrder('order-9');
-
-      expect(repo.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          userId: 'brand-user-1',
-          type: NotificationType.NEW_ORDER_RECEIVED,
-          link: '/portal/orders/order-9',
-        }),
-      );
-      const mail = sendMailMock.mock.calls[0][0] as { to: string; html: string };
-      expect(mail.to).toBe('brand@example.com');
-      expect((mail as { subject?: string }).subject).toBe('New order — please accept');
-      expect(mail.html).toContain('Review and accept the order');
-      expect(mail.html).toContain('Brass &lt;Vase&gt; &times; 3');
-      expect(mail.html).toContain('₹1500.00');
-      expect(mail.html).toContain('London, UK');
-      expect(mail.html).toContain('/portal/orders/order-9');
-    });
-
-    it('notifyBrandNewOrder does nothing for a missing or non-brand order', async () => {
-      vi.mocked(repo.findOrderForBrandAlert).mockResolvedValueOnce(null);
-      await service.notifyBrandNewOrder('missing');
-      vi.mocked(repo.findOrderForBrandAlert).mockResolvedValueOnce({ ...order, sellerProfile: null } as never);
-      await service.notifyBrandNewOrder('curated');
-
-      expect(repo.create).not.toHaveBeenCalled();
-      expect(sendMailMock).not.toHaveBeenCalled();
-    });
-
-    it('notifyBrandNewOrder never throws when the mail provider fails', async () => {
-      vi.mocked(repo.findOrderForBrandAlert).mockResolvedValue(order as never);
-      sendMailMock.mockRejectedValue(new Error('smtp down'));
-
-      await expect(service.notifyBrandNewOrder('order-9')).resolves.toBeUndefined();
-    });
-
-    it('notifyBrandNewOrder never throws when the lookup or the in-app write fails', async () => {
-      vi.mocked(repo.findOrderForBrandAlert).mockRejectedValueOnce(new Error('db down'));
-      await expect(service.notifyBrandNewOrder('order-9')).resolves.toBeUndefined();
-
-      vi.mocked(repo.findOrderForBrandAlert).mockResolvedValue(order as never);
-      vi.mocked(repo.create).mockRejectedValueOnce(new Error('write failed'));
-      await expect(service.notifyBrandNewOrder('order-9')).resolves.toBeUndefined();
     });
 
     describe('notifyAdminsNewOrder', () => {
@@ -228,7 +172,6 @@ describe('NotificationsService', () => {
         adminPriceTotal: '2400.00',
         placedAsAgent: false,
         buyer: { companyName: 'Acme <Imports>', contactName: 'Jane', country: 'UK', user: { email: 'jane@acme.example' } },
-        sellerProfile: null,
         items: [{ quantity: 2 }, { quantity: 3 }],
       };
 
@@ -284,14 +227,6 @@ describe('NotificationsService', () => {
         expect(sendMailMock).not.toHaveBeenCalled();
         expect(repo.create).not.toHaveBeenCalled();
       });
-    });
-
-    it('notifyBrandApplicationApproved sends a BRAND_APPLICATION_APPROVED notification', async () => {
-      await service.notifyBrandApplicationApproved('brand-user-1');
-
-      expect(repo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: 'brand-user-1', type: NotificationType.BRAND_APPLICATION_APPROVED }),
-      );
     });
 
     it('notifyPayoutPaid uses the rupee sign', async () => {

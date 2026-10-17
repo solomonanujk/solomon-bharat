@@ -4,16 +4,16 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import api from '@/lib/api'
 import { getApiError } from '@/lib/getApiError'
-import { getMinOrderViolations, isUnavailableItemError } from '@/lib/checkoutErrors'
+import { isUnavailableItemError } from '@/lib/checkoutErrors'
 import type { CheckoutItemInput, CheckoutResult, Invoice, Payment } from '@/types'
-import type { CheckoutResultBrandFields, InvoiceBrandFields } from '@/types/brand-orders'
+import type { CheckoutResultExtras, InvoiceExtras } from '@/types/order-extras'
 
 export function useCheckout() {
-  return useMutation<CheckoutResult & CheckoutResultBrandFields, Error, { items: CheckoutItemInput[]; shippingAddressId?: string; currency?: string }>({
+  return useMutation<CheckoutResult & CheckoutResultExtras, Error, { items: CheckoutItemInput[]; shippingAddressId?: string; currency?: string }>({
     mutationFn: async (body) => (await api.post('/payments/checkout', body)).data.data,
-    // Min-order / unavailable-item errors are shown inline by the checkout page, not as a toast.
+    // Unavailable-item errors are shown inline by the checkout page, not as a toast.
     onError: (err) => {
-      if (getMinOrderViolations(err) || isUnavailableItemError(err)) return
+      if (isUnavailableItemError(err)) return
       toast.error(getApiError(err))
     },
   })
@@ -36,7 +36,7 @@ export function usePaymentStatus(paymentId: string | null) {
 }
 
 export function useInvoice(orderId: string | null) {
-  return useQuery<Invoice & InvoiceBrandFields>({
+  return useQuery<Invoice & InvoiceExtras>({
     queryKey: ['invoice', orderId],
     queryFn: async () => (await api.get(`/payments/orders/${orderId}/invoice`)).data.data,
     enabled: !!orderId,

@@ -52,7 +52,7 @@ export class NotificationsService {
       sellerUserId,
       NotificationType.PRODUCT_APPROVED,
       'Product approved',
-      `"${productName}" has been approved and published to the marketplace.`,
+      `"${productName}" has been approved and published to the catalogue.`,
     );
   }
 
@@ -111,59 +111,6 @@ export class NotificationsService {
     );
   }
 
-  notifyBrandApplicationApproved(brandUserId: string): Promise<Notification> {
-    return this.notify(
-      brandUserId,
-      NotificationType.BRAND_APPLICATION_APPROVED,
-      'Your brand is live on Solomon Bharat',
-      'Your brand application has been approved. Complete your brand profile and publish your products.',
-      '/portal',
-    );
-  }
-
-  /**
-   * Alerts a marketplace brand about a newly paid order (in-app + email). Never throws: a
-   * failure here must not fail the payment settlement that triggered it.
-   * The email shows items, qty and gross plus the buyer's city/country only; the portal has the rest.
-   */
-  async notifyBrandNewOrder(orderId: string): Promise<void> {
-    try {
-      const order = await this.repo.findOrderForBrandAlert(orderId);
-      if (!order || !order.sellerProfile) return;
-      const { user } = order.sellerProfile;
-      const link = `/portal/orders/${orderId}`;
-
-      await this.notify(
-        user.id,
-        NotificationType.NEW_ORDER_RECEIVED,
-        'New order received',
-        `You have a new paid order with ${order.items.length} item(s). Confirm it to start fulfilment.`,
-        link,
-      );
-
-      const escape = escapeHtml;
-      const rows = order.items
-        .map((i) => `<li>${escape(i.product.name)} &times; ${i.quantity} &mdash; ₹${i.lineAdminTotal.toString()}</li>`)
-        .join('');
-      const dest = order.shippingAddress
-        ? `${escape(order.shippingAddress.city)}, ${escape(order.shippingAddress.country)}`
-        : null;
-      const url = `${env.APP_URL}${link}`;
-      await mailProvider.sendMail({
-        to: user.email,
-        subject: 'New order — please accept',
-        html: emailLayout(`<p>You have received a new paid order <strong>#${orderRef(orderId)}</strong>. Please accept it in your portal within 24 hours, or it will be cancelled automatically.</p>
-<p>Items to fulfil:</p>
-<ul>${rows}</ul>
-<p>Order total: ₹${order.adminPriceTotal.toString()}${dest ? `<br/>Shipping to: ${dest}` : ''}</p>
-${emailButton(url, 'Review and accept the order')}
-<p style="font-size:13px;color:#555555;">Or open: <a href="${escape(url)}" style="color:#8a3b12;">${escape(url)}</a></p>`),
-      });
-    } catch (err) {
-      logger.error({ err, orderId }, 'Failed to notify brand about new order');
-    }
-  }
-
   /**
    * Alerts every active SUPER_ADMIN about a newly paid (placed) order: in-app + email with the
    * order number, buyer, total, item count and a link to the admin order page. Never throws:
@@ -185,7 +132,6 @@ ${emailButton(url, 'Review and accept the order')}
         ? `${order.buyer.companyName} (${order.buyer.contactName})`
         : order.buyer.contactName;
       const total = `₹${order.adminPriceTotal.toString()}`;
-      const fulfiller = order.sellerProfile ? `Brand: ${order.sellerProfile.businessName}` : 'Curated (Solomon Bharat)';
       const message = `Order #${ref} from ${buyerName} — ${total}, ${itemCount} item(s).`;
 
       await Promise.all(
@@ -211,7 +157,6 @@ ${emailButton(url, 'Review and accept the order')}
 <tr><td style="color:#555555;">Buyer</td><td>${escapeHtml(buyerName)}${order.placedAsAgent ? ' (agent)' : ''}<br/><span style="color:#555555;">${escapeHtml(order.buyer.user.email)} · ${escapeHtml(order.buyer.country)}</span></td></tr>
 <tr><td style="color:#555555;">Total</td><td>${total}</td></tr>
 <tr><td style="color:#555555;">Items</td><td>${itemCount} (${lineCount} line${lineCount === 1 ? '' : 's'})</td></tr>
-<tr><td style="color:#555555;">Fulfilment</td><td>${escapeHtml(fulfiller)}</td></tr>
 </table>
 ${emailButton(url, 'Open the order')}
 <p style="font-size:13px;color:#555555;">Or open: <a href="${escapeHtml(url)}" style="color:#8a3b12;">${escapeHtml(url)}</a></p>`),

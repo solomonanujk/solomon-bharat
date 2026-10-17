@@ -1,12 +1,14 @@
 **Solomon Bharat**
 Product Requirements Document
-Version 3.15  |  Status: Draft  |  15 October 2026
+Version 4.0  |  Status: Draft  |  17 October 2026
 *Confidentiality: Internal Use Only*
 **Solomon Bharat Private Limited**
-B2B Wholesale Export Marketplace — Indian Artisan & Handmade Products
+B2B Wholesale Export Platform — Indian Artisan & Handmade Products
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-*Two selling models. **Curated:** Solomon Bharat purchases from sellers and sells to buyers (admin-intermediated export model). **Marketplace brands:** brands sell directly to buyers under their own name; the payment is split so the platform keeps a commission and the brand receives the rest (§17). Agents purchase from Solomon Bharat, at their own admin-set price, to resell to their own customers off-platform.*
+*One selling model: **Curated** — Solomon Bharat purchases from sellers and sells to buyers (admin-intermediated export model). The marketplace (brand) model was **removed in v4.0 (17 Oct 2026)** for at least a year (§17 is kept for history; code archived on branch `archive/marketplace-model`, see `docs/MARKETPLACE_MODEL_ARCHIVE.md`). Agents purchase from Solomon Bharat, at their own admin-set price, to resell to their own customers off-platform.*
 *Four roles: SUPER_ADMIN · SELLER · BUYER · AGENT*
+
+> **v4.0 note (17 Oct 2026):** the marketplace model is removed. Everything in §17 and every §18 statement about brands, brand storefronts, minimum order value, 24h brand acceptance, brand invites, commission (25%/15%), brand payouts, the Curated ⇄ Marketplace admin switch and the marketplace application path is **no longer part of the product**. All sellers are Curated; existing marketplace sellers were converted (migration `20261017120000_remove_marketplace_model`). Historical marketplace orders stay visible and are managed by the admin through the normal order pipeline.
 
 > **v3.9 note:** §18 records the owner-confirmed decisions and everything built in October 2026 (UK launch, manual bank transfer, new order lifecycle, brand invites at 0% commission, custom requests, samples, export documents and more). Where §18 disagrees with an earlier section, **§18 wins**. Owner decisions are also kept in `docs/BUSINESS_DECISIONS.md`.
 
@@ -1828,6 +1830,7 @@ These exist in the shipped code and are now documented in the body of this PRD a
 | 3.6 | September 2026 | As-built pass: reconciled the PRD against the actual codebase. Added §15 Implementation Status & As-Built Reference (full API/schema/route inventory, deployment architecture, testing status, documentation debt). Documented features that exist in code but were previously undocumented: Product Pricing & Variant Change Requests (§8.9, §10.5a), Reviews & Ratings (§6.10, §7.8), AI Content Polish (§8.5a), buyer-facing multi-currency price display (§6.11), Admin User Management / Audit Log / Platform Settings (§10.11–10.13). Corrected typography tokens (§12.3: actual fonts are Fraunces + Hanken Grotesk, not Playfair Display / Public Sans) and the frontend folder structure (§13.3) to match the real `frontend/app/`, `components/`, `hooks/queries/`, `lib/store/` layout — there is no `frontend/src/modules/` tree and no `(buyer)`/`(agent)` route groups in the actual build. Expanded §13.7 data models and §13.9 env vars to match the real 28-model Prisma schema and `.env.example` files. |
 | 3.7 | September 2026 | Faire-parity Submit New Product rebuild reconciled against §8.5, which is now a full rewrite: progressive reveal, category typeahead, product video upload (new `ProductVideo` model), controlled-vocabulary eco-attribute tags, a seller-settable bestseller flag, and a redesigned per-row variant table (SKU/price/inventory/weight/dimensions/tariff-code/status, focal-point color-swatch cropping) — plus a documented narrowing of scope (MOQ/Order Step/Lead Time/Handmade/GI Tagged/Tags/How It's Made/Artisan Name/volume pricing no longer collected, three of them force-reset on save; §8.5, §15.8). Documented the real Draft product status (§8.4, §8.5) and added §8.4a for the rebuilt seller-facing Product Detail View page. Updated §6.6 Product Detail Page for the matching buyer-facing additions (bestseller/handmade/GI-tagged badges, eco tags, "How it's made," per-variant weight/dimensions, HS/tariff code, video playback) and a correctness fix to the variant selector (previously read only a variant's primary axis, silently hiding a second axis like Color). Expanded §13.7/§15.3 for the new `Product`/`ProductVariant`/`ProductVideo` fields and corrected the schema's real size (805 lines, 14 enums, 33 models — was stated as 772/11/28). Updated §13.3's component/lib folder listings (`ListingScore` was never built; added `CategoryTypeahead`, `ColorSwatchModal`, `ColorSwatchPromptModal`, `ProductOptionsModal`, `ProductVideoStrip`, `ecoAttributes.ts`, `indianPlaces.ts`). Added four new §15.8 documentation-debt entries surfaced during this pass (a "Product language" variant-axis option contradicting §16.4, a video-size helper-text mismatch, the field-reset behavior above, and a pricing-change-request gap around the new per-variant fields). |
 | 3.8 | October 2026 | Marketplace brands: second seller type with onboarding question, brand profiles and storefronts, direct pricing with quantity tiers, brand-level minimum order value, per-brand orders in a single checkout, 25%/15% commission with per-brand overrides, split payments for marketplace orders (curated orders unsplit), brand portal and admin brand management, and Shopify/WooCommerce spreadsheet product import. New §17; contradicting statements in §1, §6 and §16 updated. |
+| 4.0 | 17 October 2026 | **Marketplace model removed** (owner decision): curation + agent programme only for at least a year. Brand storefronts, brand portal, MOV, 24h brand acceptance and auto-cancel, commission, brand payouts, brand invites/follows, admin Brands page and seller-type switch, marketplace application path and marketplace copy removed; existing marketplace sellers converted to Curated by data migration. §17 marked historical; code preserved on branch `archive/marketplace-model`. |
 | 3.15 | 15 October 2026 | Solomon AI guide and admin knowledge base (§18.14a). |
 | 3.14 | 15 October 2026 | Excel import of seller applications; approved applications move to Sellers; server-side search (§18.2). |
 | 3.13 | 15 October 2026 | Admin deletes non-approved seller applications (§18.2). |
@@ -1920,7 +1923,9 @@ These exist in the shipped code and are now documented in the body of this PRD a
 
 ---
 
-## 17. Marketplace Brands, Split Payments & Product Import (added October 2026, v3.8)
+## 17. Marketplace Brands, Split Payments & Product Import (added October 2026, v3.8) — REMOVED in v4.0
+
+> **Removed 17 Oct 2026 (v4.0).** Kept for history only. The marketplace model is not part of the product; see `docs/MARKETPLACE_MODEL_ARCHIVE.md` for how to restore it from branch `archive/marketplace-model`. The spreadsheet product import (curated drafts) is still live.
 
 > **v3.9:** parts of this section are superseded by §18 — notably payments (no split; Solomon collects and pays out on dispatch), the marketplace order lifecycle (24h acceptance, dispatch photos), commission (0% for a brand's own buyers) and import status (merged).
 
@@ -2362,16 +2367,16 @@ A public AI business guide for people abroad (often NRIs and first-time importer
 
 ### 18.15 Not built yet (waiting on owner input or a provider)
 1. Online payment gateway (manual bank transfer is live meanwhile).
-2. Shipping rates: curated needs the shipping partner's API; marketplace brands choosing their own rates vs Solomon's shipping service.
+2. Shipping rates: needs the shipping partner's API.
 3. Seller team members (several logins per seller).
 4. Buyer business verification (deferred).
-5. GST TCS / TDS (194-O) for marketplace sellers.
-6. Mobile card layout for the brand Sales table (§18.12).
+5. Marketplace (brand) model: removed in v4.0, paused for at least a year (archived on branch `archive/marketplace-model`).
 
 ### 18.16 Change log (keep adding a line for every change)
 
 | Date | Change |
 |---|---|
+| 17 Oct 2026 | **v4.0 — Marketplace model removed.** Backend: brands module, brand order routes (`/orders/brand/*`), commission, brand payouts and stats, 24h auto-cancel timer, brand notifications, brand invites/follows, seller-type switch endpoint, marketplace application fields, brand product publishing/pricing, brand/curated catalogue filters and `/products/facets/brands` removed; applications always create CURATED sellers; session payload no longer carries `sellerType`/`brand`; historical marketplace orders now move through the admin pipeline (Solomon is exporter on export documents). Migration `20261017120000_remove_marketplace_model` sets every seller to CURATED, clears `products.brandId`, converts open marketplace applications and suspends brand rows (no tables dropped). Frontend: `/brands`, portal Brand/Invite/brand order pages, admin Brands page and switch, MOV modal, follow/brand tags, brand cart grouping, marketplace apply steps, commission displays and marketplace copy removed; `/brands*`, `/invite/*`, `/portal/brand`, `/portal/invite`, `/admin/brands` redirect. Seller Agreement bumped to `2026-10-17`. |
 | 16 Oct 2026 | Admin → Solomon AI: **Remove all** button clears every knowledge item and the old upload suggestions (visitor chats kept; audit-logged `GUIDE_KNOWLEDGE_CLEARED`; `DELETE /guide/admin/knowledge`). |
 | 16 Oct 2026 | Admin → Solomon AI: **Remove all** is now always shown (greyed out when the list is empty) so admins can always find it. |
 | 16 Oct 2026 | Solomon AI uploads read faster: files are marked **Learned** as soon as their text is read; the AI summary (“See what it learned”) and upload suggestions now run on a separate background line, so a slow summary no longer holds up the next file. Files removed while waiting are skipped. |

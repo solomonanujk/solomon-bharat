@@ -35,8 +35,6 @@ function toProductCardData(product: RecentProduct): ProductCardData {
     // Not tracked in the "recently viewed" localStorage cache — same treatment as
     // the other legacy-entry fallbacks above.
     isBestseller: false,
-    // Older cache entries predate brand tags and have no `brand` key.
-    brand: product.brand ?? null,
     // Cached entries that predate options are unknown -> safest is "choose options".
     hasOptions: product.hasOptions ?? true,
   }

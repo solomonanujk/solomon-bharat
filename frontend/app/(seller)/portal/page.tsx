@@ -14,8 +14,6 @@ import { useMySellerProfile } from '@/hooks/queries/useSellers'
 import { formatINR } from '@/lib/utils'
 import { ApprovalStatusBadge, OrderItemStatusBadge, PayoutStatusBadge } from '@/components/seller-portal/StatusBadges'
 import { cn } from '@/lib/utils'
-import { useSellerType } from '@/hooks/queries/useBrandPortal'
-import { BrandDashboard } from '@/components/seller-portal/BrandDashboard'
 
 // ─── KPI card ─────────────────────────────────────────────────────────────────
 
@@ -325,13 +323,5 @@ function CuratedDashboard() {
 }
 
 export default function SellerDashboardPage() {
-  const { isMarketplace, ready } = useSellerType()
-  if (!ready) {
-    return (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" aria-busy="true">
-        {Array.from({ length: 4 }).map((_, i) => <KpiSkeleton key={i} />)}
-      </div>
-    )
-  }
-  return isMarketplace ? <BrandDashboard /> : <CuratedDashboard />
+  return <CuratedDashboard />
 }

@@ -20,13 +20,10 @@ import { isValidPhoneNumber, PhoneInput } from '@/components/shared/PhoneInput'
 import { useFormatPrice } from '@/components/ui/Price'
 import { cloudinaryFill } from '@/lib/cloudinaryImage'
 import { PHONE_COUNTRY_CODES } from '@/lib/phoneCountryCodes'
-import { CartGroupHeader } from '@/components/shared/CartGroupHeader'
-import { BrandMinOrderNotice, useUnmetMessage } from '@/components/shared/BrandMinOrderNotice'
-import { groupCartLines, unmetGroups } from '@/lib/cartGroups'
 import { useCartQuote } from '@/hooks/queries/useCartQuote'
 import { CartLineNotice } from '@/components/shared/CartLineNotice'
 import { findQuoteLine, resolveLine } from '@/lib/cartQuote'
-import { getMinOrderViolations, getUnavailableProductId, isUnavailableItemError } from '@/lib/checkoutErrors'
+import { getUnavailableProductId, isUnavailableItemError } from '@/lib/checkoutErrors'
 import { getApiError } from '@/lib/getApiError'
 import type { Address } from '@/types'
 import type { AddressInput } from '@/hooks/queries/useAddresses'
@@ -251,7 +248,7 @@ function PriceDetails({
       <div className="flex flex-col gap-2.5 mt-4 px-1">
         <div className="flex items-center gap-2 text-[12px] font-sans text-muted-text">
           <ShieldCheck size={14} className="text-accent flex-shrink-0" aria-hidden="true" />
-          Curated orders are quality-checked in Jaipur; brands ship directly to you
+          Every order is quality-checked in Jaipur before it ships
         </div>
         <div className="flex items-center gap-2 text-[12px] font-sans text-muted-text">
           <Lock size={14} className="text-accent flex-shrink-0" aria-hidden="true" />
@@ -309,14 +306,11 @@ export default function CheckoutPage() {
   const isEmpty = items.length === 0
   const itemCount = getTotalItems()
   const { quote, isActive, isFetching, isInitialLoading, isError } = useCartQuote(items)
-  const groups = groupCartLines(items, quote)
+  const groups = [{ key: 'solomon', items }]
   const resolvedLines = items.map((i) => resolveLine(i, findQuoteLine(quote, i.productId, i.variantId, i.isSample)))
   const total = resolvedLines.reduce((sum, r) => sum + r.lineTotalInr, 0)
   const hasBadLine = resolvedLines.some((r) => r.status !== 'OK' && r.status !== 'PENDING')
   const pricesUpdating = isActive && !isError && (isFetching || isInitialLoading)
-  const unmet = unmetGroups(groups)
-  const unmetMessage = useUnmetMessage(unmet)
-  const showGroupHeaders = groups.some((g) => g.brand)
   const trimmedPhone = phone.trim()
   const phoneValid = isValidPhoneNumber(trimmedPhone)
 
@@ -329,10 +323,6 @@ export default function CheckoutPage() {
   async function handlePlaceOrder() {
     setSubmitAttempted(true)
     if (hasBadLine || pricesUpdating) return
-    if (unmetMessage) {
-      setErrorMessage(unmetMessage)
-      return
-    }
     if (!phoneValid) {
       setErrorMessage('Enter a valid mobile number to continue.')
       return
@@ -384,15 +374,6 @@ export default function CheckoutPage() {
             }
           },
           onError: (err) => {
-            const violations = getMinOrderViolations(err)
-            if (violations) {
-              setErrorMessage(
-                `Minimum order not met: ${violations
-                  .map((v) => `${v.brandName} (minimum ${fmt(v.required)}, your items ${fmt(v.current)})`)
-                  .join('; ')}.`
-              )
-              return
-            }
             if (isUnavailableItemError(err)) {
               setHasUnavailable(true)
               unavailableIdRef.current = getUnavailableProductId(err)
@@ -446,10 +427,8 @@ export default function CheckoutPage() {
                   {groups.map((group) => (
                     <section
                       key={group.key}
-                      aria-label={group.brand ? `Items from ${group.brand.name}` : 'Items from Solomon Bharat'}
+                      aria-label="Items from Solomon Bharat"
                     >
-                      {showGroupHeaders && <CartGroupHeader brand={group.brand} />}
-                      {group.brand && <BrandMinOrderNotice group={group} />}
                       <div className="flex flex-col gap-4 mt-3">
                         {group.items.map((item) => {
                           const resolved = resolveLine(item, findQuoteLine(quote, item.productId, item.variantId, item.isSample))
@@ -501,12 +480,6 @@ export default function CheckoutPage() {
                           )
                         })}
                       </div>
-                      {showGroupHeaders && (
-                        <p className="flex justify-between pt-3 mt-3 border-t border-border-warm text-[13px] font-sans text-muted">
-                          <span>Subtotal</span>
-                          <span className="font-[600] text-ink">{fmt(group.subtotalInr)}</span>
-                        </p>
-                      )}
                     </section>
                   ))}
                 </div>
@@ -522,8 +495,6 @@ export default function CheckoutPage() {
                     ? 'Fix or remove the highlighted items to continue.'
                     : pricesUpdating
                     ? 'Updating prices…'
-                    : unmetMessage
-                    ? unmetMessage
                     : !phoneValid
                     ? 'Enter a valid mobile number to continue.'
                     : !selectedAddressId

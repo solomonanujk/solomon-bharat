@@ -36,38 +36,28 @@ describe('export documents', () => {
     expect(parseWeightKg(null)).toBeNull();
   });
 
-  it('curated orders ship from Solomon under DDP; brand orders from the brand under DAP', () => {
+  it('every order ships from Solomon under DDP', () => {
     const curated = toDocumentInput(order() as never);
     expect(curated.exporter.name).toBe('Solomon Bharat Private Limited');
     expect(curated.incoterm).toBe('DDP');
     expect(curated.consignee.name).toBe('Corner Shop Ltd');
     expect(curated.lines[0]).toMatchObject({ hsnCode: '6304', unitWeightKg: 0.3, origin: 'Jaipur, India' });
 
-    const brand = toDocumentInput(
-      order({
-        sellerProfileId: 'sp-1',
-        sellerProfile: { businessName: 'Kala', businessAddress: 'Sanganer', phone: '9', brand: { name: 'Kala', legalName: 'Kala Pvt Ltd', gstin: '08ABC' } },
-      }) as never,
-    );
-    expect(brand.exporter.name).toBe('Kala Pvt Ltd');
-    expect(brand.exporter.lines).toContain('GSTIN: 08ABC');
-    expect(brand.incoterm).toBe('DAP');
   });
 
-  it('renders both PDFs and enforces brand ownership', async () => {
+  it('renders both PDFs', async () => {
     const repo = { findForDocuments: vi.fn().mockResolvedValue(order({ sellerProfileId: 'sp-1', sellerProfile: { businessName: 'K', businessAddress: 'A', phone: '1', brand: null } })) } as unknown as OrdersRepository;
     const service = new ExportDocumentsService(repo);
 
     for (const type of ['commercial-invoice', 'packing-list'] as const) {
-      const { pdf, filename } = await service.build('o', type, { kind: 'admin' });
+      const { pdf, filename } = await service.build('o', type);
       expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
       expect(filename).toBe(`${type}-ABCDEF12.pdf`);
     }
-    await expect(service.build('o', 'packing-list', { kind: 'brand', sellerProfileId: 'other' })).rejects.toMatchObject({ statusCode: 403 });
   });
 
   it('404s for unpaid orders', async () => {
     const repo = { findForDocuments: vi.fn().mockResolvedValue(order({ status: OrderStatus.PENDING_PAYMENT })) } as unknown as OrdersRepository;
-    await expect(new ExportDocumentsService(repo).build('o', 'packing-list', { kind: 'admin' })).rejects.toMatchObject({ statusCode: 404 });
+    await expect(new ExportDocumentsService(repo).build('o', 'packing-list')).rejects.toMatchObject({ statusCode: 404 });
   });
 });

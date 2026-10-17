@@ -3,7 +3,6 @@ import { Role, SellerApplication, SellerApplicationStatus, SellerType, User, Use
 import { SellersRepository } from './sellers.repository';
 import { SellersService } from './sellers.service';
 import { notificationsService } from '../notifications/notifications.service';
-import { writeAuditLog } from '../../utils/auditLog';
 import { mailProvider } from '../../providers/mail';
 
 vi.mock('../../providers/mail', () => ({
@@ -17,7 +16,6 @@ vi.mock('../../utils/auditLog', () => ({
 vi.mock('../notifications/notifications.service', () => ({
   notificationsService: {
     notifySellerApplicationApproved: vi.fn().mockResolvedValue(undefined),
-    notifyBrandApplicationApproved: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -107,7 +105,6 @@ function buildMockRepo(): SellersRepository {
     updateSellerProfile: vi.fn(),
     findSellers: vi.fn(),
     findSellerWithUserById: vi.fn(),
-    brandSlugExists: vi.fn(),
     findSellerProfileWithBrandByUserId: vi.fn(),
     findPlatformSettingValue: vi.fn(),
     upsertPlatformSetting: vi.fn(),
@@ -242,7 +239,6 @@ describe('SellersService', () => {
           updatedAt: new Date(),
           deletedAt: null,
         },
-        brand: null,
       });
 
       const result = await service.approveApplication('app-1', 'admin-1');
@@ -477,7 +473,7 @@ describe('SellersService', () => {
     });
   });
 
-  describe('marketplace applications', () => {
+  describe('applications are always curated', () => {
     const baseInput = {
       businessName: 'Kala Kendra Pvt Ltd',
       contactName: 'Meera',
@@ -487,166 +483,44 @@ describe('SellersService', () => {
       country: 'India',
       businessType: 'Manufacturer',
       agreedToCommissionTerms: true,
+      instagramHandle: 'x',
+      instagramFollowers: 1,
     };
 
-    it('stores brand fields and stamps commissionAgreedAt for a MARKETPLACE application', async () => {
+    it('stamps commissionAgreedAt when the Seller Agreement version is sent', async () => {
       vi.mocked(repo.findUserByEmail).mockResolvedValue(null);
       vi.mocked(repo.findLatestApplicationByEmail).mockResolvedValue(null);
       vi.mocked(repo.createApplication).mockResolvedValue(buildApplication());
 
-      await service.submitApplication({
-        ...baseInput,
-        sellerType: SellerType.MARKETPLACE,
-        brandName: 'Kala Kendra',
-        minOrderValueInr: 5000,
-        commissionTermsVersion: 'marketplace-2026-10',
-      });
+      await service.submitApplication({ ...baseInput, commissionTermsVersion: 'seller-2026-10' });
 
       expect(repo.createApplication).toHaveBeenCalledWith(
-        expect.objectContaining({
-          sellerType: SellerType.MARKETPLACE,
-          brandName: 'Kala Kendra',
-          minOrderValueInr: 5000,
-          commissionTermsVersion: 'marketplace-2026-10',
-          commissionAgreedAt: expect.any(Date),
-        }),
+        expect.objectContaining({ commissionTermsVersion: 'seller-2026-10', commissionAgreedAt: expect.any(Date) }),
       );
     });
 
-    it('drops brand fields from a CURATED application', async () => {
+    it('leaves commissionAgreedAt unset without an agreement version', async () => {
       vi.mocked(repo.findUserByEmail).mockResolvedValue(null);
       vi.mocked(repo.findLatestApplicationByEmail).mockResolvedValue(null);
       vi.mocked(repo.createApplication).mockResolvedValue(buildApplication());
 
-      await service.submitApplication({
-        ...baseInput,
-        instagramHandle: 'x',
-        instagramFollowers: 1,
-        brandName: 'Sneaky',
-        minOrderValueInr: 10,
-      });
+      await service.submitApplication(baseInput);
 
-      const arg = vi.mocked(repo.createApplication).mock.calls[0][0];
-      expect(arg.sellerType).toBe(SellerType.CURATED);
-      expect(arg.brandName).toBeUndefined();
-      expect(arg.minOrderValueInr).toBeUndefined();
-      expect(arg.commissionAgreedAt).toBeUndefined();
+      expect(vi.mocked(repo.createApplication).mock.calls[0][0].commissionAgreedAt).toBeUndefined();
     });
 
-    function setupApprove(slugTaken: string[] = [], brandName = 'Kala Kendra') {
-      const application = buildApplication({ sellerType: SellerType.MARKETPLACE, brandName });
-      vi.mocked(repo.findApplicationById).mockResolvedValue(application);
+    it('approval creates a curated seller and sends the seller notification + email', async () => {
+      vi.mocked(repo.findApplicationById).mockResolvedValue(buildApplication({ sellerType: SellerType.MARKETPLACE }));
       vi.mocked(repo.findUserByEmail).mockResolvedValue(null);
-      vi.mocked(repo.brandSlugExists).mockImplementation(async (slug: string) => slugTaken.includes(slug));
-      vi.mocked(repo.createSellerUserAndProfile).mockResolvedValue({
-        user: buildUser(),
-        profile: { id: 'profile-1', sellerType: SellerType.MARKETPLACE } as never,
-        brand: { id: 'brand-1', slug: 'kala-kendra' } as never,
-      });
-    }
-
-    it('approval creates a brand with the slugified name and uses the brand notification + email', async () => {
-      setupApprove();
+      vi.mocked(repo.createSellerUserAndProfile).mockResolvedValue({ user: buildUser(), profile: {} as never });
 
       await service.approveApplication('app-1', 'admin-1');
 
-      expect(repo.createSellerUserAndProfile).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'app-1' }),
-        expect.any(String),
-        'kala-kendra',
-      );
-      expect(notificationsService.notifyBrandApplicationApproved).toHaveBeenCalledWith('user-1');
+      expect(vi.mocked(repo.createSellerUserAndProfile).mock.calls[0]).toHaveLength(2);
+      expect(notificationsService.notifySellerApplicationApproved).toHaveBeenCalledWith('user-1');
       expect(mailProvider.sendMail).toHaveBeenCalledWith(
-        expect.objectContaining({ subject: 'Your Solomon Bharat brand account is ready' }),
+        expect.objectContaining({ subject: 'Your Solomon Bharat seller account is ready' }),
       );
-      expect(writeAuditLog).toHaveBeenCalledWith(
-        'admin-1',
-        'SELLER_APPLICATION_APPROVED',
-        'SellerApplication',
-        'app-1',
-        expect.objectContaining({ brandId: 'brand-1' }),
-      );
-    });
-
-    it('the admin can assign MARKETPLACE to an application submitted without a type choice', async () => {
-      setupApprove();
-      vi.mocked(repo.findApplicationById).mockResolvedValue(
-        buildApplication({ sellerType: SellerType.CURATED, brandName: null, businessName: 'Kala Kendra' }),
-      );
-      await service.approveApplication('app-1', 'admin-1', SellerType.MARKETPLACE);
-      expect(repo.createSellerUserAndProfile).toHaveBeenCalledWith(
-        expect.objectContaining({ sellerType: SellerType.MARKETPLACE }),
-        expect.any(String),
-        'kala-kendra',
-      );
-    });
-
-    it('appends a suffix when the slug is already taken (collision-safe)', async () => {
-      setupApprove(['kala-kendra']);
-
-      await service.approveApplication('app-1', 'admin-1');
-
-      const slug = vi.mocked(repo.createSellerUserAndProfile).mock.calls[0][2];
-      expect(slug).toMatch(/^kala-kendra-[a-z0-9]+$/);
-    });
-
-    it('never issues a slug that would shadow a static /brands route', async () => {
-      setupApprove([], 'Me');
-
-      await service.approveApplication('app-1', 'admin-1');
-
-      expect(vi.mocked(repo.createSellerUserAndProfile).mock.calls[0][2]).not.toBe('me');
-    });
-
-    it('curated approval does not create a brand or send the brand notification', async () => {
-      vi.mocked(repo.findApplicationById).mockResolvedValue(buildApplication());
-      vi.mocked(repo.findUserByEmail).mockResolvedValue(null);
-      vi.mocked(repo.createSellerUserAndProfile).mockResolvedValue({
-        user: buildUser(),
-        profile: {} as never,
-        brand: null,
-      });
-
-      await service.approveApplication('app-1', 'admin-1');
-
-      expect(vi.mocked(repo.createSellerUserAndProfile).mock.calls[0][2]).toBeUndefined();
-      expect(notificationsService.notifyBrandApplicationApproved).not.toHaveBeenCalled();
-      expect(notificationsService.notifySellerApplicationApproved).toHaveBeenCalled();
-    });
-
-    it('getMyProfileWithBrand returns a whitelisted brand summary', async () => {
-      vi.mocked(repo.findSellerProfileWithBrandByUserId).mockResolvedValue({
-        id: 'profile-1',
-        sellerType: SellerType.MARKETPLACE,
-        brand: {
-          id: 'brand-1',
-          name: 'Kala Kendra',
-          slug: 'kala-kendra',
-          logoUrl: null,
-          status: 'ACTIVE',
-          isVerified: false,
-          minOrderValueInr: 5000,
-          legalName: 'Secret Pvt Ltd',
-          gstin: 'GST123',
-        },
-      } as never);
-
-      const result = await service.getMyProfileWithBrand('user-1');
-
-      expect(result.brand).toEqual({
-        id: 'brand-1',
-        name: 'Kala Kendra',
-        slug: 'kala-kendra',
-        logoUrl: null,
-        status: 'ACTIVE',
-        isVerified: false,
-        minOrderValueInr: 5000,
-      });
-    });
-
-    it('getMyProfileWithBrand 404s without a profile', async () => {
-      vi.mocked(repo.findSellerProfileWithBrandByUserId).mockResolvedValue(null);
-      await expect(service.getMyProfileWithBrand('u')).rejects.toMatchObject({ statusCode: 404 });
     });
   });
 });

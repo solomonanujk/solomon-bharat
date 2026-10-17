@@ -69,7 +69,7 @@ function BuildingSection() {
       <div className="pb-4 border-b border-border-warm">
         <h2 className="text-[18px] font-[600] font-sans text-primary">Building a catalogue</h2>
         <p className="text-[14px] font-sans text-muted-text mt-0.5">
-          Add products from anywhere in the marketplace and set an MOQ for each. The PDF shows only your company
+          Add products from anywhere in the catalogue and set an MOQ for each. The PDF shows only your company
           name and contact details, with no prices and no Solomon Bharat branding, so you can quote your customers directly.
         </p>
       </div>

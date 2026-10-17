@@ -178,53 +178,9 @@ function DetailGroup({ title, children }: { title: string; children: React.React
   )
 }
 
-function SellerTypeBadge({ type }: { type: SellerApplication['sellerType'] | undefined }) {
-  const marketplace = type === 'MARKETPLACE'
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-[700] font-sans',
-        marketplace ? 'bg-[#E7EDE7] border-[#183D33] text-[#183D33]' : 'bg-white border-[#D9E2DA] text-[#183D33B3]'
-      )}
-    >
-      {marketplace ? 'Marketplace brand' : 'Curated'}
-    </span>
-  )
-}
-
 function ApplicationDetailsPanel({ application: a }: { application: SellerApplication }) {
-  const minOrder = a.minOrderValueInr == null ? undefined : Number(a.minOrderValueInr)
   return (
     <div className="mt-4 pt-4 border-t border-[#FFFFFF] space-y-5">
-      {a.sellerType === 'MARKETPLACE' && (
-        <>
-          <DetailGroup title="Marketplace brand">
-            <DetailRow label="Brand name" value={a.brandName} />
-            <DetailRow
-              label="Minimum order value"
-              value={minOrder !== undefined && Number.isFinite(minOrder) ? `₹${minOrder.toLocaleString('en-IN')}` : undefined}
-            />
-            <DetailRow label="Website" value={a.brandWebsite} />
-            <DetailRow label="Logo link" value={a.brandLogoUrl} />
-            <DetailRow label="Terms version" value={a.commissionTermsVersion} />
-            <DetailRow
-              label="Terms agreed"
-              value={
-                a.commissionAgreedAt
-                  ? new Date(a.commissionAgreedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-                  : undefined
-              }
-            />
-          </DetailGroup>
-          {a.brandStory && (
-            <div>
-              <p className="text-[10.5px] font-[700] font-sans text-[#6B7E6B] uppercase tracking-[0.06em] mb-1">Brand story</p>
-              <p className="text-[13px] font-sans text-[#0F241D] whitespace-pre-wrap">{a.brandStory}</p>
-            </div>
-          )}
-        </>
-      )}
-
       <DetailGroup title="Business">
         <DetailRow label="City" value={a.city} />
         <DetailRow label="Country" value={a.country} />
@@ -282,9 +238,6 @@ function ApplicationCard({
   const [expanded, setExpanded] = useState(false)
   const [detailsExpanded, setDetailsExpanded] = useState(false)
   const approveApplication = useApproveSellerApplication()
-  const [assignType, setAssignType] = useState<'CURATED' | 'MARKETPLACE'>(
-    application.sellerType === 'MARKETPLACE' ? 'MARKETPLACE' : 'CURATED',
-  )
 
   const canAct = application.status === 'PENDING' || application.status === 'MORE_INFO_REQUESTED'
   const deleteApplication = useDeleteSellerApplication()
@@ -299,13 +252,9 @@ function ApplicationCard({
           <div className="flex items-center gap-2.5 mb-1 flex-wrap">
             <p className="text-[15px] font-[700] font-sans text-[#0F241D]">{application.businessName}</p>
             <StatusBadge status={application.status} />
-            <SellerTypeBadge type={application.sellerType} />
           </div>
           <p className="text-[13px] font-sans text-[#183D33B3] mb-3">
             {application.contactName}
-            {application.sellerType === 'MARKETPLACE' && application.brandName && (
-              <> · Brand: <strong className="text-[#0F241D] font-[600]">{application.brandName}</strong></>
-            )}
           </p>
 
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px] font-sans text-[#6B7E6B]">
@@ -345,20 +294,11 @@ function ApplicationCard({
         <div className="flex flex-col gap-2 shrink-0">
           {canAct && (
             <>
-              <select
-                value={assignType}
-                onChange={(e) => setAssignType(e.target.value as 'CURATED' | 'MARKETPLACE')}
-                aria-label="Assign seller type"
-                className="h-8 px-2 rounded border border-[#D9E2DA] text-[12.5px] font-sans bg-white"
-              >
-                <option value="CURATED">Curated by Solomon</option>
-                <option value="MARKETPLACE">Marketplace brand</option>
-              </select>
               <Button
                 variant="accent"
                 size="sm"
                 disabled={approveApplication.isPending}
-                onClick={() => approveApplication.mutate({ id: application.id, sellerType: assignType })}
+                onClick={() => approveApplication.mutate({ id: application.id })}
               >
                 {approveApplication.isPending ? 'Approving…' : 'Approve'}
               </Button>

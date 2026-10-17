@@ -2,11 +2,9 @@
 
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { useSellerType } from '@/hooks/queries/useBrandPortal'
 import { ProductForm } from '@/components/seller-portal/ProductForm'
 
 export default function NewProductPage() {
-  const { isMarketplace: isBrand } = useSellerType()
   return (
     <div>
       <div className="flex items-center gap-3 mb-8">
@@ -18,11 +16,9 @@ export default function NewProductPage() {
           <ArrowLeft size={15} />
         </Link>
         <div>
-          <h1 className="text-[24px] font-[700] font-sans text-[#0F241D] leading-tight">{isBrand ? 'Add Product' : 'Submit Product'}</h1>
+          <h1 className="text-[24px] font-[700] font-sans text-[#0F241D] leading-tight">{'Submit Product'}</h1>
           <p className="text-[13px] font-sans text-[#183D33B3] mt-0.5">
-            {isBrand
-              ? 'Set the price buyers pay. Your product goes live as soon as you publish it. Solomon keeps 25% on each buyer’s first order with you and 15% on that buyer’s later orders.'
-              : 'Fill in the details below to submit for review.'}
+            {'Fill in the details below to submit for review.'}
           </p>
         </div>
       </div>

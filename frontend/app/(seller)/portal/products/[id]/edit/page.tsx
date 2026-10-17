@@ -4,13 +4,11 @@ import { use } from 'react'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { useMyProduct } from '@/hooks/queries/useProducts'
-import { useSellerType } from '@/hooks/queries/useBrandPortal'
 import { ProductForm } from '@/components/seller-portal/ProductForm'
 
 export default function ProductEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const { data: product, isLoading, error } = useMyProduct(id)
-  const { isMarketplace: isBrand } = useSellerType()
 
   return (
     <div>
@@ -26,7 +24,7 @@ export default function ProductEditPage({ params }: { params: Promise<{ id: stri
           <h1 className="text-[24px] font-[700] font-sans text-[#0F241D] leading-tight">
             {product?.name ?? 'Edit Product'}
           </h1>
-          <p className="text-[13px] font-sans text-[#183D33B3] mt-0.5">{isBrand ? 'Changes go live as soon as you save.' : 'Update product details and resubmit for review.'}</p>
+          <p className="text-[13px] font-sans text-[#183D33B3] mt-0.5">{'Update product details and resubmit for review.'}</p>
         </div>
       </div>
 

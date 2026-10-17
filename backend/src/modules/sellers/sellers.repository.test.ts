@@ -93,56 +93,9 @@ describe('SellersRepository', () => {
           },
         },
       },
-      include: { sellerProfile: { include: { brand: true } } },
+      include: { sellerProfile: true },
     });
     expect(result.profile).toEqual({ id: 'sp1' });
-    expect(result.brand).toBeNull();
-  });
-
-  it('createSellerUserAndProfile nests a Brand create for a MARKETPLACE application', async () => {
-    db.user.create.mockResolvedValue({ id: 'u1', sellerProfile: { id: 'sp1', brand: { id: 'b1' } } });
-
-    const application = {
-      id: 'app-1',
-      email: 'a@b.com',
-      businessName: 'Kala Kendra Pvt',
-      contactName: 'Meera',
-      phone: '123',
-      businessAddress: 'Jaipur, India',
-      country: 'India',
-      sellerType: 'MARKETPLACE',
-      brandName: 'Kala Kendra',
-      brandLogoUrl: 'https://x/logo.png',
-      brandStory: 'story',
-      minOrderValueInr: 5000,
-    } as never;
-
-    const result = await repo.createSellerUserAndProfile(application, 'hashed', 'kala-kendra');
-
-    const data = db.user.create.mock.calls[0][0].data.sellerProfile.create;
-    expect(data.sellerType).toBe('MARKETPLACE');
-    expect(data.brand.create).toMatchObject({
-      name: 'Kala Kendra',
-      slug: 'kala-kendra',
-      logoUrl: 'https://x/logo.png',
-      story: 'story',
-      country: 'India',
-      minOrderValueInr: 5000,
-    });
-    expect(result.brand).toEqual({ id: 'b1' });
-  });
-
-  it('brandSlugExists reports whether the slug is taken', async () => {
-    db.brand.count.mockResolvedValue(1);
-    expect(await repo.brandSlugExists('x')).toBe(true);
-    db.brand.count.mockResolvedValue(0);
-    expect(await repo.brandSlugExists('y')).toBe(false);
-  });
-
-  it('findSellerProfileWithBrandByUserId includes the brand', async () => {
-    db.sellerProfile.findUnique.mockResolvedValue({ id: 'sp1' });
-    await repo.findSellerProfileWithBrandByUserId('u1');
-    expect(db.sellerProfile.findUnique).toHaveBeenCalledWith({ where: { userId: 'u1' }, include: { brand: true } });
   });
 
   it('createHouseSellerUserAndProfile creates a SELLER user with no applicationId', async () => {
@@ -205,10 +158,7 @@ describe('SellersRepository', () => {
     await repo.findSellers({ page: 1, limit: 20 });
     const arg = db.sellerProfile.findMany.mock.calls[0][0];
     expect(arg.where).toEqual({ deletedAt: null });
-    expect(arg.include).toEqual({
-      user: true,
-      brand: { select: { id: true, name: true, slug: true, status: true, isVerified: true } },
-    });
+    expect(arg.include).toEqual({ user: true });
   });
 
   it('findSellerWithUserById includes the related user', async () => {
@@ -216,10 +166,7 @@ describe('SellersRepository', () => {
     await repo.findSellerWithUserById('sp1');
     expect(db.sellerProfile.findUnique).toHaveBeenCalledWith({
       where: { id: 'sp1' },
-      include: {
-        user: true,
-        brand: { select: { id: true, name: true, slug: true, status: true, isVerified: true } },
-      },
+      include: { user: true },
     });
   });
 });

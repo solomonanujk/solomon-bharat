@@ -65,26 +65,10 @@ export const idParamSchema = z.object({
   id: z.string().uuid(),
 });
 
-export const brandOrderListQuerySchema = paginationQuerySchema.extend({
-  status: z.nativeEnum(OrderStatus).optional(),
-});
-export type BrandOrderListQueryDto = z.infer<typeof brandOrderListQuerySchema>;
-
-export const brandShipSchema = z.object({
-  trackingNumber: z.string().trim().min(1).max(200),
-  carrier: z.string().trim().min(1).max(100).optional(),
-});
-export type BrandShipDto = z.infer<typeof brandShipSchema>;
-
 export const documentParamSchema = z.object({
   id: z.string().uuid(),
   type: z.enum(['commercial-invoice', 'packing-list']),
 });
-
-export const declineSchema = z.object({
-  reason: z.string().trim().min(1).max(1000),
-});
-export type DeclineDto = z.infer<typeof declineSchema>;
 
 export const buyerCancelSchema = z.object({
   reason: z.string().trim().max(1000).optional(),

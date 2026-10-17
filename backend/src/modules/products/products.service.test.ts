@@ -862,7 +862,7 @@ describe('ProductsService', () => {
 
       await service.listPublished({ sort: 'trending' }, { page: 1, limit: 20 });
 
-      expect(repo.findTrending).toHaveBeenCalledWith({ page: 1, limit: 20 }, false);
+      expect(repo.findTrending).toHaveBeenCalledWith({ page: 1, limit: 20 });
       expect(repo.findPublished).not.toHaveBeenCalled();
     });
 
@@ -1011,11 +1011,9 @@ describe('ProductsService', () => {
       expect(repo.findRecommended).toHaveBeenCalledWith(
         expect.arrayContaining(['cat-wishlisted', 'cat-ordered']),
         { page: 1, limit: 20 },
-        false,
       );
       expect(repo.findRecommended).toHaveBeenCalledWith(
         expect.arrayContaining([]),
-        expect.anything(),
         expect.anything(),
       );
       expect((repo.findRecommended as ReturnType<typeof vi.fn>).mock.calls[0][0]).toHaveLength(2);
@@ -1030,7 +1028,7 @@ describe('ProductsService', () => {
 
       await service.getRecommendationsForBuyer('buyer-2', { page: 1, limit: 20 });
 
-      expect(repo.findRecommended).toHaveBeenCalledWith([], { page: 1, limit: 20 }, false);
+      expect(repo.findRecommended).toHaveBeenCalledWith([], { page: 1, limit: 20 });
     });
   });
 
@@ -1288,58 +1286,6 @@ describe('ProductsService', () => {
       expect(vi.mocked(repo.update).mock.calls[0][1]).not.toHaveProperty('publish');
     });
 
-    describe('brand-owned product', () => {
-      const brandProduct = () => buildProduct({ brandId: 'brand-1' });
-      const brandWithVariant = (): ProductWithMedia => ({
-        ...withMedia(brandProduct()),
-        images: twoImages,
-        variants: [
-          {
-            id: 'v1', productId: 'prod-1', type: 'Size', value: 'S', sku: 'S-1',
-            attributes: [],
-            priceTiers: [{ id: 't1', variantId: 'v1', moq: 5, sellerPrice: new Decimal(6), adminPrice: new Decimal(6), agentPrice: null }],
-          },
-        ] as unknown as ProductWithMedia['variants'],
-      });
-
-      it.each([
-        ['sellerPrice', { sellerPrice: 10 }],
-        ['moq', { moq: 3 }],
-        ['priceTiers', { priceTiers: [{ moq: 1, sellerPrice: 1 }] }],
-        ['variant priceTiers', { variants: [{ type: 'Size', value: 'S', sku: 'S-1', status: 'ACTIVE' as const, priceTiers: [{ moq: 5, sellerPrice: 1 }] }] }],
-        ['a new variant', { variants: [{ type: 'Size', value: 'XL', sku: 'XL-1', status: 'ACTIVE' as const }] }],
-      ])('rejects a price change (%s) with 400', async (_label, body) => {
-        vi.mocked(repo.findByIdRaw).mockResolvedValue(brandProduct());
-        vi.mocked(repo.findByIdWithMedia).mockResolvedValue(brandWithVariant());
-        await expect(service.updateProductAsAdmin('prod-1', body, [], 'admin-1')).rejects.toMatchObject({
-          statusCode: 400,
-          message: 'This price is set by the brand',
-        });
-        expect(repo.update).not.toHaveBeenCalled();
-      });
-
-      it('accepts non-price fields and does not touch tiers when variants are omitted', async () => {
-        vi.mocked(repo.findByIdRaw).mockResolvedValue(brandProduct());
-        vi.mocked(repo.findByIdWithMedia).mockResolvedValue(brandWithVariant());
-        await service.updateProductAsAdmin('prod-1', { name: 'Better name', publish: false }, [], 'admin-1');
-        const passed = vi.mocked(repo.update).mock.calls[0][1] as Record<string, unknown>;
-        expect(passed).toEqual({ name: 'Better name' });
-      });
-
-      it('carries the existing variant tiers over when only non-price variant data changes', async () => {
-        vi.mocked(repo.findByIdRaw).mockResolvedValue(brandProduct());
-        vi.mocked(repo.findByIdWithMedia).mockResolvedValue(brandWithVariant());
-        await service.updateProductAsAdmin(
-          'prod-1',
-          { variants: [{ type: 'Size', value: 'S', sku: 'S-1', status: 'ACTIVE', inventory: 99 }] },
-          [],
-          'admin-1',
-        );
-        const passed = vi.mocked(repo.update).mock.calls[0][1];
-        expect(passed.variants?.[0].priceTiers).toEqual([{ moq: 5, sellerPrice: 6, adminPrice: 6 }]);
-      });
-    });
-
     it('rejects an image count outside 2-10 after applying add/remove', async () => {
       vi.mocked(repo.findByIdRaw).mockResolvedValue(buildProduct());
       vi.mocked(repo.findByIdWithMedia).mockResolvedValue({
@@ -1526,7 +1472,7 @@ describe('ProductsService', () => {
 
       expect(product.slug).toBe('table-runner');
       expect(related).toEqual([]);
-      expect(repo.findRelated).toHaveBeenCalledWith('cat-l3-1', 'prod-1', 4, false);
+      expect(repo.findRelated).toHaveBeenCalledWith('cat-l3-1', 'prod-1', 4);
     });
 
     it('exposes only admin-priced flat tiers, never the seller price', async () => {
@@ -1646,17 +1592,6 @@ describe('ProductsService', () => {
       const json = JSON.stringify(result);
       expect(json).not.toContain('adminPrice');
       expect(json).not.toContain('agentPrice');
-    });
-
-    it("getForSeller keeps a brand's own price (adminPrice) but never agentPrice", async () => {
-      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildProduct({ brandId: 'brand-1' }));
-      vi.mocked(repo.findByIdWithMedia).mockResolvedValue(pricedProduct({ brandId: 'brand-1' }));
-
-      const result = await service.getForSeller('seller-1', 'prod-1');
-
-      expect(result.priceTiers[0].adminPrice).toEqual(new Decimal(8));
-      expect(result.variants[0].priceTiers[0].adminPrice).toEqual(new Decimal(9));
-      expect(JSON.stringify(result)).not.toContain('agentPrice');
     });
 
     it('buyer payload never contains sellerPrice', async () => {

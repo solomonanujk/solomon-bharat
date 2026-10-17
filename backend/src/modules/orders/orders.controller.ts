@@ -10,10 +10,7 @@ import { exportDocumentsService } from './documents/exportDocuments.service';
 import { ExportDocumentType } from './documents/exportDocuments';
 import {
   AdminOrderListQueryDto,
-  BrandOrderListQueryDto,
-  BrandShipDto,
   BuyerCancelDto,
-  DeclineDto,
   RefundDto,
   CancelOrderDto,
   ExportDocumentsDto,
@@ -50,27 +47,13 @@ function sendPdf(res: Response, { filename, pdf }: { filename: string; pdf: Buff
 
 export const ordersController = {
   async adminDocument(req: Request, res: Response): Promise<void> {
-    sendPdf(res, await exportDocumentsService.build(req.params.id, req.params.type as ExportDocumentType, { kind: 'admin' }));
-  },
-
-  async brandDocument(req: Request, res: Response): Promise<void> {
-    const sellerProfileId = await resolveSellerProfileId(req.user!.id);
-    sendPdf(
-      res,
-      await exportDocumentsService.build(req.params.id, req.params.type as ExportDocumentType, { kind: 'brand', sellerProfileId }),
-    );
+    sendPdf(res, await exportDocumentsService.build(req.params.id, req.params.type as ExportDocumentType));
   },
 
   async buyerCancel(req: Request, res: Response): Promise<void> {
     const buyerId = await resolveBuyerProfileId(req.user!.id);
     const dto = req.body as BuyerCancelDto;
     sendSuccess(res, await ordersService.buyerCancel(buyerId, req.params.id, dto.reason), 'Order cancelled');
-  },
-
-  async brandDecline(req: Request, res: Response): Promise<void> {
-    const sellerProfileId = await resolveSellerProfileId(req.user!.id);
-    const dto = req.body as DeclineDto;
-    sendSuccess(res, await ordersService.brandDecline(sellerProfileId, req.params.id, dto.reason), 'Order declined');
   },
 
   async qualityCheck(req: Request, res: Response): Promise<void> {
@@ -107,36 +90,6 @@ export const ordersController = {
     const pagination = req.query as unknown as PaginationQuery;
     const { data, total } = await ordersService.listItemsForSeller(sellerProfileId, pagination);
     sendSuccess(res, data, 'Order items retrieved', 200, buildPaginationMeta(total, pagination));
-  },
-
-  async listBrand(req: Request, res: Response): Promise<void> {
-    const sellerProfileId = await resolveSellerProfileId(req.user!.id);
-    const { status, ...pagination } = req.query as unknown as BrandOrderListQueryDto;
-    const { data, total } = await ordersService.listForBrand(sellerProfileId, status, pagination);
-    sendSuccess(res, data, 'Brand orders retrieved', 200, buildPaginationMeta(total, pagination));
-  },
-
-  async getBrand(req: Request, res: Response): Promise<void> {
-    const sellerProfileId = await resolveSellerProfileId(req.user!.id);
-    sendSuccess(res, await ordersService.getForBrand(sellerProfileId, req.params.id));
-  },
-
-  async brandConfirm(req: Request, res: Response): Promise<void> {
-    const sellerProfileId = await resolveSellerProfileId(req.user!.id);
-    sendSuccess(res, await ordersService.brandConfirm(sellerProfileId, req.params.id), 'Order confirmed');
-  },
-
-  async brandShip(req: Request, res: Response): Promise<void> {
-    const sellerProfileId = await resolveSellerProfileId(req.user!.id);
-    const dto = req.body as BrandShipDto;
-    const photos = await uploadDispatchPhotos(req, req.params.id);
-    const order = await ordersService.brandShip(sellerProfileId, req.params.id, dto.trackingNumber, photos, dto.carrier);
-    sendSuccess(res, order, 'Order marked as shipped');
-  },
-
-  async brandDeliver(req: Request, res: Response): Promise<void> {
-    const sellerProfileId = await resolveSellerProfileId(req.user!.id);
-    sendSuccess(res, await ordersService.brandDeliver(sellerProfileId, req.params.id), 'Order marked as delivered');
   },
 
   async listAdmin(req: Request, res: Response): Promise<void> {

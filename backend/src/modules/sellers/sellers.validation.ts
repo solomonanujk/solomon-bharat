@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { SellerApplicationStatus, SellerType } from '@prisma/client';
+import { SellerApplicationStatus } from '@prisma/client';
 import { paginationQuerySchema } from '../../utils/pagination';
 import {
   AMAZON_SELLING_OPTIONS,
@@ -19,8 +19,6 @@ import {
 // country; the service synthesizes businessAddress from those before calling
 // the repository (see SellersService.submitApplication).
 const submitApplicationBaseSchema = z.object({
-  // Chosen on the first onboarding step. Existing clients omit it => CURATED.
-  sellerType: z.nativeEnum(SellerType).default(SellerType.CURATED),
   businessName: z.string().min(1).max(200),
   contactName: z.string().min(1).max(200),
   email: z.string().email(),
@@ -29,9 +27,8 @@ const submitApplicationBaseSchema = z.object({
   // Brand step
   city: z.string().min(1).max(200),
   country: z.string().min(1).max(100),
-  // Required for CURATED, optional for MARKETPLACE (enforced in superRefine below).
-  instagramHandle: z.string().min(1).max(100).optional(),
-  instagramFollowers: z.coerce.number().int().min(0).optional(),
+  instagramHandle: z.string().min(1).max(100),
+  instagramFollowers: z.coerce.number().int().min(0),
   websiteOrSocialLink: z.string().max(500).optional(),
   // Products step — nothing here is required (no asterisk in the reference design)
   craftCategories: z.array(z.enum(CRAFT_CATEGORIES)).optional(),
@@ -51,44 +48,11 @@ const submitApplicationBaseSchema = z.object({
   businessType: z.enum(BUSINESS_TYPE_OPTIONS),
   hearAboutUs: z.enum(HEAR_ABOUT_US_OPTIONS).optional(),
   agreedToCommissionTerms: z.literal(true),
-  // Marketplace brand answers — required when sellerType = MARKETPLACE.
-  brandName: z.string().trim().min(2).max(60).optional(),
-  brandStory: z.string().max(1000).optional(),
-  brandLogoUrl: z.string().url().max(500).optional(),
-  brandBannerUrl: z.string().url().max(500).optional(),
-  brandWebsite: z.string().max(500).optional(),
-  minOrderValueInr: z.coerce.number().min(0).max(100000000).optional(),
+  /** Version of the Seller Agreement the applicant accepted. */
   commissionTermsVersion: z.string().min(1).max(50).optional(),
 });
 
-export const submitApplicationSchema = submitApplicationBaseSchema.superRefine((value, ctx) => {
-  if (value.sellerType === SellerType.MARKETPLACE) {
-    if (!value.brandName) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['brandName'], message: 'Brand name is required' });
-    }
-    if (value.minOrderValueInr === undefined) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['minOrderValueInr'],
-        message: 'Minimum order value is required',
-      });
-    }
-    if (!value.commissionTermsVersion) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['commissionTermsVersion'],
-        message: 'Commission terms version is required',
-      });
-    }
-    return;
-  }
-  if (!value.instagramHandle) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['instagramHandle'], message: 'Required' });
-  }
-  if (value.instagramFollowers === undefined) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['instagramFollowers'], message: 'Required' });
-  }
-});
+export const submitApplicationSchema = submitApplicationBaseSchema;
 export type SubmitApplicationDto = z.infer<typeof submitApplicationSchema>;
 
 export const applicationListQuerySchema = paginationQuerySchema.extend({
@@ -127,19 +91,8 @@ export const idParamSchema = z.object({
   id: z.string().uuid(),
 });
 
-/** The admin assigns the seller type at approval. */
-export const approveApplicationSchema = z.object({
-  sellerType: z.nativeEnum(SellerType).optional(),
-});
-
 export const internalRatingSchema = z.object({
   internalRating: z.number().int().min(1).max(5).nullable().optional(),
   internalNotes: z.string().max(5000).nullable().optional(),
 });
 export type InternalRatingDto = z.infer<typeof internalRatingSchema>;
-
-export const switchSellerTypeSchema = z.object({
-  sellerType: z.nativeEnum(SellerType),
-  /** Marketplace only: the brand name (defaults to the existing brand or business name). */
-  brandName: z.string().trim().min(1).max(100).optional(),
-});

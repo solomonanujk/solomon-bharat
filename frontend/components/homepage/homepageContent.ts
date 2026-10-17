@@ -1,17 +1,16 @@
 // ─── Guest homepage copy that states a business promise ───────────────────────
 // Every line here is a claim made to buyers on the marketing homepage. Each one
-// is grounded in docs/BUSINESS_DECISIONS.md: two seller models (Curated by
-// Solomon, where Solomon is the merchant, and marketplace brands, which sell
-// under their own name), 100% advance payment, wholesale MOQs, and DDP delivery
-// for curated orders. Nothing here is a delivery time, fee or count.
+// is grounded in docs/BUSINESS_DECISIONS.md: Curated by Solomon (Solomon is
+// the merchant), 100% advance payment, wholesale MOQs, and DDP delivery.
+// The marketplace (brand) model was removed in Oct 2026. Nothing here is a delivery time, fee or count.
 
 /** Trust bar directly under the hero: exactly four short promises. */
-// CONFIRM: owner to approve all four trust-bar promises (the first now covers both seller types).
+// CONFIRM: owner to approve all four trust-bar promises .
 export const TRUST_BAR_PROMISES: readonly string[] = [
   'Delivered duty paid to the UK',
   'Pay in your own currency',
   'Quality-checked in Jaipur',
-  'Verified Indian makers and brands',
+  'Verified Indian makers',
 ]
 
 /** About-preview band: three promise rows under the "We're Solomon Bharat" story. */
@@ -20,8 +19,8 @@ export const TRUST_BAR_PROMISES: readonly string[] = [
 // customs and duties cleared". Those were dropped because nothing in the business
 // rules backs them. Add them back here only once they're confirmed.
 export const ABOUT_PROMISES: readonly string[] = [
-  'One checkout for Curated by Solomon products and independent Indian brands',
-  'Curated orders are quality-checked in Jaipur and delivered duty paid to your door',
+  'Every product reviewed and priced by our team',
+  'Orders are quality-checked in Jaipur and delivered duty paid to your door',
   'Sign up to unlock wholesale pricing on the full catalogue',
 ]
 
@@ -38,8 +37,8 @@ export const BENEFITS: readonly Benefit[] = [
     body: 'Buy curated products directly from Solomon Bharat. We collect, quality-check and ship them duty paid to your door.',
   },
   {
-    title: 'Independent Indian brands',
-    body: 'Discover verified makers selling under their own name, each with their own shop and minimums.',
+    title: 'Verified Indian makers',
+    body: 'Every supplier is reviewed by our team, and every product is checked and priced before it is published.',
   },
   {
     title: 'Wholesale quantities',
@@ -47,7 +46,7 @@ export const BENEFITS: readonly Benefit[] = [
   },
   {
     title: 'Your currency, one checkout',
-    body: 'See prices in your local currency and pay for every brand in one checkout.',
+    body: 'See prices in your local currency and pay for your whole order in one checkout.',
   },
 ]
 

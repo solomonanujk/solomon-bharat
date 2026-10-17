@@ -36,8 +36,6 @@ import {
 } from '@/components/admin/ProductAdminShared'
 import { cn } from '@/lib/utils'
 import type { AdminProduct } from '@/types'
-import { BrandPill, BrandOwnsPriceNotice } from '@/components/admin/BrandAdminBits'
-import type { AdminProductBrandFields } from '@/types/brand-admin'
 
 // ─── Approve dialog ─────────────────────────────────────────────────────────────
 
@@ -303,7 +301,6 @@ export default function AdminProductEditPage() {
 
   const needsReview = product.approvalStatus === 'PENDING' || product.approvalStatus === 'RESUBMITTED'
   const isApproved = product.approvalStatus === 'APPROVED'
-  const brand = (product as AdminProduct & AdminProductBrandFields).brand ?? null
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -316,7 +313,6 @@ export default function AdminProductEditPage() {
       <div className="mb-5">
         <div className="flex flex-wrap items-center gap-2.5 mb-2">
           <StatusBadge status={product.approvalStatus} />
-          <BrandPill brand={brand} />
           {product.isPublished ? (
             <span className="inline-flex items-center gap-1 text-[12px] font-[600] font-sans text-[#183D33]">
               <CheckCircle2 size={12} aria-hidden="true" /> Published
@@ -346,13 +342,8 @@ export default function AdminProductEditPage() {
       )}
 
       <div className="space-y-5">
-        {brand && <BrandOwnsPriceNotice brand={brand} />}
 
-        {brand ? (
-          <Section title="Brand Price Tiers (set by the brand)">
-            <TierPriceTable tiers={allTiers} />
-          </Section>
-        ) : needsReview ? (
+        {needsReview ? (
           <div className="bg-white border border-[#D9E2DA] rounded-xl p-5">
             <AdminPricingCard product={product} mode="review" onReject={() => setDialog('reject')} />
           </div>
@@ -395,16 +386,14 @@ export default function AdminProductEditPage() {
                   </Button>
                 )}
               </div>
-              {!brand && product.adminPrice == null && !product.isPublished && (
+              {product.adminPrice == null && !product.isPublished && (
                 <p className="text-[11px] font-sans text-[#183D33]">Set an admin price below before publishing.</p>
               )}
             </div>
 
-            {!brand && (
-              <div className="bg-white border border-[#D9E2DA] rounded-xl p-5">
-                <AdminPricingCard product={product} mode="update" />
-              </div>
-            )}
+            <div className="bg-white border border-[#D9E2DA] rounded-xl p-5">
+              <AdminPricingCard product={product} mode="update" />
+            </div>
 
             <div className="bg-white border border-[#D9E2DA] rounded-xl p-5">
               <ReassignCategoryCard product={product} categories={leafCategories} />

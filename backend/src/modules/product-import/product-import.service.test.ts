@@ -36,7 +36,6 @@ function setup() {
   const repo = { findExistingVariantSkus: vi.fn().mockResolvedValue([]) } as unknown as ProductImportRepository;
   const productsRepo = {
     slugExists: vi.fn().mockResolvedValue(false),
-    findSellerContext: vi.fn().mockResolvedValue({ sellerType: 'CURATED', brand: null }),
     create: vi.fn().mockImplementation((_sellerId: string, input: { id: string; name: string; slug: string }) =>
       Promise.resolve({ id: input.id, name: input.name, slug: input.slug }),
     ),
@@ -181,67 +180,6 @@ describe('ProductImportService', () => {
       expect(videoUrls).toEqual([]);
       expect(overrides).toEqual({ approvalStatus: ProductApprovalStatus.DRAFT });
       expect(input).not.toHaveProperty('brandId');
-    });
-
-    describe('marketplace brand sellers', () => {
-      const BRAND_ID = '33333333-3333-3333-3333-333333333333';
-      const brandCtx = (status: string) => ({ sellerType: 'MARKETPLACE', brand: { id: BRAND_ID, status } });
-
-      it('creates a branded DRAFT with adminPrice = gross price and moq 1', async () => {
-        const { service, productsRepo } = setup();
-        vi.mocked(productsRepo.findSellerContext).mockResolvedValue(brandCtx('ACTIVE') as never);
-        const result = await service.importProducts(SELLER_ID, { categoryId: CATEGORY_ID, products: [candidate()] });
-        expect(result.failed).toEqual([]);
-        const [, input, , , overrides] = vi.mocked(productsRepo.create).mock.calls[0];
-        expect(input).toMatchObject({ moq: 1, sellerPrice: 499 });
-        expect(overrides).toEqual({ approvalStatus: ProductApprovalStatus.DRAFT, brandId: BRAND_ID, adminPrice: 499 });
-      });
-
-      it('gives each variant tier an adminPrice equal to its price', async () => {
-        const { service, productsRepo } = setup();
-        vi.mocked(productsRepo.findSellerContext).mockResolvedValue(brandCtx('ACTIVE') as never);
-        await service.importProducts(SELLER_ID, {
-          categoryId: CATEGORY_ID,
-          products: [
-            candidate({
-              variants: [
-                { name: 'S', options: { Size: 'S' }, sku: null, sellerPrice: 300 },
-                { name: 'L', options: { Size: 'L' }, sku: null, sellerPrice: 450 },
-              ],
-            }),
-          ],
-        });
-        const [, input, , , overrides] = vi.mocked(productsRepo.create).mock.calls[0];
-        expect(input.variants?.map((v) => v.priceTiers)).toEqual([
-          [{ moq: 1, sellerPrice: 300, adminPrice: 300 }],
-          [{ moq: 1, sellerPrice: 450, adminPrice: 450 }],
-        ]);
-        expect(overrides).toMatchObject({ brandId: BRAND_ID, adminPrice: 300 });
-      });
-
-      it('rejects imports for a suspended brand', async () => {
-        const { service, productsRepo } = setup();
-        vi.mocked(productsRepo.findSellerContext).mockResolvedValue(brandCtx('SUSPENDED') as never);
-        await expect(
-          service.importProducts(SELLER_ID, { categoryId: CATEGORY_ID, products: [candidate()] }),
-        ).rejects.toMatchObject({ statusCode: 403 });
-        expect(productsRepo.create).not.toHaveBeenCalled();
-      });
-
-      it('rejects a marketplace seller with no brand profile', async () => {
-        const { service, productsRepo } = setup();
-        vi.mocked(productsRepo.findSellerContext).mockResolvedValue({ sellerType: 'MARKETPLACE', brand: null } as never);
-        await expect(
-          service.importProducts(SELLER_ID, { categoryId: CATEGORY_ID, products: [candidate()] }),
-        ).rejects.toMatchObject({ statusCode: 403 });
-      });
-
-      it('applies to admin-on-behalf imports too', async () => {
-        const { service, productsRepo } = setup();
-        vi.mocked(productsRepo.findSellerContext).mockResolvedValue(brandCtx('ACTIVE') as never);
-        await service.importForAdmin('admin-1', SELLER_ID, { categoryId: CATEGORY_ID, products: [candidate()] });
-        expect(vi.mocked(productsRepo.create).mock.calls[0][4]).toMatchObject({ brandId: BRAND_ID });
-      });
     });
 
     it('maps 2+ variants with attributes and price tiers; sellerPrice is the cheapest variant', async () => {
@@ -508,17 +446,6 @@ describe('ProductImportService', () => {
         expect(b).toMatchObject({ declaredStock: 11, weight: '1.5', variants: undefined });
       });
 
-      it('brand drafts keep brand pricing and also carry the new fields', async () => {
-        const { service, productsRepo } = setup();
-        vi.mocked(productsRepo.findSellerContext).mockResolvedValue({ sellerType: 'MARKETPLACE', brand: { id: 'b1', status: 'ACTIVE' } } as never);
-        await service.importProducts(SELLER_ID, {
-          categoryId: CATEGORY_ID,
-          products: [candidate({ weightKg: 1, stock: 4 })],
-        });
-        const [, input, , , overrides] = vi.mocked(productsRepo.create).mock.calls[0];
-        expect(input).toMatchObject({ moq: 1, weight: '1', declaredStock: 4 });
-        expect(overrides).toEqual({ approvalStatus: ProductApprovalStatus.DRAFT, brandId: 'b1', adminPrice: 499 });
-      });
     });
 
     it('truncates a long list of taken SKUs in the error', async () => {

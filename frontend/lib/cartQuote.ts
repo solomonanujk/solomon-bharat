@@ -6,7 +6,7 @@ export interface QuotableItem {
   variantId?: string
   quantity: number
   unitAdminPriceInr: number
-  /** A sample line (sample price, no MOQ / brand minimum). */
+  /** A sample line (sample price, no MOQ). */
   isSample?: boolean
 }
 

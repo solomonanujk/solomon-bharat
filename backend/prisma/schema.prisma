@@ -110,7 +110,8 @@ enum NotificationType {
   BRAND_APPLICATION_APPROVED
 }
 
-/// How a seller sells. CURATED = Solomon Bharat is the merchant (admin reviews and
+/// How a seller sells. Only CURATED is used since Oct 2026 (marketplace removed; kept for history,
+/// see docs/MARKETPLACE_MODEL_ARCHIVE.md). CURATED = Solomon Bharat is the merchant (admin reviews and
 /// prices every product). MARKETPLACE = the seller is a brand that sets its own
 /// prices, publishes its own products and ships its own orders; Solomon collects
 /// payment and keeps a commission.

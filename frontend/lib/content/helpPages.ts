@@ -12,18 +12,14 @@ export const HELP: LegalDocument = {
         [
           'Sign up with your business details to see wholesale prices.',
           'Prices are shown in your local currency, converted daily from Indian Rupees.',
-          'Every product shows its minimum order quantity (MOQ). Some brands also have a minimum order value for their shop.',
+          'Every product shows its minimum order quantity (MOQ).',
         ],
       ],
     },
     {
-      heading: 'Two ways to buy',
+      heading: 'Who you buy from',
       body: [
-        [
-          'Curated by Solomon: Solomon Bharat is the seller. We collect the goods from our makers, quality-check them at our Jaipur warehouse with photos, and deliver them duty paid to your door.',
-          'Independent brands: the brand named on the product is the seller and ships directly to you. Solomon Bharat runs the marketplace and handles payment.',
-        ],
-        'You can buy from both in one checkout. Each product card shows which one it is.',
+        'Every product is Curated by Solomon: Solomon Bharat is the seller. We collect the goods from our makers, quality-check them at our Jaipur warehouse with photos, and deliver them duty paid to your door.',
       ],
     },
     {
@@ -36,8 +32,7 @@ export const HELP: LegalDocument = {
       heading: 'After you order',
       body: [
         [
-          'You can cancel free of charge until the order is confirmed (curated) or accepted by the brand.',
-          'Brands accept or decline new orders within 24 hours. If they do not, the order is cancelled and refunded.',
+          'You can cancel free of charge until the order is confirmed.',
           'Dispatch photos and tracking details appear on your order page once it ships.',
         ],
       ],
@@ -57,7 +52,7 @@ export const HELP: LegalDocument = {
     {
       heading: 'For makers and brands',
       body: [
-        'Apply once from Sell with us. Our team reviews every application and decides with you whether you sell Curated by Solomon or as an independent brand. See the Seller Agreement for full terms.',
+        'Apply once from Sell with us. Our team reviews every application and, if you are selected, lists your products Curated by Solomon. See the Seller Agreement for full terms.',
       ],
     },
   ],
@@ -80,11 +75,11 @@ export const FAQS: LegalDocument = {
     },
     {
       heading: 'Do I pay import duty?',
-      body: ['Curated by Solomon orders are delivered duty paid (DDP): duties and taxes are included and we deliver to your door. Independent brands ship directly and show their shipping terms at checkout.'],
+      body: ['Orders are delivered duty paid (DDP): duties and taxes are included and we deliver to your door.'],
     },
     {
       heading: 'Is there a minimum order?',
-      body: ['Each product has a minimum order quantity. Some independent brands also set a minimum order value for their shop, shown on their page and in your cart.'],
+      body: ['Each product has a minimum order quantity, shown on the product page and in your cart.'],
     },
     {
       heading: 'How long does delivery take?',
@@ -92,7 +87,7 @@ export const FAQS: LegalDocument = {
     },
     {
       heading: 'Can I cancel my order?',
-      body: ['Yes, free of charge until it is confirmed (curated) or accepted by the brand. After that it is being prepared and cannot be cancelled.'],
+      body: ['Yes, free of charge until it is confirmed. After that it is being prepared and cannot be cancelled.'],
     },
     {
       heading: 'What if something arrives damaged?',
@@ -108,7 +103,7 @@ export const FAQS: LegalDocument = {
     },
     {
       heading: 'I am a maker. How do I sell here?',
-      body: ['Apply from Sell with us. Our team reviews your products and presence, then sets you up either Curated by Solomon or as an independent brand with your own shop.'],
+      body: ['Apply from Sell with us. Our team reviews your products and presence. If you are selected, we list your products Curated by Solomon.'],
     },
   ],
 }
@@ -121,7 +116,7 @@ export const EXPORT_GUIDE: LegalDocument = {
       heading: 'Documents to keep ready',
       body: [
         [
-          'GSTIN (independent brands; individual artisans without GST can sell Curated by Solomon).',
+          'GSTIN where applicable (individual artisans without GST can still apply).',
           'IEC (Importer Exporter Code) if you ship exports yourself.',
           'Bank account in your business name for payouts.',
           'HSN code for every product: it goes on the commercial invoice.',
@@ -147,12 +142,6 @@ export const EXPORT_GUIDE: LegalDocument = {
     {
       heading: 'Curated by Solomon',
       body: ['Have the ordered goods ready on the collection date. We collect them, quality-check them at our Jaipur warehouse and ship them. You are paid when the order is dispatched.'],
-    },
-    {
-      heading: 'Independent brands',
-      body: [
-        'Accept each order within 24 hours, then ship directly to the buyer with tracking and dispatch photos. You are paid on dispatch, net of commission. Buyers who join through your own invite link carry 0% commission and are paid as soon as they pay.',
-      ],
     },
   ],
 }

@@ -1,6 +1,4 @@
-import { SellerType } from '@prisma/client';
 import { SafeUser } from '../../utils/safeUser';
-import { BrandSummaryDto } from '../../utils/brandSummary';
 
 export type { SafeUser };
 
@@ -30,11 +28,8 @@ export interface LoginInput {
   password: string;
 }
 
-/** SafeUser plus, for SELLER accounts, the seller type and (marketplace) brand summary. */
-export interface SessionUser extends SafeUser {
-  sellerType?: SellerType;
-  brand?: BrandSummaryDto | null;
-}
+/** The user as sent to the client. */
+export type SessionUser = SafeUser;
 
 export interface AuthResult {
   user: SessionUser;
