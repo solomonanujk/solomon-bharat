@@ -318,6 +318,8 @@ export interface SellerApplication {
   businessAddress: string
   message: string | null
   status: SellerApplicationStatus
+  /** Admin shortlist star. */
+  isFavourite?: boolean
   rejectionReason: string | null
   internalNotes: string | null
   reviewedById: string | null

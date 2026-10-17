@@ -52,7 +52,14 @@ export function useUpdateMySellerProfile() {
 
 // ─── Admin: seller applications ───────────────────────────────────────────────
 
-export function useSellerApplications(params?: { status?: SellerApplicationStatus; search?: string; page?: number; limit?: number }) {
+export function useSellerApplications(params?: {
+  status?: SellerApplicationStatus
+  search?: string
+  /** `true` lists only starred (favourite) applications. */
+  favourite?: boolean
+  page?: number
+  limit?: number
+}) {
   return useQuery<PaginatedResult<SellerApplication>>({
     queryKey: ['seller-applications', params],
     queryFn: async () => toPaginated<SellerApplication>(await api.get('/sellers/applications', { params })),
@@ -70,6 +77,16 @@ export function useSellerApplication(id: string | null) {
 function invalidateApplication(qc: ReturnType<typeof useQueryClient>, id: string) {
   qc.invalidateQueries({ queryKey: ['seller-applications'] })
   qc.invalidateQueries({ queryKey: ['seller-application', id] })
+}
+
+/** Stars or unstars an application so the owner can shortlist and filter by it. */
+export function useFavouriteSellerApplication() {
+  const qc = useQueryClient()
+  return useMutation<unknown, Error, { id: string; favourite: boolean }>({
+    mutationFn: ({ id, favourite }) => api.patch(`/sellers/applications/${id}/favourite`, { favourite }),
+    onSuccess: (_, { id }) => invalidateApplication(qc, id),
+    onError: (err) => toast.error(getApiError(err)),
+  })
 }
 
 export function useApproveSellerApplication() {

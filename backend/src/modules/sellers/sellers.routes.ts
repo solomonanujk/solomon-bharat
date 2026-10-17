@@ -4,6 +4,7 @@ import { sellersController } from './sellers.controller';
 import {
   addNoteSchema,
   applicationListQuerySchema,
+  favouriteApplicationSchema,
   idParamSchema,
   rejectApplicationSchema,
   requestMoreInfoSchema,
@@ -147,6 +148,25 @@ sellersRouter.post(
   requireAdmin,
   uploadSpreadsheet,
   asyncHandler(sellersController.importApplications),
+);
+
+/**
+ * @openapi
+ * /sellers/applications/{id}/favourite:
+ *   patch:
+ *     summary: Star or unstar a seller application (SUPER_ADMIN only)
+ *     tags: [Sellers]
+ *     requestBody: { required: true }
+ *     responses:
+ *       200: { description: Updated }
+ */
+sellersRouter.patch(
+  '/applications/:id/favourite',
+  requireAuth,
+  requireAdmin,
+  validate(idParamSchema, 'params'),
+  validate(favouriteApplicationSchema),
+  asyncHandler(sellersController.setApplicationFavourite),
 );
 
 sellersRouter.delete(

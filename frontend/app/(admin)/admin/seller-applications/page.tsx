@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ClipboardList, Search, Mail, Phone, MapPin, CalendarDays, MessageSquare, StickyNote, ChevronDown, ChevronUp, Trash2, Upload } from 'lucide-react'
+import { ClipboardList, Search, Mail, Phone, MapPin, CalendarDays, MessageSquare, StickyNote, ChevronDown, ChevronUp, Trash2, Upload, Star } from 'lucide-react'
 import {
   useSellerApplications,
   useApproveSellerApplication,
+  useFavouriteSellerApplication,
   useRejectSellerApplication,
   useRequestMoreInfo,
   useAddApplicationNote,
@@ -239,6 +240,7 @@ function ApplicationCard({
   const [detailsExpanded, setDetailsExpanded] = useState(false)
   const approveApplication = useApproveSellerApplication()
 
+  const favourite = useFavouriteSellerApplication()
   const canAct = application.status === 'PENDING' || application.status === 'MORE_INFO_REQUESTED'
   const deleteApplication = useDeleteSellerApplication()
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -250,6 +252,21 @@ function ApplicationCard({
         {/* Left: application info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2.5 mb-1 flex-wrap">
+            <button
+              type="button"
+              aria-label={application.isFavourite ? 'Remove from favourites' : 'Add to favourites'}
+              aria-pressed={!!application.isFavourite}
+              title={application.isFavourite ? 'Remove from favourites' : 'Add to favourites'}
+              disabled={favourite.isPending}
+              onClick={() => favourite.mutate({ id: application.id, favourite: !application.isFavourite })}
+              className="shrink-0 -ml-1 p-1 rounded-md hover:bg-[#F5F5F0] disabled:opacity-50 transition-colors"
+            >
+              <Star
+                size={17}
+                className={application.isFavourite ? 'fill-[#E9A23B] text-[#E9A23B]' : 'text-[#9DA89E]'}
+                aria-hidden="true"
+              />
+            </button>
             <p className="text-[15px] font-[700] font-sans text-[#0F241D]">{application.businessName}</p>
             <StatusBadge status={application.status} />
           </div>
@@ -369,6 +386,7 @@ function ApplicationCard({
 
 export default function SellerApplicationsPage() {
   const [status, setStatus] = useState<SellerApplicationStatus | ''>('')
+  const [favouritesOnly, setFavouritesOnly] = useState(false)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [rejectTarget, setRejectTarget] = useState<SellerApplication | null>(null)
@@ -387,6 +405,7 @@ export default function SellerApplicationsPage() {
   const { data, isLoading } = useSellerApplications({
     status: status || undefined,
     search: debouncedSearch || undefined,
+    favourite: favouritesOnly || undefined,
     page,
     limit: LIMIT,
   })
@@ -448,8 +467,9 @@ export default function SellerApplicationsPage() {
         />
       </div>
 
-      {/* Status tabs */}
-      <div className="flex gap-0 mb-5 border-b border-[#D9E2DA] overflow-x-auto">
+      {/* Status tabs + favourites filter */}
+      <div className="flex items-center gap-3 mb-5 border-b border-[#D9E2DA]">
+      <div className="flex gap-0 overflow-x-auto">
         {STATUS_TABS.map(({ value, label }) => (
           <button
             key={label}
@@ -465,6 +485,21 @@ export default function SellerApplicationsPage() {
             {label}
           </button>
         ))}
+      </div>
+        <button
+          type="button"
+          onClick={() => { setFavouritesOnly((v) => !v); setPage(1) }}
+          aria-pressed={favouritesOnly}
+          className={cn(
+            'ml-auto mb-1.5 shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-full border text-[12.5px] font-[600] font-sans transition-colors',
+            favouritesOnly
+              ? 'bg-[#FFF7E8] border-[#E9A23B] text-[#8A5F10]'
+              : 'bg-white border-[#D9E2DA] text-[#6B7E6B] hover:text-[#0F241D] hover:border-[#6B7E6B]'
+          )}
+        >
+          <Star size={13} className={favouritesOnly ? 'fill-[#E9A23B] text-[#E9A23B]' : ''} aria-hidden="true" />
+          Favourites
+        </button>
       </div>
 
       {/* Cards */}
@@ -491,11 +526,13 @@ export default function SellerApplicationsPage() {
             <ClipboardList size={22} className="text-[#183D33]" aria-hidden="true" />
           </div>
           <p className="text-[16px] font-[600] font-sans text-[#0F241D]">
-            {search ? 'No matching applications' : 'No applications found'}
+            {favouritesOnly ? 'No favourites yet' : search ? 'No matching applications' : 'No applications found'}
           </p>
-          {(search || status) && (
+          {favouritesOnly ? (
+            <p className="text-[13px] font-sans text-[#6B7E6B]">Tap the star on an application to shortlist it here.</p>
+          ) : (search || status) ? (
             <p className="text-[13px] font-sans text-[#6B7E6B]">Try adjusting your filters.</p>
-          )}
+          ) : null}
         </div>
       ) : (
         <div className="grid gap-3">

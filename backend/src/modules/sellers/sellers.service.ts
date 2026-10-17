@@ -80,6 +80,16 @@ export class SellersService {
     return this.repo.findApplications(filter, pagination);
   }
 
+  /** Stars or unstars an application so the owner can shortlist and filter by it. */
+  async setApplicationFavourite(id: string, favourite: boolean, adminId: string): Promise<SellerApplication> {
+    await this.getApplicationOrThrow(id);
+    const row = await this.repo.setApplicationFavourite(id, favourite, adminId);
+    await writeAuditLog(adminId, favourite ? 'SELLER_APPLICATION_FAVOURITED' : 'SELLER_APPLICATION_UNFAVOURITED', 'SellerApplication', id, {
+      businessName: row.businessName,
+    });
+    return row;
+  }
+
   async getApplicationDetail(id: string): Promise<SellerApplication> {
     return this.getApplicationOrThrow(id);
   }

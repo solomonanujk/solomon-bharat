@@ -58,8 +58,16 @@ export type SubmitApplicationDto = z.infer<typeof submitApplicationSchema>;
 export const applicationListQuerySchema = paginationQuerySchema.extend({
   status: z.nativeEnum(SellerApplicationStatus).optional(),
   search: z.string().trim().max(200).optional(),
+  /** `?favourite=true` narrows the list to starred applications. */
+  favourite: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === 'true')),
 });
 export type ApplicationListQueryDto = z.infer<typeof applicationListQuerySchema>;
+
+export const favouriteApplicationSchema = z.object({ favourite: z.boolean() });
+export type FavouriteApplicationDto = z.infer<typeof favouriteApplicationSchema>;
 
 export const rejectApplicationSchema = z.object({
   reason: z.string().min(1).max(1000),

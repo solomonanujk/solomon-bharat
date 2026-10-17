@@ -48,6 +48,8 @@ export interface ApplicationListFilter {
   status?: SellerApplicationStatus;
   /** Matches business name, founder or email (case-insensitive). */
   search?: string;
+  /** Only starred applications. */
+  favourite?: boolean;
 }
 
 export { SellerApplicationStatus };
