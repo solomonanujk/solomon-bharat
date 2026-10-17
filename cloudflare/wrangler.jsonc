@@ -1,0 +1,27 @@
+{
+  // Runs the backend (backend/Dockerfile) in a Cloudflare Container behind a small Worker.
+  // Deploy: cd cloudflare && npm install && npx wrangler deploy
+  "name": "solomon-bharat-backend",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "observability": { "enabled": true },
+  "containers": [
+    {
+      "class_name": "Backend",
+      "image": "../backend/Dockerfile",
+      "instance_type": "standard",
+      "max_instances": 2
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "class_name": "Backend", "name": "BACKEND" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Backend"] }],
+  // Non-secret settings. Secrets (DATABASE_URL, JWT_SECRET, ...) are added with `wrangler secret put`.
+  "vars": {
+    "NODE_ENV": "production",
+    "JWT_EXPIRES_IN": "15m",
+    "JWT_REFRESH_EXPIRES_IN": "30d",
+    "PAYPAL_MODE": "sandbox"
+  }
+}
