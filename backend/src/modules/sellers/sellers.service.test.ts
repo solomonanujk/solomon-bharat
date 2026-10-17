@@ -21,6 +21,14 @@ vi.mock('../notifications/notifications.service', () => ({
   },
 }));
 
+vi.mock('../auth/auth.service', () => ({
+  authService: {
+    createPasswordSetupUrl: vi
+      .fn()
+      .mockResolvedValue('http://localhost:3000/reset-password?id=prt-1&token=secret&welcome=1'),
+  },
+}));
+
 function buildApplication(overrides: Partial<SellerApplication> = {}): SellerApplication {
   return {
     id: 'app-1',
@@ -244,6 +252,16 @@ describe('SellersService', () => {
         expect.objectContaining({ status: SellerApplicationStatus.APPROVED, reviewedById: 'admin-1' }),
       );
       expect(result.user.role).toBe(Role.SELLER);
+
+      const mail = vi.mocked(mailProvider.sendMail).mock.calls.at(-1)![0];
+      expect(mail.html).toContain('Set your password and sign in');
+      expect(mail.html).toContain('reset-password?id=prt-1&amp;token=secret&amp;welcome=1');
+      expect(mail.html).toContain('Temporary password');
+      // The temporary password must never be part of any link.
+      const hrefs = [...mail.html.matchAll(/href="([^"]*)"/g)].map((m) => m[1]);
+      expect(hrefs.length).toBeGreaterThan(0);
+      const tempPassword = /Temporary password: <strong>([^<]+)<\/strong>/.exec(mail.html)![1];
+      for (const href of hrefs) expect(href).not.toContain(tempPassword);
     });
   });
 

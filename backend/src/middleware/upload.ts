@@ -26,7 +26,9 @@ export const uploadImages = multer({
 });
 
 const ALLOWED_VIDEO_MIME_TYPES = new Set(['video/mp4', 'video/quicktime', 'video/webm']);
-export const MAX_VIDEO_FILE_SIZE_BYTES = 200 * 1024 * 1024; // 200MB
+// 100MB per video: Cloudinary's per-video upload cap on standard plans, and well inside
+// what a phone can send over a normal connection.
+export const MAX_VIDEO_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100MB
 export const MAX_IMAGE_FILE_SIZE_BYTES = MAX_FILE_SIZE_BYTES;
 
 function productMediaFileFilter(
@@ -52,7 +54,7 @@ function productMediaFileFilter(
 // once), so `.fields()` is required whenever a route accepts more than one file field.
 // The instance-wide fileSize limit has to accommodate the larger of the two (video);
 // the per-image 5MB cap is enforced explicitly in products.service.ts after upload.
-export const uploadProductMedia = multer({
+const productMediaMulter = multer({
   storage,
   fileFilter: productMediaFileFilter,
   limits: { fileSize: MAX_VIDEO_FILE_SIZE_BYTES, files: 14 },
@@ -61,6 +63,24 @@ export const uploadProductMedia = multer({
   { name: 'videos', maxCount: 3 },
   { name: 'craftImage', maxCount: 1 },
 ]);
+
+/** Multer's own errors (a video over 100 MB, too many files) become clear 400s here —
+ *  the global error handler doesn't know MulterError and would answer a generic 500. */
+export function uploadProductMedia(req: Request, res: Response, next: NextFunction): void {
+  productMediaMulter(req, res, (err: unknown) => {
+    if (err instanceof multer.MulterError) {
+      const message =
+        err.code === 'LIMIT_FILE_SIZE'
+          ? `A file is too large. Each video can be at most ${MAX_VIDEO_FILE_SIZE_BYTES / (1024 * 1024)} MB`
+          : err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE'
+            ? 'Too many files. A product allows up to 10 images and 3 videos'
+            : err.message;
+      next(AppError.badRequest(message));
+      return;
+    }
+    next(err as Error | undefined);
+  });
+}
 
 // ─── Spreadsheet uploads (product import from a Shopify/WooCommerce export) ─────
 

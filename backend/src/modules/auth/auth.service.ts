@@ -18,6 +18,7 @@ import { AuthResult, LoginInput, SessionUser, SignupBuyerInput, TokenPair } from
 
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1h
+export const PASSWORD_SETUP_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (welcome emails)
 
 export class AuthService {
   constructor(private readonly repo: AuthRepository = authRepository) {}
@@ -225,7 +226,21 @@ export class AuthService {
     });
   }
 
-  async resetPassword(id: string, token: string, newPassword: string): Promise<void> {
+  /**
+   * One-time "set your password" link for a newly approved account (seller / brand / agent).
+   * Reuses the PasswordResetToken table with a 7-day expiry. The URL carries only the token
+   * id + opaque secret, never the password. Using it clears mustChangePassword.
+   */
+  async createPasswordSetupUrl(userId: string): Promise<string> {
+    const rawToken = generateOpaqueToken();
+    const tokenHash = await hashToken(rawToken);
+    const expiresAt = new Date(Date.now() + PASSWORD_SETUP_TTL_MS);
+    const record = await this.repo.createPasswordResetToken(userId, tokenHash, expiresAt);
+    return `${env.APP_URL}/reset-password?id=${encodeURIComponent(record.id)}&token=${encodeURIComponent(rawToken)}&welcome=1`;
+  }
+
+  /** Returns the account email so the reset page can sign the user straight in. */
+  async resetPassword(id: string, token: string, newPassword: string): Promise<{ email: string }> {
     const record = await this.repo.findPasswordResetTokenById(id);
     if (!record || record.usedAt || record.expiresAt < new Date()) {
       throw AppError.badRequest('Invalid or expired reset link');
@@ -237,9 +252,10 @@ export class AuthService {
     }
 
     const passwordHash = await hashPassword(newPassword);
-    await this.repo.updateUserPassword(record.userId, passwordHash);
+    const user = await this.repo.updateUserPassword(record.userId, passwordHash);
     await this.repo.markPasswordResetTokenUsed(id);
     await this.repo.revokeAllRefreshTokensForUser(record.userId);
+    return { email: user.email };
   }
 
   /** Signed-in password change. Right after first login (temporary password) the current

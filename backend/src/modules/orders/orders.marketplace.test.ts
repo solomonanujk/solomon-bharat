@@ -16,6 +16,7 @@ vi.mock('../notifications/notifications.service', () => ({
   notificationsService: {
     notifyOrderStatusChanged: vi.fn().mockResolvedValue(undefined),
     notifyBrandNewOrder: vi.fn().mockResolvedValue(undefined),
+    notifyAdminsNewOrder: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -614,6 +615,7 @@ describe('OrdersService.markCheckoutPaid (settle + commission lock)', () => {
     const svc = service(db);
     await svc.markCheckoutPaid(['o1']);
     vi.mocked(notificationsService.notifyBrandNewOrder).mockClear();
+    vi.mocked(notificationsService.notifyAdminsNewOrder).mockClear();
     db.rawRepo.updateItemCommission.mockClear();
 
     const replay = await svc.markCheckoutPaid(['o1']);
@@ -621,6 +623,7 @@ describe('OrdersService.markCheckoutPaid (settle + commission lock)', () => {
     expect(replay).toEqual({ settledOrderIds: [], brandOrderIds: [] });
     expect(db.rawRepo.updateItemCommission).not.toHaveBeenCalled();
     expect(notificationsService.notifyBrandNewOrder).not.toHaveBeenCalled();
+    expect(notificationsService.notifyAdminsNewOrder).not.toHaveBeenCalled();
     expect(Number(db.itemRows.get('i1')!.commissionRate)).toBe(25); // first rate not recomputed as repeat
   });
 
@@ -643,6 +646,23 @@ describe('OrdersService.markCheckoutPaid (settle + commission lock)', () => {
 
     await expect(service(db).markCheckoutPaid(['o1'])).resolves.toMatchObject({ brandOrderIds: ['o1'] });
     expect(notificationsService.notifyBrandNewOrder).toHaveBeenCalledWith('o1');
+  });
+
+  it('alerts the super admins about every settled order (brand and curated), even if that alert fails', async () => {
+    const db = buildFakeDb([brandOrder('o1'), order({ id: 'cur' })], [item({ id: 'i1', orderId: 'o1' })]);
+    vi.mocked(notificationsService.notifyAdminsNewOrder).mockClear();
+    vi.mocked(notificationsService.notifyAdminsNewOrder).mockImplementation(async () => {
+      expect(db.events).toContain('tx:commit');
+      throw new Error('mail down');
+    });
+
+    const result = await service(db).markCheckoutPaid(['o1', 'cur']);
+
+    expect(result.settledOrderIds.sort()).toEqual(['cur', 'o1']);
+    expect(notificationsService.notifyAdminsNewOrder).toHaveBeenCalledWith('o1');
+    expect(notificationsService.notifyAdminsNewOrder).toHaveBeenCalledWith('cur');
+    expect(notificationsService.notifyAdminsNewOrder).toHaveBeenCalledTimes(2);
+    vi.mocked(notificationsService.notifyAdminsNewOrder).mockResolvedValue(undefined);
   });
 
   it('a failure while locking commission propagates (the whole transaction rolls back)', async () => {

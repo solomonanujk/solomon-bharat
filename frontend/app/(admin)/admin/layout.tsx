@@ -112,7 +112,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </header>
 
         {/* Page content */}
-        <main className="flex-1 min-w-0 p-8 max-lg:p-4">{children}</main>
+        <main className="flex-1 min-w-0 p-4 pb-24 lg:p-8">{children}</main>
       </div>
 
       {/* Mobile bottom tab bar */}

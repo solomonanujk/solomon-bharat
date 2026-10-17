@@ -1066,6 +1066,24 @@ describe('ProductsService', () => {
       expect(result.name).toBe('Updated Name');
     });
 
+    it('rejects a ready-stock edit with zero stock, but allows it once made to order', async () => {
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildProduct({ isMadeToOrder: false }));
+      vi.mocked(repo.findByIdWithMedia).mockResolvedValue({
+        ...withMedia(buildProduct()),
+        images: [
+          { id: 'img-1', productId: 'prod-1', url: 'x', sortOrder: 0 },
+          { id: 'img-2', productId: 'prod-1', url: 'y', sortOrder: 1 },
+        ],
+      });
+      vi.mocked(repo.update).mockResolvedValue(withMedia(buildProduct()));
+
+      await expect(service.updateProduct('seller-1', 'prod-1', { declaredStock: 0 }, [])).rejects.toThrow(/Ready stock/);
+      expect(repo.update).not.toHaveBeenCalled();
+
+      await service.updateProduct('seller-1', 'prod-1', { declaredStock: 0, isMadeToOrder: true }, []);
+      expect(repo.update).toHaveBeenCalled();
+    });
+
     it('applies a non-pricing edit to an already-approved product immediately, with no pending change', async () => {
       const live = buildProduct({ approvalStatus: ProductApprovalStatus.APPROVED });
       vi.mocked(repo.findByIdRaw).mockResolvedValue(live);

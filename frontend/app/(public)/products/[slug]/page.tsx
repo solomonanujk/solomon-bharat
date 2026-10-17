@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useEffect, useMemo } from 'react'
+import { use, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ChevronRight } from 'lucide-react'
@@ -116,6 +116,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const { data: product, isLoading, isError } = useProduct(slug)
   const { data: categoryTree } = useCategoryTree()
   const { track } = useRecentlyViewed()
+  // Set when the buyer picks a colour/option with a photo; the nonce lets a
+  // repeat click on the same swatch re-focus it after the buyer has swiped away.
+  const [focusImage, setFocusImage] = useState<{ url: string; nonce: number } | null>(null)
 
   useEffect(() => {
     if (!product) return
@@ -166,7 +169,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     )
   }
 
-  const images = [...(product.images ?? [])].sort((a, b) => a.sortOrder - b.sortOrder).map((img) => img.url)
+  const productImages = [...(product.images ?? [])].sort((a, b) => a.sortOrder - b.sortOrder).map((img) => img.url)
+  // Variant photos that aren't already among the product photos are appended,
+  // so selecting that option always has a slide to show.
+  const images = [...productImages]
+  for (const v of product.variants ?? []) {
+    if (v.status !== 'INACTIVE' && v.imageUrl && !images.includes(v.imageUrl)) images.push(v.imageUrl)
+  }
   const categoryName = categoryPath.length ? categoryPath[categoryPath.length - 1].name : null
 
   const crumbLink =
@@ -217,12 +226,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           {/* Gallery : details = 1.1 : 1, 56px gap; stacked with 32px gap below 1024px */}
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] gap-8 lg:gap-14 lg:items-start">
             <div className="min-w-0 lg:sticky lg:top-[136px]">
-              <PhotoGallery images={images} productName={product.name} />
+              <PhotoGallery images={images} productName={product.name} focusImage={focusImage} />
               <ProductVideoStrip videos={product.videos ?? []} productName={product.name} />
             </div>
 
             <div className="min-w-0">
-              <ProductInfo product={product} categoryName={categoryName} />
+              <ProductInfo
+                product={product}
+                categoryName={categoryName}
+                onVariantImage={(url) => setFocusImage((prev) => ({ url, nonce: (prev?.nonce ?? 0) + 1 }))}
+              />
             </div>
           </div>
         </div>
