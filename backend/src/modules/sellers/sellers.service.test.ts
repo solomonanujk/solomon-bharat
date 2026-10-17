@@ -64,6 +64,9 @@ function buildApplication(overrides: Partial<SellerApplication> = {}): SellerApp
     hearAboutUs: null,
     agreedToCommissionTerms: true,
     sellerType: SellerType.CURATED,
+    isFavourite: false,
+    favouritedById: null,
+    favouritedAt: null,
     brandName: null,
     brandLogoUrl: null,
     brandBannerUrl: null,
@@ -97,6 +100,7 @@ function buildMockRepo(): SellersRepository {
     findApplicationById: vi.fn(),
     findLatestApplicationByEmail: vi.fn(),
     findApplications: vi.fn(),
+    setApplicationFavourite: vi.fn(),
     updateApplication: vi.fn(),
     findUserByEmail: vi.fn(),
     createSellerUserAndProfile: vi.fn(),
@@ -418,6 +422,31 @@ describe('SellersService', () => {
         { status: SellerApplicationStatus.PENDING },
         { page: 1, limit: 20 },
       );
+    });
+
+    it('listApplications passes the favourite filter through', async () => {
+      vi.mocked(repo.findApplications).mockResolvedValue({ data: [], total: 0 });
+
+      await service.listApplications({ favourite: true }, { page: 1, limit: 20 });
+
+      expect(repo.findApplications).toHaveBeenCalledWith({ favourite: true }, { page: 1, limit: 20 });
+    });
+
+    it('setApplicationFavourite stars an application, and unstarring clears who starred it', async () => {
+      vi.mocked(repo.findApplicationById).mockResolvedValue(buildApplication());
+      vi.mocked(repo.setApplicationFavourite).mockResolvedValue(buildApplication({ isFavourite: true }));
+
+      await service.setApplicationFavourite('app-1', true, 'admin-1');
+      expect(repo.setApplicationFavourite).toHaveBeenCalledWith('app-1', true, 'admin-1');
+
+      await service.setApplicationFavourite('app-1', false, 'admin-1');
+      expect(repo.setApplicationFavourite).toHaveBeenLastCalledWith('app-1', false, 'admin-1');
+    });
+
+    it('setApplicationFavourite throws 404 for an application that does not exist', async () => {
+      vi.mocked(repo.findApplicationById).mockResolvedValue(null);
+
+      await expect(service.setApplicationFavourite('missing', true, 'admin-1')).rejects.toMatchObject({ statusCode: 404 });
     });
 
     it('getApplicationDetail throws 404 for an application that does not exist', async () => {

@@ -5,6 +5,7 @@ import { sendCreated, sendSuccess } from '../../utils/response';
 import { buildPaginationMeta } from '../../utils/pagination';
 import { sellersService } from './sellers.service';
 import {
+  FavouriteApplicationDto,
   AddNoteDto,
   ApplicationListQueryDto,
   RejectApplicationDto,
@@ -21,9 +22,15 @@ export const sellersController = {
   },
 
   async listApplications(req: Request, res: Response): Promise<void> {
-    const { status, search, ...pagination } = req.query as unknown as ApplicationListQueryDto;
-    const { data, total } = await sellersService.listApplications({ status, search }, pagination);
+    const { status, search, favourite, ...pagination } = req.query as unknown as ApplicationListQueryDto;
+    const { data, total } = await sellersService.listApplications({ status, search, favourite }, pagination);
     sendSuccess(res, data, 'Applications retrieved', 200, buildPaginationMeta(total, pagination));
+  },
+
+  async setApplicationFavourite(req: Request, res: Response): Promise<void> {
+    const { favourite } = req.body as FavouriteApplicationDto;
+    const application = await sellersService.setApplicationFavourite(req.params.id, favourite, req.user!.id);
+    sendSuccess(res, application, favourite ? 'Added to favourites' : 'Removed from favourites');
   },
 
   async getApplication(req: Request, res: Response): Promise<void> {

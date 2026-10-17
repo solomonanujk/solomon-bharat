@@ -28,6 +28,7 @@ export class SellersRepository {
     // With no status chosen, approved applications are left out: they live in Sellers now.
     const where: Prisma.SellerApplicationWhereInput = {
       status: filter.status ?? { not: 'APPROVED' },
+      ...(filter.favourite ? { isFavourite: true } : {}),
       ...(filter.search
         ? {
             OR: [
@@ -41,12 +42,25 @@ export class SellersRepository {
     const [data, total] = await Promise.all([
       this.db.sellerApplication.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        // Starred applications first, then newest.
+        orderBy: [{ isFavourite: 'desc' }, { createdAt: 'desc' }],
         ...toSkipTake(pagination),
       }),
       this.db.sellerApplication.count({ where }),
     ]);
     return { data, total };
+  }
+
+  /** Stars or unstars an application (admin shortlist). */
+  setApplicationFavourite(id: string, favourite: boolean, adminId: string): Promise<SellerApplication> {
+    return this.db.sellerApplication.update({
+      where: { id },
+      data: {
+        isFavourite: favourite,
+        favouritedById: favourite ? adminId : null,
+        favouritedAt: favourite ? new Date() : null,
+      },
+    });
   }
 
   /** Lower-cased emails that already have a seller application or any account. */
