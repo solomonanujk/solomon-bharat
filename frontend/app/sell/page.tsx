@@ -9,7 +9,6 @@ import { NavBar } from '@/components/shared/NavBar'
 import { Footer } from '@/components/shared/Footer'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/store/useAuthStore'
-import { MARKETPLACE_COMMISSION } from '@/lib/sellerCommission'
 
 // The seller application itself lives at /apply (multi-step wizard). Every
 // "Apply as a seller" CTA on this page links there.
@@ -20,9 +19,7 @@ const APPLY_HREF = '/apply'
 const COUNTRY_COUNT_LABEL = '40+'
 // CONFIRM: application review turnaround (also stated in /apply).
 const REVIEW_TIME_LABEL = '24–48 hours'
-// CONFIRM: "free to apply / no listing fees" fee claim. The application form
-// (components/apply/Step4FinalDetails.tsx) states a commission on orders, so
-// this page no longer says "no commission" — only that applying and listing are free.
+// CONFIRM: "free to apply / no listing fees" fee claim.
 const FEE_LABEL = 'Free to apply and list'
 // CONFIRM: payout timing after dispatch.
 const PAYOUT_TIMING = 'when the order is dispatched'
@@ -127,7 +124,7 @@ const STEPS = [
   {
     title: 'Add products, ship orders',
     // CONFIRM: payout timing
-    body: `Once approved, add products in your seller portal: curated products are reviewed before they go live, and brands publish their own. Brands accept each order within 24 hours and ship it with dispatch photos; for curated orders we collect the goods from you. We pay you ${PAYOUT_TIMING}.`,
+    body: `Once approved, add products in your seller portal: we review and price each one before it goes live. When an order comes in we collect the goods from you. We pay you ${PAYOUT_TIMING}.`,
   },
 ]
 
@@ -158,13 +155,7 @@ function ProcessBand() {
 
 // ─── Two ways to sell ─────────────────────────────────────────────────────────
 
-// CONFIRM: all commission figures come from lib/sellerCommission.ts (owner to confirm).
 const WAYS_TO_SELL = [
-  {
-    title: 'Independent brand',
-    body: 'Sell under your own brand. You set your prices and minimum order value, publish your own products and ship to the buyer yourself. Buyers see your brand name on your products.',
-    fee: `Solomon charges ${MARKETPLACE_COMMISSION.first}% on each buyer's first order with you and ${MARKETPLACE_COMMISSION.repeat}% on that buyer's later orders, and 0% on buyers you invite yourself.`,
-  },
   {
     title: 'Curated by Solomon Bharat',
     body: 'You tell us the price you want for each product. We sell it to international buyers under the Solomon name, collect it from you, quality-check it in Jaipur and ship it.',
@@ -177,14 +168,14 @@ function WaysToSellSection() {
     <section className="bg-white sb-section">
       <div className="sb-container">
         <div className="max-w-[660px]">
-          <p className="type-eyebrow text-brass-deep">Two ways to sell</p>
-          <h2 className="type-h2 text-ink mt-3">Apply once. We find the right fit.</h2>
+          <p className="type-eyebrow text-brass-deep">How selling works</p>
+          <h2 className="type-h2 text-ink mt-3">Curated by Solomon Bharat.</h2>
           <p className="type-body text-muted mt-4">
-            You don&apos;t have to choose. Fill in one application; our team reviews your products and presence and sets
-            you up the way that suits you best. Applying is free.
+            Fill in one application; our team reviews your products and, if selected, lists them for international
+            wholesale buyers. Applying is free.
           </p>
         </div>
-        <div className="mt-6 lg:mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="mt-6 lg:mt-8 grid grid-cols-1 gap-6">
           {WAYS_TO_SELL.map(({ title, body, fee }) => (
             <div key={title} className="border border-line rounded-[6px] p-6 bg-white">
               <h3 className="type-h3 text-ink">{title}</h3>
@@ -208,11 +199,11 @@ const WHY_ITEMS = [
   },
   {
     title: 'You set the price',
-    body: 'On the marketplace you set your own prices. On the curated path you tell us what you want for each product and, if it\'s approved and someone orders it, we pay you that price for every unit ordered.',
+    body: 'You tell us what you want for each product and, if it\'s approved and someone orders it, we pay you that price for every unit ordered.',
   },
   {
     title: 'We collect the payment — you don\'t chase it',
-    body: 'Buyers pay through Solomon Bharat, so you never chase an overseas retailer for payment. Curated products are sold under the Solomon Bharat name; marketplace brands ship their own orders and are paid out after commission.',
+    body: 'Buyers pay through Solomon Bharat, so you never chase an overseas retailer for payment. Products are sold under the Solomon Bharat name.',
   },
   {
     title: 'The application is short — no documents needed',
@@ -260,7 +251,7 @@ function WhySection() {
 const PRICING_POINTS = [
   FEE_LABEL,
   'You set your price per product — no bidding, no negotiation',
-  'Marketplace: you are paid your price less commission. Curated: you are paid your price',
+  'You are paid the price you asked for, with no commission',
   'We collect the buyer\'s payment and handle the international transfer',
 ]
 
@@ -271,13 +262,10 @@ function PricingSection() {
         <div className="max-w-[660px]">
           <p className="type-eyebrow text-brass-dark">How you get paid</p>
           <h2 className="type-h2 text-ink mt-3">You set the price. We pay you.</h2>
-          {/* CONFIRM: fee claim — "no listing fees, no subscriptions" and the commission
-              figures (lib/sellerCommission.ts). Commission terms are shown in the application. */}
+          {/* CONFIRM: fee claim — "no listing fees, no subscriptions". */}
           <p className="type-body text-muted mt-4">
-            There are no listing fees and no subscriptions. Independent brands keep the price they set minus
-            Solomon&apos;s commission ({MARKETPLACE_COMMISSION.first}% on a buyer&apos;s first order, {MARKETPLACE_COMMISSION.repeat}%
-            on that buyer&apos;s later orders, 0% on buyers they invite). Curated sellers are paid the price they asked for, with no commission.
-            Commission terms are set out in the application before you submit.
+            There are no listing fees and no subscriptions. Sellers are paid the price they asked for, with no
+            commission. The Seller Agreement is shown in the application before you submit.
           </p>
           <ul className="mt-6 flex flex-col gap-3">
             {PRICING_POINTS.map((text) => (
@@ -502,16 +490,16 @@ const FAQS = [
   },
   {
     q: 'Is there any cost to join?',
-    // CONFIRM: fee claim. Commission figures live in the application (step 4).
-    a: `Applying is free and listing is free. Independent brands pay ${MARKETPLACE_COMMISSION.first}% commission on each buyer's first order and ${MARKETPLACE_COMMISSION.repeat}% on that buyer's later orders, and 0% on buyers they invite themselves. Curated sellers pay no commission: we pay the price they asked for. You accept the Seller Agreement before you submit.`,
+    // CONFIRM: fee claim.
+    a: 'Applying is free and listing is free. There is no commission: we pay the price you asked for. You accept the Seller Agreement before you submit.',
   },
   {
     q: 'How does pricing work?',
-    a: 'On the marketplace you set the price buyers pay, and your minimum order value. On the curated path you set the price you want to receive; if we approve the product and an order comes in, we pay you that amount, and we set the price buyers pay.',
+    a: 'You set the price you want to receive; if we approve the product and an order comes in, we pay you that amount, and we set the price buyers pay.',
   },
   {
     q: 'Do I have to talk to the buyers myself?',
-    a: 'It depends how you sell. On the curated path, Solomon Bharat is the seller buyers contract with, so you never deal with a foreign buyer directly. On the marketplace you sell under your own brand and ship your orders to the buyer yourself; Solomon still collects the payment, so you never chase an overseas retailer for it.',
+    a: 'No. Solomon Bharat is the seller buyers contract with, so you never deal with a foreign buyer directly, and Solomon collects the payment, so you never chase an overseas retailer for it.',
   },
   {
     q: 'Can I sell on other platforms at the same time?',

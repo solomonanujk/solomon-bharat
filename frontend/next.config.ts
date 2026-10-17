@@ -1,6 +1,18 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // The marketplace (brand) model was removed in Oct 2026: old brand storefront and brand
+  // invite links go to the catalogue; the old seller-portal brand pages go to the dashboard.
+  async redirects() {
+    return [
+      { source: '/brands', destination: '/products', permanent: false },
+      { source: '/brands/:path*', destination: '/products', permanent: false },
+      { source: '/invite/:code', destination: '/signup', permanent: false },
+      { source: '/portal/brand', destination: '/portal', permanent: false },
+      { source: '/portal/invite', destination: '/portal', permanent: false },
+      { source: '/admin/brands', destination: '/admin/sellers', permanent: false },
+    ]
+  },
   experimental: {
     workerThreads: false,
     cpus: 1,

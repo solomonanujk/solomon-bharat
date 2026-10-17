@@ -25,9 +25,9 @@ interface TierTableProps {
   showAdminPricing?: boolean
   /** Locked by a pending pricing review: values stay visible, nothing can be changed. */
   disabled?: boolean
-  /** Set by the brand (admin view): values visible, no editing and no add/remove. */
+  /** Read-only view: values visible, no editing and no add/remove. */
   readOnly?: boolean
-  /** Brand ladders are capped; Add is disabled at the cap. */
+  /** Optional cap on the number of tiers; Add is disabled at the cap. */
   maxTiers?: number
   onApplyToAll?: () => void
 }

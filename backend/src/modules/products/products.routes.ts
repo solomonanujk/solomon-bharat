@@ -23,7 +23,6 @@ import {
   requireAdmin,
   requireAuth,
   requireBuyerOrAgent,
-  requireMarketplaceSeller,
   requireSeller,
   optionalAuth,
   requireRole,
@@ -150,40 +149,6 @@ productsRouter.post(
   requireSeller,
   validate(idParamSchema, 'params'),
   asyncHandler(productsController.resubmit),
-);
-
-/**
- * @openapi
- * /products/me/{id}/publish:
- *   post:
- *     summary: Re-publish one of my own approved products (marketplace brand SELLER only)
- *     tags: [Products]
- *     responses:
- *       200: { description: Product published }
- */
-productsRouter.post(
-  '/me/:id/publish',
-  requireAuth,
-  requireMarketplaceSeller,
-  validate(idParamSchema, 'params'),
-  asyncHandler(productsController.publishMine),
-);
-
-/**
- * @openapi
- * /products/me/{id}/unpublish:
- *   post:
- *     summary: Take one of my own products off the marketplace (marketplace brand SELLER only)
- *     tags: [Products]
- *     responses:
- *       200: { description: Product unpublished }
- */
-productsRouter.post(
-  '/me/:id/unpublish',
-  requireAuth,
-  requireMarketplaceSeller,
-  validate(idParamSchema, 'params'),
-  asyncHandler(productsController.unpublishMine),
 );
 
 /**
@@ -538,18 +503,7 @@ productsRouter.post(
  *       - in: query
  *         name: search
  *         schema: { type: string }
- *         description: Global search (name/description/materials/brand name) — doesn't need categoryId/collectionId.
- *       - in: query
- *         name: brand
- *         schema: { type: string }
- *         description: Brand slug — a valid scope on its own (brand storefront). Cannot be combined with curated=true (400). Agents always get an empty list.
- *       - in: query
- *         name: curated
- *         schema: { type: boolean }
- *         description: >
- *           curated=true returns only Solomon-curated products (no marketplace brands). Not a scope on its own —
- *           a category, collection, search, sort or brand is still required. curated=true with brand returns 400
- *           ("Choose either curated or a brand"). Honoured by sort=trending too. curated=false/absent = no filter.
+ *         description: Global search (name/description/materials) — doesn't need categoryId/collectionId.
  *       - in: query
  *         name: sort
  *         schema: { type: string, enum: [newest, featured, trending] }
@@ -557,11 +511,10 @@ productsRouter.post(
  *     description: >
  *       Guests (no/invalid token) and sellers get every price field (adminPrice, agentPrice,
  *       per-tier and per-variant prices) as null. minPrice/maxPrice are rejected for them.
- *       AGENT viewers only ever see Solomon-curated products (marketplace brand products are hidden).
- *       sort=trending ignores the other filters except curated.
+ *       sort=trending ignores the other filters.
  *     responses:
  *       200: { description: Products list }
- *       400: { description: None of categoryId, collectionId, search, sort or brand was supplied, curated combined with brand, or a price filter was sent without buyer/agent auth }
+ *       400: { description: None of categoryId, collectionId, search or sort was supplied, or a price filter was sent without buyer/agent auth }
  */
 productsRouter.get(
   '/',
@@ -595,7 +548,7 @@ productsRouter.get(
  * @openapi
  * /products/facets/place-of-origin:
  *   get:
- *     summary: Distinct real placeOfOrigin values among published products (public; agents see curated products' values only) — powers the "Made in" filter's checkbox list
+ *     summary: Distinct real placeOfOrigin values among published products (public) — powers the "Made in" filter's checkbox list
  *     tags: [Products]
  *     security: []
  *     responses:
@@ -611,26 +564,13 @@ productsRouter.get(
 
 /**
  * @openapi
- * /products/facets/brands:
- *   get:
- *     summary: Active marketplace brands with their published product count (public; always [] for agents) — powers the brand filter
- *     tags: [Products]
- *     security: []
- *     responses:
- *       200: { description: "List of { slug, name, count }" }
- */
-// Registered before /:slug for the same reason as /facets/place-of-origin above.
-productsRouter.get('/facets/brands', optionalAuth, asyncHandler(productsController.listBrandFacets));
-
-/**
- * @openapi
  * /products/{slug}:
  *   get:
- *     summary: Get published product detail (public; 404 for brand products when the viewer is an agent; all prices null for guests, agentPrice too when the viewer is an authenticated agent)
+ *     summary: Get published product detail (public; all prices null for guests, agentPrice too when the viewer is an authenticated agent)
  *     tags: [Products]
  *     security: []
  *     responses:
- *       200: { description: Product detail with related products and, for brand products, moreFromBrand }
+ *       200: { description: Product detail with related products }
  *       404: { description: Product not found }
  */
 productsRouter.get(

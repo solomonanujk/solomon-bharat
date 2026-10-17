@@ -365,7 +365,7 @@ function PricingSection() {
 // ─── Agent portal features ────────────────────────────────────────────────────
 
 const PORTAL_FEATURES = [
-  { Icon: FileText, title: 'Catalogue builder', body: 'Curate products from across the marketplace into your own branded PDF catalogues in a few clicks.' },
+  { Icon: FileText, title: 'Catalogue builder', body: 'Curate products from across the catalogue into your own branded PDF catalogues in a few clicks.' },
   { Icon: Share2, title: 'Share anywhere', body: 'Send catalogues and individual products straight to customers over WhatsApp, Instagram, or any channel.' },
   { Icon: ShoppingBag, title: 'Order on their behalf', body: 'Place orders for your customers directly through your portal at your agent price.' },
   { Icon: Bell, title: 'Real-time notifications', body: 'Get notified the moment an order you placed is confirmed, shipped, or delivered.' },

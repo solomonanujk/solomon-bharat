@@ -73,7 +73,7 @@ export function StepField({
   )
 }
 
-/** 48px variants for the marketplace path. */
+/** 48px input variants. */
 export const APPLY_INPUT_LG_CLS = APPLY_INPUT_CLS.replace('h-11', 'h-12')
 export const APPLY_SELECT_LG_CLS = APPLY_SELECT_CLS.replace('h-11', 'h-12')
 

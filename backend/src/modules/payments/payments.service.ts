@@ -7,7 +7,7 @@ import { fxProvider } from '../../providers/fx';
 import { prisma } from '../../config/prisma';
 import { OrdersService, ordersService } from '../orders/orders.service';
 import { PricingRole } from '../orders/orders.types';
-import { fromPaise, splitProRata, toPaise } from '../orders/commission';
+import { fromPaise, splitProRata, toPaise } from '../orders/money';
 import { PaymentsRepository, paymentsRepository } from './payments.repository';
 import {
   CaptureResult,
@@ -91,7 +91,7 @@ export class PaymentsService {
 
   /**
    * Admin confirms a bank transfer for a whole checkout. Runs the same settle path as an online
-   * capture (orders -> PAYMENT_RECEIVED, brand commission locked). Idempotent.
+   * capture (orders -> PAYMENT_RECEIVED). Idempotent.
    */
   async markCheckoutPaidManually(checkoutId: string, reference: string, adminId: string): Promise<{ settled: number }> {
     const payments = await this.repo.findByCheckoutId(checkoutId);
@@ -125,7 +125,7 @@ export class PaymentsService {
 
   /**
    * The single settle function shared by capture and the PayPal webhook. Completes the Payment
-   * rows and moves every sibling order to PAYMENT_RECEIVED (locking brand commission) in one DB
+   * rows and moves every order of the checkout to PAYMENT_RECEIVED in one DB
    * transaction. Idempotent: a replay finds nothing left to change.
    */
   private async settle(payments: Payment[], providerPaymentId: string, raw: unknown): Promise<void> {
@@ -275,7 +275,7 @@ export class PaymentsService {
       invoiceNumber: `SB-${orderRecord.id.slice(0, 8).toUpperCase()}`,
       orderId: orderRecord.id,
       issuedAt: orderRecord.createdAt,
-      // Brand orders are sold by the brand (Solomon only facilitates the payment); curated stay Solomon.
+      // Historical marketplace-brand orders (model removed Oct 2026) were sold by the brand, with Solomon facilitating; all current orders are sold by Solomon.
       soldBy: brand ? (brand.legalName ?? brand.name) : SOLOMON_LEGAL_NAME,
       ...(brand ? { facilitatedBy: SOLOMON_LEGAL_NAME } : {}),
       buyerEmail: orderRecord.buyer.user.email,

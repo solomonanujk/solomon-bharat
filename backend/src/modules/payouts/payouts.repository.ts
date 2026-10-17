@@ -1,4 +1,4 @@
-import { OrderStatus, Payout, PayoutStatus, Prisma, PrismaClient, SellerType } from '@prisma/client';
+import { Payout, PayoutStatus, Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { PaginationQuery, toSkipTake } from '../../utils/pagination';
 import { PayoutListFilter } from './payouts.types';
@@ -27,68 +27,6 @@ export class PayoutsRepository {
         amount: item.lineSellerTotal,
         status: PayoutStatus.PENDING,
       })),
-    });
-  }
-
-  /** Brand order: one PENDING payout per item; amount is the NET, with the gross/commission breakdown. */
-  async createManyForBrandOrder(orderId: string): Promise<void> {
-    const items = await this.db.orderItem.findMany({ where: { orderId } });
-    if (items.length === 0) return;
-
-    await this.db.payout.createMany({
-      data: items.map((item) => ({
-        sellerId: item.sellerId,
-        orderId,
-        orderItemId: item.id,
-        amount: item.lineSellerTotal,
-        grossAmount: item.lineAdminTotal,
-        commissionRate: item.commissionRate,
-        commissionAmount: item.commissionAmount,
-        status: PayoutStatus.PENDING,
-      })),
-      skipDuplicates: true,
-    });
-  }
-
-  findOrderForPayout(orderId: string) {
-    return this.db.order.findUnique({ where: { id: orderId }, select: { id: true, sellerProfileId: true } });
-  }
-
-  async sumCommissionForSeller(sellerId: string): Promise<number> {
-    const result = await this.db.payout.aggregate({ where: { sellerId }, _sum: { commissionAmount: true } });
-    return Number(result._sum.commissionAmount ?? 0);
-  }
-
-  /** Orders that count as sales for a brand: paid and not cancelled. */
-  findPaidOrdersForBrand(sellerProfileId: string, since?: Date) {
-    return this.db.order.findMany({
-      where: {
-        sellerProfileId,
-        deletedAt: null,
-        status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED, OrderStatus.REFUNDED] },
-        ...(since ? { createdAt: { gte: since } } : {}),
-      },
-      select: { createdAt: true, adminPriceTotal: true },
-    });
-  }
-
-  findPaidItemsForBrand(sellerProfileId: string) {
-    return this.db.orderItem.findMany({
-      where: {
-        order: {
-          sellerProfileId,
-          deletedAt: null,
-          status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED, OrderStatus.REFUNDED] },
-        },
-      },
-      select: {
-        productId: true,
-        quantity: true,
-        lineAdminTotal: true,
-        lineSellerTotal: true,
-        commissionAmount: true,
-        product: { select: { name: true } },
-      },
     });
   }
 
@@ -124,7 +62,7 @@ export class PayoutsRepository {
     filter: PayoutListFilter,
     pagination: PaginationQuery,
   ): Promise<{
-    data: (Payout & { seller: { businessName: string; sellerType: SellerType; brand: { name: string } | null } })[];
+    data: (Payout & { seller: { businessName: string } })[];
     total: number;
   }> {
     const where: Prisma.PayoutWhereInput = {
@@ -135,7 +73,7 @@ export class PayoutsRepository {
       this.db.payout.findMany({
         where,
         include: {
-          seller: { select: { businessName: true, sellerType: true, brand: { select: { name: true } } } },
+          seller: { select: { businessName: true } },
         },
         orderBy: { createdAt: 'desc' },
         ...toSkipTake(pagination),

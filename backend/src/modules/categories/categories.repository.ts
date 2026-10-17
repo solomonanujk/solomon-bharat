@@ -1,4 +1,4 @@
-import { BrandStatus, Category, CategoryStatus, Prisma, PrismaClient } from '@prisma/client';
+import { Category, CategoryStatus, Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { CreateCategoryInput, ReorderItem, UpdateCategoryInput } from './categories.types';
 
@@ -62,33 +62,26 @@ export class CategoriesRepository {
     );
   }
 
-  /** Public (published-only) counts hide suspended brands' products for everyone; agents
-   *  additionally see curated products only. Admin/internal counts (publishedOnly=false) are untouched. */
-  private visibilityWhere(publishedOnly: boolean, curatedOnly: boolean): Prisma.ProductWhereInput {
-    if (!publishedOnly) return {};
-    return {
-      isPublished: true,
-      ...(curatedOnly
-        ? { brandId: null }
-        : { OR: [{ brandId: null }, { brand: { status: BrandStatus.ACTIVE } }] }),
-    };
+  /** Public counts include published products only. Admin/internal counts (publishedOnly=false) are untouched. */
+  private visibilityWhere(publishedOnly: boolean): Prisma.ProductWhereInput {
+    return publishedOnly ? { isPublished: true } : {};
   }
 
-  countProductsInCategories(categoryIds: string[], publishedOnly = false, curatedOnly = false): Promise<number> {
+  countProductsInCategories(categoryIds: string[], publishedOnly = false): Promise<number> {
     if (categoryIds.length === 0) return Promise.resolve(0);
     return this.db.product.count({
       where: {
         categoryId: { in: categoryIds },
         deletedAt: null,
-        ...this.visibilityWhere(publishedOnly, curatedOnly),
+        ...this.visibilityWhere(publishedOnly),
       },
     });
   }
 
-  async groupProductCounts(publishedOnly = false, curatedOnly = false): Promise<Map<string, number>> {
+  async groupProductCounts(publishedOnly = false): Promise<Map<string, number>> {
     const rows = await this.db.product.groupBy({
       by: ['categoryId'],
-      where: { deletedAt: null, ...this.visibilityWhere(publishedOnly, curatedOnly) },
+      where: { deletedAt: null, ...this.visibilityWhere(publishedOnly) },
       _count: { _all: true },
     });
     return new Map(rows.map((row) => [row.categoryId, row._count._all]));

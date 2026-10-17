@@ -2,7 +2,7 @@ import { COMPANY, type LegalDocument } from './types'
 
 export const PRIVACY: LegalDocument = {
   title: 'Privacy Policy',
-  updated: '13 October 2026',
+  updated: '17 October 2026',
   intro: `${COMPANY.name} ("we") is the controller of the personal data collected through this Platform. This policy explains what we collect, why, and your rights, including under the UK GDPR, EU GDPR and India's Digital Personal Data Protection Act 2023.`,
   sections: [
     {
@@ -33,8 +33,7 @@ export const PRIVACY: LegalDocument = {
       heading: 'Who we share it with',
       body: [
         [
-          'Marketplace brands receive the buyer and delivery details of orders placed with them, so they can fulfil them.',
-          'Curated sellers receive only the products ordered, never buyer details.',
+          'Sellers receive only the products ordered, never buyer details.',
           'Logistics partners, payment providers, email and WhatsApp providers, cloud hosting and image storage, under contract.',
           'Authorities where the law requires it.',
         ],

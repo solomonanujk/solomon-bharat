@@ -1,6 +1,5 @@
 import { spreadsheetKindFromFilename } from '../../middleware/upload';
 import { AppError } from '../../utils/errors';
-import { SellerType } from '@prisma/client';
 import { Request, Response } from 'express';
 import { sendCreated, sendSuccess } from '../../utils/response';
 import { buildPaginationMeta } from '../../utils/pagination';
@@ -33,8 +32,7 @@ export const sellersController = {
   },
 
   async approveApplication(req: Request, res: Response): Promise<void> {
-    const { sellerType } = (req.body ?? {}) as { sellerType?: SellerType };
-    const result = await sellersService.approveApplication(req.params.id, req.user!.id, sellerType);
+    const result = await sellersService.approveApplication(req.params.id, req.user!.id);
     sendSuccess(res, result, 'Seller application approved');
   },
 
@@ -79,18 +77,13 @@ export const sellersController = {
     sendSuccess(res, null, 'Application deleted');
   },
 
-  async switchSellerType(req: Request, res: Response): Promise<void> {
-    const result = await sellersService.switchSellerType(req.user!.id, req.params.id, req.body.sellerType, req.body.brandName);
-    sendSuccess(res, result, 'Seller type changed');
-  },
-
   async setInternalRating(req: Request, res: Response): Promise<void> {
     const profile = await sellersService.setInternalRating(req.user!.id, req.params.id, req.body);
     sendSuccess(res, profile, 'Internal rating saved');
   },
 
   async getMyProfile(req: Request, res: Response): Promise<void> {
-    const profile = await sellersService.getMyProfileWithBrand(req.user!.id);
+    const profile = await sellersService.getMyProfile(req.user!.id);
     sendSuccess(res, profile);
   },
 

@@ -33,7 +33,7 @@ import { downloadOrderDocument } from '@/lib/downloadOrderDocument'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { cn, formatCurrency } from '@/lib/utils'
 import type { OrderStatus } from '@/types'
-import type { AdminOrderBrandFields } from '@/types/brand-admin'
+import type { AdminOrderFields } from '@/types/order-extras'
 
 // ─── Lifecycle map ────────────────────────────────────────────────────────────
 // Only the single "next step" action is offered for a given status — no
@@ -171,15 +171,10 @@ export default function AdminOrderDetailPage() {
     )
   }
 
-  const brandInfo = order as typeof order & AdminOrderBrandFields
-  const isBrandOrder = !!brandInfo.sellerProfileId
-  const brandName = brandInfo.sellerProfile?.brand?.name ?? 'the brand'
-  // Brand orders are driven by the brand: the admin pipeline refuses to move them.
-  // The backend still allows an admin cancel, but only before fulfilment starts.
-  const nextAction = isBrandOrder ? undefined : NEXT_ACTION[order.status]
-  const canCancel = isBrandOrder
-    ? order.status === 'PAYMENT_RECEIVED' || order.status === 'CONFIRMED'
-    : CANCELLABLE_STATUSES.includes(order.status)
+  // Historical marketplace-brand orders (model removed Oct 2026) run through the same admin pipeline.
+  const isFormerMarketplaceOrder = !!(order as typeof order & AdminOrderFields).sellerProfileId
+  const nextAction = NEXT_ACTION[order.status]
+  const canCancel = CANCELLABLE_STATUSES.includes(order.status)
   const anyActionPending =
     confirmOrder.isPending ||
     procureOrder.isPending ||
@@ -291,9 +286,9 @@ export default function AdminOrderDetailPage() {
           <p className="text-[14px] font-sans text-[#183D33B3] mt-1">
             Placed {formatDate(order.createdAt, { day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
-          {isBrandOrder && (
+          {isFormerMarketplaceOrder && (
             <span className="mt-2 inline-flex items-center rounded-full bg-selected px-2.5 py-1 text-[12px] font-[600] font-sans text-forest">
-              Marketplace &middot; {brandName}
+              Former marketplace order
             </span>
           )}
         </div>
@@ -332,24 +327,6 @@ export default function AdminOrderDetailPage() {
           )}
         </div>
       </div>
-
-      {isBrandOrder && (
-        <div className="mb-5 rounded-xl border border-line bg-ivory px-5 py-4" role="note">
-          <p className="text-[13.5px] font-sans text-ink">
-            This order is fulfilled by <strong>{brandName}</strong>. The brand confirms, ships and delivers it, so the admin
-            procurement pipeline is not available here.
-            {order.status === 'PAYMENT_RECEIVED' || order.status === 'CONFIRMED'
-              ? ' You can still cancel it before it ships.'
-              : ''}
-          </p>
-          {brandInfo.checkoutId && (
-            <p className="text-[12.5px] font-sans text-muted mt-1.5">
-              Part of checkout <span className="font-mono">{brandInfo.checkoutId.slice(-8).toUpperCase()}</span>; sibling
-              orders from the same payment share this reference.
-            </p>
-          )}
-        </div>
-      )}
 
       <div className="space-y-5">
         {/* Order summary */}

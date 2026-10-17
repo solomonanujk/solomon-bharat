@@ -1,7 +1,6 @@
 'use client'
 
 import { BUSINESS_TYPE_OPTIONS, HEAR_ABOUT_US_OPTIONS } from '@/lib/sellerApplicationOptions'
-import { MARKETPLACE_COMMISSION } from '@/lib/sellerCommission'
 import { SELLER_AGREEMENT_VERSION } from '@/lib/legal/sellerAgreement'
 import { APPLY_SELECT_CLS, APPLY_TEXTAREA_CLS, ChoicePill, RequiredMark, StepField, StepHeader } from './shared'
 import type { StepProps } from './types'
@@ -9,7 +8,7 @@ import type { StepProps } from './types'
 export function Step4FinalDetails({ data, patch }: StepProps) {
   return (
     <div className="flex flex-col gap-6">
-      <StepHeader step={4} title="Final details" subtitle="About you & commission" />
+      <StepHeader step={4} title="Final details" subtitle="About you & agreement" />
 
       <div>
         <p className="text-[13.5px] font-[600] font-sans text-primary mb-2.5">
@@ -45,11 +44,9 @@ export function Step4FinalDetails({ data, patch }: StepProps) {
       <div className="rounded-lg p-4 bg-muted-bg border border-border-warm">
         <p className="font-sans text-[13.5px] font-[700] text-primary mb-1.5">How selling works — please read</p>
         <p className="font-sans text-[13px] leading-[1.6] text-muted-text">
-          After reviewing your application, our team assigns you one of two ways to sell.{' '}
-          <strong className="text-primary">Curated by Solomon</strong>: we buy your products at your price and sell them
-          under the Solomon name, with no commission. <strong className="text-primary">Marketplace brand</strong>: you sell
-          under your own brand and set your prices; we charge {MARKETPLACE_COMMISSION.first}% on a buyer&apos;s first order
-          with you and {MARKETPLACE_COMMISSION.repeat}% after, and 0% on buyers you bring yourself. No listing or monthly fees.
+          <strong className="text-primary">Curated by Solomon</strong>: if you are selected, we list your products, set
+          the buyer price, handle orders and quality checks, and pay you the price you asked for. There is no commission,
+          and no listing or monthly fees.
         </p>
       </div>
 

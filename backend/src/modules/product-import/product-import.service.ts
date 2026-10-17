@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { BrandStatus, Prisma, ProductApprovalStatus, SellerType } from '@prisma/client';
+import { Prisma, ProductApprovalStatus } from '@prisma/client';
 import { AppError } from '../../utils/errors';
 import { logger } from '../../config/logger';
 import { writeAuditLog } from '../../utils/auditLog';
@@ -121,7 +121,6 @@ export class ProductImportService {
       // eslint-disable-next-line no-await-in-loop
       await this.categories.assertValidLeafCategory(id);
     }
-    const brandId = await this.resolveBrandId(sellerProfileId);
 
     const result: ProductImportResult = { created: [], failed: [] };
     for (const candidate of input.products) {
@@ -129,7 +128,7 @@ export class ProductImportService {
         const categoryId = candidate.categoryId || input.categoryId;
         if (!categoryId) throw new ImportProductError('Choose a category for this product');
         // eslint-disable-next-line no-await-in-loop
-        const created = await this.importOne(sellerProfileId, categoryId, candidate, brandId);
+        const created = await this.importOne(sellerProfileId, categoryId, candidate);
         result.created.push(created);
       } catch (err) {
         logger.warn({ err, key: candidate.key, sellerProfileId }, 'Product import: product failed');
@@ -147,28 +146,13 @@ export class ProductImportService {
     return 'Could not create this product';
   }
 
-  /**
-   * Brand id for a MARKETPLACE seller (admin-on-behalf imports included), null for CURATED.
-   * A suspended brand cannot import; a marketplace seller with no brand profile cannot either.
-   */
-  private async resolveBrandId(sellerProfileId: string): Promise<string | null> {
-    const ctx = await this.productsRepo.findSellerContext(sellerProfileId);
-    if (!ctx || ctx.sellerType !== SellerType.MARKETPLACE) return null;
-    if (!ctx.brand) throw AppError.forbidden('This marketplace account has no brand profile yet');
-    if (ctx.brand.status === BrandStatus.SUSPENDED) {
-      throw AppError.forbidden('This brand is suspended and cannot import products');
-    }
-    return ctx.brand.id;
-  }
-
   private async importOne(
     sellerProfileId: string,
     categoryId: string,
     candidate: ImportCandidate,
-    brandId: string | null,
   ): Promise<{ id: string; name: string; slug: string }> {
     const name = candidate.name.trim();
-    const variants = this.mapVariants(candidate.variants, brandId !== null);
+    const variants = this.mapVariants(candidate.variants);
 
     const skus = (variants ?? []).map((v) => v.sku).filter((s): s is string => !!s);
     const taken = await this.repo.findExistingVariantSkus(skus);
@@ -189,10 +173,8 @@ export class ProductImportService {
       description: candidate.description ? stripHtml(candidate.description) : '',
       categoryId,
       materials: candidate.materials?.trim() ?? '',
-      // The seller completes MOQ (and the rest) before submitting the draft. A brand's
-      // tiers start at moq 1, and a brand's first tier must equal the product MOQ, so brand
-      // drafts start at moq 1 too.
-      moq: brandId ? 1 : 0,
+      // The seller completes MOQ (and the rest) before submitting the draft.
+      moq: 0,
       declaredStock: this.declaredStock(candidate, variants),
       sellerPrice,
       variants,
@@ -209,9 +191,6 @@ export class ProductImportService {
         [],
         {
           approvalStatus: ProductApprovalStatus.DRAFT,
-          // Brand drafts: branded, and the buyer price (adminPrice) equals the gross price.
-          // Stays DRAFT — the brand reviews tiers/MOQ and publishes it itself.
-          ...(brandId ? { brandId, adminPrice: sellerPrice } : {}),
         },
       );
       return { id: created.id, name: created.name, slug: created.slug };
@@ -248,7 +227,7 @@ export class ProductImportService {
 
   /** Only 2+ variants map onto this platform's variant model — a single variant is
    *  just the product itself. SKUs repeated within the product are dropped. */
-  private mapVariants(variants: ImportCandidateVariant[], forBrand = false): VariantInputWithAdminPricing[] | undefined {
+  private mapVariants(variants: ImportCandidateVariant[]): VariantInputWithAdminPricing[] | undefined {
     if (variants.length <= 1) return undefined;
     const seenSkus = new Set<string>();
     return variants.map((v) => {
@@ -267,7 +246,7 @@ export class ProductImportService {
         attributes: attributes.length ? attributes : undefined,
         priceTiers:
           v.sellerPrice !== null
-            ? [{ moq: 1, sellerPrice: v.sellerPrice, ...(forBrand ? { adminPrice: v.sellerPrice } : {}) }]
+            ? [{ moq: 1, sellerPrice: v.sellerPrice }]
             : undefined,
       };
     });

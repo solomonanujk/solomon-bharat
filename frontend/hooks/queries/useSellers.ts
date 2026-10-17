@@ -74,8 +74,8 @@ function invalidateApplication(qc: ReturnType<typeof useQueryClient>, id: string
 
 export function useApproveSellerApplication() {
   const qc = useQueryClient()
-  return useMutation<unknown, Error, { id: string; sellerType: 'CURATED' | 'MARKETPLACE' }>({
-    mutationFn: ({ id, sellerType }) => api.post(`/sellers/applications/${id}/approve`, { sellerType }),
+  return useMutation<unknown, Error, { id: string }>({
+    mutationFn: ({ id }) => api.post(`/sellers/applications/${id}/approve`),
     onSuccess: (_, { id }) => {
       invalidateApplication(qc, id)
       toast.success('Seller approved — account credentials sent.')
@@ -174,29 +174,6 @@ export function useSetSellerInternalRating() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['admin-seller', id] })
       toast.success('Internal rating saved.')
-    },
-    onError: (err) => toast.error(getApiError(err)),
-  })
-}
-
-/** Admin: switch an approved seller between Curated and Marketplace. */
-export function useSwitchSellerType() {
-  const qc = useQueryClient()
-  return useMutation<
-    { sellerType: 'CURATED' | 'MARKETPLACE'; productCount: number },
-    Error,
-    { id: string; sellerType: 'CURATED' | 'MARKETPLACE'; brandName?: string }
-  >({
-    mutationFn: async ({ id, ...body }) => (await api.patch(`/sellers/${id}/seller-type`, body)).data.data,
-    onSuccess: (r, { id }) => {
-      qc.invalidateQueries({ queryKey: ['admin-seller', id] })
-      qc.invalidateQueries({ queryKey: ['admin-sellers'] })
-      qc.invalidateQueries({ queryKey: ['admin-products'] })
-      toast.success(
-        r.sellerType === 'MARKETPLACE'
-          ? `Switched to Marketplace. ${r.productCount} product(s) moved to the brand.`
-          : `Switched to Curated. ${r.productCount} product(s) sent back for review and pricing.`
-      )
     },
     onError: (err) => toast.error(getApiError(err)),
   })

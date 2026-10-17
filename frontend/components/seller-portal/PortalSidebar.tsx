@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Package, PackagePlus, Download, ShoppingBag, CreditCard, Settings, LogOut, Store, UserPlus } from 'lucide-react'
+import { LayoutDashboard, Package, PackagePlus, Download, ShoppingBag, CreditCard, Settings, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { useMySellerProfile } from '@/hooks/queries/useSellers'
@@ -19,26 +19,13 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/portal/settings', label: 'Settings', icon: Settings },
 ]
 
-const BRAND_NAV_ITEMS: NavItem[] = [
-  { href: '/portal', label: 'Dashboard', icon: LayoutDashboard, exact: true },
-  { href: '/portal/brand', label: 'Brand profile', icon: Store },
-  { href: '/portal/products', label: 'My Products', icon: Package, exact: true },
-  { href: '/portal/products/new', label: 'Add Product', icon: PackagePlus },
-  { href: '/portal/products/import', label: 'Import Products', icon: Download },
-  { href: '/portal/orders', label: 'Sales', icon: ShoppingBag },
-  { href: '/portal/invite', label: 'Invite your buyers', icon: UserPlus },
-  { href: '/portal/payouts', label: 'Payouts', icon: CreditCard },
-  { href: '/portal/settings', label: 'Settings', icon: Settings },
-]
-
 export function PortalSidebar() {
   const pathname = usePathname()
   const logout = useAuthStore((s) => s.logout)
   const { data: profile } = useMySellerProfile()
 
-  const isMarketplace = profile?.sellerType === 'MARKETPLACE'
-  const navItems = isMarketplace ? BRAND_NAV_ITEMS : NAV_ITEMS
-  const sellerName = profile?.brand?.name ?? profile?.businessName ?? 'Seller'
+  const navItems = NAV_ITEMS
+  const sellerName = profile?.businessName ?? 'Seller'
   const sellerInitials = sellerName
     .split(' ')
     .filter(Boolean)
@@ -69,7 +56,7 @@ export function PortalSidebar() {
       {/* Portal label */}
       <div className="px-5 pt-4 pb-2">
         <p className="text-[9.5px] font-[700] font-sans text-[#183D33] tracking-[0.12em] uppercase">
-          {isMarketplace ? 'Brand Portal' : 'Seller Portal'}
+          Seller Portal
         </p>
       </div>
 
@@ -116,7 +103,7 @@ export function PortalSidebar() {
             <p className="text-[12.5px] font-[600] font-sans text-[#0F241D] truncate leading-tight">
               {sellerName}
             </p>
-            <p className="text-[10.5px] font-sans text-[#183D33] leading-tight font-[500]">{isMarketplace ? 'Brand' : 'Seller'}</p>
+            <p className="text-[10.5px] font-sans text-[#183D33] leading-tight font-[500]">Seller</p>
           </div>
           <button
             type="button"

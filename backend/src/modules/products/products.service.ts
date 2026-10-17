@@ -1,4 +1,4 @@
-import { BrandStatus, Product, ProductApprovalStatus, ProductPricingChangeRequest, Role, SellerType } from '@prisma/client';
+import { Product, ProductApprovalStatus, ProductPricingChangeRequest, Role } from '@prisma/client';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { randomUUID } from 'crypto';
 import { env } from '../../config/env';
@@ -18,7 +18,6 @@ import { readyStockIssue } from './products.validation';
 import {
   AdminProductListFilter,
   ApplyPricingChangeInput,
-  BrandFacet,
   BuyerPriceTier,
   BuyerProduct,
   BuyerProductDetail,
@@ -33,15 +32,11 @@ import {
   SellerProduct,
   SellerProductListFilter,
   TierAdminPriceInput,
-  toBrandSummary,
   UpdateProductInput,
   UploadedImageFile,
   VariantInput,
 } from './products.types';
 
-export { toBrandSummary } from './products.types';
-
-const MORE_FROM_BRAND_LIMIT = 8;
 
 const MIN_IMAGES = 2;
 const MAX_IMAGES = 10;
@@ -70,11 +65,6 @@ function assertEveryTierHasBuyerPrice(unpricedCount: number): void {
   if (unpricedCount > 0) {
     throw AppError.badRequest(`Set a buyer price for every tier (${unpricedCount} missing)`);
   }
-}
-
-/** Agents see and buy Solomon-curated products only — never marketplace brands' (owner rule). */
-export function isCuratedOnlyViewer(viewerRole?: Role): boolean {
-  return viewerRole === Role.AGENT;
 }
 
 interface PricedTierRow {
@@ -162,22 +152,16 @@ function toBuyerProduct(
     ecoProduction: product.ecoProduction,
     isBestseller: product.isBestseller,
     tariffCode: product.tariffCode,
-    brand: toBrandSummary(product.brand),
   };
 }
 
-/** Seller-facing tier row. agentPrice is never exposed; adminPrice is kept only for
- *  marketplace brands (it is their own buyer price) and stripped for curated sellers. */
-function toSellerTier<T extends { adminPrice: unknown; agentPrice: unknown }>(
-  tier: T,
-  isBrand: boolean,
-): SellerPriceTier<T> {
-  const { adminPrice, agentPrice: _agentPrice, ...rest } = tier;
-  return (isBrand ? { ...rest, adminPrice } : rest) as SellerPriceTier<T>;
+/** Seller-facing tier row: the buyer price (adminPrice) and agentPrice are never exposed. */
+function toSellerTier<T extends { adminPrice: unknown; agentPrice: unknown }>(tier: T): SellerPriceTier<T> {
+  const { adminPrice: _adminPrice, agentPrice: _agentPrice, ...rest } = tier;
+  return rest as SellerPriceTier<T>;
 }
 
 function toSellerProduct(product: ProductWithMedia, pendingPricingChange: PendingPricingChange | null): SellerProduct {
-  const isBrand = !!product.brandId;
   return {
     id: product.id,
     name: product.name,
@@ -200,9 +184,9 @@ function toSellerProduct(product: ProductWithMedia, pendingPricingChange: Pendin
     videos: product.videos,
     variants: product.variants.map((v) => ({
       ...v,
-      priceTiers: v.priceTiers.map((t) => toSellerTier(t, isBrand)),
+      priceTiers: v.priceTiers.map((t) => toSellerTier(t)),
     })),
-    priceTiers: product.priceTiers.map((t) => toSellerTier(t, isBrand)),
+    priceTiers: product.priceTiers.map((t) => toSellerTier(t)),
     tags: product.tags,
     stepQty: product.stepQty,
     isHandmade: product.isHandmade,
@@ -309,7 +293,7 @@ const PUBLISHED_LIST_CACHE_TTL_SECONDS = 120;
 type PolishableField = 'name' | 'description' | 'tags';
 
 const POLISH_PROMPTS: Record<PolishableField, (value: string) => string> = {
-  name: (value) => `You are a proofreader for a B2B wholesale marketplace selling Indian artisan goods.
+  name: (value) => `You are a proofreader for a B2B wholesale platform selling Indian artisan goods.
 Correct this product name — fix it, don't rewrite it:
 - Fix spelling, grammar, and capitalisation mistakes only
 - Use Title Case
@@ -324,7 +308,7 @@ Return ONLY the corrected name, no explanation.
 
 Input: "${value}"`,
 
-  description: (value) => `You are a proofreader for a B2B wholesale marketplace selling Indian artisan goods.
+  description: (value) => `You are a proofreader for a B2B wholesale platform selling Indian artisan goods.
 Correct this product description — fix it, don't rewrite it:
 - Fix every spelling, grammar, and punctuation mistake so each sentence is grammatically correct
 - Strip all HTML tags and markup — return plain text only, no tags of any kind
@@ -340,7 +324,7 @@ Return ONLY the corrected description, no explanation.
 Input:
 ${value}`,
 
-  tags: (value) => `You are cleaning up product tags for a B2B wholesale marketplace.
+  tags: (value) => `You are cleaning up product tags for a B2B wholesale platform.
 Correct this list of tags — fix each one, don't replace it with a different word:
 - Fix spelling mistakes in each tag
 - Lowercase everything
@@ -358,9 +342,6 @@ Return ONLY the comma-separated tags, no explanation.
 Input: "${value}"`,
 };
 
-/** A marketplace brand's quantity-price ladder (flat or per variant) is capped at this many tiers. */
-const MAX_BRAND_PRICE_TIERS = 5;
-
 /** Tier id the admin uses to price a product that has no tiers yet (see applyTierAdminPrices). */
 export const BASE_TIER_ID = 'base';
 
@@ -374,94 +355,6 @@ export class ProductsService {
 
   async invalidatePublishedListCache(): Promise<void> {
     await bumpVersion(this.cache, PUBLISHED_LIST_CACHE_NAMESPACE);
-  }
-
-  /**
-   * Brand id for a MARKETPLACE seller (their products take the direct-price,
-   * auto-publish path); null for a CURATED seller (today's review flow, untouched).
-   */
-  private async resolveBrandId(sellerProfileId: string): Promise<string | null> {
-    const ctx = await this.repo.findSellerContext(sellerProfileId);
-    if (!ctx || ctx.sellerType !== SellerType.MARKETPLACE) return null;
-    if (!ctx.brand) {
-      throw AppError.forbidden('This marketplace account has no brand profile yet');
-    }
-    return ctx.brand.id;
-  }
-
-  /** Brands must set their shop's minimum order value before selling (owner rule). */
-  private async assertBrandShopMinimumSet(sellerProfileId: string): Promise<void> {
-    const ctx = await this.repo.findSellerContext(sellerProfileId);
-    if (ctx?.sellerType === SellerType.MARKETPLACE && !(Number(ctx.brand?.minOrderValueInr ?? 0) > 0)) {
-      throw AppError.badRequest(
-        "Set your shop's minimum order value in Brand profile before adding or publishing products",
-      );
-    }
-  }
-
-  /**
-   * Quantity-tier rules for a marketplace brand's price ladders (the flat product ladder and
-   * each variant's own ladder): at most MAX_BRAND_PRICE_TIERS tiers, quantities strictly
-   * increasing, the price never rising as quantity rises (volume discount), and the first
-   * tier starting at the product MOQ so every orderable quantity falls inside a tier.
-   */
-  private assertValidBrandTiers(input: {
-    moq?: number;
-    priceTiers?: { moq: number; sellerPrice: number }[];
-    variants?: { value?: string; priceTiers?: { moq: number; sellerPrice: number }[] }[];
-  }): void {
-    const check = (tiers: { moq: number; sellerPrice: number }[] | undefined, label: string): void => {
-      if (!tiers || tiers.length === 0) return;
-      if (tiers.length > MAX_BRAND_PRICE_TIERS) {
-        throw AppError.badRequest(`${label} can have at most ${MAX_BRAND_PRICE_TIERS} price tiers`);
-      }
-      if (input.moq !== undefined && input.moq >= 1 && tiers[0].moq !== input.moq) {
-        throw AppError.badRequest(`${label}: the first price tier must start at the minimum order quantity (${input.moq})`);
-      }
-      for (let i = 1; i < tiers.length; i += 1) {
-        if (tiers[i].moq <= tiers[i - 1].moq) {
-          throw AppError.badRequest(`${label}: tier quantities must increase from one tier to the next`);
-        }
-        if (tiers[i].sellerPrice > tiers[i - 1].sellerPrice) {
-          throw AppError.badRequest(`${label}: a higher quantity tier cannot cost more per unit than a lower one`);
-        }
-      }
-    };
-    check(input.priceTiers, 'Product');
-    (input.variants ?? []).forEach((v) => check(v.priceTiers, v.value ? `Option "${v.value}"` : 'Option'));
-  }
-
-  /** A brand product's headline price: its cheapest tier anywhere, else the flat price it sent. */
-  private brandBasePrice(input: {
-    sellerPrice?: number;
-    priceTiers?: { sellerPrice: number }[];
-    variants?: { priceTiers?: { sellerPrice: number }[] }[];
-  }): number | undefined {
-    const prices = [
-      ...(input.priceTiers ?? []),
-      ...(input.variants ?? []).flatMap((v) => v.priceTiers ?? []),
-    ].map((t) => t.sellerPrice);
-    return prices.length > 0 ? Math.min(...prices) : input.sellerPrice;
-  }
-
-  /** A brand sets the buyer price itself: each tier's price is both sellerPrice (gross) and adminPrice. */
-  private withBrandTierPrices<
-    T extends {
-      priceTiers?: { moq: number; sellerPrice: number; adminPrice?: number }[];
-      variants?: { priceTiers?: { moq: number; sellerPrice: number; adminPrice?: number }[] }[];
-    },
-  >(input: T): T {
-    const price = <R extends { sellerPrice: number }>(t: R): R & { adminPrice: number } => ({
-      ...t,
-      adminPrice: t.sellerPrice,
-    });
-    return {
-      ...input,
-      ...(input.priceTiers ? { priceTiers: input.priceTiers.map(price) } : {}),
-      ...(input.variants
-        ? { variants: input.variants.map((v) => (v.priceTiers ? { ...v, priceTiers: v.priceTiers.map(price) } : v)) }
-        : {}),
-    };
   }
 
   /**
@@ -486,39 +379,6 @@ export class ProductsService {
       throw AppError.forbidden('You do not have access to this product');
     }
     return product;
-  }
-
-  /**
-   * A marketplace brand's prices are the brand's own — admin may edit descriptive data
-   * but never price/MOQ/tiers. Any price field is a 400; `variants` (non-price edits)
-   * are accepted only when every incoming variant matches an existing one, and the
-   * existing tiers are carried over verbatim so the repository's variant replace can
-   * never drop them.
-   */
-  private lockBrandPricing(input: UpdateProductInput, current: ProductWithMedia | null): UpdateProductInput {
-    const locked = () => AppError.badRequest('This price is set by the brand');
-    if (input.sellerPrice !== undefined || input.moq !== undefined) throw locked();
-    if (input.priceTiers !== undefined) throw locked();
-    if (input.variants === undefined) return input;
-
-    const existing = current?.variants ?? [];
-    const key = (v: { sku?: string | null; type: string; value: string }) => v.sku ?? `${v.type}::${v.value}`;
-    const byKey = new Map(existing.map((v) => [key(v), v]));
-    const variants = input.variants.map((v) => {
-      if (v.priceTiers !== undefined) throw locked();
-      const match = byKey.get(key(v));
-      if (!match) throw locked(); // a brand-new variant would need a price the brand has not set
-      return {
-        ...v,
-        priceTiers: match.priceTiers.map((t) => ({
-          moq: t.moq,
-          sellerPrice: Number(t.sellerPrice.toString()),
-          ...(t.adminPrice != null ? { adminPrice: Number(t.adminPrice.toString()) } : {}),
-          ...(t.agentPrice != null ? { agentPrice: Number(t.agentPrice.toString()) } : {}),
-        })),
-      };
-    });
-    return { ...input, variants };
   }
 
   private async getProductOrThrow(productId: string): Promise<Product> {
@@ -642,11 +502,6 @@ export class ProductsService {
     }
 
     await this.categories.assertValidLeafCategory(input.categoryId);
-    const brandId = await this.resolveBrandId(sellerProfileId);
-    if (brandId) {
-      this.assertValidBrandTiers(input);
-      await this.assertBrandShopMinimumSet(sellerProfileId);
-    }
 
     const slug = await this.generateUniqueSlug(input.name);
     const id = randomUUID();
@@ -656,27 +511,6 @@ export class ProductsService {
     const craftImageUrl = craftImageFile ? await this.uploadSingleImage(craftImageFile, folder) : undefined;
     const variants = this.resolveVariantImageUrls(input.variants, imageUrls);
     const declaredStock = this.deriveDeclaredStock({ ...input, variants }) ?? input.declaredStock;
-
-    if (brandId) {
-      // Marketplace brand: its price is the buyer price; live immediately, no admin review.
-      const base = this.brandBasePrice({ ...input, variants }) ?? input.sellerPrice;
-      const priced = this.withBrandTierPrices({ ...input, variants, sellerPrice: base });
-      const created = await this.repo.create(
-        sellerProfileId,
-        { ...priced, slug, id, declaredStock, ...(craftImageUrl !== undefined ? { craftImageUrl } : {}) },
-        imageUrls,
-        videoUrls,
-        {
-          brandId,
-          approvalStatus: ProductApprovalStatus.APPROVED,
-          isPublished: true,
-          publishedAt: new Date(),
-          adminPrice: base,
-        },
-      );
-      await this.invalidatePublishedListCache();
-      return toSellerProduct(created, null);
-    }
 
     const product = await this.repo.create(
       sellerProfileId,
@@ -698,8 +532,6 @@ export class ProductsService {
    */
   async saveDraft(sellerProfileId: string, input: SaveDraftInput): Promise<SellerProduct> {
     await this.categories.assertValidLeafCategory(input.categoryId);
-    const brandId = await this.resolveBrandId(sellerProfileId);
-    if (brandId) this.assertValidBrandTiers(input);
 
     const slug = await this.generateUniqueSlug(input.name);
     const id = randomUUID();
@@ -708,7 +540,7 @@ export class ProductsService {
     const product = await this.repo.create(
       sellerProfileId,
       {
-        ...(brandId ? this.withBrandTierPrices(input) : input),
+        ...input,
         slug,
         id,
         description: input.description ?? '',
@@ -719,7 +551,7 @@ export class ProductsService {
       },
       [],
       [],
-      { approvalStatus: ProductApprovalStatus.DRAFT, ...(brandId ? { brandId } : {}) },
+      { approvalStatus: ProductApprovalStatus.DRAFT },
     );
     return toSellerProduct(product, null);
   }
@@ -744,10 +576,6 @@ export class ProductsService {
       sellerMode === 'existing'
         ? (await sellersService.getSellerDetailForAdmin(sellerId!)).id
         : await sellersService.getOrCreateHouseSellerProfile();
-
-    if (sellerMode === 'existing' && (await this.resolveBrandId(sellerProfileId))) {
-      throw AppError.badRequest('Marketplace brands create and price their own products');
-    }
 
     if (files.length < MIN_IMAGES || files.length > MAX_IMAGES) {
       throw AppError.badRequest(`Products require between ${MIN_IMAGES} and ${MAX_IMAGES} images`);
@@ -825,8 +653,6 @@ export class ProductsService {
     craftImageFile?: UploadedImageFile,
   ): Promise<SellerProduct> {
     const product = await this.getOwnedProductOrThrow(sellerProfileId, productId);
-    const brandId = await this.resolveBrandId(sellerProfileId);
-    if (brandId) this.assertValidBrandTiers(rawInput);
 
     // `publish` only ever matters for a DRAFT — strip it here so it never reaches the
     // repository layer (there's no such column). Every other current status ignores it.
@@ -888,33 +714,18 @@ export class ProductsService {
     const variants = this.resolveVariantImageUrls(input.variants, imageUrls);
     const usesVariantInventory = variants?.some((v) => v.inventory != null) ?? false;
 
-    // A marketplace brand's edits always apply directly (even to a live product): its
-    // own price IS the buyer price, so there is no admin re-pricing step to stage.
-    if (product.approvalStatus !== ProductApprovalStatus.APPROVED || brandId) {
+    if (product.approvalStatus !== ProductApprovalStatus.APPROVED) {
       // Not live yet — applies directly exactly as before, variants included, so
       // deriving declaredStock from them here is safe (nothing is staged in this branch).
       const declaredStock = usesVariantInventory
         ? variants!.reduce((sum, v) => sum + (v.inventory ?? 0), 0)
         : input.declaredStock;
-      // A brand's headline price is its cheapest tier (equal to the flat price when it has none).
-      const brandBase = brandId ? this.brandBasePrice({ ...input, variants }) : undefined;
-      const baseInput = brandId
-        ? this.withBrandTierPrices({ ...input, variants, ...(brandBase !== undefined ? { sellerPrice: brandBase } : {}) })
-        : { ...input, variants };
-      const draftTransition = brandId
-        ? {
-            approvalStatus: ProductApprovalStatus.APPROVED,
-            isPublished: true,
-            publishedAt: new Date(),
-            ...(brandBase !== undefined ? { adminPrice: brandBase } : {}),
-          }
-        : { approvalStatus: ProductApprovalStatus.PENDING };
+      const baseInput = { ...input, variants };
+      const draftTransition = { approvalStatus: ProductApprovalStatus.PENDING };
       const finalInput = {
         ...baseInput,
         ...(declaredStock !== undefined ? { declaredStock } : {}),
         ...(publishingDraft ? draftTransition : {}),
-        // A live brand product being re-priced: keep the buyer price in step with it.
-        ...(brandId && !publishingDraft && brandBase !== undefined ? { adminPrice: brandBase } : {}),
         ...(craftImageUrl !== undefined ? { craftImageUrl } : {}),
       };
       const updated = await this.repo.update(
@@ -986,9 +797,7 @@ export class ProductsService {
     // column and means nothing to an admin edit — strip it before it can reach Prisma.
     const { publish: _publish, ...inputWithoutFlags } = rawInput;
     const withMedia = await this.repo.findByIdWithMedia(productId);
-    const input = product.brandId
-      ? this.lockBrandPricing(inputWithoutFlags, withMedia)
-      : inputWithoutFlags;
+    const input = inputWithoutFlags;
 
     const currentImageCount = withMedia?.images.length ?? 0;
     const removedCount = input.removeImageIds?.length ?? 0;
@@ -1100,8 +909,7 @@ export class ProductsService {
     ];
 
     // Validate BEFORE writing so a rejected approval leaves no half-priced tiers behind.
-    // Brand products mirror their own price onto their tiers and are not admin-priced.
-    if (requireEveryTierPriced && !product.brandId) {
+    if (requireEveryTierPriced) {
       const unpriced = allTiers.filter((t) => {
         const update = updateById.get(t.id)?.adminPrice;
         const effective = update !== undefined ? update : t.adminPrice != null ? Number(t.adminPrice) : null;
@@ -1214,9 +1022,6 @@ export class ProductsService {
     if (product.approvalStatus !== ProductApprovalStatus.APPROVED) {
       throw AppError.badRequest('Only an approved product has a selling price to update');
     }
-    if (product.brandId) {
-      throw AppError.badRequest('A marketplace brand sets the price of its own products');
-    }
 
     const { adminPrice, agentPrice } = await this.applyTierAdminPrices(productId, priceTiers, variantPriceTiers);
 
@@ -1254,20 +1059,6 @@ export class ProductsService {
     return updated;
   }
 
-  /**
-   * A marketplace brand takes its own product off (or back on) the marketplace. Route is
-   * gated by requireMarketplaceSeller; this also refuses non-brand products so a curated
-   * product can never be published without admin pricing.
-   */
-  async setPublishedBySeller(sellerProfileId: string, productId: string, isPublished: boolean): Promise<Product> {
-    const product = await this.getOwnedProductOrThrow(sellerProfileId, productId);
-    if (!product.brandId) {
-      throw AppError.forbidden('Only marketplace brand products can be published or unpublished by the seller');
-    }
-    if (isPublished) await this.assertBrandShopMinimumSet(sellerProfileId);
-    return this.setPublished(product.id, isPublished);
-  }
-
   async setFeatured(productId: string, isFeatured: boolean): Promise<Product> {
     await this.getProductOrThrow(productId);
     const updated = await this.repo.setFeatured(productId, isFeatured);
@@ -1280,8 +1071,7 @@ export class ProductsService {
     // search), or a curated `sort` mode (the navbar's "New Products"/"Bestsellers"/
     // "Trending" quick links) — either is enough on its own, with no category/collection
     // required.
-    // A brand slug is also a valid scope (brand storefront / "Buy more from this brand").
-    if (!filter.categoryId && !filter.collectionId && !filter.search && !filter.sort && !filter.brand) {
+    if (!filter.categoryId && !filter.collectionId && !filter.search && !filter.sort) {
       throw AppError.badRequest('A category, collection, search term, or sort mode is required');
     }
 
@@ -1289,20 +1079,6 @@ export class ProductsService {
     // hidden wholesale price, so it's refused outright rather than silently ignored.
     if (!canViewWholesalePrice(viewerRole) && (filter.minPrice !== undefined || filter.maxPrice !== undefined)) {
       throw AppError.badRequest('Sign in as a buyer to filter by price');
-    }
-
-    if (filter.curated && filter.brand) {
-      throw AppError.badRequest('Choose either curated or a brand');
-    }
-
-    // Agents never see marketplace brands: a brand filter yields nothing (not an error),
-    // and everything else is restricted to curated products (brandId = null).
-    const curatedOnly = isCuratedOnlyViewer(viewerRole);
-    if (curatedOnly && filter.brand) {
-      return { data: [], total: 0 };
-    }
-    if (curatedOnly) {
-      filter = { ...filter, curated: true };
     }
 
     // viewerRole is folded into the cache key — an AGENT viewer's response carries
@@ -1319,7 +1095,7 @@ export class ProductsService {
     // aggregation query rather than findPublished's where-clause path.
     const { data, total } =
       filter.sort === 'trending'
-        ? await this.repo.findTrending(pagination, !!filter.curated)
+        ? await this.repo.findTrending(pagination)
         : await this.repo.findPublished(
             filter,
             pagination,
@@ -1332,14 +1108,8 @@ export class ProductsService {
   }
 
   /** Real, distinct placeOfOrigin values among published products — for the "Made in" filter's checkbox list. */
-  async listPlaceOfOriginFacets(viewerRole?: Role): Promise<string[]> {
-    return this.repo.findDistinctPlaceOfOrigin(isCuratedOnlyViewer(viewerRole));
-  }
-
-  /** Active brands with published products + counts — powers the brand filter. */
-  async listBrandFacets(viewerRole?: Role): Promise<BrandFacet[]> {
-    if (isCuratedOnlyViewer(viewerRole)) return [];
-    return this.repo.findBrandFacets();
+  async listPlaceOfOriginFacets(): Promise<string[]> {
+    return this.repo.findDistinctPlaceOfOrigin();
   }
 
   /** Distinct categoryIds from the buyer's wishlist and past order items — the signal used to bias recommendations. */
@@ -1369,11 +1139,7 @@ export class ProductsService {
    */
   async getRecommendationsForBuyer(buyerId: string, pagination: PaginationQuery, viewerRole?: Role) {
     const preferredCategoryIds = await this.getPreferredCategoryIds(buyerId);
-    const { data, total } = await this.repo.findRecommended(
-      preferredCategoryIds,
-      pagination,
-      isCuratedOnlyViewer(viewerRole),
-    );
+    const { data, total } = await this.repo.findRecommended(preferredCategoryIds, pagination);
     const ratings = await this.reviews.getRatingSummaries(data.map((p) => p.id));
     return { data: data.map((p) => toBuyerProduct(p, ratings.get(p.id), viewerRole)), total };
   }
@@ -1383,28 +1149,11 @@ export class ProductsService {
     if (!product || product.deletedAt || !product.isPublished || product.approvalStatus !== ProductApprovalStatus.APPROVED) {
       throw AppError.notFound('Product not found');
     }
-    // A suspended brand's products are invisible, including by direct link.
-    if (product.brand?.status === BrandStatus.SUSPENDED) {
-      throw AppError.notFound('Product not found');
-    }
-    // A brand product is invisible to agents, including by direct link.
-    if (product.brandId && isCuratedOnlyViewer(viewerRole)) {
-      throw AppError.notFound('Product not found');
-    }
-
-    const related = await this.repo.findRelated(product.categoryId, product.id, 4, isCuratedOnlyViewer(viewerRole));
-    const moreFromBrand = product.brandId
-      ? await this.repo.findMoreFromBrand(product.brandId, product.id, MORE_FROM_BRAND_LIMIT)
-      : [];
-    const ratings = await this.reviews.getRatingSummaries([
-      product.id,
-      ...related.map((p) => p.id),
-      ...moreFromBrand.map((p) => p.id),
-    ]);
+    const related = await this.repo.findRelated(product.categoryId, product.id, 4);
+    const ratings = await this.reviews.getRatingSummaries([product.id, ...related.map((p) => p.id)]);
     return {
       product: toBuyerProduct(product, ratings.get(product.id), viewerRole),
       related: related.map((p) => toBuyerProduct(p, ratings.get(p.id), viewerRole)),
-      moreFromBrand: moreFromBrand.map((p) => toBuyerProduct(p, ratings.get(p.id), viewerRole)),
     };
   }
 
@@ -1595,7 +1344,7 @@ export class ProductsService {
 
 export const productsService = new ProductsService();
 
-/** Clears the published-product list cache - for other modules (brands) that change what buyers see. */
+/** Clears the published-product list cache - for other modules that change what buyers see. */
 export function invalidatePublishedListCache(): Promise<void> {
   return productsService.invalidatePublishedListCache();
 }

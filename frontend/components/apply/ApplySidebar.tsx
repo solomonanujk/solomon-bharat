@@ -1,24 +1,16 @@
 'use client'
 
 import { Check } from 'lucide-react'
-import type { SellerType } from '@/types'
 
 const CURATED_STEPS = [
   { n: 1, label: 'Seller', hint: 'Who you are' },
   { n: 2, label: 'Products', hint: 'What you make' },
   { n: 3, label: 'Export readiness', hint: 'Compliance & history' },
-  { n: 4, label: 'Final details', hint: 'About you & commission' },
+  { n: 4, label: 'Final details', hint: 'About you & agreement' },
 ] as const
 
-const MARKETPLACE_STEPS = [
-  { n: 1, label: 'Brand', hint: 'Your public identity' },
-  { n: 2, label: 'Business', hint: 'Contact & what you sell' },
-  { n: 3, label: 'Terms', hint: 'Commission & agreement' },
-  { n: 4, label: 'Review', hint: 'Check and submit' },
-] as const
-
-export function ApplySidebar({ step, sellerType }: { step: number; sellerType: SellerType | null }) {
-  const steps = sellerType === 'MARKETPLACE' ? MARKETPLACE_STEPS : CURATED_STEPS
+export function ApplySidebar({ step }: { step: number }) {
+  const steps = CURATED_STEPS
 
   return (
     <div className="hidden lg:flex flex-col w-[280px] flex-shrink-0 p-7 bg-forest">
@@ -27,7 +19,7 @@ export function ApplySidebar({ step, sellerType }: { step: number; sellerType: S
           Solomon <span className="text-accent">Bharat</span>
         </p>
         <p className="font-sans text-[12px] text-white/50 mt-1.5">
-          {sellerType === 'MARKETPLACE' ? 'Brand application' : 'Seller application'}
+          Seller application
         </p>
       </div>
 
@@ -68,9 +60,7 @@ export function ApplySidebar({ step, sellerType }: { step: number; sellerType: S
       <div className="rounded-lg p-3.5 flex gap-2.5 bg-white/5 border border-white/10">
         <span className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5 bg-accent" aria-hidden="true" />
         <p className="font-sans text-[12px] leading-[1.5] text-white/65">
-          {sellerType === 'MARKETPLACE'
-            ? 'Every brand application is reviewed by our team before an account is created.'
-            : 'Selected sellers are invited to our launch event with buyers, press and partners.'}
+          Selected sellers are invited to our launch event with buyers, press and partners.
         </p>
       </div>
     </div>

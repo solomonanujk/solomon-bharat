@@ -8,7 +8,6 @@ import { Check, ChevronDown, Eye, EyeOff, Film, GripVertical, Lightbulb, Search,
 import { Button } from '@/components/ui/button'
 import { useCategoryTree } from '@/hooks/queries/useCategories'
 import { useAdminSellers } from '@/hooks/queries/useSellers'
-import { useSellerType } from '@/hooks/queries/useBrandPortal'
 import {
   useSubmitProduct,
   useUpdateMyProduct,
@@ -31,11 +30,10 @@ import { ECO_MATERIALS, ECO_PACKAGING, ECO_PRODUCTION } from '@/lib/ecoAttribute
 import { INDIAN_PLACES } from '@/lib/indianPlaces'
 import { TierTable } from '@/components/seller-portal/TierTable'
 import {
-  FLAT_KEY, MAX_BRAND_TIERS, blankTierRow, buildPricingPayload, cloneTierRows, evaluatePricing,
+  FLAT_KEY, blankTierRow, buildPricingPayload, cloneTierRows, evaluatePricing,
   hydrateTierRows, starterTierRows, tiersEqual, type PayloadTier, type PricingPayload, type TierField, type TierRow,
 } from '@/components/seller-portal/productPricing'
 import type { AdminProduct, DimensionUnit, MyProduct, VariantStatus } from '@/types'
-import type { AdminProductBrandFields } from '@/types/brand-admin'
 
 const MIN_IMAGES = 2
 const MAX_IMAGES = 10
@@ -265,13 +263,8 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const isAdminMode = mode !== 'seller'
   const isAdminCreate = mode === 'admin-create'
   const isEdit = !!product
-  const { isMarketplace: sellerIsMarketplace } = useSellerType()
-  /** Marketplace brand: sets the buyer price directly; publishes immediately, no admin review. */
-  const isBrand = !isAdminMode && sellerIsMarketplace
-  /** Admin editing a marketplace brand's product: the brand owns every price, so price fields are read-only and never sent. */
-  const brandLocked = isAdminMode && !!(product as (MyProduct & AdminProductBrandFields) | undefined)?.brand
 
-  const submitMutation = useSubmitProduct(isBrand ? 'Product published.' : 'Product submitted for review.')
+  const submitMutation = useSubmitProduct('Product submitted for review.')
   const sellerUpdateMutation = useUpdateMyProduct()
   const adminUpdateMutation = useAdminUpdateProduct()
   const adminCreateMutation = useAdminCreateProduct()
@@ -327,13 +320,13 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const [placeOfOrigin, setPlaceOfOrigin] = useState(product?.placeOfOrigin ?? '')
   const [craftTechnique, setCraftTechnique] = useState(product?.craftTechnique ?? '')
   const [careInstructions, setCareInstructions] = useState(product?.careInstructions ?? '')
-  // Samples: marketplace brands must say whether they offer them; admins set them for curated products.
+  // Samples: admins set them for curated products.
   const [offersSamples, setOffersSamples] = useState<'yes' | 'no' | ''>(
     product ? (product.offersSamples ? 'yes' : 'no') : '',
   )
   const [sampleMaxQty, setSampleMaxQty] = useState(product?.sampleMaxQty ? String(product.sampleMaxQty) : '')
   const [samplePrice, setSamplePrice] = useState(product?.samplePrice ? String(product.samplePrice) : '')
-  const samplesRequired = sellerIsMarketplace && !isAdminMode
+  const samplesRequired = false
   const [leadTime, setLeadTime] = useState(product?.leadTime ?? '')
   const [isMadeToOrder, setIsMadeToOrder] = useState<'yes' | 'no' | ''>(
     product ? (product.isMadeToOrder ? 'yes' : 'no') : '',
@@ -495,7 +488,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const [variantPricing, setVariantPricing] = useState<Record<string, VariantPricing>>(hydrated.pricing)
   const [colorSwatches, setColorSwatches] = useState<Record<string, string>>(hydrated.colorSwatches)
   // Volume-pricing ladders, keyed like variantPricing ('single' for a product with no options).
-  // Same table for every seller type; only labels and the brand-only validation rules differ.
+  // Same table for sellers and admins; only labels differ.
   const [tierRows, setTierRows] = useState<Record<string, TierRow[]>>(hydrated.tiers)
   const [showTierErrors, setShowTierErrors] = useState(false)
   const tierIdCounter = useRef(0)
@@ -570,7 +563,6 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
     setTierRows((p) => ({ ...p, [key]: update(p[key] && p[key].length > 0 ? p[key] : starterTierRows(key)) }))
   }
   function addTier(key: string) {
-    if (isBrand && getTiers(key).length >= MAX_BRAND_TIERS) return
     tierIdCounter.current += 1
     const id = `${key}::n${tierIdCounter.current}`
     setTiers(key, (rows) => [...rows, blankTierRow(id)])
@@ -591,12 +583,12 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
     toast.success('Applied these tiers to every option.')
   }
 
-  /** Admin-create also prices each tier for buyers and agents. Brand-owned products never do. */
+  /** Admin-create also prices each tier for buyers and agents.  */
   const withAdminPricing = isAdminCreate
   const ladderKeys = activeCombos.map((c) => c.key)
   const pricingEval = evaluatePricing(
     ladderKeys.map((key) => ({ key, rows: getTiers(key) })),
-    { strict: isBrand, withAdminPricing },
+    { strict: false, withAdminPricing },
   )
   function toggleVPStatus(key: string) {
     const current = variantPricing[key]?.status ?? 'ACTIVE'
@@ -678,7 +670,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
         ? 'Select whether this product comes in multiple options.'
         : activeCombos.length === 0 ? 'Add at least one product option, or choose No.' : 'Finish adding product options, or choose No.',
     },
-    { key: 'pricing', anchor: 'pf-pricing', done: optionsReady && (brandLocked || !pricingEval.hasErrors), next: 'Set your volume pricing (MOQ and price)', error: 'Fix the highlighted price tiers.' },
+    { key: 'pricing', anchor: 'pf-pricing', done: optionsReady && !pricingEval.hasErrors, next: 'Set your volume pricing (MOQ and price)', error: 'Fix the highlighted price tiers.' },
     {
       key: 'weight', anchor: 'pf-variants', done: optionsReady && !unweighted,
       next: 'Add the weight', error: `Set a weight for "${unweighted ? optionLabel(unweighted) : 'this product'}".`,
@@ -734,8 +726,8 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   function computeBase(): { moq: number; sellerPrice: number; weight: number; pricing: PricingPayload | null } | null {
     const rows = activeCombos.map((c) => getVP(c.key))
     // Derived from the tiers: moq = lowest tier MOQ anywhere, sellerPrice = cheapest tier price.
-    const pricing = brandLocked ? null : buildPricingPayload(pricingEval, ladderKeys, usingSingleRow, withAdminPricing)
-    if (!brandLocked && (!pricing || (isBrand && pricingEval.hasErrors))) return null
+    const pricing = buildPricingPayload(pricingEval, ladderKeys, usingSingleRow, withAdminPricing)
+    if (!pricing) return null
     const weightsKg = rows
       .map((r) => (Number(r.weight) > 0 ? (r.weightUnit === 'lb' ? Number(r.weight) * 0.453592 : Number(r.weight)) : null))
       .filter((n): n is number => n !== null)
@@ -772,7 +764,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
         // images in this same submission are uploaded (see newImageIndex server-side).
         imageUrl: newImageIndex === undefined ? swatchValue : undefined,
         newImageIndex,
-        priceTiers: brandLocked ? undefined : pricing?.variantTiers[combo.key],
+        priceTiers: pricing?.variantTiers[combo.key],
         inventory: !madeToOrder && vp.inventory ? Number(vp.inventory) : undefined,
         weight: vp.weight ? Number(vp.weight) : undefined,
         weightUnit: vp.weight ? vp.weightUnit : undefined,
@@ -803,31 +795,6 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
     if (mode === 'admin-edit' && stored.length > 0
       && tiersEqual(tiers, stored.map((t) => ({ moq: t.moq, sellerPrice: Number(t.sellerPrice) })))) return undefined
     return tiers
-  }
-
-  /** Brand-locked admin edit: true only when a variant's non-price data (sku, status, stock,
-   *  weight, size, swatch, attributes) differs from what is stored, or an option was added/removed. */
-  function brandVariantsChanged(built: SubmitVariantInput[]): boolean {
-    const stored = product?.variants ?? []
-    if (built.length !== stored.length) return true
-    const key = (v: { sku?: string | null; type: string; value: string }) => v.sku ?? `${v.type}::${v.value}`
-    const n = (x: number | null | undefined) => (x == null ? null : Number(x))
-    const norm = (v: {
-      sku?: string | null; status?: string | null; imageUrl?: string | null; inventory?: number | null
-      weight?: number | null; weightUnit?: string | null; length?: number | null; width?: number | null
-      height?: number | null; dimensionUnit?: string | null; tariffCode?: string | null
-      attributes?: { name: string; value: string }[]
-    }) => JSON.stringify([
-      v.sku ?? null, v.status ?? 'ACTIVE', v.imageUrl ?? null, n(v.inventory), n(v.weight), v.weight ? v.weightUnit ?? null : null,
-      n(v.length), n(v.width), n(v.height), v.length || v.width || v.height ? v.dimensionUnit ?? null : null,
-      v.tariffCode ?? null, (v.attributes ?? []).map((a) => `${a.name}=${a.value}`).sort(),
-    ])
-    const byKey = new Map(stored.map((v) => [key(v), v]))
-    return built.some((b) => {
-      if (b.newImageIndex !== undefined) return true
-      const old = byKey.get(key(b))
-      return !old || norm(b) !== norm(old)
-    })
   }
 
   /** `resubmit` (rejected product, "Save & resubmit"): the edits are saved first and the
@@ -875,19 +842,12 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
     // never send them: that would overwrite imported tags / previously set flags.
     const createOnlyDefaults = { tags: [] as string[], isHandmade: false, isGITagged: false }
 
-    // Brand-owned products: the backend rejects any price/MOQ/tier change (400 "This price
-    // is set by the brand") and a variant replace must not touch the brand's tiers, so
-    // price fields are never sent and variants only when their non-price data changed.
-    const { moq: _moq, sellerPrice: _sellerPrice, priceTiers: _priceTiers, variants: _variants, ...commonNoPrice } = commonFields
-    void _moq; void _sellerPrice; void _priceTiers
-    const brandLockedFields = brandVariantsChanged(_variants) ? { ...commonNoPrice, variants: _variants } : commonNoPrice
-
     try {
       if (isEdit && product) {
         await updateMutation.mutateAsync({
           id: product.id,
           data: {
-            ...(brandLocked ? brandLockedFields : commonFields),
+            ...(commonFields),
             // Publishing an existing draft (its only ever-false→true transition) —
             // a normal edit of a non-draft product ignores this field entirely.
             publish: product.approvalStatus === 'DRAFT',
@@ -948,7 +908,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       dimensions,
       weight: base?.weight,
       declaredStock: totalInventory(),
-      ...(brandLocked ? {} : { sellerPrice: base?.sellerPrice, moq: base?.moq, priceTiers: flatTiersForSave(base?.pricing ?? null) }),
+      sellerPrice: base?.sellerPrice, moq: base?.moq, priceTiers: flatTiersForSave(base?.pricing ?? null),
       variants: base ? buildVariantPayload(base.pricing) : undefined,
       placeOfOrigin: placeOfOrigin.trim() || undefined,
       craftTechnique: craftTechnique.trim() || undefined,
@@ -1000,10 +960,8 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   }
 
   const selectedCategoryPath = categoryId ? categoryPathLabel(tree, categoryId) : ''
-  const priceHeader = isBrand ? 'Price buyers pay (₹)' : isAdminMode ? 'Price per unit (₹)' : 'Your price (₹)'
-  const pricingHint = isBrand
-    ? 'Set the price buyers pay at each order quantity. The first tier is your minimum order quantity; bigger tiers can only cost less per unit. Up to 5 tiers.'
-    : isAdminMode
+  const priceHeader = isAdminMode ? 'Price per unit (₹)' : 'Your price (₹)'
+  const pricingHint = isAdminMode
       ? 'What Solomon Bharat pays the seller per unit at each order quantity. Edit the MOQs, add more tiers, or fill in a price for each.'
       : 'Your price (₹) — what Solomon pays you per unit at each order quantity. Edit the MOQs, add more tiers, or fill in a price for each.'
 
@@ -1012,11 +970,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       {isEdit && (
         <div className="flex items-center gap-3 mb-6">
           <span className="text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.05em]">Status</span>
-          {isBrand && product!.approvalStatus !== 'DRAFT' ? (
-            <span className="text-[13px] font-[600] font-sans text-primary">{product!.isPublished ? 'Published' : 'Unpublished'}</span>
-          ) : (
-            <ApprovalStatusBadge status={product!.approvalStatus} />
-          )}
+          <ApprovalStatusBadge status={product!.approvalStatus} />
         </div>
       )}
 
@@ -1037,9 +991,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
           {sellerMode === 'existing' && (
             <select value={selectedSellerId} onChange={(e) => setSelectedSellerId(e.target.value)} className={INPUT_CLS}>
               <option value="">Select a seller…</option>
-              {sellers.map((s) => s.sellerType === 'MARKETPLACE'
-                ? <option key={s.id} value={s.id} disabled>{s.businessName} — Marketplace brand, cannot create for</option>
-                : <option key={s.id} value={s.id}>{s.businessName} — {s.contactName}</option>)}
+              {sellers.map((s) => <option key={s.id} value={s.id}>{s.businessName} — {s.contactName}</option>)}
             </select>
           )}
         </div>
@@ -1528,16 +1480,6 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                   Volume Pricing<RequiredStar />
                 </h3>
                 <p className="text-[13px] font-sans text-muted-text max-w-xl">{pricingHint}</p>
-                {isBrand && (
-                  <p className="text-[13px] font-sans text-ink max-w-xl mt-1">
-                    Solomon keeps 25% on each buyer&apos;s first order with you and 15% on that buyer&apos;s later orders.
-                  </p>
-                )}
-                {brandLocked && (
-                  <p role="note" className="text-[13px] font-[600] font-sans text-ink max-w-xl mt-2">
-                    This price is set by the brand. Only the brand can change it.
-                  </p>
-                )}
 
                 <div className="mt-4 space-y-5">
                   {activeCombos.map((combo, idx) => (
@@ -1554,12 +1496,10 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                         showAdminPricing={withAdminPricing}
                         showAllErrors={showTierErrors}
                         disabled={pricingLocked}
-                        readOnly={brandLocked}
-                        maxTiers={isBrand ? MAX_BRAND_TIERS : undefined}
                         onAdd={() => addTier(combo.key)}
                         onRemove={(id) => removeTier(combo.key, id)}
                         onUpdate={(id, field, value) => updateTier(combo.key, id, field, value)}
-                        onApplyToAll={!usingSingleRow && activeCombos.length > 1 && idx === 0 && !brandLocked ? () => applyTiersToAll(combo.key) : undefined}
+                        onApplyToAll={!usingSingleRow && activeCombos.length > 1 && idx === 0 ? () => applyTiersToAll(combo.key) : undefined}
                       />
                     </div>
                   ))}
@@ -1722,12 +1662,10 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
             <div className="w-14 h-14 rounded-full bg-forest/10 text-primary flex items-center justify-center mx-auto mb-4">
               <Check size={26} />
             </div>
-            <h2 className="text-[20px] font-[600] font-display text-primary mb-3">{isBrand ? 'Product published' : isAdminCreate ? 'Product created and published' : 'Submitted for review'}</h2>
+            <h2 className="text-[20px] font-[600] font-display text-primary mb-3">{isAdminCreate ? 'Product created and published' : 'Submitted for review'}</h2>
             <p className="text-[14px] font-sans text-muted-text mb-7">
-              {isBrand
-                ? 'Your product is live on the marketplace. You can unpublish or edit it any time from My Products.'
-                : isAdminCreate
-                  ? 'The product has been created and is now published on the marketplace.'
+              {isAdminCreate
+                  ? 'The product has been created and is now published in the catalogue.'
                   : 'Your product has been submitted to Solomon Bharat for review. We will notify you once it is live.'}
             </p>
             <Button type="button" variant="primary" size="md" className="w-full" onClick={() => router.push(backHref)}>

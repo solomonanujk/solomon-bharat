@@ -84,94 +84,6 @@ describe('PayoutsService', () => {
     });
   });
 
-  describe('createForDeliveredBrandOrder', () => {
-    it('creates the net/breakdown payouts for a brand order', async () => {
-      vi.mocked(repo.findOrderForPayout).mockResolvedValue({ id: 'order-1', sellerProfileId: 'brand-1' });
-      vi.mocked(repo.existsForOrder).mockResolvedValue(false);
-
-      await service.createForDeliveredBrandOrder('order-1');
-
-      expect(repo.createManyForBrandOrder).toHaveBeenCalledWith('order-1');
-      expect(repo.createManyForOrder).not.toHaveBeenCalled();
-    });
-
-    it('is idempotent when payouts already exist', async () => {
-      vi.mocked(repo.findOrderForPayout).mockResolvedValue({ id: 'order-1', sellerProfileId: 'brand-1' });
-      vi.mocked(repo.existsForOrder).mockResolvedValue(true);
-
-      await service.createForDeliveredBrandOrder('order-1');
-
-      expect(repo.createManyForBrandOrder).not.toHaveBeenCalled();
-    });
-
-    it('ignores curated orders (their payouts are created at COLLECTED) and missing orders', async () => {
-      vi.mocked(repo.findOrderForPayout).mockResolvedValueOnce({ id: 'order-1', sellerProfileId: null });
-      await service.createForDeliveredBrandOrder('order-1');
-      vi.mocked(repo.findOrderForPayout).mockResolvedValueOnce(null);
-      await service.createForDeliveredBrandOrder('missing');
-
-      expect(repo.createManyForBrandOrder).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('getBrandSalesStats', () => {
-    it('aggregates gmv, commission, net, top products and a 30-day series', async () => {
-      const today = new Date();
-      vi.mocked(repo.findPaidOrdersForBrand).mockResolvedValue([
-        { createdAt: today, adminPriceTotal: new Decimal(1000) },
-        { createdAt: new Date('2020-01-01'), adminPriceTotal: new Decimal(500) },
-      ]);
-      vi.mocked(repo.findPaidItemsForBrand).mockResolvedValue([
-        {
-          productId: 'p1',
-          quantity: 2,
-          lineAdminTotal: new Decimal(1000),
-          lineSellerTotal: new Decimal(750),
-          commissionAmount: new Decimal(250),
-          product: { name: 'Vase' },
-        },
-        {
-          productId: 'p2',
-          quantity: 1,
-          lineAdminTotal: new Decimal(500),
-          lineSellerTotal: new Decimal(425),
-          commissionAmount: new Decimal(75),
-          product: { name: 'Rug' },
-        },
-        {
-          productId: 'p1',
-          quantity: 1,
-          lineAdminTotal: new Decimal(100),
-          lineSellerTotal: new Decimal(85),
-          commissionAmount: new Decimal(15),
-          product: { name: 'Vase' },
-        },
-      ] as never);
-      vi.mocked(repo.sumForSeller).mockResolvedValue(300);
-
-      const stats = await service.getBrandSalesStats('brand-1');
-
-      expect(stats.ordersCount).toBe(2);
-      expect(stats.gmv).toBe(1500);
-      expect(stats.commissionPaid).toBe(340);
-      expect(stats.netEarned).toBe(1260);
-      expect(stats.pendingPayout).toBe(300);
-      expect(stats.topProducts[0]).toEqual({ productId: 'p1', name: 'Vase', units: 3, revenue: 1100 });
-      expect(stats.last30Days).toHaveLength(30);
-      expect(stats.last30Days.reduce((s, d) => s + d.orders, 0)).toBe(1);
-    });
-
-    it('returns zeros for a brand with no sales', async () => {
-      vi.mocked(repo.findPaidOrdersForBrand).mockResolvedValue([]);
-      vi.mocked(repo.findPaidItemsForBrand).mockResolvedValue([]);
-      vi.mocked(repo.sumForSeller).mockResolvedValue(0);
-
-      const stats = await service.getBrandSalesStats('brand-1');
-
-      expect(stats).toMatchObject({ ordersCount: 0, gmv: 0, commissionPaid: 0, netEarned: 0, topProducts: [] });
-    });
-  });
-
   describe('markAsPaid', () => {
     it('rejects marking an already-paid payout as paid again', async () => {
       vi.mocked(repo.findById).mockResolvedValue(buildPayout({ status: PayoutStatus.PAID }));
@@ -260,37 +172,17 @@ describe('PayoutsService', () => {
       const { data } = await service.listForSeller('seller-1', {}, { page: 1, limit: 20 });
 
       expect(data[0].amount).toBe('50');
-      expect(data[0].grossAmount).toBeNull();
-      expect(data[0].commissionRate).toBeNull();
-      expect(data[0].commissionAmount).toBeNull();
+      expect(data[0]).not.toHaveProperty('grossAmount');
+      expect(data[0]).not.toHaveProperty('commissionAmount');
     });
 
-    it('listForSeller exposes the commission breakdown for brand payouts (amount = gross - commission)', async () => {
-      vi.mocked(repo.findForSeller).mockResolvedValue({
-        data: [
-          buildPayout({
-            amount: new Decimal(750),
-            grossAmount: new Decimal(1000),
-            commissionRate: new Decimal(25),
-            commissionAmount: new Decimal(250),
-          }),
-        ],
-        total: 1,
-      });
-
-      const { data } = await service.listForSeller('seller-1', {}, { page: 1, limit: 20 });
-
-      expect(data[0]).toMatchObject({ amount: '750', grossAmount: '1000', commissionRate: '25', commissionAmount: '250' });
-      expect(Number(data[0].grossAmount) - Number(data[0].commissionAmount)).toBe(Number(data[0].amount));
-    });
-
-    it('listForAdmin stringifies the Decimal amount and exposes seller type + brand name', async () => {
+    it('listForAdmin stringifies the Decimal amount and exposes the seller business name', async () => {
       vi.mocked(repo.findForAdmin).mockResolvedValue({
         data: [
-          { ...buildPayout(), seller: { businessName: 'Jaipur Handicrafts', sellerType: 'CURATED', brand: null } },
+          { ...buildPayout(), seller: { businessName: 'Jaipur Handicrafts' } },
           {
             ...buildPayout({ id: 'payout-2' }),
-            seller: { businessName: 'Legal Co', sellerType: 'MARKETPLACE', brand: { name: 'Brand One' } },
+            seller: { businessName: 'Legal Co' },
           },
         ],
         total: 2,
@@ -299,8 +191,8 @@ describe('PayoutsService', () => {
       const { data } = await service.listForAdmin({}, { page: 1, limit: 20 });
 
       expect(data[0].amount).toBe('50');
-      expect(data[0].seller).toEqual({ businessName: 'Jaipur Handicrafts', sellerType: 'CURATED', brandName: null });
-      expect(data[1].seller).toEqual({ businessName: 'Legal Co', sellerType: 'MARKETPLACE', brandName: 'Brand One' });
+      expect(data[0].seller).toEqual({ businessName: 'Jaipur Handicrafts' });
+      expect(data[1].seller).toEqual({ businessName: 'Legal Co' });
     });
 
     it('getForAdmin throws 404 for a payout that does not exist', async () => {

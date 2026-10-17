@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BrandStatus, Order, OrderStatus, Product, ProductApprovalStatus } from '@prisma/client';
+import { Order, OrderStatus, Product, ProductApprovalStatus } from '@prisma/client';
 import { AppError } from '../../utils/errors';
 import { Decimal } from '@prisma/client/runtime/library';
 import { ProductsService } from '../products/products.service';
@@ -278,15 +278,11 @@ describe('OrdersService', () => {
         ok: buildProduct({ id: 'ok' }),
         a: buildProduct({ id: 'a', isPublished: false }),
         b: buildProduct({ id: 'b', approvalStatus: ProductApprovalStatus.PENDING }),
-        c: buildProduct({ id: 'c', brandId: 'brand-s' }),
       };
       vi.mocked(products.getForCheckout).mockImplementation(async (id: string) => {
         if (id === 'gone') throw AppError.notFound('Product not found');
         return byId[id];
       });
-      vi.mocked(repo.findBrandsByIds).mockResolvedValue([
-        { id: 'brand-s', sellerProfileId: 'sp', name: 'S', status: BrandStatus.SUSPENDED, minOrderValueInr: new Decimal(0) },
-      ] as never);
 
       await expect(
         service.createPendingCheckout(
@@ -296,7 +292,6 @@ describe('OrdersService', () => {
             { productId: 'a', quantity: 10 },
             { productId: 'gone', quantity: 10 },
             { productId: 'b', quantity: 10 },
-            { productId: 'c', quantity: 10 },
           ],
           undefined,
           'BUYER',
@@ -304,29 +299,10 @@ describe('OrdersService', () => {
       ).rejects.toMatchObject({
         statusCode: 400,
         message: 'Product a is not available for purchase',
-        details: { code: 'ITEMS_UNAVAILABLE', productIds: ['a', 'gone', 'b', 'c'] },
+        details: { code: 'ITEMS_UNAVAILABLE', productIds: ['a', 'gone', 'b'] },
       });
     });
 
-    it('an agent buying brand products gets them all listed', async () => {
-      vi.mocked(products.getForCheckout).mockImplementation(async (id: string) =>
-        buildProduct({ id, brandId: 'brand-1' }),
-      );
-      vi.mocked(repo.findBrandsByIds).mockResolvedValue([
-        { id: 'brand-1', sellerProfileId: 'sp', name: 'B', status: BrandStatus.ACTIVE, minOrderValueInr: new Decimal(0) },
-      ] as never);
-      await expect(
-        service.createPendingCheckout(
-          'b',
-          [
-            { productId: 'x', quantity: 10 },
-            { productId: 'y', quantity: 10 },
-          ],
-          undefined,
-          'AGENT',
-        ),
-      ).rejects.toMatchObject({ details: { code: 'ITEMS_UNAVAILABLE', productIds: ['x', 'y'] } });
-    });
   });
 
   describe('markPaymentReceived', () => {
@@ -427,20 +403,6 @@ describe('OrdersService', () => {
       });
     });
 
-    it('expires marketplace orders not accepted within 24h of payment', async () => {
-      const now = new Date('2026-10-13T12:00:00Z');
-      vi.mocked(repo.findUnacceptedBrandOrders).mockResolvedValue([
-        buildOrder({ id: 'o1', status: OrderStatus.PAYMENT_RECEIVED }),
-        buildOrder({ id: 'o2', status: OrderStatus.PAYMENT_RECEIVED }),
-      ]);
-      vi.mocked(repo.transitionIfStatus).mockResolvedValueOnce(true).mockResolvedValueOnce(false);
-
-      expect(await service.expireUnacceptedBrandOrders(now)).toEqual(['o1']);
-      expect(repo.findUnacceptedBrandOrders).toHaveBeenCalledWith(new Date('2026-10-12T12:00:00Z'));
-      expect(repo.transitionIfStatus).toHaveBeenCalledWith('o1', OrderStatus.PAYMENT_RECEIVED, OrderStatus.CANCELLED, {
-        cancelledReason: expect.stringContaining('24 hours'),
-      });
-    });
   });
 
   describe('cancelOrder', () => {

@@ -1,5 +1,5 @@
 /**
- * Pure tier-pricing logic for the unified product form (seller submit/edit, brand,
+ * Pure tier-pricing logic for the unified product form (seller submit/edit,
  * admin create/edit). No React, no imports — so it can be unit-checked in isolation.
  *
  * Pricing always lives in volume tiers (MOQ + price per unit): one flat ladder when the
@@ -7,7 +7,7 @@
  * `moq` and `sellerPrice` the backend requires are derived from those ladders.
  */
 
-/** Backend cap on a marketplace brand's price ladder (flat and per option). */
+/** Optional strict cap on a price ladder (flat and per option). */
 export const MAX_BRAND_TIERS = 5
 
 export type TierField = 'moq' | 'sellerPrice' | 'adminPrice' | 'agentPrice'
@@ -55,7 +55,7 @@ export interface PricingEvaluation {
 }
 
 export interface EvaluateOptions {
-  /** Marketplace-brand rules the backend enforces (assertValidBrandTiers). */
+  /** Strict ladder rules (tier cap, first tier at MOQ). The product form passes false. */
   strict: boolean
   /** Admin-create mode: buyer (adminPrice) and agent (agentPrice) columns are in play. */
   withAdminPricing: boolean
@@ -189,7 +189,7 @@ export function evaluatePricing(ladders: LadderInput[], opts: EvaluateOptions): 
     .filter((n) => Number.isFinite(n))
   const productMoq = lowestMoqs.length > 0 ? Math.min(...lowestMoqs) : null
 
-  // Brand rule: every ladder's first tier starts at the product MOQ (the lowest anywhere).
+  // Strict rule: every ladder's first tier starts at the product MOQ (the lowest anywhere).
   if (opts.strict && productMoq !== null) {
     for (const e of Object.values(result)) {
       const first = e.valid[0]

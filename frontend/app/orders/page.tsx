@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Check, Circle, Download, MessageCircle, Store, Truck, Copy, Star, ImagePlus, X } from 'lucide-react'
+import { Download, MessageCircle, Store, Truck, Copy, Star, ImagePlus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { AccountPageWrapper } from '@/components/shared/AccountPageWrapper'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -28,8 +28,8 @@ import { useInvoice } from '@/hooks/queries/usePayments'
 import { useSubmitReview } from '@/hooks/queries/useReviews'
 import { useFormatPrice } from '@/components/ui/Price'
 import type { OrderStatus } from '@/types'
-import { BRAND_ORDER_STEPS } from '@/types/brand-orders'
-import type { BuyerOrder, BuyerOrderItem } from '@/types/brand-orders'
+import type { BuyerOrder } from '@/types/order-extras'
+import type { OrderItem } from '@/types'
 
 // No "Return" or "Dispute" action anywhere on this page — all sales are
 // final (AGENTS.md). Filter tabs mirror the real OrderStatus enum exactly;
@@ -80,15 +80,8 @@ function orderRef(id: string) {
   return `#${id.slice(0, 8).toUpperCase()}`
 }
 
-function sellerLabel(order: BuyerOrder) {
-  return order.brand ? `Sold by ${order.brand.name}` : 'Solomon Bharat'
-}
-
-const BRAND_STEP_LABELS: Partial<Record<OrderStatus, string>> = {
-  PAYMENT_RECEIVED: 'Awaiting brand acceptance',
-  CONFIRMED: 'Accepted by brand',
-  IN_TRANSIT: 'Shipped',
-  DELIVERED: 'Delivered',
+function sellerLabel(): string {
+  return 'Solomon Bharat'
 }
 
 /** Orders sharing a checkoutId are shown together; others stand alone. Keeps list order. */
@@ -104,30 +97,6 @@ function groupByCheckout(orders: BuyerOrder[]): { key: string; checkoutId: strin
     groups.push({ key: o.checkoutId ?? o.id, checkoutId: o.checkoutId ?? null, orders: [o] })
   }
   return groups
-}
-
-function BrandOrderProgress({ status }: { status: OrderStatus }) {
-  const idx = BRAND_ORDER_STEPS.indexOf(status)
-  return (
-    <ol className="space-y-2" aria-label="Order progress">
-      {BRAND_ORDER_STEPS.map((step, i) => {
-        const done = idx >= i
-        return (
-          <li key={step} className="flex items-center gap-2 text-[13px] font-sans">
-            {done ? (
-              <Check size={14} className="text-forest" aria-hidden="true" />
-            ) : (
-              <Circle size={14} className="text-muted" aria-hidden="true" />
-            )}
-            <span className={done ? 'text-ink font-[600]' : 'text-muted'}>
-              {BRAND_STEP_LABELS[step]}
-              {idx === i && <span className="sr-only"> (current step)</span>}
-            </span>
-          </li>
-        )
-      })}
-    </ol>
-  )
 }
 
 function orderTotalItems(order: BuyerOrder) {
@@ -352,7 +321,7 @@ function RateProductDialog({
   )
 }
 
-function RateProductButton({ item, orderStatus }: { item: BuyerOrderItem; orderStatus: OrderStatus }) {
+function RateProductButton({ item, orderStatus }: { item: OrderItem; orderStatus: OrderStatus }) {
   const [open, setOpen] = useState(false)
 
   if (orderStatus !== 'DELIVERED' || item.reviewed) return null
@@ -430,29 +399,8 @@ function OrderDetailSheet({
 
               <p className="flex items-center gap-2 text-[13px] font-sans text-ink">
                 <Store size={14} className="text-brass-deep" aria-hidden="true" />
-                {order.brand ? (
-                  <>
-                    Sold by{' '}
-                    <Link href={`/brands/${order.brand.slug}`} className="font-[600] underline underline-offset-2">
-                      {order.brand.name}
-                    </Link>
-                  </>
-                ) : (
-                  <span className="font-[600]">Solomon Bharat</span>
-                )}
+                <span className="font-[600]">Solomon Bharat</span>
               </p>
-
-              {order.brand && order.status !== 'CANCELLED' && order.status !== 'PENDING_PAYMENT' && (
-                <section>
-                  <h3 className="text-[14px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-3">
-                    Progress
-                  </h3>
-                  <BrandOrderProgress status={order.status} />
-                  <p className="text-[12px] font-sans text-muted mt-3">
-                    {order.brand.name} ships this order directly to you.
-                  </p>
-                </section>
-              )}
 
               <section>
                 <h3 className="text-[14px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-4">
@@ -546,7 +494,7 @@ function OrderDetailSheet({
                 </div>
               )}
 
-              {!order.brand && order.expectedCollectionDate && order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
+              {order.expectedCollectionDate && order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
                 <section>
                   <h3 className="text-[14px] font-[600] font-sans text-muted-text uppercase tracking-[0.06em] mb-2">
                     Expected Collection
@@ -581,19 +529,11 @@ function OrderDetailSheet({
 
               <div className="flex flex-wrap gap-3 pt-2">
                 <DownloadInvoiceButton orderId={order.id} size="md" />
-                {/* No buyer-brand messaging exists: brand orders point to the brand page instead. */}
                 <Button variant="ghost" size="md" className="gap-1.5" asChild>
-                  {order.brand ? (
-                    <Link href={`/brands/${order.brand.slug}`}>
-                      <Store size={13} aria-hidden="true" />
-                      Visit {order.brand.name}
-                    </Link>
-                  ) : (
-                    <Link href="/messages">
-                      <MessageCircle size={13} aria-hidden="true" />
-                      Contact Solomon Bharat
-                    </Link>
-                  )}
+                  <Link href="/messages">
+                    <MessageCircle size={13} aria-hidden="true" />
+                    Contact Solomon Bharat
+                  </Link>
                 </Button>
               </div>
             </>
@@ -718,7 +658,7 @@ export default function OrdersPage() {
                       <span className="text-[13px] font-[600] font-sans text-primary">
                         {orderRef(order.id)}
                       </span>
-                      <span className="block text-[12px] font-sans text-muted">{sellerLabel(order)}</span>
+                      <span className="block text-[12px] font-sans text-muted">{sellerLabel()}</span>
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={order.status} />

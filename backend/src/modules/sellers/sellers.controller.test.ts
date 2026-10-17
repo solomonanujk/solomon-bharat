@@ -89,7 +89,7 @@ describe('sellers controller', () => {
         .post(`/api/v1/sellers/applications/${APP_ID}/approve`)
         .set(authHeader(Role.SUPER_ADMIN, 'admin-1'));
       expect(res.status).toBe(200);
-      expect(sellersService.approveApplication).toHaveBeenCalledWith(APP_ID, 'admin-1', undefined);
+      expect(sellersService.approveApplication).toHaveBeenCalledWith(APP_ID, 'admin-1');
     });
   });
 
@@ -119,10 +119,10 @@ describe('sellers controller', () => {
     });
 
     it('returns my own profile for SELLER', async () => {
-      vi.mocked(sellersService.getMyProfileWithBrand).mockResolvedValue({ id: 'sp1' } as never);
+      vi.mocked(sellersService.getMyProfile).mockResolvedValue({ id: 'sp1' } as never);
       const res = await request(app).get('/api/v1/sellers/me').set(authHeader(Role.SELLER, 'seller-user-1'));
       expect(res.status).toBe(200);
-      expect(sellersService.getMyProfileWithBrand).toHaveBeenCalledWith('seller-user-1');
+      expect(sellersService.getMyProfile).toHaveBeenCalledWith('seller-user-1');
     });
 
     it('rejects a BUYER with 403', async () => {

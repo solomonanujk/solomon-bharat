@@ -1,6 +1,4 @@
 import {
-  BrandStatus,
-  Prisma,
   Product,
   ProductApprovalStatus,
   ProductImage,
@@ -12,56 +10,6 @@ import {
   VariantPriceTier,
 } from '@prisma/client';
 
-/**
- * The ONLY Brand columns ever selected on public/product queries — a whitelist, so
- * private data (legalName, gstin, commission overrides, seller linkage) can never
- * reach a buyer payload through a product include. `status` is selected so queries
- * can exclude suspended brands, but it is not part of the serialised BrandSummary.
- */
-export const BRAND_SUMMARY_SELECT = {
-  id: true,
-  name: true,
-  slug: true,
-  logoUrl: true,
-  isVerified: true,
-  status: true,
-  minOrderValueInr: true,
-} satisfies Prisma.BrandSelect;
-
-/** Row shape produced by selecting BRAND_SUMMARY_SELECT. */
-export interface BrandSummarySource {
-  id: string;
-  name: string;
-  slug: string;
-  logoUrl: string | null;
-  isVerified: boolean;
-  status: BrandStatus;
-  minOrderValueInr: { toString(): string } | number | string;
-}
-
-/** Public brand tag attached to buyer-facing product / wishlist / order-item payloads. */
-export interface BrandSummary {
-  id: string;
-  name: string;
-  slug: string;
-  logoUrl: string | null;
-  isVerified: boolean;
-  minOrderValueInr: number;
-}
-
-/** Whitelist serializer — null for curated products (no brand). Exported for other modules (wishlist, orders). */
-export function toBrandSummary(brand: BrandSummarySource | null | undefined): BrandSummary | null {
-  if (!brand) return null;
-  return {
-    id: brand.id,
-    name: brand.name,
-    slug: brand.slug,
-    logoUrl: brand.logoUrl,
-    isVerified: brand.isVerified,
-    minOrderValueInr: Number(brand.minOrderValueInr.toString()),
-  };
-}
-
 export type VariantWithDetail = ProductVariant & {
   attributes: VariantAttribute[];
   priceTiers: VariantPriceTier[];
@@ -72,8 +20,6 @@ export type ProductWithMedia = Product & {
   videos: ProductVideo[];
   variants: VariantWithDetail[];
   priceTiers: ProductPriceTier[];
-  /** Whitelisted brand row (BRAND_SUMMARY_SELECT) — null/absent for curated products. */
-  brand?: BrandSummarySource | null;
 };
 
 export interface PriceTierInput {
@@ -259,9 +205,8 @@ export interface UpdateProductInput {
   // Set internally by the service (never by the controller/DTO) when a draft update
   // transitions the product to PENDING.
   approvalStatus?: ProductApprovalStatus;
-  // Set internally by the service (never by the controller/DTO) on the marketplace
-  // brand path, where the brand's own price IS the buyer price and the product
-  // publishes without admin review.
+  // Set internally (never by the controller/DTO) when the buyer price is written
+  // alongside an update, e.g. when an approved pricing change is applied.
   adminPrice?: number;
   // Set internally by the repository when a tier replace changes the cheapest agent tier.
   agentPrice?: number;
@@ -319,17 +264,6 @@ export interface ProductListFilter {
   placeOfOrigin?: string;
   /** Free-text contains-match against the product's lead time (e.g. "1-2 weeks"). */
   leadTime?: string;
-  /** Brand slug — a valid scope on its own (brand storefront, "Buy more from this brand"). */
-  brand?: string;
-  /** true = only Solomon-curated products (brandId null). NOT a scope on its own. */
-  curated?: boolean;
-}
-
-/** One entry of GET /products/facets/brands. */
-export interface BrandFacet {
-  slug: string;
-  name: string;
-  count: number;
 }
 
 export interface AdminProductListFilter {
@@ -408,23 +342,17 @@ export interface BuyerProduct {
   ecoProduction: string[];
   isBestseller: boolean;
   tariffCode: string | null;
-  /** Marketplace brand tag; null for Solomon-curated products (no seller identity). */
-  brand: BrandSummary | null;
 }
 
 /** GET /products/:slug payload. */
 export interface BuyerProductDetail {
   product: BuyerProduct;
   related: BuyerProduct[];
-  /** Up to 8 other published products of the same brand; empty for curated products. */
-  moreFromBrand: BuyerProduct[];
 }
 
 /** Seller-safe projection — never includes adminPrice or margin. */
-/** A tier row as a seller may see it: never agentPrice; adminPrice only for marketplace
- *  brands (it is their own buyer price) and omitted entirely for curated sellers. */
-export type SellerPriceTier<T extends { adminPrice: unknown; agentPrice: unknown }> =
-  Omit<T, 'adminPrice' | 'agentPrice'> & { adminPrice?: T['adminPrice'] };
+/** A tier row as a seller may see it: never agentPrice or adminPrice (the buyer price). */
+export type SellerPriceTier<T extends { adminPrice: unknown; agentPrice: unknown }> = Omit<T, 'adminPrice' | 'agentPrice'>;
 
 export type SellerVariant = Omit<VariantWithDetail, 'priceTiers'> & {
   priceTiers: SellerPriceTier<VariantPriceTier>[];

@@ -30,7 +30,7 @@ const hankenGrotesk = Hanken_Grotesk({
 export const metadata: Metadata = {
   title: 'Solomon Bharat — Premium Indian Exports, Wholesale',
   description:
-    'B2B wholesale marketplace for Indian handmade and artisan products: Curated by Solomon and independent Indian brands, delivered worldwide.',
+    'B2B wholesale platform for Indian handmade and artisan products, curated by Solomon Bharat and delivered worldwide.',
 }
 
 export default function RootLayout({

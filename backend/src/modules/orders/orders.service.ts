@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { BrandStatus, Order, OrderStatus } from '@prisma/client';
+import { Order, OrderStatus } from '@prisma/client';
 import { logger } from '../../config/logger';
 import { AppError } from '../../utils/errors';
 import { calculateMargin } from '../../utils/helpers';
@@ -11,17 +11,12 @@ import { BuyersService, buyersService } from '../buyers/buyers.service';
 import { PayoutsService, payoutsService } from '../payouts/payouts.service';
 import { notificationsService } from '../notifications/notifications.service';
 import { OrdersRepository, ordersRepository } from './orders.repository';
-import { computeLineCommission, fromPaise, pickRate, toPaise } from './commission';
+import { fromPaise, toPaise } from './money';
 import {
   AdminOrderListFilter,
-  BrandOrderRecord,
-  BrandOrderView,
   BuyerOrder,
-  CheckoutBrand,
   CheckoutItemInput,
-  CommissionRatesPort,
   DbTx,
-  MinOrderViolation,
   OrderWithItems,
   PendingCheckout,
   PricedOrderItem,
@@ -31,15 +26,6 @@ import {
   SellerOrderItem,
 } from './orders.types';
 
-/** Default rates port: lazily resolved so the brands module is only loaded when a brand order settles. */
-const brandRatesPort: CommissionRatesPort = {
-  async resolveCommissionRates(brandId) {
-    const { brandsService } = await import('../brands/brands.service');
-    return brandsService.resolveCommissionRates(brandId);
-  },
-};
-
-export const MIN_ORDER_VALUE_NOT_MET = 'MIN_ORDER_VALUE_NOT_MET';
 export const ITEMS_UNAVAILABLE = 'ITEMS_UNAVAILABLE';
 
 type CheckoutProduct = Awaited<ReturnType<ProductsService['getForCheckout']>>;
@@ -52,17 +38,9 @@ type LinePricing =
       message: string;
     };
 
-interface FulfilmentGroup {
-  /** Brand's SellerProfile id; null for the curated group. */
-  sellerProfileId: string | null;
-  brand: CheckoutBrand | null;
-  items: PricedOrderItem[];
-}
-
 export interface SettleOutcome {
   /** Orders this call actually moved to PAYMENT_RECEIVED (empty when it was a replay). */
   settledOrderIds: string[];
-  brandOrderIds: string[];
 }
 
 /**
@@ -88,20 +66,13 @@ const CANCELLABLE_STATUSES: OrderStatus[] = [
   OrderStatus.CONFIRMED,
 ];
 
-// A buyer may cancel only until the order is confirmed (curated) or accepted by the brand
-// (marketplace) — in both cases that is the move out of PAYMENT_RECEIVED.
+// A buyer may cancel only until the order is confirmed (the move out of PAYMENT_RECEIVED).
 const BUYER_CANCELLABLE_STATUSES: OrderStatus[] = [OrderStatus.PENDING_PAYMENT, OrderStatus.PAYMENT_RECEIVED];
-
-/** A marketplace brand must accept a paid order within this window or it is cancelled. */
-export const BRAND_ACCEPT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 function toBuyerOrder(order: OrderWithItems): BuyerOrder {
   return {
     id: order.id,
     checkoutId: order.checkoutId ?? null,
-    brand: order.sellerProfile?.brand
-      ? { name: order.sellerProfile.brand.name, slug: order.sellerProfile.brand.slug }
-      : null,
     status: order.status,
     adminPriceTotal: order.adminPriceTotal.toString(),
     trackingNumber: order.trackingNumber,
@@ -125,71 +96,6 @@ function toBuyerOrder(order: OrderWithItems): BuyerOrder {
       unitAdminPrice: item.unitAdminPrice.toString(),
       lineAdminTotal: item.lineAdminTotal.toString(),
       reviewed: !!item.review,
-      brand: item.product.brand
-        ? {
-            id: item.product.brand.id,
-            name: item.product.brand.name,
-            slug: item.product.brand.slug,
-            logoUrl: item.product.brand.logoUrl,
-            isVerified: item.product.brand.isVerified,
-            minOrderValueInr: Number(item.product.brand.minOrderValueInr),
-          }
-        : null,
-    })),
-  };
-}
-
-/** Brand-facing projection of ITS OWN order — includes buyer contact + address needed to ship. */
-export function toBrandOrderView(order: BrandOrderRecord): BrandOrderView {
-  const paid = order.items.some((i) => i.commissionAmount != null);
-  const commissionPaise = order.items.reduce((sum, i) => sum + toPaise(Number(i.commissionAmount ?? 0)), 0);
-  const grossPaise = toPaise(Number(order.adminPriceTotal));
-  const addr = order.shippingAddress;
-  return {
-    id: order.id,
-    checkoutId: order.checkoutId ?? null,
-    status: order.status,
-    trackingNumber: order.trackingNumber,
-    cancelledReason: order.cancelledReason,
-    paidAt: order.paidAt,
-    dispatchPhotos: (order.dispatchPhotos as string[] | null) ?? [],
-    brandOwnBuyer: order.brandOwnBuyer,
-    refundedAt: order.refundedAt,
-    createdAt: order.createdAt,
-    updatedAt: order.updatedAt,
-    grossTotal: order.adminPriceTotal.toString(),
-    commissionTotal: paid ? fromPaise(commissionPaise).toFixed(2) : null,
-    netTotal: paid ? fromPaise(grossPaise - commissionPaise).toFixed(2) : null,
-    buyer: {
-      name: order.buyer.contactName,
-      company: order.buyer.companyName,
-      phone: order.buyer.phone,
-      country: order.buyer.country,
-    },
-    shippingAddress: addr
-      ? {
-          label: addr.label,
-          line1: addr.line1,
-          line2: addr.line2,
-          city: addr.city,
-          state: addr.state,
-          postalCode: addr.postalCode,
-          country: addr.country,
-        }
-      : null,
-    items: order.items.map((item) => ({
-      id: item.id,
-      productId: item.productId,
-      productName: item.product.name,
-      productImage: item.product.images[0]?.url ?? null,
-      variantLabel: item.variant ? `${item.variant.type}: ${item.variant.value}` : null,
-      quantity: item.quantity,
-      isSample: item.isSample,
-      unitPrice: item.unitAdminPrice.toString(),
-      lineGross: item.lineAdminTotal.toString(),
-      commissionRate: item.commissionRate != null ? item.commissionRate.toString() : null,
-      commissionAmount: item.commissionAmount != null ? item.commissionAmount.toString() : null,
-      lineNet: item.commissionAmount != null ? item.lineSellerTotal.toString() : null,
     })),
   };
 }
@@ -200,7 +106,6 @@ export class OrdersService {
     private readonly products: ProductsService = productsService,
     private readonly buyers: BuyersService = buyersService,
     private readonly payouts: PayoutsService = payoutsService,
-    private readonly rates: CommissionRatesPort = brandRatesPort,
   ) {}
 
   private async getOrderOrThrow(orderId: string): Promise<Order> {
@@ -213,12 +118,11 @@ export class OrdersService {
 
   /**
    * Loads every cart product and classifies its availability (deleted / unpublished / unapproved /
-   * suspended brand / brand product asked for by an agent). Shared by checkout (which throws on any
+   * seller on vacation). Shared by checkout (which throws on any
    * unavailable line) and quote (which reports a per-line status).
    */
   private async loadProductsWithAvailability(
     items: CheckoutItemInput[],
-    pricingRole: PricingRole,
   ): Promise<Map<string, { product: CheckoutProduct | null; available: boolean }>> {
     const loaded = await Promise.all(
       items.map(async (item): Promise<{ id: string; product: CheckoutProduct | null }> => {
@@ -231,27 +135,17 @@ export class OrdersService {
       }),
     );
 
-    const brandIds = [
-      ...new Set(loaded.map((l) => l.product?.brandId).filter((id): id is string => !!id)),
-    ];
-    const brands = brandIds.length > 0 ? await this.repo.findBrandsByIds(brandIds) : [];
-    const brandById = new Map(brands.map((b) => [b.id, b]));
     const onVacation = await this.repo.findSellersOnVacation([
       ...new Set(loaded.map((l) => l.product?.sellerId).filter((id): id is string => !!id)),
     ]);
 
     const result = new Map<string, { product: CheckoutProduct | null; available: boolean }>();
     for (const { id, product } of loaded) {
-      const brand = product?.brandId ? brandById.get(product.brandId) : undefined;
       const bad =
         !product ||
         product.deletedAt ||
         !product.isPublished ||
         product.approvalStatus !== 'APPROVED' ||
-        // Agents are limited to Solomon-curated products - marketplace brand products are
-        // never purchasable by them (owner decision; they cannot even see them).
-        (pricingRole === 'AGENT' && !!product.brandId) ||
-        (!!product.brandId && (!brand || brand.status === BrandStatus.SUSPENDED)) ||
         // A seller on vacation is not taking orders.
         onVacation.has(product.sellerId);
       result.set(id, { product, available: !bad });
@@ -266,9 +160,8 @@ export class OrdersService {
    */
   private async loadAvailableProducts(
     items: CheckoutItemInput[],
-    pricingRole: PricingRole,
   ): Promise<Map<string, CheckoutProduct>> {
-    const loaded = await this.loadProductsWithAvailability(items, pricingRole);
+    const loaded = await this.loadProductsWithAvailability(items);
     const unavailable: string[] = [];
     const byId = new Map<string, CheckoutProduct>();
     for (const item of items) {
@@ -353,7 +246,7 @@ export class OrdersService {
       return { ok: false, kind: 'CHOOSE_OPTION', message: `Choose an option for "${product.name}"` };
     }
 
-    // A flat (no-variant) product - curated or brand - can carry its own quantity ladder;
+    // A flat (no-variant) product can carry its own quantity ladder;
     // mirror the PDP: highest tier whose moq <= quantity, else the lowest tier.
     if (unitAdminPrice == null) {
       const hit = pickTier(product.priceTiers);
@@ -383,7 +276,6 @@ export class OrdersService {
         productId: product.id,
         variantId: item.variantId,
         sellerId: product.sellerId,
-        brandId: product.brandId ?? null,
         quantity: item.quantity,
         unitAdminPrice,
         unitSellerPrice: sellerUnit,
@@ -395,8 +287,7 @@ export class OrdersService {
 
   /**
    * A sample line: the product's sample price per unit, no MOQ, at most sampleMaxQty units.
-   * A brand is paid its own sample price (gross; commission is applied at payment); a curated
-   * seller is paid its usual unit cost, since the admin sets the curated sample price.
+   * The seller is paid its usual unit cost, since the admin sets the sample price.
    */
   private resolveSamplePrice(product: CheckoutProduct, item: CheckoutItemInput): LinePricing {
     const price = product.samplePrice != null ? Number(product.samplePrice) : 0;
@@ -420,14 +311,13 @@ export class OrdersService {
       return { ok: false, kind: 'CHOOSE_OPTION', message: `Choose an option for "${product.name}"` };
     }
     const lineTotal = Math.round(price * item.quantity * 100) / 100;
-    const sellerUnit = product.brandId ? price : Number(product.sellerPrice);
+    const sellerUnit = Number(product.sellerPrice);
     return {
       ok: true,
       priced: {
         productId: product.id,
         variantId: item.variantId,
         sellerId: product.sellerId,
-        brandId: product.brandId ?? null,
         quantity: item.quantity,
         isSample: true,
         unitAdminPrice: price,
@@ -442,7 +332,7 @@ export class OrdersService {
     items: CheckoutItemInput[],
     pricingRole: PricingRole,
   ): Promise<PricedOrderItem[]> {
-    const products = await this.loadAvailableProducts(items, pricingRole);
+    const products = await this.loadAvailableProducts(items);
     return items.map((item) => {
       const result = this.resolveLinePrice(products.get(item.productId)!, item, pricingRole);
       if (!result.ok) throw AppError.badRequest(result.message);
@@ -455,7 +345,7 @@ export class OrdersService {
    * of throwing, priced by the exact same core as checkout.
    */
   async quoteItems(items: CheckoutItemInput[], pricingRole: PricingRole): Promise<QuoteResult> {
-    const loaded = await this.loadProductsWithAvailability(items, pricingRole);
+    const loaded = await this.loadProductsWithAvailability(items);
     const lines: QuoteLine[] = items.map((item) => {
       const entry = loaded.get(item.productId);
       const base = {
@@ -484,58 +374,9 @@ export class OrdersService {
     return { lines, subtotalInr: fromPaise(subtotalPaise) };
   }
 
-  /** Splits priced items into one group per fulfiller: each active brand, plus at most one curated group. */
-  private async groupByFulfiller(items: PricedOrderItem[]): Promise<FulfilmentGroup[]> {
-    const brandIds = [...new Set(items.map((i) => i.brandId).filter((id): id is string => !!id))];
-    const brands = brandIds.length > 0 ? await this.repo.findBrandsByIds(brandIds) : [];
-    const brandById = new Map(brands.map((b) => [b.id, b]));
-
-    const curated: FulfilmentGroup = { sellerProfileId: null, brand: null, items: [] };
-    const byBrand = new Map<string, FulfilmentGroup>();
-
-    for (const item of items) {
-      if (!item.brandId) {
-        curated.items.push(item);
-        continue;
-      }
-      const brand = brandById.get(item.brandId);
-      if (!brand || brand.status === BrandStatus.SUSPENDED) {
-        throw AppError.badRequest(`Product ${item.productId} is not available for purchase`);
-      }
-      const group = byBrand.get(brand.id) ?? { sellerProfileId: brand.sellerProfileId, brand, items: [] };
-      group.items.push(item);
-      byBrand.set(brand.id, group);
-    }
-
-    return [...(curated.items.length > 0 ? [curated] : []), ...byBrand.values()];
-  }
-
-  /** Server-side minimum order value per brand, on the sum of that brand's lineAdminTotal (INR). */
-  private findMinOrderViolations(groups: FulfilmentGroup[]): MinOrderViolation[] {
-    const violations: MinOrderViolation[] = [];
-    for (const group of groups) {
-      if (!group.brand) continue;
-      // Samples are exempt: a samples-only order skips the minimum, and sample lines never
-      // count toward (or against) the wholesale minimum.
-      const wholesale = group.items.filter((i) => !i.isSample);
-      if (wholesale.length === 0) continue;
-      const required = Number(group.brand.minOrderValueInr);
-      const currentPaise = wholesale.reduce((sum, i) => sum + toPaise(i.lineAdminTotal), 0);
-      if (currentPaise < toPaise(required)) {
-        violations.push({
-          brandId: group.brand.id,
-          brandName: group.brand.name,
-          required,
-          current: fromPaise(currentPaise),
-        });
-      }
-    }
-    return violations;
-  }
-
   /**
-   * Called by the payments module at the start of checkout. Creates one PENDING_PAYMENT sibling
-   * order per brand (plus one for curated items) sharing a checkoutId.
+   * Called by the payments module at the start of checkout. Creates one PENDING_PAYMENT order
+   * (with a checkoutId, kept so the payment flow can settle "a checkout" of one order).
    */
   async createPendingCheckout(
     buyerId: string,
@@ -548,41 +389,23 @@ export class OrdersService {
     }
 
     const pricedItems = await this.priceCheckoutItems(items, pricingRole);
-    const groups = await this.groupByFulfiller(pricedItems);
-
-    const violations = this.findMinOrderViolations(groups);
-    if (violations.length > 0) {
-      throw AppError.unprocessable(
-        `Minimum order value not met for: ${violations
-          .map((v) => `${v.brandName} (required ${v.required}, current ${v.current})`)
-          .join('; ')}`,
-        { code: MIN_ORDER_VALUE_NOT_MET, details: violations },
-      );
-    }
-
     const checkoutId = randomUUID();
-    const orders: OrderWithItems[] = [];
-    for (const group of groups) {
-      const adminPriceTotal = fromPaise(group.items.reduce((sum, i) => sum + toPaise(i.lineAdminTotal), 0));
-      const sellerPriceTotal = fromPaise(group.items.reduce((sum, i) => sum + toPaise(i.lineSellerTotal), 0));
-      // eslint-disable-next-line no-await-in-loop
-      const order = await this.repo.createPending({
-        buyerId,
-        shippingAddressId,
-        items: group.items,
-        adminPriceTotal,
-        sellerPriceTotal,
-        adminMargin: calculateMargin(adminPriceTotal, sellerPriceTotal),
-        placedAsAgent: pricingRole === 'AGENT',
-        sellerProfileId: group.sellerProfileId,
-        checkoutId,
-      });
-      orders.push(order);
-    }
-    return { checkoutId, orders };
+    const adminPriceTotal = fromPaise(pricedItems.reduce((sum, i) => sum + toPaise(i.lineAdminTotal), 0));
+    const sellerPriceTotal = fromPaise(pricedItems.reduce((sum, i) => sum + toPaise(i.lineSellerTotal), 0));
+    const order = await this.repo.createPending({
+      buyerId,
+      shippingAddressId,
+      items: pricedItems,
+      adminPriceTotal,
+      sellerPriceTotal,
+      adminMargin: calculateMargin(adminPriceTotal, sellerPriceTotal),
+      placedAsAgent: pricingRole === 'AGENT',
+      checkoutId,
+    });
+    return { checkoutId, orders: [order] };
   }
 
-  /** Single-order convenience for curated-only carts; checkout uses createPendingCheckout. */
+  /** Single-order convenience; checkout uses createPendingCheckout. */
   async createPendingOrder(
     buyerId: string,
     items: CheckoutItemInput[],
@@ -593,14 +416,11 @@ export class OrdersService {
     return orders[0];
   }
 
-  /** Legacy single-order paid transition (curated orders only). Checkout settlement uses markCheckoutPaid. */
+  /** Legacy single-order paid transition. Checkout settlement uses markCheckoutPaid. */
   async markPaymentReceived(orderId: string): Promise<Order> {
     const order = await this.getOrderOrThrow(orderId);
     if (order.status !== OrderStatus.PENDING_PAYMENT) {
       throw AppError.badRequest('Order is not awaiting payment');
-    }
-    if (order.sellerProfileId) {
-      throw AppError.badRequest('Marketplace orders are settled together with their checkout');
     }
     return this.repo.setStatus(orderId, OrderStatus.PAYMENT_RECEIVED);
   }
@@ -608,15 +428,13 @@ export class OrdersService {
   /**
    * The single settle path, used by both PayPal capture and the PayPal webhook. In ONE DB
    * transaction: run `inTx` (the payments module completes its Payment rows there), flip every
-   * still-PENDING_PAYMENT sibling order to PAYMENT_RECEIVED, and lock commission on brand orders.
+   * still-PENDING_PAYMENT order to PAYMENT_RECEIVED.
    * Idempotent: orders already past PENDING_PAYMENT are skipped, so a replay changes nothing.
    */
   async markCheckoutPaid(orderIds: string[], inTx?: (tx: DbTx) => Promise<void>): Promise<SettleOutcome> {
     // Deterministic order avoids deadlocks between concurrent settlements.
     const sortedIds = [...new Set(orderIds)].sort();
     const settledOrderIds: string[] = [];
-    const brandOrderIds: string[] = [];
-    const ownBuyerOrderIds: string[] = [];
 
     await this.repo.runInTransaction(async (tx) => {
       if (inTx) await inTx(tx);
@@ -624,36 +442,10 @@ export class OrdersService {
         // eslint-disable-next-line no-await-in-loop
         if (!(await this.repo.markPaidIfPending(tx, id))) continue;
         settledOrderIds.push(id);
-        // eslint-disable-next-line no-await-in-loop
-        const order = await this.repo.findOrderInTx(tx, id);
-        if (order?.sellerProfileId) {
-          // eslint-disable-next-line no-await-in-loop
-          if (await this.lockCommission(tx, order)) ownBuyerOrderIds.push(id);
-          brandOrderIds.push(id);
-        }
       }
     });
 
-    // The brand's own buyers are paid out instantly, on payment rather than on dispatch.
-    for (const id of ownBuyerOrderIds) {
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        await this.payouts.createForDeliveredBrandOrder(id);
-      } catch (err) {
-        logger.error({ err, orderId: id }, 'Failed to create instant payout for own-buyer order — reconcile manually');
-      }
-    }
-
-    // After commit: a notification failure must never undo or fail a settled payment.
-    for (const id of brandOrderIds) {
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        await notificationsService.notifyBrandNewOrder(id);
-      } catch (err) {
-        logger.error({ err, orderId: id }, 'Failed to notify brand of new order');
-      }
-    }
-    // Every newly settled order (brand or curated) alerts the super admins. Replays settle
+    // Every newly settled order alerts the super admins. Replays settle
     // nothing, so this never double-sends.
     for (const id of settledOrderIds) {
       try {
@@ -664,52 +456,7 @@ export class OrdersService {
       }
     }
 
-    return { settledOrderIds, brandOrderIds };
-  }
-
-  /**
-   * Locks the commission for one brand order inside the settlement transaction. The brand row is
-   * locked BEFORE counting this buyer's other paid orders with the brand so two concurrent first
-   * orders from the same buyer serialise: the second one sees the first as paid and gets the repeat rate.
-   * The 'first' rate applies once per buyer per brand; every later order from that buyer is 'repeat'.
-   * Isolated on purpose — this is the piece that would move if commission is locked at checkout.
-   */
-  private async lockCommission(tx: DbTx, order: Order): Promise<boolean> {
-    const sellerProfileId = order.sellerProfileId!;
-    const brand = await this.repo.findBrandBySellerProfileId(tx, sellerProfileId);
-    if (!brand) {
-      throw AppError.internal(`Brand missing for marketplace order ${order.id}`);
-    }
-
-    await this.repo.lockBrand(tx, brand.id);
-    // The brand's own buyers (joined via its invite link) carry no commission.
-    const ownBuyer = await this.repo.isBrandOwnBuyer(tx, brand.id, order.buyerId);
-    const otherPaid = ownBuyer
-      ? 0
-      : await this.repo.countOtherPaidBrandOrders(tx, sellerProfileId, order.buyerId, order.id);
-    const rate = ownBuyer ? 0 : pickRate(await this.rates.resolveCommissionRates(brand.id), otherPaid === 0);
-
-    const items = await this.repo.findItemsInTx(tx, order.id);
-    let netPaise = 0;
-    for (const item of items) {
-      const c = computeLineCommission(Number(item.lineAdminTotal), item.quantity, rate);
-      netPaise += toPaise(c.lineNet);
-      // eslint-disable-next-line no-await-in-loop
-      await this.repo.updateItemCommission(tx, item.id, {
-        commissionRate: rate,
-        commissionAmount: c.commissionAmount,
-        unitSellerPrice: c.unitNet,
-        lineSellerTotal: c.lineNet,
-      });
-    }
-    const adminPaise = toPaise(Number(order.adminPriceTotal));
-    await this.repo.updateOrderTotals(tx, order.id, {
-      sellerPriceTotal: fromPaise(netPaise),
-      adminMargin: fromPaise(adminPaise - netPaise),
-      brandOwnBuyer: ownBuyer,
-    });
-    logger.info({ orderId: order.id, brandId: brand.id, rate, ownBuyer, firstOrder: otherPaid === 0 }, 'Commission locked');
-    return ownBuyer;
+    return { settledOrderIds };
   }
 
   private assertOwnedByBuyer(order: Order, buyerId: string): void {
@@ -780,10 +527,9 @@ export class OrdersService {
     adminId: string,
     extra?: { expectedCollectionDate?: Date; trackingNumber?: string; dispatchPhotos?: string[] },
   ): Promise<Order> {
+    // Historical marketplace-brand orders (sellerProfileId set, from before the model was
+    // removed) are managed through this same admin pipeline.
     const order = await this.getOrderOrThrow(orderId);
-    if (order.sellerProfileId) {
-      throw AppError.badRequest('Marketplace orders are fulfilled by the brand, not the admin pipeline');
-    }
     this.assertNextInSequence(order.status, target);
 
     const updated = await this.repo.setStatus(orderId, target, extra);
@@ -851,7 +597,7 @@ export class OrdersService {
     }
   }
 
-  /** Buyer self-cancel, allowed until the order is confirmed (curated) or accepted (marketplace). */
+  /** Buyer self-cancel, allowed until the order is confirmed. */
   async buyerCancel(buyerId: string, orderId: string, reason?: string): Promise<Order> {
     const order = await this.getOrderOrThrow(orderId);
     this.assertOwnedByBuyer(order, buyerId);
@@ -881,33 +627,6 @@ export class OrdersService {
     return updated;
   }
 
-  /**
-   * Cancels marketplace orders the brand did not accept within 24h of payment. Run on a
-   * timer; each order is moved with a status guard so a brand accepting at the same moment wins.
-   */
-  async expireUnacceptedBrandOrders(now: Date = new Date()): Promise<string[]> {
-    const stale = await this.repo.findUnacceptedBrandOrders(new Date(now.getTime() - BRAND_ACCEPT_WINDOW_MS));
-    const expired: string[] = [];
-    for (const order of stale) {
-      // eslint-disable-next-line no-await-in-loop
-      const moved = await this.repo.transitionIfStatus(order.id, OrderStatus.PAYMENT_RECEIVED, OrderStatus.CANCELLED, {
-        cancelledReason: 'Not accepted by the brand within 24 hours. A full refund will be issued.',
-      });
-      if (!moved) continue;
-      expired.push(order.id);
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        await this.notifyBuyer(order.buyerId, order.id, OrderStatus.CANCELLED);
-      } catch (err) {
-        logger.error({ err, orderId: order.id }, 'Failed to notify buyer of expired brand order');
-      }
-    }
-    if (expired.length > 0) {
-      logger.info({ orderIds: expired }, 'Cancelled marketplace orders not accepted within 24h');
-    }
-    return expired;
-  }
-
   async setTrackingNumber(orderId: string, trackingNumber: string): Promise<Order> {
     await this.getOrderOrThrow(orderId);
     return this.repo.setTrackingNumber(orderId, trackingNumber);
@@ -916,97 +635,6 @@ export class OrdersService {
   async setExportDocuments(orderId: string, documents: string[]): Promise<Order> {
     await this.getOrderOrThrow(orderId);
     return this.repo.setExportDocuments(orderId, documents);
-  }
-
-  // -- Marketplace brand fulfilment --------------------------------------
-
-  async listForBrand(
-    sellerProfileId: string,
-    status: OrderStatus | undefined,
-    pagination: PaginationQuery,
-  ): Promise<{ data: BrandOrderView[]; total: number }> {
-    const { data, total } = await this.repo.listForBrand(sellerProfileId, status, pagination);
-    return { data: data.map(toBrandOrderView), total };
-  }
-
-  /** Ownership: the order must belong to the caller's brand. Unpaid orders are invisible to the brand. */
-  private async getBrandOrderOrThrow(sellerProfileId: string, orderId: string): Promise<BrandOrderRecord> {
-    const order = await this.repo.findBrandOrder(orderId);
-    if (!order || order.deletedAt || order.status === OrderStatus.PENDING_PAYMENT) {
-      throw AppError.notFound('Order not found');
-    }
-    if (order.sellerProfileId !== sellerProfileId) {
-      throw AppError.forbidden('You do not have access to this order');
-    }
-    return order;
-  }
-
-  async getForBrand(sellerProfileId: string, orderId: string): Promise<BrandOrderView> {
-    return toBrandOrderView(await this.getBrandOrderOrThrow(sellerProfileId, orderId));
-  }
-
-  private async brandTransition(
-    sellerProfileId: string,
-    orderId: string,
-    from: OrderStatus,
-    to: OrderStatus,
-    extra?: { trackingNumber?: string; dispatchPhotos?: string[]; cancelledReason?: string },
-  ): Promise<BrandOrderView> {
-    const order = await this.getBrandOrderOrThrow(sellerProfileId, orderId);
-    if (order.status !== from) {
-      throw AppError.badRequest(`Cannot move an order from ${order.status} to ${to}`);
-    }
-    if (!(await this.repo.transitionIfStatus(orderId, from, to, extra))) {
-      throw AppError.conflict('Order status changed concurrently, please refresh');
-    }
-    // Brand actors have no admin user id for writeAuditLog, so log via the logger.
-    logger.info({ orderId, sellerProfileId, from, to }, 'Brand order status changed');
-
-    const buyerUserId = await this.getBuyerUserId(order.buyerId);
-    if (buyerUserId) {
-      await notificationsService.notifyOrderStatusChanged(buyerUserId, orderId, to);
-    }
-    return this.getForBrand(sellerProfileId, orderId);
-  }
-
-  brandConfirm(sellerProfileId: string, orderId: string): Promise<BrandOrderView> {
-    return this.brandTransition(sellerProfileId, orderId, OrderStatus.PAYMENT_RECEIVED, OrderStatus.CONFIRMED);
-  }
-
-  /** The brand turns down a paid order it has not accepted; the buyer is refunded. */
-  async brandDecline(sellerProfileId: string, orderId: string, reason: string): Promise<BrandOrderView> {
-    return this.brandTransition(sellerProfileId, orderId, OrderStatus.PAYMENT_RECEIVED, OrderStatus.CANCELLED, {
-      cancelledReason: `Declined by the brand: ${reason}`,
-    });
-  }
-
-  async brandShip(
-    sellerProfileId: string,
-    orderId: string,
-    trackingNumber: string,
-    dispatchPhotos: string[],
-    carrier?: string,
-  ): Promise<BrandOrderView> {
-    if (dispatchPhotos.length === 0) {
-      throw AppError.badRequest('Upload at least one dispatch photo before shipping');
-    }
-    const tracking = carrier ? `${carrier}: ${trackingNumber}` : trackingNumber;
-    const view = await this.brandTransition(sellerProfileId, orderId, OrderStatus.CONFIRMED, OrderStatus.IN_TRANSIT, {
-      trackingNumber: tracking,
-      dispatchPhotos,
-    });
-    // Brands are paid on dispatch. The status change is already committed and cannot be retried
-    // by the brand, so a payout failure is logged loudly for reconciliation rather than failing.
-    try {
-      await this.payouts.createForDeliveredBrandOrder(orderId);
-    } catch (err) {
-      logger.error({ err, orderId }, 'Failed to create payout for dispatched brand order — reconcile manually');
-    }
-    return view;
-  }
-
-  brandDeliver(sellerProfileId: string, orderId: string): Promise<BrandOrderView> {
-    return this.brandTransition(sellerProfileId, orderId, OrderStatus.IN_TRANSIT, OrderStatus.DELIVERED);
   }
 
   async listItemsForSeller(sellerId: string, pagination: PaginationQuery): Promise<{ data: SellerOrderItem[]; total: number }> {

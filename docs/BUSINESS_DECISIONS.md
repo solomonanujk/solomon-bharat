@@ -1,8 +1,10 @@
 # Business decisions (owner-confirmed, Oct 2026)
 
+> **Decision, 17 Oct 2026 — marketplace model removed.** The business will **not** run the marketplace (brand) model for at least a year. The product is **Curated by Solomon + the Agent programme only**. All marketplace flows were removed from the app; existing marketplace sellers were converted to curated sellers (their products stay live at their current buyer price, which the admin can re-price) and historical marketplace orders are handled by the admin like curated orders. The full marketplace code is preserved on git branch `archive/marketplace-model`; see `docs/MARKETPLACE_MODEL_ARCHIVE.md`. Every "Marketplace" rule below is **historical** and must not be built again without a new owner decision.
+
 First target market: **UK**. Currency is detected automatically and buyers can switch; exchange rates update daily and automatically.
 
-Source of truth for how the two seller models behave. Where code disagrees with this file, the code is wrong.
+Source of truth for how the seller model behaves (the Marketplace column is historical since 17 Oct 2026). Where code disagrees with this file, the code is wrong.
 "Curated" = Curated by Solomon. "Marketplace" = a brand selling under its own name.
 
 ## 1. The two seller models

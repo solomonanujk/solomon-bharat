@@ -118,32 +118,14 @@ describe('CategoriesRepository', () => {
     db.product.count.mockResolvedValue(3);
     await repo.countProductsInCategories(['c1', 'c2'], true);
     expect(db.product.count).toHaveBeenCalledWith({
-      where: { categoryId: { in: ['c1', 'c2'] }, deletedAt: null, isPublished: true, OR: [{ brandId: null }, { brand: { status: 'ACTIVE' } }] },
+      where: { categoryId: { in: ['c1', 'c2'] }, deletedAt: null, isPublished: true },
     });
   });
 
-  it('countProductsInCategories is curated-only for agents', async () => {
-    db.product.count.mockResolvedValue(1);
-    await repo.countProductsInCategories(['c1'], true, true);
-    expect(db.product.count).toHaveBeenCalledWith({
-      where: { categoryId: { in: ['c1'] }, deletedAt: null, isPublished: true, brandId: null },
-    });
-  });
-
-  it('countProductsInCategories does not filter brands for admin (unpublished) counts', async () => {
+  it('countProductsInCategories does not filter published for admin (unpublished) counts', async () => {
     db.product.count.mockResolvedValue(1);
     await repo.countProductsInCategories(['c1'], false);
     expect(db.product.count).toHaveBeenCalledWith({ where: { categoryId: { in: ['c1'] }, deletedAt: null } });
-  });
-
-  it('groupProductCounts is curated-only for agents', async () => {
-    db.product.groupBy.mockResolvedValue([]);
-    await repo.groupProductCounts(true, true);
-    expect(db.product.groupBy).toHaveBeenCalledWith({
-      by: ['categoryId'],
-      where: { deletedAt: null, isPublished: true, brandId: null },
-      _count: { _all: true },
-    });
   });
 
   it('groupProductCounts maps grouped rows into a categoryId->count Map', async () => {
@@ -154,7 +136,7 @@ describe('CategoriesRepository', () => {
     const result = await repo.groupProductCounts(true);
     expect(db.product.groupBy).toHaveBeenCalledWith({
       by: ['categoryId'],
-      where: { deletedAt: null, isPublished: true, OR: [{ brandId: null }, { brand: { status: 'ACTIVE' } }] },
+      where: { deletedAt: null, isPublished: true },
       _count: { _all: true },
     });
     expect(result).toEqual(
