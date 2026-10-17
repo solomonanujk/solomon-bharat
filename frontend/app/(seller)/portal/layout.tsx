@@ -107,7 +107,7 @@ export default function SellerPortalLayout({
         </header>
 
         {/* Page content */}
-        <main className="flex-1 min-w-0 p-8 max-lg:p-4 pb-24 lg:pb-8">
+        <main className="flex-1 min-w-0 p-4 pb-24 lg:p-8">
           {children}
         </main>
       </div>

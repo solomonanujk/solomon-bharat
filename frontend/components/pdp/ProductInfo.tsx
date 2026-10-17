@@ -373,7 +373,18 @@ const GUEST_CTA = 'Sign up to view wholesale prices'
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function ProductInfo({ product, categoryName }: { product: Product; categoryName?: string | null }) {
+export function ProductInfo({
+  product,
+  categoryName,
+  onVariantImage,
+}: {
+  product: Product
+  categoryName?: string | null
+  /** Called when the buyer picks an option value that has a photo, so the
+   *  gallery can jump to it: the matching variant's own image first, else the
+   *  clicked swatch's image. */
+  onVariantImage?: (url: string) => void
+}) {
   const {
     id, name, description, materials, dimensions, weight,
     moq, stepQty, leadTime, placeOfOrigin, images, variants = [],
@@ -399,7 +410,13 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
   )
 
   function selectAttr(type: string, value: string) {
-    setSelectedAttrs((prev) => ({ ...prev, [type]: value }))
+    const next = { ...selectedAttrs, [type]: value }
+    setSelectedAttrs(next)
+    if (onVariantImage) {
+      const swatchImage = axes.find((a) => a.type === type)?.values.find((v) => v.value === value)?.imageUrl
+      const image = findMatchingVariant(variants, next)?.imageUrl || swatchImage
+      if (image) onVariantImage(image)
+    }
   }
 
   const { user, requireAuth, isAuthenticated, openAuthModal } = useAuth()

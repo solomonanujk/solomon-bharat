@@ -48,10 +48,18 @@ export class CloudinaryStorageProvider implements StorageProvider {
 
   uploadVideo(buffer: Buffer, filename: string, folder: string): Promise<UploadedFile> {
     return new Promise((resolve, reject) => {
-      // upload_large_stream chunks the upload (chunk_size in bytes) — recommended by
-      // Cloudinary for anything beyond a few MB, which every product video will be.
-      const stream = cloudinary.uploader.upload_large_stream(
-        { folder, public_id: filename, resource_type: 'video', chunk_size: 6_000_000 },
+      // Chunked upload (6MB parts), which Cloudinary needs for videos over ~20MB.
+      // `upload_chunked_stream` is the v2 API for this: `upload_large_stream` exists
+      // only on the v1 uploader, so `cloudinary.v2.uploader.upload_large_stream` is
+      // undefined and calling it threw "is not a function" on every video upload.
+      // The extension is dropped from public_id: Cloudinary adds the format itself.
+      const stream = cloudinary.uploader.upload_chunked_stream(
+        {
+          folder,
+          public_id: filename.replace(/\.[^./]+$/, ''),
+          resource_type: 'video',
+          chunk_size: 6_000_000,
+        },
         (error, result) => {
           if (error || !result) {
             reject(error ?? new Error('Cloudinary video upload failed'));

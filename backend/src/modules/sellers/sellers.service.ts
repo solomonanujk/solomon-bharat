@@ -13,6 +13,8 @@ import { SafeUser, toSafeUser } from '../../utils/safeUser';
 import { mailProvider } from '../../providers/mail';
 import { PaginationQuery } from '../../utils/pagination';
 import { notificationsService } from '../notifications/notifications.service';
+import { authService } from '../auth/auth.service';
+import { accountReadyEmailHtml } from '../../utils/emailTemplates';
 import { SellersRepository, sellersRepository } from './sellers.repository';
 import {
   ApplicationListFilter,
@@ -153,17 +155,22 @@ export class SellersService {
       await notificationsService.notifySellerApplicationApproved(user.id);
     }
 
+    const setupUrl = await authService.createPasswordSetupUrl(user.id);
     await mailProvider.sendMail({
       to: user.email,
       subject: isMarketplace
         ? 'Your Solomon Bharat brand account is ready'
         : 'Your Solomon Bharat seller account is ready',
-      html: `<p>Congratulations — your ${isMarketplace ? 'brand' : 'seller'} application has been approved.</p>
-<p>You can now sign in at <a href="${env.APP_URL}">${env.APP_URL}</a> — click "Sign In" in the top navigation — with:</p>
-<p>Email: ${user.email}<br/>Temporary password: <strong>${tempPassword}</strong></p>
-<p>When you first sign in you will be asked to choose your own password.</p>${
-        isMarketplace ? '<p>Add your products from the seller portal — they go live as soon as you publish them.</p>' : ''
-      }`,
+      html: accountReadyEmailHtml({
+        intro: `Congratulations — your ${isMarketplace ? 'brand' : 'seller'} application has been approved.`,
+        email: user.email,
+        tempPassword,
+        setupUrl,
+        signInUrl: env.APP_URL,
+        extraHtml: isMarketplace
+          ? '<p>Add your products from the seller portal — they go live as soon as you publish them.</p>'
+          : undefined,
+      }),
     });
 
     return { user: toSafeUser(user), profile };

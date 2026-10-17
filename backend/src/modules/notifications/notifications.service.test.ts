@@ -36,6 +36,8 @@ function buildMockRepo(): NotificationsRepository {
     findUserIdsByRole: vi.fn(),
     findUserPhone: vi.fn().mockResolvedValue(null),
     findOrderForBrandAlert: vi.fn(),
+    findOrderForAdminAlert: vi.fn(),
+    findActiveUsersByRole: vi.fn(),
   } as unknown as NotificationsRepository;
 }
 
@@ -186,6 +188,8 @@ describe('NotificationsService', () => {
       );
       const mail = sendMailMock.mock.calls[0][0] as { to: string; html: string };
       expect(mail.to).toBe('brand@example.com');
+      expect((mail as { subject?: string }).subject).toBe('New order — please accept');
+      expect(mail.html).toContain('Review and accept the order');
       expect(mail.html).toContain('Brass &lt;Vase&gt; &times; 3');
       expect(mail.html).toContain('₹1500.00');
       expect(mail.html).toContain('London, UK');
@@ -216,6 +220,70 @@ describe('NotificationsService', () => {
       vi.mocked(repo.findOrderForBrandAlert).mockResolvedValue(order as never);
       vi.mocked(repo.create).mockRejectedValueOnce(new Error('write failed'));
       await expect(service.notifyBrandNewOrder('order-9')).resolves.toBeUndefined();
+    });
+
+    describe('notifyAdminsNewOrder', () => {
+      const adminOrder = {
+        id: '11111111-2222-3333-4444-abcdef123456',
+        adminPriceTotal: '2400.00',
+        placedAsAgent: false,
+        buyer: { companyName: 'Acme <Imports>', contactName: 'Jane', country: 'UK', user: { email: 'jane@acme.example' } },
+        sellerProfile: null,
+        items: [{ quantity: 2 }, { quantity: 3 }],
+      };
+
+      it('emails and notifies every super admin with order number, buyer, total, item count and link', async () => {
+        vi.mocked(repo.findOrderForAdminAlert).mockResolvedValue(adminOrder as never);
+        vi.mocked(repo.findActiveUsersByRole).mockResolvedValue([
+          { id: 'admin-1', email: 'a1@sb.example' },
+          { id: 'admin-2', email: 'a2@sb.example' },
+        ]);
+
+        await service.notifyAdminsNewOrder(adminOrder.id);
+
+        expect(repo.findActiveUsersByRole).toHaveBeenCalledWith(Role.SUPER_ADMIN);
+        expect(repo.create).toHaveBeenCalledTimes(2);
+        expect(repo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            userId: 'admin-1',
+            type: NotificationType.NEW_ORDER_RECEIVED,
+            link: `/admin/orders/${adminOrder.id}`,
+          }),
+        );
+        expect(sendMailMock).toHaveBeenCalledTimes(2);
+        const mail = sendMailMock.mock.calls[0][0] as { to: string; subject: string; html: string };
+        expect(mail.subject).toBe('New order on Solomon Bharat');
+        expect(mail.html).toContain('#EF123456');
+        expect(mail.html).toContain('Acme &lt;Imports&gt; (Jane)');
+        expect(mail.html).toContain('₹2400.00');
+        expect(mail.html).toContain('5 (2 lines)');
+        expect(mail.html).toContain(`/admin/orders/${adminOrder.id}`);
+        expect(sendMailMock.mock.calls.map((c) => (c[0] as { to: string }).to).sort()).toEqual([
+          'a1@sb.example',
+          'a2@sb.example',
+        ]);
+      });
+
+      it('one admin email failing does not stop the others and never throws', async () => {
+        vi.mocked(repo.findOrderForAdminAlert).mockResolvedValue(adminOrder as never);
+        vi.mocked(repo.findActiveUsersByRole).mockResolvedValue([
+          { id: 'admin-1', email: 'a1@sb.example' },
+          { id: 'admin-2', email: 'a2@sb.example' },
+        ]);
+        sendMailMock.mockRejectedValueOnce(new Error('smtp down'));
+
+        await expect(service.notifyAdminsNewOrder(adminOrder.id)).resolves.toBeUndefined();
+        expect(sendMailMock).toHaveBeenCalledTimes(2);
+      });
+
+      it('never throws when the lookup fails, and does nothing for a missing order', async () => {
+        vi.mocked(repo.findOrderForAdminAlert).mockRejectedValueOnce(new Error('db down'));
+        await expect(service.notifyAdminsNewOrder('x')).resolves.toBeUndefined();
+        vi.mocked(repo.findOrderForAdminAlert).mockResolvedValueOnce(null);
+        await service.notifyAdminsNewOrder('missing');
+        expect(sendMailMock).not.toHaveBeenCalled();
+        expect(repo.create).not.toHaveBeenCalled();
+      });
     });
 
     it('notifyBrandApplicationApproved sends a BRAND_APPLICATION_APPROVED notification', async () => {

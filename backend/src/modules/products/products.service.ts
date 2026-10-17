@@ -14,6 +14,7 @@ import { notificationsService } from '../notifications/notifications.service';
 import { sellersService } from '../sellers/sellers.service';
 import { reviewsRepository, ReviewsRepository } from '../reviews/reviews.repository';
 import { ProductsRepository, productsRepository } from './products.repository';
+import { readyStockIssue } from './products.validation';
 import {
   AdminProductListFilter,
   ApplyPricingChangeInput,
@@ -45,7 +46,7 @@ const MORE_FROM_BRAND_LIMIT = 8;
 const MIN_IMAGES = 2;
 const MAX_IMAGES = 10;
 // Mirrors the multer instance-wide limit in middleware/upload.ts, which has to be
-// sized for video (200MB) — this is the separate, tighter per-image cap that multer
+// sized for video (100MB) — this is the separate, tighter per-image cap that multer
 // alone can no longer enforce now that images and videos share one multer instance.
 const MAX_IMAGE_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_VIDEOS = 3;
@@ -578,7 +579,12 @@ export class ProductsService {
     }
     const uploads = await Promise.all(
       files.map((file, index) =>
-        storageProvider.uploadVideo(file.buffer, `${Date.now()}-${index}-${file.originalname}`, folder),
+        storageProvider.uploadVideo(
+          file.buffer,
+          // Spaces and symbols (common in phone file names) are not valid in a Cloudinary public_id.
+          `${Date.now()}-${index}-${file.originalname.replace(/[^\w.-]+/g, '-')}`,
+          folder,
+        ),
       ),
     );
     return uploads.map((u) => u.url);
@@ -853,6 +859,17 @@ export class ProductsService {
         throw AppError.badRequest('Declared stock is required to publish this product');
       }
       if (!input.sellerPrice || input.sellerPrice <= 0) throw AppError.badRequest('Seller price is required to publish this product');
+    }
+
+    // Made to order vs ready stock: same rule as the create schema's zod refine
+    // (readyStockIssue). A draft being saved (not published) may still be incomplete.
+    if (!isDraft || publishingDraft) {
+      const stockIssue = readyStockIssue({
+        isMadeToOrder: input.isMadeToOrder ?? product.isMadeToOrder,
+        declaredStock: input.declaredStock,
+        variants: input.variants,
+      });
+      if (stockIssue) throw AppError.badRequest(stockIssue);
     }
 
     const currentVideoCount = withMedia?.videos.length ?? 0;

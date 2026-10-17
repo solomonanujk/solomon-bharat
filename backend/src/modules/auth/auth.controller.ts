@@ -75,8 +75,8 @@ export const authController = {
 
   async resetPassword(req: Request, res: Response): Promise<void> {
     const dto = req.body as ResetPasswordDto;
-    await authService.resetPassword(dto.id, dto.token, dto.password);
-    sendSuccess(res, null, 'Password reset successfully');
+    const { email } = await authService.resetPassword(dto.id, dto.token, dto.password);
+    sendSuccess(res, { email }, 'Password reset successfully');
   },
 
   async changePassword(req: Request, res: Response): Promise<void> {

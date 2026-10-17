@@ -75,7 +75,7 @@ export function BrandOrdersList() {
         </div>
       ) : (
         <>
-          <div className="bg-white border border-line rounded-xl overflow-x-auto mb-4">
+          <div className="relative bg-white border border-line rounded-xl overflow-x-auto mb-4">
             <table className="w-full min-w-[720px]">
               <thead>
                 <tr className="border-b border-line bg-ivory">

@@ -55,6 +55,28 @@ export class NotificationsRepository {
     });
   }
 
+  /** What the admin "new order" alert needs: buyer identity, totals, item count, fulfiller. */
+  findOrderForAdminAlert(orderId: string) {
+    return this.db.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        adminPriceTotal: true,
+        placedAsAgent: true,
+        buyer: { select: { companyName: true, contactName: true, country: true, user: { select: { email: true } } } },
+        sellerProfile: { select: { businessName: true } },
+        items: { select: { quantity: true } },
+      },
+    });
+  }
+
+  findActiveUsersByRole(role: Role): Promise<{ id: string; email: string }[]> {
+    return this.db.user.findMany({
+      where: { role, status: 'ACTIVE' },
+      select: { id: true, email: true },
+    });
+  }
+
   async findUserIdsByRole(role: Role): Promise<string[]> {
     const users = await this.db.user.findMany({ where: { role }, select: { id: true } });
     return users.map((u) => u.id);

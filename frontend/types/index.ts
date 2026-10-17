@@ -118,7 +118,7 @@ export interface VariantAttribute {
 export type VariantStatus = 'ACTIVE' | 'INACTIVE' | 'OUT_OF_STOCK'
 
 export type WeightUnit = 'kg' | 'lb'
-export type DimensionUnit = 'cm' | 'in'
+export type DimensionUnit = 'cm' | 'in' | 'm'
 
 export interface ProductVariant {
   id: string

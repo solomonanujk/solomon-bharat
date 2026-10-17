@@ -115,7 +115,7 @@ export interface VariantInput {
   length?: number;
   width?: number;
   height?: number;
-  dimensionUnit?: 'cm' | 'in';
+  dimensionUnit?: 'cm' | 'in' | 'm';
   tariffCode?: string;
   inventory?: number;
 }

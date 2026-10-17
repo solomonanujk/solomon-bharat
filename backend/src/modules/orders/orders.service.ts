@@ -653,6 +653,16 @@ export class OrdersService {
         logger.error({ err, orderId: id }, 'Failed to notify brand of new order');
       }
     }
+    // Every newly settled order (brand or curated) alerts the super admins. Replays settle
+    // nothing, so this never double-sends.
+    for (const id of settledOrderIds) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await notificationsService.notifyAdminsNewOrder(id);
+      } catch (err) {
+        logger.error({ err, orderId: id }, 'Failed to notify admins of new order');
+      }
+    }
 
     return { settledOrderIds, brandOrderIds };
   }
