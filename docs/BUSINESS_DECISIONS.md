@@ -103,3 +103,20 @@ Recommended: video, the story of the craft.
 ## 11. Samples (as built)
 - Marketplace brands must say on every product whether they offer samples; if yes, the maximum sample quantity and the price per sample unit. Admins can set the same for curated products.
 - Buyers see "Samples available" on the product page (price after sign-up) and use "Order a sample". It arrives in the admin's Custom Requirements inbox marked "Sample order"; the team emails the total with shipping and bank details.
+
+## 12. Round 4 decisions (15 Oct 2026, as built)
+- Product pages show every detail the seller enters (including packaging) in a table, plus the craft story and, for brands, the brand story.
+- Buyers choose "Wholesale order" or "Order a sample" on the product page.
+- Marketplace brands must enter their minimum order value in a pop-up as soon as they sign in.
+- "Browse products" opens an all-products page (`/products`).
+- The sign-up page uses a designed pattern/map panel, not a photo.
+- Samples can be ordered directly like a wholesale order (cart → checkout). Sample lines use the sample price, ignore MOQ and the brand's minimum order value, and are capped at the sample limit.
+- Admins can switch an approved seller between Curated and Marketplace at any time (not while orders are in progress).
+
+## 13. Solomon AI (15 Oct 2026)
+- Public AI guide at /guide; visitors must give name, email and phone before chatting; no account needed.
+- The AI learns from what the admin uploads (PDF, images, spreadsheets, text), answers in its own words, and uses web search when needed (on by default, switchable in admin).
+- The admin section suggests what to upload next.
+- (16 Oct 2026) Solomon AI starts with 4 tap-to-answer questions (what they do, who they sell to, categories, selling price), then recommends 3 products at a time as cards with photo, story, why it fits, and an estimated cost breakdown (India price, shipping, duty and VAT, landed cost, suggested retail), followed by short advice on who to target, how to position and where to sell. Visitors can like and save products into a shortlist.
+- (16 Oct 2026) Exception to "prices visible after sign-up": Solomon AI may show an indicative "from ₹X" buyer price for catalogue products to visitors who have given their name, email and phone to start the chat. Shipping, duty and landed figures are marked as estimates.
+- (16 Oct 2026) Solomon AI does not promote Solomon Bharat; it shows the WhatsApp button to Pranjal (wa.me/919588007925) only when the visitor shows buying intent.

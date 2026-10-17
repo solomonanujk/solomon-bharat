@@ -47,7 +47,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
   const addToWishlist = useAddToWishlist()
   const removeFromWishlist = useRemoveFromWishlist()
 
-  const cartItem = useCartStore((s) => s.items.find((i) => i.productId === id && !i.variantId))
+  const cartItem = useCartStore((s) => s.items.find((i) => i.productId === id && !i.variantId && !i.isSample))
   const addItem = useCartStore((s) => s.addItem)
   const removeItem = useCartStore((s) => s.removeItem)
   const updateQuantity = useCartStore((s) => s.updateQuantity)

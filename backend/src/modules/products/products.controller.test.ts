@@ -272,12 +272,18 @@ describe('products controller', () => {
       expect(productsService.listPublished).toHaveBeenCalledWith(expect.any(Object), expect.any(Object), role);
     });
 
-    it('treats an invalid token as a guest (no role forwarded)', async () => {
-      vi.mocked(productsService.listPublished).mockResolvedValue({ data: [], total: 0 } as never);
+    it('rejects an invalid or expired token with 401 so the client refreshes (never a silent guest view)', async () => {
       const res = await request(app)
         .get('/api/v1/products')
         .query({ categoryId: CATEGORY_ID })
         .set('Authorization', 'Bearer not-a-real-token');
+      expect(res.status).toBe(401);
+      expect(productsService.listPublished).not.toHaveBeenCalled();
+    });
+
+    it('treats a request without a token as a guest (no role forwarded)', async () => {
+      vi.mocked(productsService.listPublished).mockResolvedValue({ data: [], total: 0 } as never);
+      const res = await request(app).get('/api/v1/products').query({ categoryId: CATEGORY_ID });
       expect(res.status).toBe(200);
       expect(productsService.listPublished).toHaveBeenCalledWith(expect.any(Object), expect.any(Object), undefined);
     });

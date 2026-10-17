@@ -34,7 +34,7 @@ function CartLine({ item, resolved }: { item: CartItem; resolved: ResolvedLine }
   function handleMoveToWishlist() {
     requireAuth(() => {
       addToWishlist.mutate(item.productId)
-      removeItem(item.productId, item.variantId)
+      removeItem(item.productId, item.variantId, item.isSample)
     }, 'add_to_wishlist')
   }
 
@@ -60,9 +60,15 @@ function CartLine({ item, resolved }: { item: CartItem; resolved: ResolvedLine }
             <p className="text-[12px] font-sans text-muted-text mt-0.5">{item.variantLabel}</p>
           )}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
-            <span className="text-[12px] font-sans text-muted-text">
-              MOQ: <span className="text-primary font-[600]">{item.moq} units</span>
-            </span>
+            {item.isSample ? (
+              <span className="inline-flex items-center h-5 px-2 rounded-full bg-selected text-forest text-[11px] font-[700] font-sans">
+                Sample · max {item.sampleMaxQty ?? 1}
+              </span>
+            ) : (
+              <span className="text-[12px] font-sans text-muted-text">
+                MOQ: <span className="text-primary font-[600]">{item.moq} units</span>
+              </span>
+            )}
             <span className="text-[12px] font-sans text-muted-text">
               {notOk ? (
                 <span>Price unavailable</span>
@@ -86,7 +92,7 @@ function CartLine({ item, resolved }: { item: CartItem; resolved: ResolvedLine }
             <div className="flex items-center border border-border-warm rounded w-fit">
               <button
                 type="button"
-                onClick={() => updateQuantity(item.productId, item.quantity - 1, item.variantId)}
+                onClick={() => updateQuantity(item.productId, item.quantity - 1, item.variantId, item.isSample)}
                 disabled={item.quantity <= item.moq}
                 className="h-8 px-2.5 inline-flex items-center justify-center text-primary hover:bg-muted-bg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 aria-label="Decrease quantity"
@@ -98,8 +104,9 @@ function CartLine({ item, resolved }: { item: CartItem; resolved: ResolvedLine }
               </span>
               <button
                 type="button"
-                onClick={() => updateQuantity(item.productId, item.quantity + 1, item.variantId)}
-                className="h-8 px-2.5 inline-flex items-center justify-center text-primary hover:bg-muted-bg transition-colors"
+                onClick={() => updateQuantity(item.productId, item.quantity + 1, item.variantId, item.isSample)}
+                disabled={!!item.isSample && item.quantity >= (item.sampleMaxQty ?? 1)}
+                className="h-8 px-2.5 inline-flex items-center justify-center text-primary hover:bg-muted-bg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 aria-label="Increase quantity"
               >
                 <Plus size={12} />
@@ -118,7 +125,7 @@ function CartLine({ item, resolved }: { item: CartItem; resolved: ResolvedLine }
             <button
               type="button"
               onClick={() => {
-                removeItem(item.productId, item.variantId)
+                removeItem(item.productId, item.variantId, item.isSample)
                 toast.success('Removed from cart')
               }}
               aria-label="Remove item"
@@ -139,10 +146,10 @@ function CartLine({ item, resolved }: { item: CartItem; resolved: ResolvedLine }
           resolved={resolved}
           productSlug={item.productSlug}
           onRemove={() => {
-            removeItem(item.productId, item.variantId)
+            removeItem(item.productId, item.variantId, item.isSample)
             toast.success('Removed from cart')
           }}
-          onSetQuantity={(qty) => updateQuantity(item.productId, qty, item.variantId)}
+          onSetQuantity={(qty) => updateQuantity(item.productId, qty, item.variantId, item.isSample)}
         />
       </div>
     </div>
@@ -236,7 +243,7 @@ export default function CartPage() {
   const fmt = useFormatPrice()
   const { quote, isActive, isFetching, isInitialLoading, isError } = useCartQuote(items)
   const groups = groupCartLines(items, quote)
-  const resolvedLines = items.map((i) => resolveLine(i, findQuoteLine(quote, i.productId, i.variantId)))
+  const resolvedLines = items.map((i) => resolveLine(i, findQuoteLine(quote, i.productId, i.variantId, i.isSample)))
   const total = resolvedLines.reduce((sum, r) => sum + r.lineTotalInr, 0)
   const hasBadLine = resolvedLines.some((r) => r.status !== 'OK' && r.status !== 'PENDING')
   // Prices are only trusted once the server has quoted them (unless quoting is unavailable).
@@ -284,9 +291,9 @@ export default function CartPage() {
                   {group.brand && <BrandMinOrderNotice group={group} />}
                   {group.items.map((item) => (
                     <CartLine
-                      key={`${item.productId}-${item.variantId ?? ''}`}
+                      key={`${item.productId}-${item.variantId ?? ''}-${item.isSample ? 's' : 'w'}`}
                       item={item}
-                      resolved={resolveLine(item, findQuoteLine(quote, item.productId, item.variantId))}
+                      resolved={resolveLine(item, findQuoteLine(quote, item.productId, item.variantId, item.isSample))}
                     />
                   ))}
                   {showGroupHeaders && (

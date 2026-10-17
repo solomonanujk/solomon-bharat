@@ -1,3 +1,5 @@
+import { spreadsheetKindFromFilename } from '../../middleware/upload';
+import { AppError } from '../../utils/errors';
 import { SellerType } from '@prisma/client';
 import { Request, Response } from 'express';
 import { sendCreated, sendSuccess } from '../../utils/response';
@@ -20,8 +22,8 @@ export const sellersController = {
   },
 
   async listApplications(req: Request, res: Response): Promise<void> {
-    const { status, ...pagination } = req.query as unknown as ApplicationListQueryDto;
-    const { data, total } = await sellersService.listApplications({ status }, pagination);
+    const { status, search, ...pagination } = req.query as unknown as ApplicationListQueryDto;
+    const { data, total } = await sellersService.listApplications({ status, search }, pagination);
     sendSuccess(res, data, 'Applications retrieved', 200, buildPaginationMeta(total, pagination));
   },
 
@@ -63,6 +65,23 @@ export const sellersController = {
   async getSeller(req: Request, res: Response): Promise<void> {
     const seller = await sellersService.getSellerDetailForAdmin(req.params.id);
     sendSuccess(res, seller);
+  },
+
+  async importApplications(req: Request, res: Response): Promise<void> {
+    const kind = req.file ? spreadsheetKindFromFilename(req.file.originalname) : null;
+    if (!req.file || !kind) throw AppError.badRequest('Upload a .xlsx or .csv file in the "file" field');
+    const report = await sellersService.importApplications(req.file.buffer, kind, req.user!.id);
+    sendSuccess(res, report, `Imported ${report.inserted} application(s)`);
+  },
+
+  async deleteApplication(req: Request, res: Response): Promise<void> {
+    await sellersService.deleteApplication(req.params.id, req.user!.id);
+    sendSuccess(res, null, 'Application deleted');
+  },
+
+  async switchSellerType(req: Request, res: Response): Promise<void> {
+    const result = await sellersService.switchSellerType(req.user!.id, req.params.id, req.body.sellerType, req.body.brandName);
+    sendSuccess(res, result, 'Seller type changed');
   },
 
   async setInternalRating(req: Request, res: Response): Promise<void> {

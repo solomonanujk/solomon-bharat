@@ -41,12 +41,12 @@ describe('SellersRepository', () => {
     expect(arg.where).toEqual({ status: 'PENDING' });
   });
 
-  it('findApplications queries all when no status filter is given', async () => {
+  it('findApplications leaves out approved applications when no status filter is given', async () => {
     db.sellerApplication.findMany.mockResolvedValue([]);
     db.sellerApplication.count.mockResolvedValue(0);
     await repo.findApplications({}, { page: 1, limit: 20 });
     const arg = db.sellerApplication.findMany.mock.calls[0][0];
-    expect(arg.where).toEqual({});
+    expect(arg.where).toEqual({ status: { not: 'APPROVED' } });
   });
 
   it('updateApplication updates only the given fields', async () => {
@@ -81,6 +81,7 @@ describe('SellersRepository', () => {
         passwordHash: 'hashed',
         role: Role.SELLER,
         emailVerifiedAt: expect.any(Date),
+        mustChangePassword: true,
         sellerProfile: {
           create: {
             applicationId: 'app-1',

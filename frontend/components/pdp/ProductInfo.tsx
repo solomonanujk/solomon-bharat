@@ -296,21 +296,74 @@ interface DetailRow {
   value: React.ReactNode
 }
 
-/** Label/value rows, 14/20, 12px vertical padding, 1px line dividers. */
-function DetailRows({ rows }: { rows: DetailRow[] }) {
-  if (rows.length === 0) return null
+interface DetailGroup {
+  title: string
+  rows: DetailRow[]
+}
+
+/** Everything the seller filled in, as a bordered two-column spec table grouped by topic. */
+function DetailTable({ groups }: { groups: DetailGroup[] }) {
+  const visible = groups.filter((g) => g.rows.length > 0)
+  if (visible.length === 0) return null
   return (
-    <dl className="border-t border-line">
-      {rows.map((r) => (
-        <div
-          key={r.label}
-          className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-4 py-3 border-b border-line text-[14px] leading-[20px]"
-        >
-          <dt className="font-[600] text-ink">{r.label}</dt>
-          <dd className="text-muted break-words">{r.value}</dd>
-        </div>
-      ))}
-    </dl>
+    <div className="border border-line rounded-[6px] overflow-hidden bg-white">
+      <table className="w-full text-[14px] leading-[20px]">
+        {visible.map((g) => (
+          <tbody key={g.title}>
+            <tr>
+              <th colSpan={2} scope="colgroup" className="text-left bg-ivory px-4 py-2.5 type-eyebrow text-brass-dark border-b border-line">
+                {g.title}
+              </th>
+            </tr>
+            {g.rows.map((r) => (
+              <tr key={r.label} className="border-b border-line last:border-b-0 align-top">
+                <th scope="row" className="w-[40%] text-left font-[600] text-ink px-4 py-3 bg-[#FAFBFA] border-r border-line">
+                  {r.label}
+                </th>
+                <td className="text-muted px-4 py-3 break-words">{r.value}</td>
+              </tr>
+            ))}
+          </tbody>
+        ))}
+      </table>
+    </div>
+  )
+}
+
+/** Per-option spec table (SKU, weight, size, HS code) — shown when the product has options. */
+function VariantSpecTable({ variants }: { variants: NonNullable<Product['variants']> }) {
+  const rows = variants.filter((v) => v.status !== 'INACTIVE')
+  if (rows.length === 0) return null
+  const label = (v: (typeof rows)[number]) =>
+    v.attributes?.length ? v.attributes.map((a) => a.value).join(' / ') : v.value ?? '—'
+  const dims = (v: (typeof rows)[number]) =>
+    v.length != null || v.width != null || v.height != null
+      ? `${v.length ?? 0} x ${v.width ?? 0} x ${v.height ?? 0} ${v.dimensionUnit ?? 'cm'}`
+      : '—'
+  return (
+    <div className="border border-line rounded-[6px] overflow-x-auto bg-white">
+      <table className="w-full min-w-[480px] text-[14px] leading-[20px]">
+        <thead className="bg-ivory">
+          <tr className="text-left">
+            {['Option', 'SKU', 'Weight', 'Size (L x W x H)', 'HS code', 'Stock'].map((h) => (
+              <th key={h} scope="col" className="px-4 py-2.5 font-[600] text-ink border-b border-line">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((v) => (
+            <tr key={v.id} className="border-b border-line last:border-b-0 text-muted">
+              <td className="px-4 py-3 font-[600] text-ink">{label(v)}</td>
+              <td className="px-4 py-3">{v.sku || '—'}</td>
+              <td className="px-4 py-3">{v.weight != null ? `${v.weight} ${v.weightUnit ?? 'kg'}` : '—'}</td>
+              <td className="px-4 py-3">{dims(v)}</td>
+              <td className="px-4 py-3">{v.tariffCode || '—'}</td>
+              <td className="px-4 py-3">{v.status === 'OUT_OF_STOCK' ? 'Out of stock' : 'Available'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
@@ -331,10 +384,13 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
   const brand = product.brand ?? null
   // Lazy: only marketplace products have a brand page to fetch the display-only return policy from.
   const { data: brandDetail } = useBrand(brand?.slug)
-  const ecoTags = [...ecoMaterials, ...ecoPackaging, ...ecoProduction]
   const leadImage = images?.[0]?.url ?? null
 
   const [quantity, setQuantity] = useState(moq)
+  // Buyers choose between a wholesale order and a sample order (when the product offers samples).
+  const [orderMode, setOrderMode] = useState<'wholesale' | 'sample'>('wholesale')
+  const sampleMax = Math.max(1, sampleMaxQty ?? 1)
+  const [sampleQty, setSampleQty] = useState(1)
   const qtyStep = stepQty || 1
 
   const axes = useMemo(() => buildAxes(variants), [variants])
@@ -375,7 +431,7 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
 
   const activeVariant = findMatchingVariant(variants, selectedAttrs)
   const activeVariantId = activeVariant?.id
-  const cartItem = cartItems.find((i) => i.productId === id && i.variantId === activeVariantId)
+  const cartItem = cartItems.find((i) => i.productId === id && i.variantId === activeVariantId && !i.isSample)
   const selectionUnavailable = axes.length > 0 && (!activeVariant || activeVariant.status === 'OUT_OF_STOCK')
 
   // A selected variant's own weight/dimensions (when set) take priority over
@@ -488,6 +544,32 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
     }, 'add_to_cart')
   }
 
+  // A sample goes through the normal cart and checkout: sample price, no MOQ, and it does
+  // not count toward (or need) the brand's minimum order value.
+  function handleAddSampleToCart() {
+    if (variants.length > 0 && !activeVariantId) return
+    requireAuth(() => {
+      const variantLabel = axes.length
+        ? axes.map((a) => `${a.type}: ${selectedAttrs[a.type]}`).join(' / ')
+        : undefined
+      addItem({
+        productId: id,
+        productSlug: product.slug,
+        productName: name,
+        image: images?.[0]?.url ?? '',
+        quantity: sampleQty,
+        unitAdminPriceInr: Number(samplePrice),
+        moq: 1,
+        isSample: true,
+        sampleMaxQty: sampleMax,
+        variantId: activeVariantId,
+        variantLabel,
+        leadTime,
+        brand: brand ? { id: brand.id, name: brand.name, slug: brand.slug, minOrderValueInr: brand.minOrderValueInr, logoUrl: brand.logoUrl ?? null } : null,
+      })
+    }, 'add_to_cart')
+  }
+
   function openSignupGate() {
     requireAuth(() => {}, 'view_price', leadImage)
   }
@@ -510,10 +592,17 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
     return () => observer.disconnect()
   }, [isAuthenticated])
 
-  // ── Detail rows — real product fields only ─────────────────────────────────
-  const detailRows: DetailRow[] = []
+  // ── Product details — every field the seller filled in, grouped as a spec table ──
+  const craftBadges = [
+    isHandmade ? 'Handmade' : null,
+    craftTechnique || null,
+    placeOfOrigin || null,
+    isMadeToOrder ? 'Made to order' : 'Ready stock',
+  ].filter((b): b is string => !!b)
+
+  const specRows: DetailRow[] = []
   if (materials) {
-    detailRows.push({
+    specRows.push({
       label: 'Materials',
       value: (
         <>
@@ -525,33 +614,57 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
       ),
     })
   }
-  if (displayDimensions) detailRows.push({ label: 'Dimensions', value: displayDimensions })
-  if (displayWeight != null && displayWeight !== '') detailRows.push({ label: 'Weight', value: displayWeight })
-  detailRows.push({ label: 'Minimum order', value: `${moq} units${qtyStep > 1 ? `, in cases of ${qtyStep}` : ''}` })
-  if (leadTime) detailRows.push({ label: 'Production lead time', value: leadTime })
-  if (placeOfOrigin) detailRows.push({ label: 'Made in', value: placeOfOrigin })
-  // Quick-scan craft badges under the title: handmade, technique, region, availability.
-  const craftBadges = [
-    isHandmade ? 'Handmade' : null,
-    craftTechnique || null,
-    placeOfOrigin || null,
-    isMadeToOrder ? 'Made to order' : 'Ready stock',
-  ].filter((b): b is string => !!b)
-  if (craftTechnique) detailRows.push({ label: 'Craft technique', value: craftTechnique })
-  detailRows.push({ label: 'Availability', value: isMadeToOrder ? 'Made to order' : 'Ready stock' })
-  if (careInstructions) detailRows.push({ label: 'Care', value: careInstructions })
-  detailRows.push({ label: 'Country of origin', value: 'India' })
-  if (isHandmade) detailRows.push({ label: 'Handmade', value: 'Yes' })
-  if (isGITagged) detailRows.push({ label: 'GI tag', value: 'Geographical Indication tagged' })
-  if (ecoTags.length > 0) detailRows.push({ label: 'Sustainability', value: ecoTags.join(', ') })
-  if (displayTariffCode) detailRows.push({ label: 'HS / tariff code', value: displayTariffCode })
+  if (categoryName) specRows.push({ label: 'Product type', value: categoryName })
+  if (displayDimensions) specRows.push({ label: 'Dimensions', value: displayDimensions })
+  if (displayWeight != null && displayWeight !== '') {
+    const w = String(displayWeight)
+    specRows.push({ label: 'Weight', value: /^\d+(\.\d+)?$/.test(w) ? `${w} kg` : w })
+  }
+  if (axes.length > 0) {
+    for (const a of axes) specRows.push({ label: a.type, value: a.values.map((v) => v.value).join(', ') })
+  }
+  if (careInstructions) specRows.push({ label: 'Care instructions', value: <span className="whitespace-pre-line">{careInstructions}</span> })
+
+  const craftRows: DetailRow[] = []
+  if (craftTechnique) craftRows.push({ label: 'Craft technique', value: craftTechnique })
+  if (placeOfOrigin) craftRows.push({ label: 'Made in', value: `${placeOfOrigin}, India` })
+  else craftRows.push({ label: 'Country of origin', value: 'India' })
+  if (isHandmade) craftRows.push({ label: 'Handmade', value: 'Yes' })
+  if (isGITagged) craftRows.push({ label: 'GI tag', value: 'Geographical Indication tagged' })
+  // A named maker is shown only for marketplace brands; curated suppliers stay anonymous.
+  if (brand && product.artisanName) craftRows.push({ label: 'Made by', value: product.artisanName })
+
+  const orderRows: DetailRow[] = []
+  orderRows.push({ label: 'Minimum order', value: `${moq} units${qtyStep > 1 ? `, in cases of ${qtyStep}` : ''}` })
+  orderRows.push({ label: 'Availability', value: isMadeToOrder ? 'Made to order' : 'Ready stock' })
+  if (leadTime) orderRows.push({ label: 'Production lead time', value: leadTime })
+  orderRows.push({
+    label: 'Samples',
+    value: offersSamples ? `Available, up to ${sampleMaxQty ?? 1} unit${(sampleMaxQty ?? 1) === 1 ? '' : 's'}` : 'Not offered',
+  })
+  if (displayTariffCode) orderRows.push({ label: 'HS / tariff code', value: displayTariffCode })
   if (brandDetail?.returnPolicy) {
     // Display-only text set by the brand — Solomon Bharat does not handle returns, refunds or disputes.
-    detailRows.push({
+    orderRows.push({
       label: `${brandDetail.name} return policy`,
       value: <span className="whitespace-pre-line">{brandDetail.returnPolicy}</span>,
     })
   }
+
+  const ecoRows: DetailRow[] = []
+  if (ecoMaterials.length > 0) ecoRows.push({ label: 'Materials', value: ecoMaterials.join(', ') })
+  if (ecoPackaging.length > 0) ecoRows.push({ label: 'Packaging', value: ecoPackaging.join(', ') })
+  if (ecoProduction.length > 0) ecoRows.push({ label: 'Production', value: ecoProduction.join(', ') })
+
+  const detailGroups: DetailGroup[] = [
+    { title: 'Specifications', rows: specRows },
+    { title: 'Craft & origin', rows: craftRows },
+    { title: 'Ordering & shipping', rows: orderRows },
+    { title: 'Sustainability & packaging', rows: ecoRows },
+  ]
+  const hasVariantSpecs = variants.some(
+    (v) => v.sku || v.weight != null || v.length != null || v.tariffCode,
+  )
 
   // Craft block: only the record's own craft story/photo. The artisan name is
   // deliberately NOT rendered — a named maker is supplier identity, which
@@ -756,6 +869,86 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
           aria-labelledby="pdp-price-heading"
           className="mt-6 bg-white border border-line rounded-[6px] p-5 lg:p-6 flex flex-col gap-6"
         >
+          {offersSamples && (
+            <div role="radiogroup" aria-label="Order type" className="grid grid-cols-2 p-1 rounded-[6px] bg-ivory border border-line">
+              {(['wholesale', 'sample'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="radio"
+                  aria-checked={orderMode === m}
+                  onClick={() => setOrderMode(m)}
+                  className={cn(
+                    'min-h-10 rounded-[4px] text-[14px] font-[600] transition-colors',
+                    orderMode === m ? 'bg-forest text-white' : 'text-ink hover:bg-white'
+                  )}
+                >
+                  {m === 'wholesale' ? 'Wholesale order' : 'Order a sample'}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {orderMode === 'sample' && offersSamples ? (
+            <div className="flex flex-col gap-4">
+              <div>
+                <h2 id="pdp-price-heading" className="type-eyebrow text-brass-deep">Sample price</h2>
+                <p className="mt-2 type-price text-ink">
+                  {samplePrice ? formatPrice(Number(samplePrice)) : 'Quoted by our team'}
+                </p>
+                <p className="mt-1 type-caption text-muted">
+                  Per sample unit. Up to {sampleMax} unit{sampleMax === 1 ? '' : 's'}. Shipping is quoted with the sample.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <p className="text-[14px] leading-[20px] font-[600] text-ink">
+                  Sample quantity <span className="font-[400] text-muted">(max. {sampleMax})</span>
+                </p>
+                <QuantityStepper
+                  value={sampleQty}
+                  onChange={(q) => setSampleQty(Math.min(sampleMax, Math.max(1, q)))}
+                  min={1}
+                  step={1}
+                />
+              </div>
+              {samplePrice && Number(samplePrice) > 0 ? (
+                <>
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    className="w-full"
+                    onClick={handleAddSampleToCart}
+                    disabled={selectionUnavailable}
+                  >
+                    <ShoppingCart size={16} aria-hidden="true" />
+                    Add {sampleQty} sample{sampleQty === 1 ? '' : 's'} to cart · {formatPrice(Number(samplePrice) * sampleQty)}
+                  </Button>
+                  <p className="type-caption text-muted">
+                    Checks out like any order. No minimum order quantity or shop minimum applies to samples.{' '}
+                    <Link
+                      href={`/custom-requirement?product=${id}&name=${encodeURIComponent(name)}&sample=${sampleQty}`}
+                      className="font-[600] text-forest underline underline-offset-4"
+                    >
+                      Or ask our team
+                    </Link>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href={`/custom-requirement?product=${id}&name=${encodeURIComponent(name)}&sample=${sampleQty}`}
+                    className="inline-flex items-center justify-center min-h-12 px-5 rounded-[4px] bg-forest text-white font-[600] text-[16px] hover:bg-[#0F241D] transition-colors"
+                  >
+                    Request {sampleQty} sample{sampleQty === 1 ? '' : 's'}
+                  </Link>
+                  <p className="type-caption text-muted">
+                    Our team confirms the price with shipping and sends payment details by email.
+                  </p>
+                </>
+              )}
+            </div>
+          ) : (
+          <>
           <div>
             <h2 id="pdp-price-heading" className="type-eyebrow text-brass-deep">Wholesale price</h2>
             <p className="mt-2 type-price text-ink" aria-live="polite">{formatPrice(unitPrice)}</p>
@@ -855,18 +1048,26 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
           )}
 
           {leadTime && <DeliveryTimeline leadTime={leadTime} />}
+          </>
+          )}
         </section>
       )}
 
       {/* Product details */}
       <section aria-labelledby="pdp-details-heading" className="mt-12">
         <h2 id="pdp-details-heading" className="type-h3 text-ink mb-4">Product details</h2>
-        <DetailRows rows={detailRows} />
+        <DetailTable groups={detailGroups} />
+        {hasVariantSpecs && (
+          <div className="mt-6">
+            <h3 className="text-[15px] font-[600] text-ink mb-3">Options at a glance</h3>
+            <VariantSpecTable variants={variants} />
+          </div>
+        )}
       </section>
 
       {hasCraft && (
         <section aria-labelledby="pdp-craft-heading" className="mt-12">
-          <h2 id="pdp-craft-heading" className="type-h3 text-ink mb-4">About the craft</h2>
+          <h2 id="pdp-craft-heading" className="type-h3 text-ink mb-4">The story behind this product</h2>
           {craftImageUrl && (
             <div className="relative w-full aspect-[16/10] rounded-[6px] overflow-hidden border border-line bg-white mb-4">
               <Image
@@ -882,7 +1083,7 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
         </section>
       )}
 
-      {offersSamples && (
+      {offersSamples && !isAuthenticated && (
         <section className="border border-line rounded p-5 flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex-1">
             <p className="text-[15px] font-[600] text-ink">Samples available</p>
@@ -896,6 +1097,16 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
             className="inline-flex items-center justify-center h-11 px-5 rounded bg-forest text-white font-[600] text-[14px] hover:bg-[#0F241D] transition-colors"
           >
             Order a sample
+          </Link>
+        </section>
+      )}
+
+      {brandDetail?.story && (
+        <section aria-labelledby="pdp-brand-story-heading" className="mt-12">
+          <h2 id="pdp-brand-story-heading" className="type-h3 text-ink mb-4">About {brandDetail.name}</h2>
+          <p className="type-body text-muted whitespace-pre-line break-words">{brandDetail.story}</p>
+          <Link href={`/brands/${brandDetail.slug}`} className="mt-3 inline-flex min-h-11 items-center font-[600] text-forest underline underline-offset-4">
+            Visit {brandDetail.name}&apos;s shop
           </Link>
         </section>
       )}

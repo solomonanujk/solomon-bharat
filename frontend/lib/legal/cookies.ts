@@ -2,7 +2,7 @@ import { COMPANY, type LegalDocument } from './types'
 
 export const COOKIES: LegalDocument = {
   title: 'Cookie Policy',
-  updated: '13 October 2026',
+  updated: '15 October 2026',
   intro: 'Cookies are small files stored by your browser. We use as few as possible, and anything that is not strictly needed is only set after you click "Accept" on our cookie banner.',
   sections: [
     {
@@ -15,6 +15,7 @@ export const COOKIES: LegalDocument = {
       heading: 'Analytics (only with your consent)',
       body: [
         'Google Analytics helps us understand which pages are used so we can improve the site. It sets cookies such as _ga and _ga_*, which last up to 2 years. IP addresses are anonymised.',
+        'Microsoft Clarity shows us how visitors use pages (clicks, scrolling and anonymised session recordings) so we can fix problems. It sets cookies such as _clck and _clsk, which last up to 1 year. Text you type into forms is masked.',
       ],
     },
     {

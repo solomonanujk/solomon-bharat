@@ -464,6 +464,7 @@ function OrderDetailSheet({
                       <div className="flex-1 min-w-0">
                         <p className="text-[14px] font-[600] font-sans text-product-text leading-tight truncate">
                           {item.productName ?? 'Product'}
+                          {item.isSample && <span className="ml-1.5 text-[12px] font-[700] text-forest">· Sample</span>}
                         </p>
                         <p className="text-[12px] font-sans text-muted-text mt-0.5">
                           Qty {item.quantity} &middot; {fmt(item.unitAdminPrice)} each

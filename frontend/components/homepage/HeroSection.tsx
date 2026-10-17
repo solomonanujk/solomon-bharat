@@ -54,7 +54,7 @@ export function HeroSection() {
 
   return (
     <section
-      className="on-forest relative overflow-hidden min-h-[600px] lg:min-h-[560px] flex items-center"
+      className="on-forest relative overflow-hidden min-h-[max(600px,calc(100svh-117px))] flex items-center"
       style={{ background: HERO_FALLBACK_GRADIENT }}
       aria-labelledby="home-hero-heading"
     >
@@ -103,7 +103,7 @@ export function HeroSection() {
             Sign up to buy
           </Button>
           <Button asChild variant="outlineOnForest" size="lg" className="w-full sm:w-auto">
-            <Link href="/collections">Browse products</Link>
+            <Link href="/products">Browse products</Link>
           </Button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authController } from './auth.controller';
 import {
+  changePasswordSchema,
   checkEmailQuerySchema,
   forgotPasswordSchema,
   loginSchema,
@@ -33,7 +34,6 @@ export const authRouter = Router();
  */
 authRouter.get(
   '/check-email',
-  authRateLimiter,
   validate(checkEmailQuerySchema, 'query'),
   asyncHandler(authController.checkEmail),
 );
@@ -53,7 +53,6 @@ authRouter.get(
  */
 authRouter.post(
   '/signup',
-  authRateLimiter,
   validate(signupBuyerSchema),
   asyncHandler(authController.signup),
 );
@@ -158,6 +157,24 @@ authRouter.post(
   authRateLimiter,
   validate(resetPasswordSchema),
   asyncHandler(authController.resetPassword),
+);
+
+/**
+ * @openapi
+ * /auth/change-password:
+ *   post:
+ *     summary: Change the signed-in user's password (current password not needed while a temporary one is in use)
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: Password changed
+ */
+authRouter.post(
+  '/change-password',
+  requireAuth,
+  authRateLimiter,
+  validate(changePasswordSchema),
+  asyncHandler(authController.changePassword),
 );
 
 /**

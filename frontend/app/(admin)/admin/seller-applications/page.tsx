@@ -1,13 +1,17 @@
 'use client'
 
-import { useState } from 'react'
-import { ClipboardList, Search, Mail, Phone, MapPin, CalendarDays, MessageSquare, StickyNote, ChevronDown, ChevronUp } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
+import { ClipboardList, Search, Mail, Phone, MapPin, CalendarDays, MessageSquare, StickyNote, ChevronDown, ChevronUp, Trash2, Upload } from 'lucide-react'
 import {
   useSellerApplications,
   useApproveSellerApplication,
   useRejectSellerApplication,
   useRequestMoreInfo,
   useAddApplicationNote,
+  useDeleteSellerApplication,
+  useImportSellerApplications,
+  type ApplicationImportReport,
 } from '@/hooks/queries/useSellers'
 import type { SellerApplication, SellerApplicationStatus } from '@/types'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -18,7 +22,7 @@ import { cn } from '@/lib/utils'
 const LIMIT = 20
 
 const STATUS_TABS: { value: SellerApplicationStatus | ''; label: string }[] = [
-  { value: '', label: 'All' },
+  { value: '', label: 'All open' },
   { value: 'PENDING', label: 'Pending' },
   { value: 'MORE_INFO_REQUESTED', label: 'More Info Requested' },
   { value: 'APPROVED', label: 'Approved' },
@@ -283,6 +287,8 @@ function ApplicationCard({
   )
 
   const canAct = application.status === 'PENDING' || application.status === 'MORE_INFO_REQUESTED'
+  const deleteApplication = useDeleteSellerApplication()
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   return (
     <div className="bg-white border border-[#D9E2DA] rounded-xl p-5 hover:border-[#6B7E6B] transition-colors">
@@ -374,8 +380,44 @@ function ApplicationCard({
             Notes
             {expanded ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
           </Button>
+          {/* Approved applications belong to a live seller account and are never deletable. */}
+          {application.status !== 'APPROVED' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setConfirmDelete(true)}
+              className="gap-1.5 text-error hover:text-error"
+            >
+              <Trash2 size={12} aria-hidden="true" />
+              Delete
+            </Button>
+          )}
         </div>
       </div>
+
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this application?</DialogTitle>
+            <DialogDescription>
+              {application.businessName} ({application.email}) will be removed permanently. This cannot be undone. The
+              deletion is recorded in the audit log.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmDelete(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteApplication.isPending}
+              onClick={() => deleteApplication.mutate(application.id, { onSuccess: () => setConfirmDelete(false) })}
+            >
+              {deleteApplication.isPending ? 'Deleting…' : 'Delete permanently'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {detailsExpanded && <ApplicationDetailsPanel application={application} />}
       {expanded && <NotesPanel application={application} />}
@@ -392,21 +434,31 @@ export default function SellerApplicationsPage() {
   const [rejectTarget, setRejectTarget] = useState<SellerApplication | null>(null)
   const [infoTarget, setInfoTarget] = useState<SellerApplication | null>(null)
 
+  // Search runs on the server across every application, not just the current page.
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(search.trim())
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [search])
+
   const { data, isLoading } = useSellerApplications({
     status: status || undefined,
+    search: debouncedSearch || undefined,
     page,
     limit: LIMIT,
   })
+  const importApps = useImportSellerApplications()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [report, setReport] = useState<ApplicationImportReport | null>(null)
 
   const applications = data?.items ?? []
   const total = data?.total ?? 0
   const totalPages = data?.totalPages ?? 1
 
-  const filtered = applications.filter((a) => {
-    if (!search) return true
-    const q = search.toLowerCase()
-    return a.businessName.toLowerCase().includes(q) || a.email.toLowerCase().includes(q)
-  })
+  const filtered = applications
 
   return (
     <div>
@@ -415,7 +467,27 @@ export default function SellerApplicationsPage() {
       <div className="mb-7 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-[26px] font-[700] font-sans text-[#0F241D] leading-tight">Seller Applications</h1>
-          <p className="text-[13.5px] font-sans text-[#6B7E6B] mt-1">Review and action seller applications</p>
+          <p className="text-[13.5px] font-sans text-[#6B7E6B] mt-1">
+            Review and action seller applications. Approved ones move to{' '}
+            <Link href="/admin/sellers" className="underline underline-offset-2 text-[#183D33]">Sellers</Link>.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.csv"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              e.target.value = ''
+              if (f) importApps.mutate(f, { onSuccess: (r) => setReport(r) })
+            }}
+          />
+          <Button variant="secondary" size="sm" className="gap-1.5" disabled={importApps.isPending} onClick={() => fileRef.current?.click()}>
+            <Upload size={13} aria-hidden="true" />
+            {importApps.isPending ? 'Importing…' : 'Import from Excel'}
+          </Button>
         </div>
         {total > 0 && (
           <p className="text-[13px] font-sans text-[#6B7E6B] self-end">
@@ -431,7 +503,7 @@ export default function SellerApplicationsPage() {
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by business name or email…"
+          placeholder="Search by business, founder or email…"
           className="w-full h-9 pl-9 pr-3 rounded-lg border border-[#D9E2DA] bg-white text-[13.5px] font-sans text-[#0F241D] placeholder:text-[#6B7E6B] focus:outline-none focus:border-[#183D33] transition-colors"
         />
       </div>
@@ -527,6 +599,53 @@ export default function SellerApplicationsPage() {
 
       {rejectTarget && <RejectDialog application={rejectTarget} onClose={() => setRejectTarget(null)} />}
       {infoTarget && <RequestInfoDialog application={infoTarget} onClose={() => setInfoTarget(null)} />}
+      <Dialog open={report !== null} onOpenChange={(o) => !o && setReport(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Import finished</DialogTitle>
+            <DialogDescription>
+              {report?.inserted ?? 0} application{report?.inserted === 1 ? '' : 's'} added as Pending.
+            </DialogDescription>
+          </DialogHeader>
+          {report && (
+            <div className="px-6 pb-2 text-[13px] font-sans text-[#0F241D] space-y-4">
+              <div>
+                <p className="font-[600]">Skipped, already applied or has an account ({report.skippedDuplicates.length})</p>
+                {report.skippedDuplicates.length > 0 && (
+                  <ul className="mt-1 list-disc pl-5 text-[#6B7E6B]">
+                    {report.skippedDuplicates.map((d) => (
+                      <li key={d.email}>{d.brand} · {d.email}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              {report.skippedOther.length > 0 && (
+                <div>
+                  <p className="font-[600]">Skipped ({report.skippedOther.length})</p>
+                  <ul className="mt-1 list-disc pl-5 text-[#6B7E6B]">
+                    {report.skippedOther.map((d, i) => (
+                      <li key={i}>{d.brand}: {d.reason}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div>
+                <p className="font-[600]">Failed ({report.failed.length})</p>
+                {report.failed.length > 0 && (
+                  <ul className="mt-1 list-disc pl-5 text-error">
+                    {report.failed.map((f) => (
+                      <li key={f.row}>Row {f.row} · {f.brand}: {f.reason}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="primary" onClick={() => setReport(null)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

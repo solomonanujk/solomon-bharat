@@ -23,18 +23,8 @@ function createRedisLimiter(options: { windowMs: number; limit: number; prefix: 
   });
 }
 
-// General public API limiter — generous, applied globally. Skipped in local
-// development: every request there comes from the same ::1 address, and a
-// single browser session (React Query refetches, HMR reloads) burns through
-// 300 requests in well under 15 minutes. The auth limiter below stays on.
-export const publicRateLimiter = createRedisLimiter({
-  windowMs: 15 * 60 * 1000,
-  limit: 300,
-  prefix: 'rl:public:',
-  skipInDevelopment: true,
-});
-
-// Tighter limiter for auth endpoints (login, signup, password reset) to slow brute force.
+// Login and password-reset only, per visitor IP, to slow password guessing. Public forms
+// (sign-up, seller/agent applications) and the rest of the API are not rate limited.
 export const authRateLimiter = createRedisLimiter({
   windowMs: 15 * 60 * 1000,
   limit: 20,

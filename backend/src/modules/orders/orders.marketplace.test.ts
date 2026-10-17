@@ -100,6 +100,7 @@ function item(overrides: Partial<OrderItem> = {}): OrderItem {
     lineSellerTotal: new Decimal(1000),
     commissionRate: null,
     commissionAmount: null,
+    isSample: false,
     createdAt: new Date(),
     ...overrides,
   };
@@ -121,6 +122,69 @@ function buildCheckoutHarness(productsById: Record<string, ReturnType<typeof pro
   const service = new OrdersService(repo, products, buyers, {} as PayoutsService, {} as CommissionRatesPort);
   return { repo, service };
 }
+
+describe('OrdersService.createPendingCheckout (samples)', () => {
+  const withSamples = (p: ReturnType<typeof product>, price = 250, max = 3) =>
+    ({ ...p, offersSamples: true, sampleMaxQty: max, samplePrice: new Decimal(price) });
+
+  it('a sample skips the MOQ and the brand minimum, and is charged the sample price', async () => {
+    const { repo, service } = buildCheckoutHarness(
+      { a1: withSamples(product('a1', { brandId: 'brand-a', sellerId: 'sp-a', admin: 100, moq: 50 })) },
+      [brandA], // minimum 1000
+    );
+    await service.createPendingCheckout('buyer-1', [{ productId: 'a1', quantity: 2, isSample: true }], undefined, 'BUYER');
+    const call = vi.mocked(repo.createPending).mock.calls[0][0];
+    expect(call.items[0]).toMatchObject({ isSample: true, quantity: 2, unitAdminPrice: 250, lineAdminTotal: 500 });
+  });
+
+  it('rejects more samples than the product allows', async () => {
+    const { service } = buildCheckoutHarness(
+      { a1: withSamples(product('a1', { brandId: 'brand-a', sellerId: 'sp-a', admin: 100 })) },
+      [brandA],
+    );
+    await expect(
+      service.createPendingCheckout('buyer-1', [{ productId: 'a1', quantity: 4, isSample: true }], undefined, 'BUYER'),
+    ).rejects.toThrow(/at most 3 sample/);
+  });
+
+  it('rejects a sample of a product that does not offer samples', async () => {
+    const { service } = buildCheckoutHarness({ c1: product('c1', { admin: 100 }) }, []);
+    await expect(
+      service.createPendingCheckout('buyer-1', [{ productId: 'c1', quantity: 1, isSample: true }], undefined, 'BUYER'),
+    ).rejects.toThrow(/Samples are not available/);
+  });
+
+  it('sample lines do not count toward a brand minimum for wholesale items in the same order', async () => {
+    const { service } = buildCheckoutHarness(
+      {
+        a1: withSamples(product('a1', { brandId: 'brand-a', sellerId: 'sp-a', admin: 100 }), 900),
+        a2: product('a2', { brandId: 'brand-a', sellerId: 'sp-a', admin: 100 }),
+      },
+      [brandA],
+    );
+    const err = await service
+      .createPendingCheckout(
+        'buyer-1',
+        [
+          { productId: 'a1', quantity: 1, isSample: true }, // 900, exempt
+          { productId: 'a2', quantity: 5 }, // 500 < 1000
+        ],
+        undefined,
+        'BUYER',
+      )
+      .catch((e: unknown) => e);
+    expect(err).toMatchObject({ statusCode: 422, details: { details: [{ current: 500, required: 1000 }] } });
+  });
+
+  it('a curated sample pays the seller its usual unit cost', async () => {
+    const { repo, service } = buildCheckoutHarness(
+      { c1: withSamples(product('c1', { admin: 100, seller: 60, moq: 20 }), 150) },
+      [],
+    );
+    await service.createPendingCheckout('buyer-1', [{ productId: 'c1', quantity: 1, isSample: true }], undefined, 'BUYER');
+    expect(vi.mocked(repo.createPending).mock.calls[0][0].items[0]).toMatchObject({ unitAdminPrice: 150, unitSellerPrice: 60 });
+  });
+});
 
 describe('OrdersService.createPendingCheckout (order split + minimum order value)', () => {
   it('splits a mixed cart into one curated order plus one order per brand, sharing a checkoutId', async () => {

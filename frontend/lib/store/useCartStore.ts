@@ -13,9 +13,9 @@ interface CartState {
 
 interface CartActions {
   addItem: (item: CartItem) => void
-  removeItem: (productId: string, variantId?: string) => void
+  removeItem: (productId: string, variantId?: string, isSample?: boolean) => void
   removeItems: (productIds: string[]) => void
-  updateQuantity: (productId: string, qty: number, variantId?: string) => void
+  updateQuantity: (productId: string, qty: number, variantId?: string, isSample?: boolean) => void
   /** Stores server-quoted unit price / MOQ on matching lines (no-op when nothing changed). */
   applyQuotedPrices: (updates: QuotedSync[]) => void
   clearCart: () => void
@@ -25,6 +25,17 @@ interface CartActions {
 }
 
 type CartStore = CartState & CartActions
+
+/** A line is unique by product + variant + sample/wholesale. */
+function sameLine(i: CartItem, productId: string, variantId?: string, isSample?: boolean): boolean {
+  return i.productId === productId && i.variantId === variantId && !!i.isSample === !!isSample
+}
+
+/** Wholesale lines respect the MOQ; sample lines stay within 1..sampleMaxQty. */
+function clampQty(item: CartItem, qty: number): number {
+  if (item.isSample) return Math.min(Math.max(1, qty), Math.max(1, item.sampleMaxQty ?? 1))
+  return Math.max(qty, item.moq)
+}
 
 export const useCartStore = create<CartStore>()(
   persist(
@@ -40,12 +51,10 @@ export const useCartStore = create<CartStore>()(
         set((state) => {
           // A line is unique by product + variant — two different variants of the
           // same product must not collapse into one row with one blended price.
-          const existing = state.items.find(
-            (i) => i.productId === item.productId && i.variantId === item.variantId
-          )
+          const existing = state.items.find((i) => sameLine(i, item.productId, item.variantId, item.isSample))
 
           if (existing) {
-            const newQty = Math.max(existing.quantity + item.quantity, existing.moq)
+            const newQty = clampQty(existing, existing.quantity + item.quantity)
             const updated = { ...existing, quantity: newQty }
             return {
               items: state.items.map((i) => (i === existing ? updated : i)),
@@ -54,15 +63,15 @@ export const useCartStore = create<CartStore>()(
             }
           }
 
-          const safeQty = Math.max(item.quantity, item.moq)
+          const safeQty = clampQty(item, item.quantity)
           const created = { ...item, quantity: safeQty }
           return { items: [...state.items, created], lastAddedItem: created, addedPopupVisible: true }
         })
       },
 
-      removeItem: (productId: string, variantId?: string) => {
+      removeItem: (productId: string, variantId?: string, isSample?: boolean) => {
         set((state) => ({
-          items: state.items.filter((i) => !(i.productId === productId && i.variantId === variantId)),
+          items: state.items.filter((i) => !sameLine(i, productId, variantId, isSample)),
         }))
       },
 
@@ -73,9 +82,9 @@ export const useCartStore = create<CartStore>()(
         }))
       },
 
-      updateQuantity: (productId: string, qty: number, variantId?: string) => {
+      updateQuantity: (productId: string, qty: number, variantId?: string, isSample?: boolean) => {
         set((state) => {
-          const item = state.items.find((i) => i.productId === productId && i.variantId === variantId)
+          const item = state.items.find((i) => sameLine(i, productId, variantId, isSample))
           if (!item) return state
 
           // Quantity must be at least the MOQ; if set to 0 or below, remove item
@@ -83,7 +92,7 @@ export const useCartStore = create<CartStore>()(
             return { items: state.items.filter((i) => i !== item) }
           }
 
-          const safeQty = Math.max(qty, item.moq)
+          const safeQty = clampQty(item, qty)
           return {
             items: state.items.map((i) => (i === item ? { ...i, quantity: safeQty } : i)),
           }
@@ -94,7 +103,7 @@ export const useCartStore = create<CartStore>()(
         set((state) => {
           let changed = false
           const items = state.items.map((i) => {
-            const u = updates.find((x) => x.productId === i.productId && x.variantId === i.variantId)
+            const u = updates.find((x) => sameLine(i, x.productId, x.variantId, x.isSample))
             if (!u) return i
             const unit = u.unitPriceInr ?? i.unitAdminPriceInr
             if (unit === i.unitAdminPriceInr && u.moq === i.moq) return i

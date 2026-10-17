@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { guideRouter } from '../modules/guide/guide.routes';
 import { authRouter } from '../modules/auth/auth.routes';
 import { categoriesRouter } from '../modules/categories/categories.routes';
 import { sellersRouter } from '../modules/sellers/sellers.routes';
@@ -51,3 +52,4 @@ apiRouter.use('/agent/catalogues', cataloguesRouter);
 apiRouter.use('/brands', brandsRouter);
 apiRouter.use('/product-import', productImportRouter);
 apiRouter.use('/rfqs', rfqsRouter);
+apiRouter.use('/guide', guideRouter);

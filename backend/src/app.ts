@@ -10,11 +10,13 @@ import { swaggerSpec } from './config/swagger';
 import { apiRouter } from './routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { csrfProtection } from './middleware/csrf';
-import { publicRateLimiter } from './middleware/rateLimiter';
 import { UPLOADS_ROOT } from './providers/storage';
 
 export function createApp(): Application {
   const app = express();
+  // Render sits behind one proxy hop: use the visitor's real IP (X-Forwarded-For) for the
+  // login rate limit, instead of counting every visitor as the proxy's single address.
+  app.set('trust proxy', 1);
 
   app.use(helmet());
   app.use(
@@ -45,7 +47,7 @@ export function createApp(): Application {
 
   app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-  app.use('/api/v1', publicRateLimiter, csrfProtection, apiRouter);
+  app.use('/api/v1', csrfProtection, apiRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

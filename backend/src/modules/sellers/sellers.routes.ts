@@ -1,3 +1,4 @@
+import { uploadSpreadsheet } from '../../middleware/upload';
 import { Router } from 'express';
 import { sellersController } from './sellers.controller';
 import {
@@ -10,11 +11,11 @@ import {
   updateSellerProfileSchema,
   approveApplicationSchema,
   internalRatingSchema,
+  switchSellerTypeSchema,
 } from './sellers.validation';
 import { paginationQuerySchema } from '../../utils/pagination';
 import { validate } from '../../middleware/validate';
 import { requireAdmin, requireAuth, requireSeller } from '../../middleware/auth';
-import { authRateLimiter } from '../../middleware/rateLimiter';
 import { asyncHandler } from '../../utils/asyncHandler';
 
 export const sellersRouter = Router();
@@ -32,7 +33,6 @@ export const sellersRouter = Router();
  */
 sellersRouter.post(
   '/apply',
-  authRateLimiter,
   validate(submitApplicationSchema),
   asyncHandler(sellersController.submitApplication),
 );
@@ -137,6 +137,29 @@ sellersRouter.post(
  *     responses:
  *       200: { description: Note added }
  */
+/**
+ * @openapi
+ * /sellers/applications/{id}:
+ *   delete:
+ *     summary: Permanently delete a non-approved seller application (SUPER_ADMIN only)
+ *     tags: [Sellers]
+ */
+sellersRouter.post(
+  '/applications/import',
+  requireAuth,
+  requireAdmin,
+  uploadSpreadsheet,
+  asyncHandler(sellersController.importApplications),
+);
+
+sellersRouter.delete(
+  '/applications/:id',
+  requireAuth,
+  requireAdmin,
+  validate(idParamSchema, 'params'),
+  asyncHandler(sellersController.deleteApplication),
+);
+
 sellersRouter.post(
   '/applications/:id/notes',
   requireAuth,
@@ -215,6 +238,22 @@ sellersRouter.patch(
   validate(idParamSchema, 'params'),
   validate(internalRatingSchema),
   asyncHandler(sellersController.setInternalRating),
+);
+
+/**
+ * @openapi
+ * /sellers/{id}/seller-type:
+ *   patch:
+ *     summary: Switch an approved seller between CURATED and MARKETPLACE (SUPER_ADMIN only)
+ *     tags: [Sellers]
+ */
+sellersRouter.patch(
+  '/:id/seller-type',
+  requireAuth,
+  requireAdmin,
+  validate(idParamSchema, 'params'),
+  validate(switchSellerTypeSchema),
+  asyncHandler(sellersController.switchSellerType),
 );
 
 sellersRouter.get(

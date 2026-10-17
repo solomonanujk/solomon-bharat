@@ -61,13 +61,14 @@ export interface SignupInput {
 /** Buyer self-signup only — SELLER accounts are created via /sellers/apply → admin approval. */
 export function useSignup() {
   const setUser = useAuthStore((s) => s.setUser)
-  return useMutation<{ user: User; accessToken: string }, Error, SignupInput>({
+  return useMutation<{ user: User; accessToken: string; csrfToken: string }, Error, SignupInput>({
     mutationFn: async (body) => {
       const res = await api.post('/auth/signup', body)
       return res.data.data
     },
     onSuccess: (data) => {
       localStorage.setItem(TOKEN_KEY, data.accessToken)
+      localStorage.setItem(CSRF_TOKEN_KEY, data.csrfToken)
       setUser(data.user)
       toast.success('Account created — check your email to verify your address.')
     },
@@ -112,6 +113,20 @@ export function useForgotPassword() {
   return useMutation<unknown, Error, { email: string }>({
     mutationFn: (body) => api.post('/auth/forgot-password', body),
     onSuccess: () => toast.success('If that email exists, a reset link has been sent.'),
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
+export function useChangePassword() {
+  const patchUser = useAuthStore((s) => s.patchUser)
+  const qc = useQueryClient()
+  return useMutation<User, Error, { currentPassword?: string; newPassword: string }>({
+    mutationFn: async (body) => (await api.post('/auth/change-password', body)).data.data.user,
+    onSuccess: (user) => {
+      patchUser({ mustChangePassword: false })
+      qc.setQueryData(['me'], user)
+      toast.success('Password changed.')
+    },
     onError: (err) => toast.error(getApiError(err)),
   })
 }

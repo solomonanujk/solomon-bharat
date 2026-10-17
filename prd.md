@@ -1,12 +1,14 @@
 **Solomon Bharat**
 Product Requirements Document
-Version 3.8  |  Status: Draft  |  October 2026
+Version 3.15  |  Status: Draft  |  15 October 2026
 *Confidentiality: Internal Use Only*
 **Solomon Bharat Private Limited**
 B2B Wholesale Export Marketplace — Indian Artisan & Handmade Products
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 *Two selling models. **Curated:** Solomon Bharat purchases from sellers and sells to buyers (admin-intermediated export model). **Marketplace brands:** brands sell directly to buyers under their own name; the payment is split so the platform keeps a commission and the brand receives the rest (§17). Agents purchase from Solomon Bharat, at their own admin-set price, to resell to their own customers off-platform.*
 *Four roles: SUPER_ADMIN · SELLER · BUYER · AGENT*
+
+> **v3.9 note:** §18 records the owner-confirmed decisions and everything built in October 2026 (UK launch, manual bank transfer, new order lifecycle, brand invites at 0% commission, custom requests, samples, export documents and more). Where §18 disagrees with an earlier section, **§18 wins**. Owner decisions are also kept in `docs/BUSINESS_DECISIONS.md`.
 
 # 1. Executive Summary
 
@@ -1643,16 +1645,16 @@ Everything above this section describes the intended product. This section is th
 
 | Layer | Status |
 | --- | --- |
-| Backend (14 modules, RBAC, providers, PDF/AI/FX integrations) | Complete and deployed. All routes below are live. |
+| Backend (17 modules incl. `brands`, `product-import`, `rfqs`; RBAC, providers, PDF/AI/FX integrations) | Complete and deployed. All routes below are live; v3.9 routes are listed in §18.14. |
 | Frontend — public marketplace, seller portal, admin portal | Complete and deployed. Real, data-driven pages throughout. |
 | Frontend — buyer/agent workspace pages | Complete, but as flat shared top-level routes, not the `(buyer)`/`(agent)` route groups the original plan called for (§13.3). |
-| Frontend — 9 footer/informational pages | **Placeholder stubs only** (`about`, `careers`, `contact`, `cookies`, `export-guide`, `faqs`, `help`, `privacy`, `terms`) — a 10-line `StubPage` shell with a heading and one paragraph. Not real content. |
+| Frontend — footer/informational pages | **Real content as of v3.9:** Terms, Privacy, Cookie Policy, Seller Agreement, Help, FAQs and Export guide (§18.11). |
 | CMS (homepage hero/banner/static-page management) | **Not built.** Content is hardcoded in frontend components. |
 | Frontend automated tests | **None.** Zero test files, no test runner configured. |
-| Backend automated tests | 35 test files across 12/14 modules (missing full coverage for `agent-applications`, `reviews`, `catalogues`). `README.md` claims ~483 passing tests; not independently re-verified in this pass. Coverage report on disk is a stale (~6-week-old) snapshot, not continuously regenerated. |
-| Payments | Real PayPal SDK integration exists and is wired end-to-end, but the **live deployment currently runs on the mock payment provider** — no production PayPal credentials are set yet. |
+| Backend automated tests | **v3.9: 60 test files, 1,152 tests passing.** Earlier note: 35 test files across 12/14 modules (missing full coverage for `agent-applications`, `reviews`, `catalogues`). `README.md` claims ~483 passing tests; not independently re-verified in this pass. Coverage report on disk is a stale (~6-week-old) snapshot, not continuously regenerated. |
+| Payments | **v3.9: live deployment runs manual bank transfer** (`PAYMENT_MODE=manual`); the admin confirms receipt with the UTR (§18.5). The PayPal code still exists but is not live; the payment gateway is waiting on the provider. |
 | Deployment | Live: Render (backend), Vercel (frontend), Upstash (Redis), Neon (Postgres, pre-existing/shared with dev). |
-| Overall phase | Late-stage, deployment-stabilization. The most recent ~20 commits are entirely fixes/hardening (Vercel/Render config, CSRF, checkout pricing bugs, DNS), not new feature work. |
+| Overall phase | Pre-launch (UK first). All demo data was removed from production; only the admin account remains (§18.13). |
 
 ## 15.2 Backend Module & API Reference
 
@@ -1785,13 +1787,13 @@ Places where existing project documentation (not this PRD) describes something t
 2. `README.md` claims frontend route groups `(public)`, `(buyer)`, `(seller)`, `(agent)`, `(admin)`. **Only `(public)`, `(seller)`, `(admin)` exist.** Buyer- and agent-facing pages are flat top-level routes shared by both roles; there is no `/agent/*` URL prefix (§13.3, §15.4).
 3. A recent commit message references redirecting agents from the homepage to `/agent` — no literal `/agent` route exists in the frontend tree, so this redirect target is either aspirational, dead code, or resolves through a different mechanism not identified in this audit. Worth a follow-up check if agent homepage redirects behave unexpectedly.
 4. Earlier drafts of this PRD (§12.3, pre-v3.6) named the typefaces "Playfair Display" and "Public Sans." The actual fonts loaded are **Fraunces** and **Hanken Grotesk** — only the CSS variable names (`--font-playfair`, `--font-public-sans`) retain the old names, as deliberate open-license stand-ins for a different proprietary pair (Nantes/Graphik). Corrected in §12.3 as of v3.6.
-5. The 9 footer/informational pages should never be described as "built content" in a status update — they are placeholder shells (§15.4).
-6. PayPal is "integrated" in the sense of real, tested SDK code — but the live deployment is not currently processing real payments; it runs on the mock provider (§15.1, §15.5).
+5. ~~The 9 footer/informational pages are placeholder shells.~~ **Resolved in v3.9** — legal and help pages now have real content (§18.11).
+6. PayPal is "integrated" in the sense of real, tested SDK code — but the live deployment does not use it. **As of v3.9 production runs manual bank transfer** (§18.5).
 7. The Submit New Product variant-options modal offers "Product language" as a selectable option-axis type, alongside Size/Color/Material/Style/Scent (§8.5). This directly contradicts this PRD's own repeated decision to exclude a Product Language field anywhere on the platform (§16.4 Out of Scope). Verified in `ProductOptionsModal.tsx`'s `AXIS_TYPES` constant — not yet fixed as of this pass.
 8. The Product videos uploader's own helper text says "Each video should be 2 GB or smaller." The backend actually enforces 200MB/file (`MAX_VIDEO_FILE_SIZE_BYTES` in `backend/src/middleware/upload.ts`) — a seller following the displayed limit will have a 200MB–2GB video rejected at upload time with no matching client-side warning.
 9. A full Submit/Publish save of an existing product through the current form silently force-resets `isHandmade`, `isGITagged`, and `tags` to `false`/`false`/`[]`, even if they were previously set — the form has no input for any of the three, and sends hardcoded values rather than omitting the fields. Saving as a draft does not trigger this (those fields are simply omitted from a draft save's payload, leaving prior values untouched). See §8.5.
 10. `ProductPricingChangeRequest.proposedVariants` (Json) does not carry the per-variant `weight`/`length`/`width`/`height`/`dimensionUnit`/`tariffCode`/`inventory` fields introduced alongside it in the same schema change — a pricing/variant change request can reshape or reprice variants but cannot propose changes to their physical/shipping detail. See §8.9, §15.3.
-11. The AI Content Polish trigger (§8.6) was removed from `ProductForm.tsx` during the Faire-parity rebuild — the backend endpoint (`POST /products/ai/polish`) is untouched and still works, but nothing in the frontend calls it anymore. Earlier PRD drafts (pre-v3.7) described this as an active in-form feature.
+11. **Superseded in v3.9:** sellers now have a "Draft with AI" button for product descriptions (`POST /products/description-draft`, Claude via `ANTHROPIC_API_KEY`; §18.7). Original note: the AI Content Polish trigger (§8.6) was removed from `ProductForm.tsx` during the Faire-parity rebuild — the backend endpoint (`POST /products/ai/polish`) is untouched and still works, but nothing in the frontend calls it anymore. Earlier PRD drafts (pre-v3.7) described this as an active in-form feature.
 
 ## 15.9 Features Built Beyond the Original PRD Scope
 
@@ -1826,6 +1828,13 @@ These exist in the shipped code and are now documented in the body of this PRD a
 | 3.6 | September 2026 | As-built pass: reconciled the PRD against the actual codebase. Added §15 Implementation Status & As-Built Reference (full API/schema/route inventory, deployment architecture, testing status, documentation debt). Documented features that exist in code but were previously undocumented: Product Pricing & Variant Change Requests (§8.9, §10.5a), Reviews & Ratings (§6.10, §7.8), AI Content Polish (§8.5a), buyer-facing multi-currency price display (§6.11), Admin User Management / Audit Log / Platform Settings (§10.11–10.13). Corrected typography tokens (§12.3: actual fonts are Fraunces + Hanken Grotesk, not Playfair Display / Public Sans) and the frontend folder structure (§13.3) to match the real `frontend/app/`, `components/`, `hooks/queries/`, `lib/store/` layout — there is no `frontend/src/modules/` tree and no `(buyer)`/`(agent)` route groups in the actual build. Expanded §13.7 data models and §13.9 env vars to match the real 28-model Prisma schema and `.env.example` files. |
 | 3.7 | September 2026 | Faire-parity Submit New Product rebuild reconciled against §8.5, which is now a full rewrite: progressive reveal, category typeahead, product video upload (new `ProductVideo` model), controlled-vocabulary eco-attribute tags, a seller-settable bestseller flag, and a redesigned per-row variant table (SKU/price/inventory/weight/dimensions/tariff-code/status, focal-point color-swatch cropping) — plus a documented narrowing of scope (MOQ/Order Step/Lead Time/Handmade/GI Tagged/Tags/How It's Made/Artisan Name/volume pricing no longer collected, three of them force-reset on save; §8.5, §15.8). Documented the real Draft product status (§8.4, §8.5) and added §8.4a for the rebuilt seller-facing Product Detail View page. Updated §6.6 Product Detail Page for the matching buyer-facing additions (bestseller/handmade/GI-tagged badges, eco tags, "How it's made," per-variant weight/dimensions, HS/tariff code, video playback) and a correctness fix to the variant selector (previously read only a variant's primary axis, silently hiding a second axis like Color). Expanded §13.7/§15.3 for the new `Product`/`ProductVariant`/`ProductVideo` fields and corrected the schema's real size (805 lines, 14 enums, 33 models — was stated as 772/11/28). Updated §13.3's component/lib folder listings (`ListingScore` was never built; added `CategoryTypeahead`, `ColorSwatchModal`, `ColorSwatchPromptModal`, `ProductOptionsModal`, `ProductVideoStrip`, `ecoAttributes.ts`, `indianPlaces.ts`). Added four new §15.8 documentation-debt entries surfaced during this pass (a "Product language" variant-axis option contradicting §16.4, a video-size helper-text mismatch, the field-reset behavior above, and a pricing-change-request gap around the new per-variant fields). |
 | 3.8 | October 2026 | Marketplace brands: second seller type with onboarding question, brand profiles and storefronts, direct pricing with quantity tiers, brand-level minimum order value, per-brand orders in a single checkout, 25%/15% commission with per-brand overrides, split payments for marketplace orders (curated orders unsplit), brand portal and admin brand management, and Shopify/WooCommerce spreadsheet product import. New §17; contradicting statements in §1, §6 and §16 updated. |
+| 3.15 | 15 October 2026 | Solomon AI guide and admin knowledge base (§18.14a). |
+| 3.14 | 15 October 2026 | Excel import of seller applications; approved applications move to Sellers; server-side search (§18.2). |
+| 3.13 | 15 October 2026 | Admin deletes non-approved seller applications (§18.2). |
+| 3.12 | 15 October 2026 | Admin switch between Curated and Marketplace for approved sellers (§18.2). |
+| 3.11 | 15 October 2026 | Direct sample ordering through cart and checkout (§18.7). |
+| 3.10 | 15 October 2026 | Owner feedback round: new-buyer price fix, sign-up design, full product details and story on the product page, sample/wholesale switch, brand minimum-order pop-up, All products page (§18.7, §18.9, §18.16). |
+| 3.9 | 14 October 2026 | Owner decisions and October build, new §18: UK-first launch; admin assigns seller type; manual bank-transfer payments; Solomon collects all payments (no split); new order lifecycle (Quality checked, Refunded, 24h brand acceptance, dispatch photos, payout on dispatch); brand invite links and own buyers at 0% commission with instant payout; custom requests (RFQ) and samples; craft category tree; mandatory craft fields; brand shop minimum required; admin price editor on every curated product; vacation mode and internal seller rating; commercial invoice and packing list PDFs; WhatsApp notifications; "Draft with AI"; legal pages and cookie consent; help content; mobile responsiveness; demo data purged. Updated §15, §16 and §17 where they conflicted. |
 
 ## 16.2 Glossary
 
@@ -1858,6 +1867,10 @@ These exist in the shipped code and are now documented in the body of this PRD a
 | Split payment | At payment time, the platform keeps its commission and the brand receives the remainder; curated orders are not split (§17.9) |
 | Net | A brand order item's gross minus commission; the amount paid to the brand |
 | Checkout ID | The identifier shared by the sibling orders (one per brand, plus one curated) created by a single checkout |
+| Brand's own buyer | A buyer who joined through a brand's invite link or was added by the brand by email. The brand pays **0% commission** on their orders and is paid out as soon as payment is confirmed (§18.4) |
+| Custom request (RFQ) | A buyer's request for something not on a standard listing; always goes to the Solomon team (§18.6) |
+| Sample order | A small order of a product that offers samples, within its sample limit; handled through the custom-request inbox (§18.6) |
+| UTR | The bank transfer reference the admin records when confirming a manual payment (§18.5) |
 | FX display currency | A buyer's chosen display currency for viewing prices, converted live from the platform's base INR price; does not affect checkout settlement, seller pricing, or agent pricing (§6.11) |
 
 
@@ -1870,9 +1883,9 @@ These exist in the shipped code and are now documented in the body of this PRD a
 | Context-scoped search only | Buyers always have context. Prevents overwhelming global results. |
 | No seller identity on curated products | Solomon Bharat is the brand for curated products. Buyers trust Solomon Bharat, not individual sellers. Marketplace brands are the deliberate exception (§17). |
 | Admin sets buyer price independently | Enables full margin control without seller involvement. |
-| No returns | Simplifies MVP operations. All sales final. |
-| Manual payouts for curated sellers; split payments for marketplace brands | Curated sellers stay on the simple manual process. Marketplace brands are paid their net share automatically at payment time so a brand's money never waits on admin (§17.9). |
-| PayPal only | Trusted, globally available international payment method. |
+| No returns | Simplifies MVP operations. All sales final. **v3.9:** damage claims within 7 days with photos; cancelled paid orders are refunded by admin (§18.3). |
+| Solomon collects every payment; sellers are paid on dispatch (v3.9) | Replaces the split-payment design. Solomon receives the buyer's money, pays the seller (net of commission for brands) when the order is dispatched, and pays a brand's own-buyer orders immediately (§18.4). |
+| Manual bank transfer until a gateway is live (v3.9) | PayPal is not live; buyers pay by bank transfer and the admin confirms with the UTR (§18.5). |
 | Seller stock self-declared | Reduces system complexity. Admin confirms availability during procurement. |
 | 3-level category hierarchy | Enough depth for the catalog. All 3 levels filterable by buyers. |
 | Archive blocked if active products exist | Prevents orphaned listings. Forces admin to reassign first. |
@@ -1892,13 +1905,14 @@ These exist in the shipped code and are now documented in the body of this PRD a
 ## 16.4 Out of Scope
 
 - Global search
-- All Products / Shop page
+- ~~All Products / Shop page~~ (in scope as of v3.10 — `/products`, §18.7)
 - Automated payout processing
-- Returns or dispute resolution
+- Returns or dispute resolution (damage claims with photos are in scope as of v3.9 — §18.3)
 - Seller-to-buyer messaging
 - Achievement system, buyer referral program
 - General buyer-facing share links (product sharing exists only inside the Agent Portal — §9.7 — not on the public marketplace or in the Buyer Workspace)
-- Drop-ship: agent orders always ship to the agent's own address, never directly to the agent's end customer
+- ~~All Products / Shop page~~ — **in scope as of v3.10:** `/products` (§18.7)
+- ~~Drop-ship~~ — **in scope as of v3.9:** an agent can ship to a named end customer (§18.9)
 - Sub-admin roles (Content Manager, Finance Manager, etc.)
 - Mobile native apps (Phase 1)
 - Multi-currency seller pricing
@@ -1907,6 +1921,8 @@ These exist in the shipped code and are now documented in the body of this PRD a
 ---
 
 ## 17. Marketplace Brands, Split Payments & Product Import (added October 2026, v3.8)
+
+> **v3.9:** parts of this section are superseded by §18 — notably payments (no split; Solomon collects and pays out on dispatch), the marketplace order lifecycle (24h acceptance, dispatch photos), commission (0% for a brand's own buyers) and import status (merged).
 
 This section adds a second way to sell. It **supersedes** every earlier statement in this document that says Solomon Bharat is the *only* merchant, that sellers and buyers never interact, that sellers never see buyer data, or that no seller/brand identity is ever shown to buyers. Those statements remain true for **curated** sellers and products, which behave exactly as described in §1–§16.
 
@@ -2137,7 +2153,7 @@ Sellers can bring an existing catalogue in by uploading a store export instead o
 - **Not imported from Shopify files:** stock quantities, weights and dimensions (WooCommerce files carry them — see above).
 - **Publish-readiness hints:** the review step flags products that still lack what publishing needs, for example "No weight" or fewer than two images. A draft can be saved without them; publishing needs a description, materials, a weight above zero, a MOQ of at least 1, declared stock, a price and between 2 and 10 images.
 - **Known limits:** a CSV that was opened and re-saved in Excel may already have damaged long SKUs or fractions; only the first sheet of an `.xlsx` is read; WooCommerce headings are matched in English only. A spreadsheet in any other layout (for example a custom catalogue sheet) is rejected with a message naming the supported formats.
-- **Status:** built and tested on a separate branch; merging it with the marketplace work, and routing a brand's imported drafts through the brand publish path, is pending.
+- **Status:** merged and live (v3.9).
 
 ### 17.15 Roles and permissions
 
@@ -2189,7 +2205,201 @@ Seller-type checks are enforced in middleware on every brand route, never in con
 4. **No pre-moderation of brand products:** products go live immediately. Mitigations are admin unpublish/suspend; consider holding a brand's first products for review.
 5. **No dispute or refund path** for either seller type; with brands as merchants this risk increases. Display-only return policies do not resolve buyer–brand disputes.
 6. **Curated price visibility:** curated sellers currently receive admin and agent price tiers inside their own product data, which contradicts "sellers never see the admin price" (§1.2). This predates the marketplace work and needs its own fix.
-7. **Product import** is not yet merged with the marketplace work (§17.14).
+7. ~~Product import is not yet merged~~ — merged (v3.9).
 8. **Shipping** is included in price; per-brand shipping fees are deferred.
 9. **Environment safety:** the payment integration must refuse to run (not fall back to a simulated provider) in production when its credentials are missing.
 10. **Wording awaiting owner approval:** commission terms text and terms version, the homepage trust bar, About page and cart/checkout trust lines (all marked for confirmation in the code).
+
+---
+
+## 18. Owner Decisions & October 2026 Build (v3.9)
+
+This section records the owner-confirmed decisions (October 2026) and what has been built from them. **Where it disagrees with any earlier section, this section wins.** The short owner decision list is kept in `docs/BUSINESS_DECISIONS.md`.
+
+### 18.1 Market and launch
+- First target market: **United Kingdom**. The homepage, copy and default currency lead with the UK (GBP); other countries can still buy.
+- Currency is detected automatically and buyers can switch. Exchange rates update daily. Prices are shown **and charged** in the buyer's currency; agent prices are converted the same way. FX risk sits with the seller.
+- Legal entity: **Solomon Bharat Private Limited, Jaipur, India**.
+- Benchmarks: Faire and Ankorstore.
+
+### 18.2 The two seller models (final)
+
+| Topic | Curated by Solomon | Marketplace brand |
+|---|---|---|
+| Merchant of record | Solomon Bharat | The brand; Solomon is the marketplace and collects payment |
+| Seller type chosen by | **Admin, at approval.** The applicant never sees the choice | Same |
+| Buyer price | Admin sets it, per product and tier | The brand |
+| Agent price | Admin sets it, per product | N/A — agents only buy curated products |
+| Product approval | Required; every edit goes back for review | Not required, including edits |
+| Name shown to buyers | "Solomon" | Brand name |
+| What the seller sees | Only the items ordered from them; **no buyer details** | Full buyer and order details for its own orders |
+| Messaging | Buyer ↔ Solomon team only | None on-platform |
+| Minimum order | MOQ per product | **Shop minimum order value (required)** + MOQ per product |
+| Shipping | Solomon collects at the seller's door → Jaipur warehouse → consolidated DDP to the buyer | Brand ships direct to the buyer |
+| Dispatch proof | Solomon attaches QC photos (seller may add) | **Brand must upload photos** before shipping |
+| Export documents | Generated by Solomon | Generated in the brand portal |
+| Seller payout | On dispatch | On dispatch; **instant** for the brand's own buyers |
+| Commission | None (Solomon earns the margin) | 25% first order per buyer, 15% repeat, **0% for the brand's own buyers**; goods only, never shipping |
+
+Other seller rules:
+- One seller account = one brand. Individual artisans without GST can sell only as Curated.
+- Verification covers product quality, online and offline presence, and sometimes a physical visit.
+- Applicants accept the versioned **Seller Agreement** in the application.
+- Both types can switch products on/off and turn on **vacation mode** without approval.
+- Admin keeps a private **internal rating (1–5)** per seller; it is never shown to the seller (`PATCH /sellers/:id/internal-rating`).
+- **Seller Applications list (v3.14):** the default "All open" tab shows pending, more-info and rejected applications; **approved applications move to Sellers** (still visible under the Approved tab). Search is server-side across every application (business, founder or email).
+- **Import applications from Excel (v3.14, admin only):** Seller Applications → **Import from Excel** (`POST /sellers/applications/import`, .xlsx or .csv, 5 MB). Built for the old backend's export (columns brand, founder, email, phone, city, country, instagram, followers, website, categories, product_desc, gi, monthly_volume, business_type, shipped, intl_orders, intl_countries, amazon, has_iec, brand_story, heard_from, accepted_terms, created_at). Each row becomes a **Pending, Curated** application with the original `created_at`, emails lower-cased, phone decimals stripped, Seller Agreement version `2026-10-13` recorded as accepted at import time. Old answer buckets (monthly volume, international orders, heard-from) are kept verbatim since they do not match the new form's buckets; categories outside the current list are noted in the application message; fields the old form never asked (GST, incorporation, other platforms) stay empty. Rows whose email already has an application or account are skipped (never overwritten), as are in-file duplicates and the "Unnamed Brand" row; the admin sees inserted / skipped (with brand names) / failed (with reasons). Insert-only; audit-logged as `SELLER_APPLICATIONS_IMPORTED`.
+- **Deleting applications (v3.13, admin only):** Admin → Seller Applications → **Delete** on any pending, more-info-requested or rejected application (spam, tests, duplicates), with a confirmation (`DELETE /sellers/applications/:id`). Permanent and audit-logged (`SELLER_APPLICATION_DELETED`). Approved applications are tied to a live seller account and cannot be deleted.
+- **Switching the selling model (v3.12, admin only):** Admin → Sellers → seller page → **Selling model** card → "Switch to Marketplace brand / Curated by Solomon" (`PATCH /sellers/:id/seller-type` with `{ sellerType, brandName? }`). Blocked while the seller has any order in progress (awaiting payment through dispatched). Audit-logged (`SELLER_TYPE_SWITCHED`); the seller gets an in-app notice and email.
+  - *Curated → Marketplace:* a brand is created (or the seller's earlier brand is reactivated) with the admin-chosen name; every product moves to the brand; the admin's buyer price becomes the brand's price (seller price where a tier was never priced); agent prices are removed; products keep their live/draft state; the brand must then set its minimum order value (pop-up).
+  - *Marketplace → Curated:* the brand page is suspended (kept for history and switching back); every product leaves the brand, is unpublished and returns to **Pending review** with the brand's price kept as the seller price; the admin sets buyer/agent prices and approves again.
+
+### 18.3 Order lifecycle (as built)
+
+**Curated:** Awaiting payment → Payment received → Confirmed → Procuring → Collected (at Jaipur warehouse) → **Quality checked** (photos required) → Dispatched (In transit) → Delivered. The seller payout is created on dispatch.
+
+**Marketplace:** Awaiting payment → Payment received (**brand must accept within 24 hours**, or the order is auto-cancelled by a sweep every 10 minutes) → Accepted (Confirmed) → Dispatched (photos + tracking required; payout created) → Delivered. The brand can also **decline**. Orders from the brand's own buyers are paid out as soon as payment is confirmed.
+
+**Cancellation and refunds**
+- The buyer can cancel until the order is Confirmed (curated) or Accepted (brand) — `POST /orders/me/:id/cancel`.
+- A cancelled **paid** order is marked **Refunded** by the admin with a refund reference (`POST /orders/admin/:id/refund`). Refunds after a brand declines or misses the 24h window also wait for admin approval.
+- Damage claims: reported within 7 days of delivery, with photos; decided on the photo evidence. There is still no general returns policy.
+
+New order fields: `paidAt`, `dispatchPhotos`, `brandOwnBuyer`, `refundedAt`, `refundReference`. New statuses: `QUALITY_CHECKED`, `REFUNDED`.
+
+### 18.4 Payments and payouts
+- **Solomon collects every payment**, for both seller types, and pays the seller. This **replaces the split-payment design in §17.9**; there is no automatic split and no brand payout-account connection.
+- Payment is 100% in advance.
+- Payout = order value minus commission (brand) or the seller price (curated), created on dispatch. Admin marks payouts paid.
+- **Brand's own buyers** (§18.8): 0% commission and immediate payout.
+
+### 18.5 Manual bank transfer (live payment method)
+- Until a payment gateway is live, checkout uses **manual bank transfer** (`PAYMENT_MODE=manual`). The buyer sees the bank details and a reference; one checkout can contain several orders (one per brand plus one curated).
+- The admin confirms receipt with the bank **UTR** — `POST /payments/admin/checkouts/:checkoutId/mark-paid`. This moves every order in the checkout to Payment received, records `paidAt`, and is audit-logged.
+- The admin dashboard shows a "checkouts awaiting payment" counter.
+- **Not built:** online payment gateway (waiting on the provider).
+
+### 18.6 Custom requests (RFQ) and samples
+- Every product page has a **"Custom requirement"** button, and there is a site-wide form at `/custom-requirement`. Requests always go to the Solomon team.
+- Fields: description, quantity, target price and currency, destination country, deadline, reference images. Statuses: New → In progress → Quoted → Closed, with admin notes.
+- Buyers see their own requests under Account → **Custom requests** (`/requests`). Admin works them in the Custom Requirements inbox.
+- API: `POST /rfqs`, `GET /rfqs/me`, `GET /rfqs/admin`, `PATCH /rfqs/admin/:id`.
+- **Samples:** a product can offer samples (`offersSamples`, `sampleMaxQty`, `samplePrice` per unit in INR). Brands must say on every product whether they offer samples; admin sets this for curated products. Buyers see "Samples available" (price only after sign-up) and use **"Order a sample"**, which creates an RFQ marked as a sample order (`isSample`). The team emails the total with shipping and bank details.
+
+### 18.7 Products and catalogue
+- **Craft category tree:** a curated Indian-craft taxonomy (based on iTokri and Amazon) is seeded automatically at server start; missing categories are added and the category cache is cleared.
+- **Mandatory product fields:** title, description, material, **craft technique**, **region**, dimensions, weight, colour, variants (each with its own price/MOQ/stock), MOQ, HSN code, **lead time**, **made-to-order or ready stock**, SKU, inventory, **care instructions**, and at least 2 photos. Recommended: video and the story of the craft.
+- No customisation on standard listings; customisation goes through a custom request.
+- **"Draft with AI"** writes product description drafts for sellers (`POST /products/description-draft`, needs `ANTHROPIC_API_KEY`).
+- **Admin price editor (curated):** the admin product page always shows editable **Buyer Price** and **Agent Price (optional)** for every tier and variant tier. A product with no tiers shows one base row built from its MOQ and seller price; saving creates that tier. During review the admin uses **"Approve & publish with these prices"** or **Reject**; after approval, **"Save prices"** updates them.
+- **Brand shop minimum:** a brand cannot add or publish products until its shop minimum order value is set (above 0). As soon as a marketplace brand signs in to the portal without one, a **pop-up that cannot be dismissed** asks for it (v3.10); the dashboard also shows a banner, and checkout below the minimum is refused.
+- **Price privacy:** guests never receive prices from the API, including the **sample price**.
+- One-time Shopify/WooCommerce import is merged and live (§17.14).
+- **Product page shows everything the seller entered** (v3.10), as a bordered spec table grouped into *Specifications* (materials, product type, dimensions, weight, each option list, care), *Craft & origin* (technique, region, handmade, GI tag, maker name for brands only), *Ordering & shipping* (MOQ, availability, lead time, samples, HS code, brand return policy) and *Sustainability & packaging* (eco materials, packaging, production — each its own row). Products with options also get an **"Options at a glance"** table (SKU, weight, size, HS code, stock per option). The seller's craft story shows as **"The story behind this product"**, and a brand product shows **"About <brand>"** with the brand's story.
+- **Sample or wholesale on the product page** (v3.10): when a product offers samples, signed-in buyers get a *Wholesale order / Order a sample* switch in the price panel. Sample mode shows the sample price, a quantity picker up to the sample limit, and **"Add N samples to cart"** (v3.11): samples are bought through the normal cart and checkout like a wholesale order. A sample line is charged the product's sample price, is **exempt from the MOQ and from the brand's shop minimum** (a samples-only brand order has no minimum; in a mixed order only wholesale lines count toward it), and is capped at the product's sample limit — all enforced by the server at quote and checkout (`isSample` on each cart item; `OrderItem.isSample`). A sample and a wholesale order of the same product are separate cart lines. The cart, checkout, buyer orders and brand order pages label sample lines. A brand is paid its own sample price (commission applies as usual); a curated seller is paid its usual unit cost. "Or ask our team" still opens a sample request, and is the only option when no sample price is set.
+- **All products page** `/products` (v3.10): every published product with the full catalogue filters. The homepage hero and About page "Browse products" buttons go here (previously Collections). This replaces the old "no all-products page" rule (§16.4).
+
+### 18.8 Brand invites and own buyers
+- Each brand has a **personal invite link** (`/invite/<code>`; `GET /brands/me/invite`, `GET /brands/invites/:code`, `POST /brands/invites/:code/accept`).
+- A brand can also **add customers by email** (`POST /brands/me/own-buyers`): an existing buyer is linked immediately; a new email is linked when that person signs up (`BrandEmailInvite`).
+- Only buyers with no earlier paid order from that brand can be claimed. Links are stored in `BrandOwnBuyer`.
+- Orders from own buyers: 0% commission, flagged `brandOwnBuyer`, paid out immediately.
+
+### 18.9 Buyers and agents
+- Prices are visible after sign-up. **Sign-up signs the buyer in immediately** (the API returns a session), so a new buyer sees admin-set prices straight away (v3.10 fix: new buyers previously saw ₹0). An expired or invalid login token on a public page now returns 401 so the site refreshes the session instead of quietly showing the guest (price-less) view; if the session cannot be refreshed the page reloads as a guest. Cached pages are refetched whenever the signed-in user changes.
+- The sign-up page shows a designed panel (faded block-print pattern, map grid and trade routes from Jaipur to London, New York, Dubai, Singapore, Tokyo and Sydney) instead of a photo.
+- Business verification is deferred.
+- Team accounts and multiple addresses are allowed; no VIP or custom price lists.
+- **Agents** buy curated products only, at the admin-set agent price, and can ship to a named end customer. The catalogue PDF is **white-label**: no Solomon Bharat branding, no prices, and it carries the agent's company name, phone and email (required before creating a catalogue). No referral commission for now.
+
+### 18.10 Admin, audit and documents
+- Single admin role; all pricing, approvals, payments, refunds and payouts are admin-only. Admin can place orders on behalf of buyers.
+- **Admin dashboard to-dos:** checkouts awaiting payment, new custom requests, refunds to approve, plus the existing KPIs.
+- **Audit log page** (`/admin/audit-log`) shows sensitive actions, e.g. product approvals, manual payment confirmations, refunds, seller-type decisions, and brand changes.
+- **Export documents:** commercial invoice and packing list PDFs per order (`GET /orders/admin/:id/documents/:type` for all orders; `GET /orders/brand/:id/documents/:type` for the brand's own).
+
+### 18.11 Notifications, legal and content
+- Notifications by **email** and **WhatsApp** (Twilio: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`; WhatsApp is skipped when these are unset). English only.
+- Published pages: **Terms**, **Privacy**, **Cookie Policy**, **Seller Agreement** (versioned), plus a GDPR **cookie consent banner**.
+- Help, FAQs and Export guide have real content.
+- **Analytics:** Google Analytics (when `NEXT_PUBLIC_GA_ID` is set) and **Microsoft Clarity** (project `yy0gg7k3v8`, overridable with `NEXT_PUBLIC_CLARITY_ID`; heatmaps and session recordings). Both load **only after the visitor accepts analytics cookies** in the cookie banner (UK GDPR/PECR); the Cookie Policy lists the Clarity cookies. Site runs on free hosting tiers for now.
+
+### 18.12 Mobile
+- All admin, brand, buyer and public pages fit a 390px phone screen.
+- Known gap: the brand **Sales** table (`/portal/orders`) is wider than the screen; a card layout for phones is planned.
+
+### 18.13 Launch data
+- A one-time purge (`launch_purge_v1_done`) removed all demo/fake data from production — products, orders, users and sellers — keeping only the admin account and the audit log.
+
+### 18.14 New and changed API (base `/api/v1`)
+
+| Area | Endpoints |
+|---|---|
+| Payments | `POST /payments/admin/checkouts/:checkoutId/mark-paid` |
+| Orders (buyer) | `POST /orders/me/:id/cancel`, `POST /orders/quote` |
+| Orders (brand) | `POST /orders/brand/:id/decline`; `ship` now requires photos; `GET /orders/brand/:id/documents/:type` |
+| Orders (admin) | `POST /orders/admin/:id/quality-check`, `POST /orders/admin/:id/refund`, `GET /orders/admin/:id/documents/:type` |
+| RFQ | `POST /rfqs`, `GET /rfqs/me`, `GET /rfqs/admin`, `PATCH /rfqs/admin/:id` |
+| Brands | `GET /brands/me/invite`, `GET /brands/invites/:code`, `POST /brands/invites/:code/accept`, `POST /brands/me/own-buyers` |
+| Sellers | `PATCH /sellers/:id/internal-rating` |
+| Products | `POST /products/description-draft`; `POST /products/admin/:id/approve` accepts per-tier buyer/agent prices, including a `base` tier for products with no tiers |
+
+Data model additions: `Rfq` (+ `RfqStatus`), `BrandOwnBuyer`, `BrandEmailInvite`; Product `craftTechnique`, `careInstructions`, `leadTime`, made-to-order flag, `offersSamples`, `sampleMaxQty`, `samplePrice`, `craftImageUrl`; SellerProfile `isOnVacation`, `internalRating`; Order fields in §18.3.
+
+### 18.14a Solomon AI (v3.15)
+
+A public AI business guide for people abroad (often NRIs and first-time importers) who want to source Indian handmade products and start selling in their country.
+
+- **Visitor chat, `/guide`:** open to everyone with no account. Before chatting, the visitor must give **name, email and phone** (country optional). The browser keeps a private chat token so the visitor can come back to the same chat; "New chat" starts again. Up to 60 visitor messages per chat, 2,000 characters each. Linked from the top menu ("Solomon AI") and a homepage section under the hero.
+- **AI connection (v3.17):** Admin → Solomon AI → **AI connection** lets the admin paste a Google Gemini key without server access. It is checked with Google before saving, stored encrypted (AES-256-GCM, key derived from `JWT_SECRET`; changing that secret means re-entering the key), shown only as its last 4 characters, removable, and audit-logged. The admin-entered key takes priority over a `GEMINI_API_KEY` on the server (v3.18).
+- **AI provider (v3.16):** when `GEMINI_API_KEY` is set, Solomon AI uses **Google Gemini** (models tried in turn: `GEMINI_MODEL` if set, then gemini-3.5-flash, gemini-2.5-flash, gemini-3.5-flash-lite; free tier) for replies, reading PDFs/images (PDF up to 18 MB) and upload suggestions, with Google Search grounding as the web search; otherwise it uses Claude via `ANTHROPIC_API_KEY`. Free-tier note: Google may use free-tier prompts to improve its products, and daily/minute limits apply (a busy message is shown when hit).
+- **How it answers:** each reply is written by Claude (`claude-opus-5-5`, medium effort, server-side refusal fallback) from the **Solomon knowledge** the admin uploaded. The knowledge is the AI's foundation: it understands it and applies it to the visitor's situation in its own words (it does not paste passages or name files), explains jargon for beginners, shows cost breakdowns, and suggests Solomon's sourcing service as a next step. It stays on the topic of sourcing, importing and selling Indian handmade products. **Web search** (up to 5 searches per reply) fills gaps and fetches current figures; it is on by default, can be turned off in admin, and the AI says which points came from the web. The knowledge block is prompt-cached.
+- **Admin → Solomon AI → Teach Solomon AI:** upload PDFs, images, spreadsheets (.xlsx/.csv) and text files (25 MB each; Word: save as PDF), by drag-and-drop or picker, or write/paste text. PDFs and images are read by the AI once at upload and stored as text (original kept in file storage); spreadsheets and text are read directly. Each item shows how much was learned with a "See what it learned" preview, and can be removed (takes effect immediately). Audit-logged.
+- **"What to upload next":** after every change the AI reviews the knowledge against what the guide must cover (9 countries × 12 categories: trends/HS export data, India costs and MOQ, shipping, duty and VAT, marketplaces, buyers, marketing, suppliers, registration, licences, documents, payments, competitors, Solomon's own services) and lists the 6–8 most valuable uploads next, with where to get them. "Check again" refreshes on demand.
+- **Visitor chats tab:** every chat with name, email, phone, country, message count and last activity; open one to read the full conversation. These are the leads.
+- No model fine-tuning: the AI reads the uploaded knowledge on every answer, so new material counts immediately.
+- API: public `POST /guide/start`, `GET /guide/history`, `POST /guide/chat`; admin `/guide/admin/knowledge` (+ `/text`, `/file`, `DELETE /:id`), `/guide/admin/suggestions` (+ `/refresh`), `/guide/admin/settings`, `/guide/admin/conversations` (+ `/:id`). Tables `guide_knowledge`, `guide_conversations`. Needs `ANTHROPIC_API_KEY`.
+
+### 18.15 Not built yet (waiting on owner input or a provider)
+1. Online payment gateway (manual bank transfer is live meanwhile).
+2. Shipping rates: curated needs the shipping partner's API; marketplace brands choosing their own rates vs Solomon's shipping service.
+3. Seller team members (several logins per seller).
+4. Buyer business verification (deferred).
+5. GST TCS / TDS (194-O) for marketplace sellers.
+6. Mobile card layout for the brand Sales table (§18.12).
+
+### 18.16 Change log (keep adding a line for every change)
+
+| Date | Change |
+|---|---|
+| 16 Oct 2026 | Admin → Solomon AI: **Remove all** button clears every knowledge item and the old upload suggestions (visitor chats kept; audit-logged `GUIDE_KNOWLEDGE_CLEARED`; `DELETE /guide/admin/knowledge`). |
+| 16 Oct 2026 | Admin → Solomon AI: **Remove all** is now always shown (greyed out when the list is empty) so admins can always find it. |
+| 16 Oct 2026 | Solomon AI uploads read faster: files are marked **Learned** as soon as their text is read; the AI summary (“See what it learned”) and upload suggestions now run on a separate background line, so a slow summary no longer holds up the next file. Files removed while waiting are skipped. |
+| 16 Oct 2026 | **Set your own password on first login:** approved sellers, brands and agents (who get a temporary password by email) see a “Set your own password” window right after their first sign-in and must pick a new password (or sign out) before continuing. New `users.mustChangePassword` flag (set on approval, cleared on change or reset) and `POST /auth/change-password` (current password required except while on the temporary one). Seller portal → Settings → Security now has a Change password form, with the reset-link option kept for forgotten passwords. |
+| 16 Oct 2026 | **Solomon AI is now conversational:** it first gets to know the visitor (background, experience, budget, goals) one question at a time, replies in short chat-style messages, and suggests next steps only once it understands them; it no longer promotes Solomon Bharat. Each reply shows 2–3 tappable follow-up replies. When the visitor shows buying or sourcing intent, the reply shows a **Chat with Pranjal on WhatsApp** button (wa.me/919588007925) with one line about Solomon Bharat (sourcing from 5 pieces, door delivery in about 7 days). Opening message and starter buttons rewritten to ask about the visitor. |
+| 16 Oct 2026 | Solomon AI first works out which of three visitors it is talking to (brand owner looking for their next big product; someone starting a business on a set budget; someone curious about business ideas or unique products), then gets to know them within that path. Opening message and starter buttons match the three paths. |
+| 16 Oct 2026 | Solomon AI: stricter chat style (max ~60 words, plain text, no asterisks/bold/lists/headings, one question at a time; markdown stripped server-side). When it talks about products it now shows **real product photos from the live catalogue** as tappable cards (up to 4, linking to the product page) instead of long descriptions; the guide is given a compact list of published, approved products (refreshed every 10 minutes) and only catalogue codes are shown. |
+| 16 Oct 2026 | Solomon AI shows **example photos from the web** for product ideas not in the catalogue: the model adds short photo searches on a hidden `<<IMAGES>>` line and the backend finds one openly licensed photo per search via Openverse (free, no key; cached 24 h; 8 s timeout, failures skipped). Shown as cards with the photographer credit and licence, linking to the source page. |
+| 16 Oct 2026 | **Solomon AI chat redesign + Claude option.** /guide chat now looks like a messaging app: online header, typing dots, three path cards to start (next big product / start a business / just exploring), timestamps, swipeable photo strips, reply chips above an auto-growing message box, and only the message list scrolls. Admin → Solomon AI → AI connection has a new **Claude by Anthropic** key (encrypted, checked before saving): when set, Claude (Sonnet 5.5) answers visitors first and the free models become backup. The guide must now show a photo (catalogue or web) whenever it names a product or craft the visitor may not know; broken web photos are hidden. |
+| 16 Oct 2026 | Solomon AI (/guide) switched from the dark theme to a clean light theme: soft off-white page, white chat card, light grey AI bubbles, deep-green visitor bubbles and buttons, green avatar, gold-tinted icons on the path cards; the details form matches. |
+| 16 Oct 2026 | **Solomon AI guided flow.** Chat now opens with 4 tap-to-answer questions (what you do; who you sell to, multi-select; categories, multi-select from live top-level categories; selling price in the visitor's currency), then sends a profile to the AI. The AI replies with 3 product recommendations as rich cards (`<<PICK>>` JSON lines): photo (catalogue image, or an openly licensed web photo for ideas), name, origin and MOQ, the product's story, why it fits this visitor, and a cost breakdown (India price — real "from ₹" buyer price for catalogue products —, shipping, duty and VAT, landed cost, sell-at range), plus a short note on who to target, how to position and where to sell. 'Show me more products' gives 3 more. Cards have ♥ Like and Save; a Shortlist in the header lists them, they are stored on the chat (`guide_conversations.saved`, new `POST /guide/saved`) and passed to the AI so later picks improve. New answers scroll to their start; Wikimedia photos load from source. Owner decision recorded in BUSINESS_DECISIONS §13 (indicative prices in Solomon AI). |
+| 16 Oct 2026 | Solomon AI shipping now comes from the team's own rate sheet in the knowledge base: each catalogue product's weight (product weight, or first variant's weight; grams/kg/lb parsed) and size are passed to the AI, which must calculate shipping from the uploaded rates for the visitor's country and weight slab and show the basis (e.g. "~€1.30 (0.4 kg at €3.20/kg)"); duty and VAT also come from the knowledge first. Rate-sheet items (titles with shipping/freight/courier/rate/duty/VAT/customs) are loaded first so they are never cut off. Cards show the product weight. |
+| 17 Oct 2026 | **Cloudflare hosting option for the backend.** Added `backend/Dockerfile` (Node 22 slim from the AWS public mirror; runs `prisma migrate deploy` then the server) and a `cloudflare/` Worker project that runs the unchanged Express API in a Cloudflare Container (single instance, sleeps after 1 h idle, all env vars passed from wrangler vars/secrets). Step-by-step move in `docs/CLOUDFLARE_DEPLOY.md`. Render keeps working until the switch. |
+| 16 Oct 2026 | v3.20: Solomon AI supports **OpenRouter free models** (Nemotron 3 Super → Dots3-Note Preview → Gemma 4 31B for text; Dots3-Note → Gemma 4 → Nemotron Nano Omni for images; tried in order; `OPENROUTER_MODELS` overrides. Inkling's free tier is limited to agent apps and is not used. Dots3-Note Preview is withdrawn on 31 Dec 2026 and must be replaced before then). Admin → Solomon AI → AI connection takes an OpenRouter key and a Gemini key (verified, encrypted). OpenRouter answers chats, summaries, suggestions and images first; Gemini (then Claude) is the automatic backup and reads scanned PDFs. OpenRouter free models have no web search. Free limit ~50 requests/day, ~1,000/day after a one-time $10 credit. |
+| 16 Oct 2026 | v3.19: Solomon AI uploads return at once and files are read in the background one at a time (status Reading / Learned / Failed with reason; fixes "network error" on batches); each item gets an AI summary of key points plus the full text in "See what it learned"; better scanned-PDF detection; "What to upload next" runs once per batch. Gemini now tries several models in turn (each has its own free daily allowance: gemini-3.5-flash, gemini-2.5-flash, gemini-3.5-flash-lite; `GEMINI_MODEL` first if set) and answers without web search when Google refuses the search quota. Homepage hero fills the screen. |
+| 15 Oct 2026 | v3.18: PDFs with a text layer are read on the server with no AI (fast, free, no quota); only scanned PDFs and images go to the AI. Gemini calls retry when Google is busy (15/30/45 s) and skip thinking when reading files; clearer errors. Admin-entered Gemini key now overrides an old server key. |
+| 15 Oct 2026 | v3.17: admin can connect Solomon AI by pasting a Gemini key in Admin → Solomon AI (verified, encrypted), no server access needed. |
+| 15 Oct 2026 | v3.16: Solomon AI can run on Google Gemini (free tier) when `GEMINI_API_KEY` is set; Claude remains the fallback. |
+| 15 Oct 2026 | v3.15: Solomon AI: public `/guide` chat (name/email/phone required), admin Teach Solomon AI (upload PDF/image/spreadsheet/text, upload suggestions, web-search switch) and Visitor chats; homepage section and menu link. |
+| 15 Oct 2026 | Rate limits: removed the site-wide limit and the limits on sign-up, check-email and seller/agent applications (they counted every visitor as one IP behind Render's proxy, so busy moments blocked everyone with "Too many requests"). Login, forgot-password and reset-password keep a 20-per-15-minutes limit, now per real visitor IP (`trust proxy`). |
+| 15 Oct 2026 | v3.14: Import seller applications from the old backend's Excel export (insert-only, duplicates skipped, report shown); approved applications leave the open list (they are in Sellers); server-side application search. |
+| 15 Oct 2026 | Fix: public forms (e.g. seller apply) no longer fail with "Invalid or missing CSRF token" for logged-out visitors with a stale cookie; the CSRF check now applies only to signed-in (Bearer) requests. |
+| 15 Oct 2026 | v3.13: admin can permanently delete non-approved seller applications (audit-logged). |
+| 15 Oct 2026 | v3.12: admin can switch an approved seller between Curated and Marketplace (Selling model card), with products, prices and brand page handled automatically; blocked while orders are in progress. |
+| 15 Oct 2026 | v3.11: samples can be ordered directly through cart and checkout, at the sample price, exempt from MOQ and the brand minimum, capped at the sample limit. |
+| 15 Oct 2026 | Microsoft Clarity tracking added, loaded only after analytics-cookie consent; Cookie Policy updated. |
+| 15 Oct 2026 | v3.10: fixed new buyers seeing ₹0 (sign-up now signs in; expired tokens refresh instead of silently showing guest data); designed sign-up panel replaces the photo; full product spec table, options table, craft story and brand story on the product page; Wholesale/Sample switch; mandatory minimum-order pop-up for brands; `/products` all-products page as the "Browse products" target. |
+| 14 Oct 2026 | Admin price editor on every curated product (base tier); brand shop minimum required before listing; sample price hidden from guests. |
+| Oct 2026 | Demo data purge; mobile responsiveness; UK-first homepage; help content. |
+| Oct 2026 | Admin-assigned seller type; Seller Agreement; craft fields; vacation mode; internal rating; export documents; WhatsApp; Draft with AI; samples. |
+| Oct 2026 | Order lifecycle (QC, refunds, 24h acceptance, photos, payout on dispatch); manual bank transfer; brand invites at 0% commission; custom requests; craft categories; audit log page; legal pages and cookie consent. |

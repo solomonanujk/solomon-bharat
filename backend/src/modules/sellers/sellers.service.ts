@@ -1,10 +1,14 @@
-import { SellerApplication, SellerApplicationStatus, SellerProfile, SellerType } from '@prisma/client';
+import { NotificationType, SellerApplication, SellerApplicationStatus, SellerProfile, SellerType } from '@prisma/client';
 import { env } from '../../config/env';
 import { AppError } from '../../utils/errors';
 import { hashPassword } from '../../utils/bcrypt';
 import { generateTempPassword, slugify, uniqueSlugSuffix } from '../../utils/helpers';
 import { BrandSummaryDto, toBrandSummary } from '../../utils/brandSummary';
 import { writeAuditLog } from '../../utils/auditLog';
+import { readSpreadsheet } from '../product-import/parsers/spreadsheet';
+import type { SpreadsheetKind } from '../../middleware/upload';
+import { mapImportRow } from './applicationImport';
+import { cache, bumpVersion } from '../../utils/cache';
 import { SafeUser, toSafeUser } from '../../utils/safeUser';
 import { mailProvider } from '../../providers/mail';
 import { PaginationQuery } from '../../utils/pagination';
@@ -157,12 +161,93 @@ export class SellersService {
       html: `<p>Congratulations — your ${isMarketplace ? 'brand' : 'seller'} application has been approved.</p>
 <p>You can now sign in at <a href="${env.APP_URL}">${env.APP_URL}</a> — click "Sign In" in the top navigation — with:</p>
 <p>Email: ${user.email}<br/>Temporary password: <strong>${tempPassword}</strong></p>
-<p>Please change your password after your first login.</p>${
+<p>When you first sign in you will be asked to choose your own password.</p>${
         isMarketplace ? '<p>Add your products from the seller portal — they go live as soon as you publish them.</p>' : ''
       }`,
     });
 
     return { user: toSafeUser(user), profile };
+  }
+
+  /**
+   * One-off import of applications from the old backend's export (.xlsx/.csv). Inserts only:
+   * rows whose email already has an application or account are skipped, never overwritten.
+   */
+  async importApplications(
+    buffer: Buffer,
+    kind: SpreadsheetKind,
+    adminId: string,
+  ): Promise<{
+    inserted: number;
+    skippedDuplicates: { brand: string; email: string }[];
+    skippedOther: { brand: string; reason: string }[];
+    failed: { row: number; brand: string; reason: string }[];
+  }> {
+    const sheet = await readSpreadsheet(buffer, kind);
+    for (const col of ['brand', 'founder', 'email', 'phone']) {
+      if (!sheet.headers.includes(col)) throw AppError.badRequest(`This file has no "${col}" column`);
+    }
+    const now = new Date();
+    const mapped = sheet.rows.map((r) => mapImportRow(r.rowNumber, r.cells, now));
+    const emails = mapped.flatMap((m) => (m.kind === 'ok' ? [m.email] : []));
+    const existing = await this.repo.findExistingEmails([...new Set(emails)]);
+
+    const report = {
+      inserted: 0,
+      skippedDuplicates: [] as { brand: string; email: string }[],
+      skippedOther: [] as { brand: string; reason: string }[],
+      failed: [] as { row: number; brand: string; reason: string }[],
+    };
+    const seen = new Set<string>();
+    for (const [i, m] of mapped.entries()) {
+      if (m.kind === 'skip') {
+        report.skippedOther.push({ brand: m.brand, reason: m.reason });
+        continue;
+      }
+      if (m.kind === 'fail') {
+        report.failed.push({ row: m.rowNumber, brand: m.brand, reason: m.reason });
+        continue;
+      }
+      if (existing.has(m.email) || seen.has(m.email)) {
+        report.skippedDuplicates.push({ brand: m.brand, email: m.email });
+        continue;
+      }
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await this.repo.createImportedApplication(m.data);
+        seen.add(m.email);
+        report.inserted += 1;
+      } catch (err) {
+        report.failed.push({
+          row: sheet.rows[i].rowNumber,
+          brand: m.brand,
+          reason: err instanceof Error ? err.message.split('\n').pop()!.slice(0, 200) : 'Unknown error',
+        });
+      }
+    }
+    await writeAuditLog(adminId, 'SELLER_APPLICATIONS_IMPORTED', 'SellerApplication', 'import', {
+      inserted: report.inserted,
+      skippedDuplicates: report.skippedDuplicates.length,
+      failed: report.failed.length,
+    });
+    return report;
+  }
+
+  /**
+   * Permanently removes a seller application (spam, tests, duplicates). Approved applications
+   * are linked to a live seller account and can never be deleted here.
+   */
+  async deleteApplication(id: string, adminId: string): Promise<void> {
+    const application = await this.getApplicationOrThrow(id);
+    if (application.status === SellerApplicationStatus.APPROVED) {
+      throw AppError.badRequest('Approved applications belong to a live seller account and cannot be deleted');
+    }
+    await this.repo.deleteApplication(id);
+    await writeAuditLog(adminId, 'SELLER_APPLICATION_DELETED', 'SellerApplication', id, {
+      businessName: application.businessName,
+      email: application.email,
+      status: application.status,
+    });
   }
 
   async rejectApplication(id: string, reason: string, adminId: string): Promise<SellerApplication> {
@@ -288,6 +373,72 @@ export class SellersService {
   }
 
   /** Admin-only internal performance rating; never exposed to the seller. */
+  /**
+   * Admin moves an approved seller between Curated and Marketplace. Blocked while the seller
+   * has orders in progress, so no order changes fulfilment model halfway. See the repository
+   * methods for what happens to products and prices.
+   */
+  async switchSellerType(
+    adminId: string,
+    sellerProfileId: string,
+    sellerType: SellerType,
+    brandName?: string,
+  ): Promise<{ sellerType: SellerType; productCount: number; brandId?: string }> {
+    const seller = await this.repo.findSellerWithBrand(sellerProfileId);
+    if (!seller) throw AppError.notFound('Seller not found');
+    if (seller.sellerType === sellerType) {
+      throw AppError.badRequest(`This seller is already ${sellerType === SellerType.CURATED ? 'Curated' : 'Marketplace'}`);
+    }
+    const openOrders = await this.repo.countOpenOrdersForSeller(sellerProfileId);
+    if (openOrders > 0) {
+      throw AppError.badRequest(
+        `This seller has ${openOrders} order${openOrders === 1 ? '' : 's'} in progress. Finish or cancel them before switching.`,
+      );
+    }
+
+    let result: { sellerType: SellerType; productCount: number; brandId?: string };
+    if (sellerType === SellerType.MARKETPLACE) {
+      const name = (brandName?.trim() || seller.brand?.name || seller.businessName).slice(0, 100);
+      const { brandId, productCount } = await this.repo.switchToMarketplace(
+        sellerProfileId,
+        seller.brand
+          ? { existingId: seller.brand.id, name }
+          : { name, slug: await this.generateUniqueBrandSlug(name) },
+      );
+      result = { sellerType, productCount, brandId };
+    } else {
+      const { productCount } = await this.repo.switchToCurated(sellerProfileId, seller.brand?.id ?? null);
+      result = { sellerType, productCount };
+    }
+
+    await bumpVersion(cache, 'products:published-list');
+    await writeAuditLog(adminId, 'SELLER_TYPE_SWITCHED', 'SellerProfile', sellerProfileId, {
+      from: seller.sellerType,
+      to: sellerType,
+      productCount: result.productCount,
+      ...(result.brandId ? { brandId: result.brandId } : {}),
+    });
+
+    const toMarketplace = sellerType === SellerType.MARKETPLACE;
+    const message = toMarketplace
+      ? 'You now sell as a marketplace brand: you set your own prices and ship orders yourself. Set your minimum order value in the seller portal.'
+      : 'You now sell through Solomon Bharat (Curated). Your products are back in review; our team will set prices and publish them.';
+    try {
+      await notificationsService.notify(seller.userId, NotificationType.SELLER_APPLICATION_APPROVED, 'Your selling model has changed', message, '/portal');
+      const user = await this.repo.findUserById(seller.userId);
+      if (user) {
+        await mailProvider.sendMail({
+          to: user.email,
+          subject: 'Your Solomon Bharat selling model has changed',
+          html: `<p>${message}</p><p><a href="${env.APP_URL}/portal">Open the seller portal</a></p>`,
+        });
+      }
+    } catch {
+      // The switch itself succeeded; a failed notice must not undo it.
+    }
+    return result;
+  }
+
   async setInternalRating(
     adminId: string,
     sellerProfileId: string,

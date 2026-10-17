@@ -93,6 +93,7 @@ describe('OrdersService quote + shared pricing core', () => {
         productId: PID,
         variantId: null,
         quantity: 10,
+        isSample: false,
         status: 'OK',
         unitPriceInr: 12,
         lineTotalInr: 120,

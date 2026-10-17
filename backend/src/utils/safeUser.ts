@@ -6,6 +6,7 @@ export interface SafeUser {
   role: Role;
   status: UserStatus;
   emailVerifiedAt: Date | null;
+  mustChangePassword: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -18,6 +19,7 @@ export function toSafeUser(user: User): SafeUser {
     role: user.role,
     status: user.status,
     emailVerifiedAt: user.emailVerifiedAt,
+    mustChangePassword: user.mustChangePassword,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };

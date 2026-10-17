@@ -52,7 +52,7 @@ export function useUpdateMySellerProfile() {
 
 // ─── Admin: seller applications ───────────────────────────────────────────────
 
-export function useSellerApplications(params?: { status?: SellerApplicationStatus; page?: number; limit?: number }) {
+export function useSellerApplications(params?: { status?: SellerApplicationStatus; search?: string; page?: number; limit?: number }) {
   return useQuery<PaginatedResult<SellerApplication>>({
     queryKey: ['seller-applications', params],
     queryFn: async () => toPaginated<SellerApplication>(await api.get('/sellers/applications', { params })),
@@ -117,6 +117,45 @@ export function useAddApplicationNote() {
   })
 }
 
+export interface ApplicationImportReport {
+  inserted: number
+  skippedDuplicates: { brand: string; email: string }[]
+  skippedOther: { brand: string; reason: string }[]
+  failed: { row: number; brand: string; reason: string }[]
+}
+
+/** Admin: one-off import of applications from the old backend's Excel export. */
+export function useImportSellerApplications() {
+  const qc = useQueryClient()
+  return useMutation<ApplicationImportReport, Error, File>({
+    mutationFn: async (file) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await api.post('/sellers/applications/import', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      return res.data.data as ApplicationImportReport
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['seller-applications'] })
+      qc.invalidateQueries({ queryKey: ['admin-dashboard'] })
+    },
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
+/** Admin: permanently delete a non-approved application (spam, tests, duplicates). */
+export function useDeleteSellerApplication() {
+  const qc = useQueryClient()
+  return useMutation<unknown, Error, string>({
+    mutationFn: (id) => api.delete(`/sellers/applications/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['seller-applications'] })
+      qc.invalidateQueries({ queryKey: ['admin-dashboard'] })
+      toast.success('Application deleted.')
+    },
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
 // ─── Admin: approved sellers directory ───────────────────────────────────────
 
 export function useAdminSellers(params?: { page?: number; limit?: number; enabled?: boolean }) {
@@ -135,6 +174,29 @@ export function useSetSellerInternalRating() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['admin-seller', id] })
       toast.success('Internal rating saved.')
+    },
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
+/** Admin: switch an approved seller between Curated and Marketplace. */
+export function useSwitchSellerType() {
+  const qc = useQueryClient()
+  return useMutation<
+    { sellerType: 'CURATED' | 'MARKETPLACE'; productCount: number },
+    Error,
+    { id: string; sellerType: 'CURATED' | 'MARKETPLACE'; brandName?: string }
+  >({
+    mutationFn: async ({ id, ...body }) => (await api.patch(`/sellers/${id}/seller-type`, body)).data.data,
+    onSuccess: (r, { id }) => {
+      qc.invalidateQueries({ queryKey: ['admin-seller', id] })
+      qc.invalidateQueries({ queryKey: ['admin-sellers'] })
+      qc.invalidateQueries({ queryKey: ['admin-products'] })
+      toast.success(
+        r.sellerType === 'MARKETPLACE'
+          ? `Switched to Marketplace. ${r.productCount} product(s) moved to the brand.`
+          : `Switched to Curated. ${r.productCount} product(s) sent back for review and pricing.`
+      )
     },
     onError: (err) => toast.error(getApiError(err)),
   })

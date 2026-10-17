@@ -28,6 +28,15 @@ export function csrfProtection(req: Request, _res: Response, next: NextFunction)
     return;
   }
 
+  // A request without a Bearer token is anonymous: no credential rides on it (the API never
+  // authenticates by cookie outside /auth/*), so there is nothing to forge. Checking it anyway
+  // blocked logged-out visitors - e.g. sellers on the public apply form - whenever a stale
+  // csrf_token cookie from an earlier session was still in the browser.
+  if (!req.headers.authorization) {
+    next();
+    return;
+  }
+
   const cookieToken = req.cookies?.[CSRF_COOKIE_NAME];
   if (!cookieToken) {
     next();
