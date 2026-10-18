@@ -12,13 +12,10 @@ import { NavBar } from '@/components/shared/NavBar'
 import { Footer } from '@/components/shared/Footer'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Price, useFormatPrice } from '@/components/ui/Price'
-import { CartGroupHeader } from '@/components/shared/CartGroupHeader'
-import { BrandMinOrderNotice, useUnmetMessage } from '@/components/shared/BrandMinOrderNotice'
-import { groupCartLines, unmetGroups } from '@/lib/cartGroups'
 import { useCartQuote } from '@/hooks/queries/useCartQuote'
 import { CartLineNotice } from '@/components/shared/CartLineNotice'
 import { findQuoteLine, resolveLine, type ResolvedLine } from '@/lib/cartQuote'
-import type { CartLine as CartItem } from '@/types/brand-orders'
+import type { CartLine as CartItem } from '@/types/order-extras'
 
 // ─── Cart line ────────────────────────────────────────────────────────────────
 
@@ -220,7 +217,7 @@ function PriceDetails({
       <div className="flex flex-col gap-2.5 mt-4 px-1">
         <div className="flex items-center gap-2 text-[12px] font-sans text-muted-text">
           <ShieldCheck size={14} className="text-accent flex-shrink-0" aria-hidden="true" />
-          {/* CONFIRM: copy covers both seller types */}Curated products reviewed by Solomon Bharat; marketplace brands ship directly
+          Every product is curated and quality-checked by Solomon Bharat
         </div>
         <div className="flex items-center gap-2 text-[12px] font-sans text-muted-text">
           <Lock size={14} className="text-accent flex-shrink-0" aria-hidden="true" />
@@ -240,18 +237,13 @@ export default function CartPage() {
 
   const isEmpty = items.length === 0
   const itemCount = getTotalItems()
-  const fmt = useFormatPrice()
   const { quote, isActive, isFetching, isInitialLoading, isError } = useCartQuote(items)
-  const groups = groupCartLines(items, quote)
   const resolvedLines = items.map((i) => resolveLine(i, findQuoteLine(quote, i.productId, i.variantId, i.isSample)))
   const total = resolvedLines.reduce((sum, r) => sum + r.lineTotalInr, 0)
   const hasBadLine = resolvedLines.some((r) => r.status !== 'OK' && r.status !== 'PENDING')
   // Prices are only trusted once the server has quoted them (unless quoting is unavailable).
   const updating = isActive && !isError && (isFetching || isInitialLoading)
-  const unmet = unmetGroups(groups)
-  const unmetMessage = useUnmetMessage(unmet)
-  const blockedReason = hasBadLine ? 'Fix or remove the highlighted items to continue.' : unmetMessage
-  const showGroupHeaders = groups.some((g) => g.brand)
+  const blockedReason = hasBadLine ? 'Fix or remove the highlighted items to continue.' : null
 
   return (
     <div className="bg-bg min-h-screen flex flex-col">
@@ -281,29 +273,15 @@ export default function CartPage() {
         ) : (
           <div className="lg:grid lg:grid-cols-[1fr_340px] gap-8 items-start">
             <div className="flex flex-col gap-4">
-              {groups.map((group) => (
-                <section
-                  key={group.key}
-                  aria-label={group.brand ? `Items from ${group.brand.name}` : 'Items from Solomon Bharat'}
-                  className="bg-surface border border-border-warm rounded px-5 pb-1"
-                >
-                  {showGroupHeaders && <CartGroupHeader brand={group.brand} />}
-                  {group.brand && <BrandMinOrderNotice group={group} />}
-                  {group.items.map((item) => (
-                    <CartLine
-                      key={`${item.productId}-${item.variantId ?? ''}-${item.isSample ? 's' : 'w'}`}
-                      item={item}
-                      resolved={resolveLine(item, findQuoteLine(quote, item.productId, item.variantId, item.isSample))}
-                    />
-                  ))}
-                  {showGroupHeaders && (
-                    <p className="flex justify-between py-3 border-t border-border-warm text-[13px] font-sans text-muted">
-                      <span>Subtotal</span>
-                      <span className="font-[600] text-ink">{fmt(group.subtotalInr)}</span>
-                    </p>
-                  )}
-                </section>
-              ))}
+              <section aria-label="Items from Solomon Bharat" className="bg-surface border border-border-warm rounded px-5 pb-1">
+                {items.map((item) => (
+                  <CartLine
+                    key={`${item.productId}-${item.variantId ?? ''}-${item.isSample ? 's' : 'w'}`}
+                    item={item}
+                    resolved={resolveLine(item, findQuoteLine(quote, item.productId, item.variantId, item.isSample))}
+                  />
+                ))}
+              </section>
             </div>
 
             <div className="mt-6 lg:mt-0">

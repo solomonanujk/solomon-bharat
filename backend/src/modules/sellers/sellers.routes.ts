@@ -4,14 +4,13 @@ import { sellersController } from './sellers.controller';
 import {
   addNoteSchema,
   applicationListQuerySchema,
+  favouriteApplicationSchema,
   idParamSchema,
   rejectApplicationSchema,
   requestMoreInfoSchema,
   submitApplicationSchema,
   updateSellerProfileSchema,
-  approveApplicationSchema,
   internalRatingSchema,
-  switchSellerTypeSchema,
 } from './sellers.validation';
 import { paginationQuerySchema } from '../../utils/pagination';
 import { validate } from '../../middleware/validate';
@@ -85,7 +84,6 @@ sellersRouter.post(
   requireAuth,
   requireAdmin,
   validate(idParamSchema, 'params'),
-  validate(approveApplicationSchema),
   asyncHandler(sellersController.approveApplication),
 );
 
@@ -150,6 +148,25 @@ sellersRouter.post(
   requireAdmin,
   uploadSpreadsheet,
   asyncHandler(sellersController.importApplications),
+);
+
+/**
+ * @openapi
+ * /sellers/applications/{id}/favourite:
+ *   patch:
+ *     summary: Star or unstar a seller application (SUPER_ADMIN only)
+ *     tags: [Sellers]
+ *     requestBody: { required: true }
+ *     responses:
+ *       200: { description: Updated }
+ */
+sellersRouter.patch(
+  '/applications/:id/favourite',
+  requireAuth,
+  requireAdmin,
+  validate(idParamSchema, 'params'),
+  validate(favouriteApplicationSchema),
+  asyncHandler(sellersController.setApplicationFavourite),
 );
 
 sellersRouter.delete(
@@ -238,22 +255,6 @@ sellersRouter.patch(
   validate(idParamSchema, 'params'),
   validate(internalRatingSchema),
   asyncHandler(sellersController.setInternalRating),
-);
-
-/**
- * @openapi
- * /sellers/{id}/seller-type:
- *   patch:
- *     summary: Switch an approved seller between CURATED and MARKETPLACE (SUPER_ADMIN only)
- *     tags: [Sellers]
- */
-sellersRouter.patch(
-  '/:id/seller-type',
-  requireAuth,
-  requireAdmin,
-  validate(idParamSchema, 'params'),
-  validate(switchSellerTypeSchema),
-  asyncHandler(sellersController.switchSellerType),
 );
 
 sellersRouter.get(

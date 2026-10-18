@@ -6,7 +6,6 @@ import { useMyPayouts, useMyPayoutSummary } from '@/hooks/queries/usePayouts'
 import { useSellerOrderItems } from '@/hooks/queries/useOrders'
 import { formatINR } from '@/lib/utils'
 import { PayoutStatusBadge } from '@/components/seller-portal/StatusBadges'
-import { useSellerType } from '@/hooks/queries/useBrandPortal'
 
 function SummaryCard({
   label,
@@ -63,7 +62,6 @@ export default function PayoutsPage() {
   const [page, setPage] = useState(1)
   const { data, isLoading, error } = useMyPayouts({ page, limit: PAGE_LIMIT })
   const { data: summary, isLoading: summaryLoading } = useMyPayoutSummary()
-  const { isMarketplace: isBrand } = useSellerType()
   const { data: orderItemsData } = useSellerOrderItems({ limit: ORDER_ITEM_LOOKUP_LIMIT })
 
   const productNameByOrderItemId = useMemo(() => {
@@ -88,9 +86,7 @@ export default function PayoutsPage() {
       <div className="mb-6">
         <h1 className="text-[24px] font-[700] font-sans text-[#0F241D] leading-tight">Payouts</h1>
         <p className="text-[13px] font-sans text-[#183D33B3] mt-0.5">
-          {isBrand
-            ? 'Your payout is the order total minus commission, created when you mark an order delivered. Solomon Bharat pays manually and marks each payout paid.'
-            : 'Payouts are processed manually by Solomon Bharat and update once marked as paid.'}
+          Payouts are processed manually by Solomon Bharat and update once marked as paid.
         </p>
       </div>
 
@@ -150,10 +146,10 @@ export default function PayoutsPage() {
         <>
           <div className="bg-white border border-[#D9E2DA] rounded-xl overflow-hidden mb-4">
             <div className="overflow-x-auto">
-              <table className={isBrand ? 'w-full min-w-[820px]' : 'w-full min-w-[560px]'}>
+              <table className="w-full min-w-[560px]">
                 <thead>
                   <tr className="border-b border-[#D9E2DA] bg-[#E7EDE7]">
-                    {(isBrand ? ['Date', 'Order Ref', 'Gross', 'Rate', 'Commission', 'Net payout', 'Status'] : ['Date', 'Order Ref', 'Product', 'Amount', 'Status']).map((col) => (
+                    {['Date', 'Order Ref', 'Product', 'Amount', 'Status'].map((col) => (
                       <th key={col} className="px-5 py-3 text-left text-[11px] font-[700] font-sans text-[#6B7E6B] uppercase tracking-[0.07em]">
                         {col}
                       </th>
@@ -177,26 +173,12 @@ export default function PayoutsPage() {
                           #{payout.orderId.slice(0, 8).toUpperCase()}
                         </span>
                       </td>
-                      {isBrand ? (
-                        <>
-                          <td className="px-5 py-4 tabular-nums text-[13.5px] font-sans text-[#0F241D]">
-                            {payout.grossAmount !== null ? formatINR(Number(payout.grossAmount)) : '—'}
-                          </td>
-                          <td className="px-5 py-4 tabular-nums text-[13.5px] font-sans text-[#0F241D]">
-                            {payout.commissionRate !== null ? `${Number(payout.commissionRate)}%` : '—'}
-                          </td>
-                          <td className="px-5 py-4 tabular-nums text-[13.5px] font-sans text-[#0F241D]">
-                            {payout.commissionAmount !== null ? formatINR(Number(payout.commissionAmount)) : '—'}
-                          </td>
-                        </>
-                      ) : (
                         <td className="px-5 py-4">
                           <span className="text-[14px] font-[500] font-sans text-[#0F241D]">
                             {productNameByOrderItemId.get(payout.orderItemId) ??
                               payout.orderItemId.slice(0, 8).toUpperCase()}
                           </span>
                         </td>
-                      )}
                       <td className="px-5 py-4">
                         <span className="tabular-nums text-[14px] font-[700] font-sans text-[#0F241D]">
                           {formatINR(Number(payout.amount))}

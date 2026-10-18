@@ -9,7 +9,6 @@ interface InlineFilterSidebarProps {
   onChange: (filters: ProductFilterValues) => void
   rootCategory?: Pick<CategoryNode, 'id' | 'name' | 'children'>
   showPrice?: boolean
-  hideBrand?: boolean
 }
 
 /**
@@ -17,7 +16,7 @@ interface InlineFilterSidebarProps {
  * Unlike the mobile drawer, changes here apply immediately (the grid is right
  * beside it, so there is nothing hidden to "apply" to).
  */
-export function InlineFilterSidebar({ filters, onChange, rootCategory, showPrice, hideBrand }: InlineFilterSidebarProps) {
+export function InlineFilterSidebar({ filters, onChange, rootCategory, showPrice }: InlineFilterSidebarProps) {
   return (
     <aside aria-label="Product filters" className="w-[220px]">
       <h2 className="sr-only">Filter products</h2>
@@ -26,7 +25,6 @@ export function InlineFilterSidebar({ filters, onChange, rootCategory, showPrice
         onChange={(overrides) => onChange({ ...filters, ...overrides })}
         rootCategory={rootCategory}
         showPrice={showPrice}
-        hideBrand={hideBrand}
       />
     </aside>
   )

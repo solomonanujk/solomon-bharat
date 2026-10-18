@@ -35,8 +35,6 @@ interface FiltersDrawerProps {
   showFilters?: boolean
   rootCategory?: Pick<CategoryNode, 'id' | 'name' | 'children'>
   showPrice?: boolean
-  /** True on a brand storefront, where the brand is already fixed by the page. */
-  hideBrand?: boolean
   onApply: (filters: ProductFilterValues, sort: CatalogueSort) => void
 }
 
@@ -65,7 +63,6 @@ function DrawerPanel({
   showFilters = true,
   rootCategory,
   showPrice,
-  hideBrand,
   onApply,
 }: FiltersDrawerProps) {
   const [draft, setDraft] = useState<ProductFilterValues>(filters)
@@ -180,7 +177,6 @@ function DrawerPanel({
                 onChange={(overrides) => setDraft((d) => ({ ...d, ...overrides }))}
                 rootCategory={rootCategory}
                 showPrice={showPrice}
-                hideBrand={hideBrand}
               />
             </div>
           )}

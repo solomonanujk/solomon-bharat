@@ -18,7 +18,6 @@ import {
   BarChart3,
   Settings,
   Briefcase,
-  Store,
   MessageSquareQuote,
   ScrollText,
 } from 'lucide-react'
@@ -44,7 +43,6 @@ function useNavGroups(): NavGroup[] {
       items: [
         { href: '/admin/seller-applications', label: 'Seller Applications', icon: Clock, badge: stats?.pendingSellerApplications ?? null },
         { href: '/admin/sellers', label: 'Sellers', icon: Building2 },
-        { href: '/admin/brands', label: 'Brands', icon: Store },
         { href: '/admin/agent-applications', label: 'Agent Applications', icon: Briefcase },
         { href: '/admin/buyers', label: 'Buyers', icon: Users },
       ],

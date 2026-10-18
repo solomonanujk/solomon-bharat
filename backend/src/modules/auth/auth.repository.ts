@@ -1,4 +1,4 @@
-import { Brand, PrismaClient, Role, SellerProfile, User } from '@prisma/client';
+import { PrismaClient, Role, User } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { SignupBuyerInput } from './auth.types';
 
@@ -7,10 +7,6 @@ export class AuthRepository {
 
   findUserByEmail(email: string): Promise<User | null> {
     return this.db.user.findUnique({ where: { email } });
-  }
-
-  findSellerProfileWithBrandByUserId(userId: string): Promise<(SellerProfile & { brand: Brand | null }) | null> {
-    return this.db.sellerProfile.findUnique({ where: { userId }, include: { brand: true } });
   }
 
   findUserById(id: string): Promise<User | null> {
@@ -43,28 +39,6 @@ export class AuthRepository {
         },
       },
     });
-  }
-
-  /** Records a new buyer as the brand's own for every brand that emailed them an invite. */
-  async claimBrandEmailInvites(email: string, buyerProfileId: string): Promise<number> {
-    const invites = await this.db.brandEmailInvite.findMany({
-      where: { email: email.toLowerCase(), claimedAt: null },
-    });
-    for (const invite of invites) {
-      // eslint-disable-next-line no-await-in-loop
-      await this.db.brandOwnBuyer.upsert({
-        where: { buyerId_brandId: { buyerId: buyerProfileId, brandId: invite.brandId } },
-        update: {},
-        create: { buyerId: buyerProfileId, brandId: invite.brandId },
-      });
-    }
-    if (invites.length > 0) {
-      await this.db.brandEmailInvite.updateMany({
-        where: { id: { in: invites.map((i) => i.id) } },
-        data: { claimedAt: new Date() },
-      });
-    }
-    return invites.length;
   }
 
   updateUserPassword(userId: string, passwordHash: string): Promise<User> {

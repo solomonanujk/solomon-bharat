@@ -36,6 +36,48 @@ function formBoolean(defaultValue: boolean) {
     .default(defaultValue);
 }
 
+/** Units a seller can pick for a product's dimensions (inch, centimetre, metre). */
+export const DIMENSION_UNITS = ['cm', 'in', 'm'] as const;
+
+type StockCheckInput = {
+  isMadeToOrder?: boolean;
+  declaredStock?: number;
+  variants?: { status?: string; inventory?: number }[];
+};
+
+/**
+ * Made to order vs ready stock (BUSINESS_DECISIONS "made-to-order or ready stock").
+ * Made to order: no stock quantity is needed. Ready stock: the product must have
+ * stock — every active variant needs inventory of at least 1, or, with no variants,
+ * declaredStock must be at least 1. Hidden (INACTIVE) and OUT_OF_STOCK variants are
+ * exempt. Fields the caller did not send are not checked (partial updates).
+ * Returns the error message, or null when the input is fine.
+ */
+export function readyStockIssue(input: StockCheckInput): string | null {
+  if (input.isMadeToOrder) return null;
+  if (input.variants && input.variants.length > 0) {
+    const missing = input.variants.some(
+      (v) => (v.status ?? 'ACTIVE') === 'ACTIVE' && !(v.inventory != null && v.inventory >= 1),
+    );
+    return missing ? 'Ready stock products need an inventory quantity of at least 1 for every active variant' : null;
+  }
+  if (input.declaredStock !== undefined && input.declaredStock < 1) {
+    return 'Ready stock products need an inventory quantity of at least 1';
+  }
+  return null;
+}
+
+function refineReadyStock(data: StockCheckInput, ctx: z.RefinementCtx): void {
+  const issue = readyStockIssue(data);
+  if (issue) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: issue,
+      path: data.variants && data.variants.length > 0 ? ['variants'] : ['declaredStock'],
+    });
+  }
+}
+
 const priceTierSchema = z.object({
   moq: z.number().int().positive(),
   sellerPrice: z.number().positive(),
@@ -64,7 +106,7 @@ const variantSchema = z.object({
   length: z.coerce.number().positive().optional(),
   width: z.coerce.number().positive().optional(),
   height: z.coerce.number().positive().optional(),
-  dimensionUnit: z.enum(['cm', 'in']).optional(),
+  dimensionUnit: z.enum(DIMENSION_UNITS).optional(),
   tariffCode: z.string().max(50).optional(),
   inventory: z.coerce.number().int().min(0).optional(),
 });
@@ -122,7 +164,8 @@ export const createProductAsAdminSchema = z
   .refine((data) => data.sellerMode !== 'existing' || !!data.sellerId, {
     message: 'sellerId is required when sellerMode is "existing"',
     path: ['sellerId'],
-  });
+  })
+  .superRefine(refineReadyStock);
 export type CreateProductAsAdminDto = z.infer<typeof createProductAsAdminSchema>;
 
 export const createProductSchema = z.object({
@@ -159,7 +202,7 @@ export const createProductSchema = z.object({
   ecoProduction: jsonArrayField(z.enum(ECO_PRODUCTION)),
   isBestseller: formBoolean(false),
   tariffCode: z.string().max(50).optional(),
-});
+}).superRefine(refineReadyStock);
 export type CreateProductDto = z.infer<typeof createProductSchema>;
 
 // A draft is a minimally-valid Product row a seller can come back and finish later —
@@ -341,10 +384,6 @@ export const publicProductListQuerySchema = paginationQuerySchema.extend({
   moqMax: z.coerce.number().int().min(1).optional(),
   placeOfOrigin: z.string().max(200).optional(),
   leadTime: z.string().max(200).optional(),
-  // Brand slug — a valid scope on its own (brand storefront / "Buy more from this brand").
-  brand: z.string().min(1).max(100).optional(),
-  // curated=true -> only Solomon-curated products (no marketplace brands). Not a scope.
-  curated: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
 });
 export type PublicProductListQueryDto = z.infer<typeof publicProductListQuerySchema>;
 

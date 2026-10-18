@@ -3,11 +3,10 @@
 import { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Bell, Search, LayoutDashboard, Package, ShoppingBag, Wallet, Settings, Store } from 'lucide-react'
+import { Bell, Search, LayoutDashboard, Package, ShoppingBag, Wallet, Settings } from 'lucide-react'
 import { PortalSidebar } from '@/components/seller-portal/PortalSidebar'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { useMySellerProfile } from '@/hooks/queries/useSellers'
-import { BrandMinimumOrderModal } from '@/components/seller-portal/BrandMinimumOrderModal'
 
 const MOBILE_TABS = [
   { href: '/portal', label: 'Dashboard', icon: LayoutDashboard },
@@ -15,14 +14,6 @@ const MOBILE_TABS = [
   { href: '/portal/orders', label: 'Orders', icon: ShoppingBag },
   { href: '/portal/payouts', label: 'Payouts', icon: Wallet },
   { href: '/portal/settings', label: 'Settings', icon: Settings },
-]
-
-const BRAND_MOBILE_TABS = [
-  { href: '/portal', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/portal/brand', label: 'Brand', icon: Store },
-  { href: '/portal/products', label: 'Products', icon: Package },
-  { href: '/portal/orders', label: 'Sales', icon: ShoppingBag },
-  { href: '/portal/payouts', label: 'Payouts', icon: Wallet },
 ]
 
 export default function SellerPortalLayout({
@@ -44,8 +35,8 @@ export default function SellerPortalLayout({
   }, [hasHydrated, isAuthenticated, user, router])
 
   const { data: profile } = useMySellerProfile()
-  const sellerName = profile?.brand?.name ?? profile?.businessName ?? 'Seller'
-  const mobileTabs = profile?.sellerType === 'MARKETPLACE' ? BRAND_MOBILE_TABS : MOBILE_TABS
+  const sellerName = profile?.businessName ?? 'Seller'
+  const mobileTabs = MOBILE_TABS
   const sellerInitials = sellerName
     .split(' ')
     .filter(Boolean)
@@ -59,7 +50,6 @@ export default function SellerPortalLayout({
 
   return (
     <div className="flex min-h-screen bg-[#E7EDE7]">
-      <BrandMinimumOrderModal enabled={profile?.sellerType === 'MARKETPLACE'} />
       {/* Sidebar — hidden on mobile */}
       <div className="hidden lg:block">
         <PortalSidebar />
@@ -107,7 +97,7 @@ export default function SellerPortalLayout({
         </header>
 
         {/* Page content */}
-        <main className="flex-1 min-w-0 p-8 max-lg:p-4 pb-24 lg:pb-8">
+        <main className="flex-1 min-w-0 p-4 pb-24 lg:p-8">
           {children}
         </main>
       </div>

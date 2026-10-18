@@ -12,7 +12,6 @@ import { useAuth } from '@/hooks/useAuth'
 import { useCartStore } from '@/lib/store/useCartStore'
 import { useCatalogueStore } from '@/lib/store/useCatalogueStore'
 import { useWishlist, useAddToWishlist, useRemoveFromWishlist } from '@/hooks/queries/useWishlist'
-import { BrandTag } from '@/components/brands/BrandTag'
 import { ShareProductButton } from '@/components/shared/ShareProductButton'
 
 /** Exactly the fields this card reads — lets callers with a narrower/cached
@@ -21,7 +20,7 @@ import { ShareProductButton } from '@/components/shared/ShareProductButton'
 export type ProductCardData = Pick<
   Product,
   'id' | 'name' | 'slug' | 'adminPrice' | 'agentPrice' | 'moq' | 'images' | 'leadTime' | 'avgRating' | 'reviewCount' | 'isBestseller'
-> & { brand?: Product['brand']; hasOptions?: boolean }
+> & { hasOptions?: boolean }
 
 interface ProductCardProps {
   product: ProductCardData
@@ -30,14 +29,14 @@ interface ProductCardProps {
 
 /**
  * Buyer-facing product card — used across category grids, collection grids,
- * related products and the homepage. Curated products carry no seller/brand
- * identity; marketplace products show a brand tag linking to the brand page. White, 1px line border, 6px radius, no shadow; 4:3 photo on
+ * related products and the homepage. Products carry no seller
+ * identity. White, 1px line border, 6px radius, no shadow; 4:3 photo on
  * desktop, square on mobile (object-contain, so the whole product shows).
  * Guests see name + MOQ + a locked-price helper — never a numeric (or blurred)
  * wholesale price. Signed-in buyers see the price plus wishlist/cart controls.
  */
 export function ProductCard({ product, className }: ProductCardProps) {
-  const { id, name, slug, adminPrice, agentPrice, moq, images, leadTime, isBestseller, brand, hasOptions } = product
+  const { id, name, slug, adminPrice, agentPrice, moq, images, leadTime, isBestseller, hasOptions } = product
   const imageSrc = images?.[0]?.url ?? null
 
   const { user, requireAuth, isAuthenticated } = useAuth()
@@ -86,7 +85,6 @@ export function ProductCard({ product, className }: ProductCardProps) {
         unitAdminPriceInr: price,
         moq,
         leadTime,
-        brand: brand ? { id: brand.id, name: brand.name, slug: brand.slug, minOrderValueInr: brand.minOrderValueInr, logoUrl: brand.logoUrl ?? null } : null,
       })
     }, 'add_to_cart')
   }
@@ -243,13 +241,9 @@ export function ProductCard({ product, className }: ProductCardProps) {
           </Link>
         </h3>
 
-        {brand ? (
-          <BrandTag brand={brand} />
-        ) : (
-          <span className="inline-flex self-start items-center text-[11px] font-[600] font-sans uppercase tracking-[0.04em] text-forest">
-            Curated by Solomon
-          </span>
-        )}
+        <span className="inline-flex self-start items-center text-[11px] font-[600] font-sans uppercase tracking-[0.04em] text-forest">
+          Curated by Solomon
+        </span>
 
         <span className="moq-tag self-start">MOQ {moq} units</span>
 

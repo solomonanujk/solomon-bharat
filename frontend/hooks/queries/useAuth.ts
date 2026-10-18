@@ -132,9 +132,9 @@ export function useChangePassword() {
 }
 
 export function useResetPassword() {
-  return useMutation<unknown, Error, { id: string; token: string; password: string }>({
-    mutationFn: (body) => api.post('/auth/reset-password', body),
-    onSuccess: () => toast.success('Password reset — you can now sign in.'),
+  // Resolves with the account email (used by the page to sign the user straight in).
+  return useMutation<{ email?: string } | null, Error, { id: string; token: string; password: string }>({
+    mutationFn: async (body) => (await api.post('/auth/reset-password', body)).data?.data ?? null,
     onError: (err) => toast.error(getApiError(err)),
   })
 }

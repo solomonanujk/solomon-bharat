@@ -1,11 +1,7 @@
-import { Brand, Prisma, PrismaClient, Role, SellerApplication, SellerProfile, SellerType, User } from '@prisma/client';
+import { Prisma, PrismaClient, Role, SellerApplication, SellerProfile, SellerType, User } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { PaginationQuery, toSkipTake } from '../../utils/pagination';
 import { ApplicationListFilter, SubmitApplicationInput, UpdateSellerProfileInput } from './sellers.types';
-
-/** Public-safe brand reference shown next to a seller in admin lists (no legal/rate fields). */
-const ADMIN_BRAND_REF_SELECT = { id: true, name: true, slug: true, status: true, isVerified: true } as const;
-type AdminBrandRef = Prisma.BrandGetPayload<{ select: typeof ADMIN_BRAND_REF_SELECT }>;
 
 export class SellersRepository {
   constructor(private readonly db: PrismaClient = prisma) {}
@@ -32,6 +28,7 @@ export class SellersRepository {
     // With no status chosen, approved applications are left out: they live in Sellers now.
     const where: Prisma.SellerApplicationWhereInput = {
       status: filter.status ?? { not: 'APPROVED' },
+      ...(filter.favourite ? { isFavourite: true } : {}),
       ...(filter.search
         ? {
             OR: [
@@ -45,12 +42,25 @@ export class SellersRepository {
     const [data, total] = await Promise.all([
       this.db.sellerApplication.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        // Starred applications first, then newest.
+        orderBy: [{ isFavourite: 'desc' }, { createdAt: 'desc' }],
         ...toSkipTake(pagination),
       }),
       this.db.sellerApplication.count({ where }),
     ]);
     return { data, total };
+  }
+
+  /** Stars or unstars an application (admin shortlist). */
+  setApplicationFavourite(id: string, favourite: boolean, adminId: string): Promise<SellerApplication> {
+    return this.db.sellerApplication.update({
+      where: { id },
+      data: {
+        isFavourite: favourite,
+        favouritedById: favourite ? adminId : null,
+        favouritedAt: favourite ? new Date() : null,
+      },
+    });
   }
 
   /** Lower-cased emails that already have a seller application or any account. */
@@ -94,17 +104,11 @@ export class SellersRepository {
     return this.db.user.findUnique({ where: { email } });
   }
 
-  /**
-   * Creates the SELLER account + profile from an approved application. For a MARKETPLACE
-   * application `brandSlug` must be supplied and the Brand row is created in the same
-   * nested write (one transaction), so a MARKETPLACE profile never exists without its brand.
-   */
+  /** Creates the SELLER account + (always CURATED) profile from an approved application. */
   async createSellerUserAndProfile(
     application: SellerApplication,
     passwordHash: string,
-    brandSlug?: string,
-  ): Promise<{ user: User; profile: SellerProfile; brand: Brand | null }> {
-    const isMarketplace = application.sellerType === SellerType.MARKETPLACE && brandSlug !== undefined;
+  ): Promise<{ user: User; profile: SellerProfile }> {
     const user = await this.db.user.create({
       data: {
         email: application.email,
@@ -119,110 +123,13 @@ export class SellersRepository {
             contactName: application.contactName,
             phone: application.phone,
             businessAddress: application.businessAddress,
-            sellerType: isMarketplace ? SellerType.MARKETPLACE : SellerType.CURATED,
-            ...(isMarketplace
-              ? {
-                  brand: {
-                    create: {
-                      name: application.brandName ?? application.businessName,
-                      slug: brandSlug,
-                      logoUrl: application.brandLogoUrl,
-                      bannerUrl: application.brandBannerUrl,
-                      story: application.brandStory,
-                      website: application.brandWebsite ?? application.websiteOrSocialLink,
-                      country: application.country,
-                      minOrderValueInr: application.minOrderValueInr ?? 0,
-                    },
-                  },
-                }
-              : {}),
+            sellerType: SellerType.CURATED,
           },
         },
       },
-      include: { sellerProfile: { include: { brand: true } } },
+      include: { sellerProfile: true },
     });
-    const profile = user.sellerProfile as SellerProfile & { brand: Brand | null };
-    return { user, profile, brand: profile.brand ?? null };
-  }
-
-  /** Orders still in progress for this seller (as a brand, or as the supplier of any item). */
-  countOpenOrdersForSeller(sellerProfileId: string): Promise<number> {
-    return this.db.order.count({
-      where: {
-        deletedAt: null,
-        status: { in: ['PENDING_PAYMENT', 'PAYMENT_RECEIVED', 'CONFIRMED', 'PROCURING', 'COLLECTED', 'QUALITY_CHECKED', 'IN_TRANSIT'] },
-        OR: [{ sellerProfileId }, { items: { some: { sellerId: sellerProfileId } } }],
-      },
-    });
-  }
-
-  findSellerWithBrand(sellerProfileId: string) {
-    return this.db.sellerProfile.findFirst({
-      where: { id: sellerProfileId, deletedAt: null },
-      include: { brand: true },
-    });
-  }
-
-  /**
-   * Curated -> marketplace. The brand (new, or the seller's earlier one, reactivated) takes
-   * over every product. The buyer price the admin set becomes the brand's own price (gross),
-   * falling back to the seller's price where the admin never priced a tier; agent prices
-   * are dropped (agents never buy brand products). Products keep their published state.
-   */
-  async switchToMarketplace(
-    sellerProfileId: string,
-    brand: { existingId?: string; name: string; slug?: string },
-  ): Promise<{ brandId: string; productCount: number }> {
-    return this.db.$transaction(async (tx) => {
-      const brandRow = brand.existingId
-        ? await tx.brand.update({ where: { id: brand.existingId }, data: { status: 'ACTIVE' } })
-        : await tx.brand.create({ data: { sellerProfileId, name: brand.name, slug: brand.slug! } });
-      await tx.sellerProfile.update({ where: { id: sellerProfileId }, data: { sellerType: SellerType.MARKETPLACE } });
-
-      await tx.$executeRaw`
-        UPDATE product_price_tiers t SET "adminPrice" = COALESCE(t."adminPrice", t."sellerPrice"),
-          "sellerPrice" = COALESCE(t."adminPrice", t."sellerPrice"), "agentPrice" = NULL
-        FROM products p WHERE t."productId" = p.id AND p."sellerId" = ${sellerProfileId}`;
-      await tx.$executeRaw`
-        UPDATE variant_price_tiers t SET "adminPrice" = COALESCE(t."adminPrice", t."sellerPrice"),
-          "sellerPrice" = COALESCE(t."adminPrice", t."sellerPrice"), "agentPrice" = NULL
-        FROM product_variants v JOIN products p ON v."productId" = p.id
-        WHERE t."variantId" = v.id AND p."sellerId" = ${sellerProfileId}`;
-      const productCount = await tx.$executeRaw`
-        UPDATE products SET "brandId" = ${brandRow.id},
-          "adminPrice" = COALESCE("adminPrice", "sellerPrice"), "sellerPrice" = COALESCE("adminPrice", "sellerPrice"),
-          "agentPrice" = NULL,
-          "approvalStatus" = CASE WHEN "approvalStatus" = 'DRAFT' THEN 'DRAFT'::"ProductApprovalStatus" ELSE 'APPROVED'::"ProductApprovalStatus" END
-        WHERE "sellerId" = ${sellerProfileId} AND "deletedAt" IS NULL`;
-      return { brandId: brandRow.id, productCount };
-    });
-  }
-
-  /**
-   * Marketplace -> curated. The brand page is suspended (kept for history and in case the
-   * seller is switched back). Every product leaves the brand, is unpublished and goes back to
-   * admin review: the brand's price stays as the seller price, and the admin sets the buyer
-   * and agent prices before it is live again.
-   */
-  async switchToCurated(sellerProfileId: string, brandId: string | null): Promise<{ productCount: number }> {
-    return this.db.$transaction(async (tx) => {
-      if (brandId) await tx.brand.update({ where: { id: brandId }, data: { status: 'SUSPENDED' } });
-      await tx.sellerProfile.update({ where: { id: sellerProfileId }, data: { sellerType: SellerType.CURATED } });
-      const productCount = await tx.$executeRaw`
-        UPDATE products SET "brandId" = NULL, "isPublished" = false,
-          "approvalStatus" = CASE WHEN "approvalStatus" = 'DRAFT' THEN 'DRAFT'::"ProductApprovalStatus" ELSE 'PENDING'::"ProductApprovalStatus" END
-        WHERE "sellerId" = ${sellerProfileId} AND "deletedAt" IS NULL`;
-      return { productCount };
-    });
-  }
-
-  async brandSlugExists(slug: string): Promise<boolean> {
-    const count = await this.db.brand.count({ where: { slug } });
-    return count > 0;
-  }
-
-  findSellerProfileWithBrandByUserId(userId: string): Promise<(SellerProfile & { brand: Brand | null }) | null> {
-    return this.db.sellerProfile.findUnique({ where: { userId }, include: { brand: true } });
+    return { user, profile: user.sellerProfile as SellerProfile };
   }
 
   findSellerProfileByUserId(userId: string): Promise<SellerProfile | null> {
@@ -243,12 +150,12 @@ export class SellersRepository {
 
   async findSellers(
     pagination: PaginationQuery,
-  ): Promise<{ data: (SellerProfile & { user: User; brand: AdminBrandRef | null })[]; total: number }> {
+  ): Promise<{ data: (SellerProfile & { user: User })[]; total: number }> {
     const where = { deletedAt: null };
     const [data, total] = await Promise.all([
       this.db.sellerProfile.findMany({
         where,
-        include: { user: true, brand: { select: ADMIN_BRAND_REF_SELECT } },
+        include: { user: true },
         orderBy: { createdAt: 'desc' },
         ...toSkipTake(pagination),
       }),
@@ -259,10 +166,10 @@ export class SellersRepository {
 
   findSellerWithUserById(
     id: string,
-  ): Promise<(SellerProfile & { user: User; brand: AdminBrandRef | null }) | null> {
+  ): Promise<(SellerProfile & { user: User }) | null> {
     return this.db.sellerProfile.findUnique({
       where: { id },
-      include: { user: true, brand: { select: ADMIN_BRAND_REF_SELECT } },
+      include: { user: true },
     });
   }
 

@@ -1,10 +1,8 @@
-import { Brand, Order, OrderItem, OrderStatus, Prisma, PrismaClient } from '@prisma/client';
+import { Order, OrderStatus, Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { PaginationQuery, toSkipTake } from '../../utils/pagination';
 import {
   AdminOrderListFilter,
-  BrandOrderRecord,
-  CheckoutBrand,
   CreatePendingOrderInput,
   DbTx,
   OrderWithItems,
@@ -17,27 +15,12 @@ const ITEMS_INCLUDE = {
         select: {
           name: true,
           images: { orderBy: { sortOrder: 'asc' as const }, take: 1 },
-          brand: {
-            select: { id: true, name: true, slug: true, logoUrl: true, isVerified: true, minOrderValueInr: true },
-          },
         },
       },
       variant: { select: { type: true, value: true } },
       review: { select: { id: true } },
     },
   },
-  sellerProfile: { select: { brand: { select: { name: true, slug: true } } } },
-};
-
-const BRAND_ORDER_INCLUDE = {
-  items: {
-    include: {
-      product: { select: { name: true, images: { orderBy: { sortOrder: 'asc' as const }, take: 1 } } },
-      variant: { select: { type: true, value: true } },
-    },
-  },
-  buyer: { select: { contactName: true, phone: true, companyName: true, country: true } },
-  shippingAddress: true,
 };
 
 export class OrdersRepository {
@@ -61,7 +44,6 @@ export class OrdersRepository {
         sellerPriceTotal: input.sellerPriceTotal,
         adminMargin: input.adminMargin,
         placedAsAgent: input.placedAsAgent,
-        sellerProfileId: input.sellerProfileId ?? null,
         checkoutId: input.checkoutId ?? null,
         items: {
           create: input.items.map((item) => ({
@@ -141,15 +123,6 @@ export class OrdersRepository {
     return { data, total };
   }
 
-  // -- Checkout helpers --------------------------------------------------
-
-  findBrandsByIds(ids: string[]): Promise<CheckoutBrand[]> {
-    return this.db.brand.findMany({
-      where: { id: { in: ids } },
-      select: { id: true, sellerProfileId: true, name: true, status: true, minOrderValueInr: true },
-    });
-  }
-
   // -- Settlement (all take the transaction client so they join one DB transaction) --
 
   runInTransaction<T>(fn: (tx: DbTx) => Promise<T>): Promise<T> {
@@ -183,9 +156,6 @@ export class OrdersRepository {
         },
         buyer: { select: { companyName: true, contactName: true, phone: true, country: true } },
         shippingAddress: true,
-        sellerProfile: {
-          select: { businessName: true, businessAddress: true, phone: true, brand: { select: { name: true, legalName: true, gstin: true } } },
-        },
       },
     });
   }
@@ -199,76 +169,6 @@ export class OrdersRepository {
     });
     return new Set(rows.map((r) => r.id));
   }
-
-  /** Marketplace orders still awaiting the brand's acceptance that were paid before `paidBefore`. */
-  findUnacceptedBrandOrders(paidBefore: Date): Promise<Order[]> {
-    return this.db.order.findMany({
-      where: {
-        status: OrderStatus.PAYMENT_RECEIVED,
-        sellerProfileId: { not: null },
-        paidAt: { lt: paidBefore },
-        deletedAt: null,
-      },
-    });
-  }
-
-  findOrderInTx(tx: DbTx, orderId: string): Promise<Order | null> {
-    return tx.order.findUnique({ where: { id: orderId } });
-  }
-
-  findBrandBySellerProfileId(tx: DbTx, sellerProfileId: string): Promise<Brand | null> {
-    return tx.brand.findUnique({ where: { sellerProfileId } });
-  }
-
-  /** Row-level lock on the brand: serialises concurrent settlements of the same brand's orders. */
-  async lockBrand(tx: DbTx, brandId: string): Promise<void> {
-    await tx.$queryRaw`SELECT id FROM "brands" WHERE id = ${brandId} FOR UPDATE`;
-  }
-
-  /** Other orders from this buyer to this brand that are past PENDING_PAYMENT and not CANCELLED. */
-  countOtherPaidBrandOrders(
-    tx: DbTx,
-    sellerProfileId: string,
-    buyerId: string,
-    excludeOrderId: string,
-  ): Promise<number> {
-    return tx.order.count({
-      where: {
-        sellerProfileId,
-        buyerId,
-        id: { not: excludeOrderId },
-        status: { notIn: [OrderStatus.PENDING_PAYMENT, OrderStatus.CANCELLED, OrderStatus.REFUNDED] },
-      },
-    });
-  }
-
-  /** True when the buyer joined through this brand's invite link (the brand's own buyer). */
-  async isBrandOwnBuyer(tx: DbTx, brandId: string, buyerId: string): Promise<boolean> {
-    const row = await tx.brandOwnBuyer.findUnique({ where: { buyerId_brandId: { buyerId, brandId } } });
-    return row !== null;
-  }
-
-  findItemsInTx(tx: DbTx, orderId: string): Promise<OrderItem[]> {
-    return tx.orderItem.findMany({ where: { orderId } });
-  }
-
-  updateItemCommission(
-    tx: DbTx,
-    itemId: string,
-    data: { commissionRate: number; commissionAmount: number; unitSellerPrice: number; lineSellerTotal: number },
-  ): Promise<OrderItem> {
-    return tx.orderItem.update({ where: { id: itemId }, data });
-  }
-
-  updateOrderTotals(
-    tx: DbTx,
-    orderId: string,
-    data: { sellerPriceTotal: number; adminMargin: number; brandOwnBuyer?: boolean },
-  ): Promise<Order> {
-    return tx.order.update({ where: { id: orderId }, data });
-  }
-
-  // -- Brand fulfilment --------------------------------------------------
 
   /** Compare-and-set status change; returns false when the order was no longer in `from`. */
   async transitionIfStatus(
@@ -284,36 +184,9 @@ export class OrdersRepository {
     return count === 1;
   }
 
-  findBrandOrder(id: string): Promise<BrandOrderRecord | null> {
-    return this.db.order.findUnique({ where: { id }, include: BRAND_ORDER_INCLUDE });
-  }
-
-  async listForBrand(
-    sellerProfileId: string,
-    status: OrderStatus | undefined,
-    pagination: PaginationQuery,
-  ): Promise<{ data: BrandOrderRecord[]; total: number }> {
-    const where: Prisma.OrderWhereInput = {
-      sellerProfileId,
-      deletedAt: null,
-      status: status ?? { not: OrderStatus.PENDING_PAYMENT },
-    };
-    const [data, total] = await Promise.all([
-      this.db.order.findMany({
-        where,
-        include: BRAND_ORDER_INCLUDE,
-        orderBy: { createdAt: 'desc' },
-        ...toSkipTake(pagination),
-      }),
-      this.db.order.count({ where }),
-    ]);
-    return { data, total };
-  }
-
   async listItemsForSeller(sellerId: string, pagination: PaginationQuery) {
-    // Brand orders are fulfilled via the brand endpoints (which expose buyer info); the curated
-    // projection must never include them.
-    const where = { sellerId, order: { sellerProfileId: null } };
+    // Includes historical marketplace-brand orders of sellers converted to curated (Oct 2026).
+    const where = { sellerId };
     const [data, total] = await Promise.all([
       this.db.orderItem.findMany({
         where,

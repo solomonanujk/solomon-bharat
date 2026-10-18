@@ -7,7 +7,6 @@ import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useApplyAsSeller } from '@/hooks/queries/useSellers'
 import { getApiError } from '@/lib/getApiError'
-import { MARKETPLACE_COMMISSION_TERMS_VERSION } from '@/lib/sellerCommission'
 import { ApplySidebar } from '@/components/apply/ApplySidebar'
 import { SELLER_AGREEMENT_VERSION } from '@/lib/legal/sellerAgreement'
 import { Step1Seller } from '@/components/apply/Step1Seller'
@@ -15,23 +14,15 @@ import { Step2Products } from '@/components/apply/Step2Products'
 import { Step3ExportReadiness } from '@/components/apply/Step3ExportReadiness'
 import { Step4FinalDetails } from '@/components/apply/Step4FinalDetails'
 import {
-  MarketplaceStepBrand,
-  MarketplaceStepBusiness,
-  MarketplaceStepReview,
-  MarketplaceStepTerms,
-} from '@/components/apply/MarketplaceSteps'
-import {
   INITIAL_APPLY_WIZARD_STATE,
   type ApplyWizardState,
-  type FieldErrors,
 } from '@/components/apply/types'
 import type { SellerApplyInput } from '@/types'
 
 const TOTAL_STEPS = 4
 
-function buildCuratedPayload(data: ApplyWizardState): SellerApplyInput {
+function buildPayload(data: ApplyWizardState): SellerApplyInput {
   return {
-    sellerType: 'CURATED',
     businessName: data.businessName.trim(),
     contactName: data.contactName.trim(),
     email: data.email.trim(),
@@ -61,28 +52,7 @@ function buildCuratedPayload(data: ApplyWizardState): SellerApplyInput {
   }
 }
 
-function buildMarketplacePayload(data: ApplyWizardState): SellerApplyInput {
-  return {
-    sellerType: 'MARKETPLACE',
-    brandName: data.brandName.trim(),
-    brandLogoUrl: data.brandLogoUrl.trim() || undefined,
-    brandStory: data.brandStory.trim() || undefined,
-    brandWebsite: data.brandWebsite.trim() || undefined,
-    minOrderValueInr: Number(data.minOrderValueInr),
-    commissionTermsVersion: MARKETPLACE_COMMISSION_TERMS_VERSION,
-    agreedToCommissionTerms: data.agreedToCommissionTerms,
-    businessName: data.businessName.trim(),
-    contactName: data.contactName.trim(),
-    email: data.email.trim(),
-    phone: data.phone.trim(),
-    city: data.city.trim(),
-    country: data.country,
-    businessType: data.businessType,
-    craftCategories: data.craftCategories.length > 0 ? data.craftCategories : undefined,
-  }
-}
-
-function validateCuratedStep(step: number, data: ApplyWizardState): string | null {
+function validateStep(step: number, data: ApplyWizardState): string | null {
   if (step === 1) {
     if (!data.businessName.trim()) return 'Enter your seller name.'
     if (!data.contactName.trim()) return 'Enter the founder / owner name.'
@@ -100,60 +70,15 @@ function validateCuratedStep(step: number, data: ApplyWizardState): string | nul
   return null
 }
 
-function isHttpUrl(value: string): boolean {
-  try {
-    const u = new URL(value)
-    return u.protocol === 'http:' || u.protocol === 'https:'
-  } catch {
-    return false
-  }
-}
-
-function validateMarketplaceStep(step: number, data: ApplyWizardState): FieldErrors {
-  const e: FieldErrors = {}
-  if (step === 1) {
-    const name = data.brandName.trim()
-    if (name.length < 2 || name.length > 60) e.brandName = 'Enter your brand name (2 to 60 characters).'
-    const min = data.minOrderValueInr.trim()
-    if (!min || !Number.isFinite(Number(min)) || Number(min) < 0) {
-      e.minOrderValueInr = 'Enter a minimum order value in INR (0 or more).'
-    }
-    if (data.brandStory.trim().length > 1000) e.brandStory = 'Keep your story under 1000 characters.'
-    if (data.brandWebsite.trim() && !isHttpUrl(data.brandWebsite.trim())) {
-      e.brandWebsite = 'Enter a full link starting with https://'
-    }
-    if (data.brandLogoUrl.trim() && !isHttpUrl(data.brandLogoUrl.trim())) {
-      e.brandLogoUrl = 'Enter a full link starting with https://, or leave this empty.'
-    }
-  }
-  if (step === 2) {
-    if (!data.businessName.trim()) e.businessName = 'Enter your business or legal name.'
-    if (!data.contactName.trim()) e.contactName = 'Enter a contact name.'
-    if (!data.email.trim() || !/^\S+@\S+\.\S+$/.test(data.email.trim())) e.email = 'Enter a valid email address.'
-    if (!data.phone.trim()) e.phone = 'Enter a WhatsApp / phone number.'
-    if (!data.city.trim()) e.city = 'Enter your city.'
-    if (!data.country.trim()) e.country = 'Select your country.'
-    if (!data.businessType) e.businessType = 'Select what best describes you.'
-  }
-  if (step === 3) {
-    if (!data.agreedToCommissionTerms) e.agreedToCommissionTerms = 'Agree to the commission terms to continue.'
-  }
-  return e
-}
-
 export default function ApplyPage() {
   const router = useRouter()
-  // Applicants never choose a seller type: everyone fills the same application and the admin
-  // assigns Curated or Marketplace at approval. The wizard therefore starts at step 1.
+  // Every seller is curated by Solomon Bharat (the marketplace model was removed in Oct 2026).
   const [step, setStep] = useState(1)
-  const [data, setData] = useState<ApplyWizardState>({ ...INITIAL_APPLY_WIZARD_STATE, sellerType: 'CURATED' })
+  const [data, setData] = useState<ApplyWizardState>(INITIAL_APPLY_WIZARD_STATE)
   const [error, setError] = useState<string | null>(null)
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const applyAsSeller = useApplyAsSeller()
   const panelRef = useRef<HTMLDivElement>(null)
   const firstRender = useRef(true)
-
-  const isMarketplace = data.sellerType === 'MARKETPLACE'
 
   // Move focus to the new step's panel on step change (not on first paint).
   useEffect(() => {
@@ -164,57 +89,14 @@ export default function ApplyPage() {
   function patch(fields: Partial<ApplyWizardState>) {
     setData((d) => ({ ...d, ...fields }))
     if (error) setError(null)
-    const keys = Object.keys(fields).filter((k) => fieldErrors[k])
-    if (keys.length > 0) {
-      setFieldErrors((prev) => {
-        const next = { ...prev }
-        for (const k of keys) delete next[k]
-        return next
-      })
-    }
-  }
-
-  function focusField(id: string) {
-    setTimeout(() => document.getElementById(id)?.focus(), 0)
   }
 
   function submit() {
-    applyAsSeller.mutate(isMarketplace ? buildMarketplacePayload(data) : buildCuratedPayload(data))
+    applyAsSeller.mutate(buildPayload(data))
   }
 
   function goNext() {
-    if (isMarketplace) {
-      const errs = validateMarketplaceStep(step, data)
-      // The review step re-checks everything so a skipped/edited step can't slip through.
-      if (step === TOTAL_STEPS) {
-        for (const s of [1, 2, 3]) {
-          const stepErrs = validateMarketplaceStep(s, data)
-          if (Object.keys(stepErrs).length > 0) {
-            setFieldErrors(stepErrs)
-            setError('Some details need fixing before you can submit.')
-            setStep(s)
-            return
-          }
-        }
-        setFieldErrors({})
-        setError(null)
-        submit()
-        return
-      }
-      const first = Object.keys(errs)[0]
-      if (first) {
-        setFieldErrors(errs)
-        setError(`Please fix ${Object.keys(errs).length === 1 ? 'the highlighted field' : 'the highlighted fields'} to continue.`)
-        focusField(first)
-        return
-      }
-      setFieldErrors({})
-      setError(null)
-      setStep((s) => s + 1)
-      return
-    }
-
-    const validationError = validateCuratedStep(step, data)
+    const validationError = validateStep(step, data)
     if (validationError) { setError(validationError); return }
     setError(null)
     if (step === TOTAL_STEPS) {
@@ -226,7 +108,6 @@ export default function ApplyPage() {
 
   function goBack() {
     setError(null)
-    setFieldErrors({})
     setStep((s) => Math.max(1, s - 1))
   }
 
@@ -239,25 +120,21 @@ export default function ApplyPage() {
         {!applyAsSeller.isSuccess && (
           <div className="text-center mb-8">
             <p className="text-[11px] font-[700] font-sans uppercase tracking-[0.12em] mb-3 text-brass-dark">
-              {isMarketplace ? 'Brand application' : 'Onboarding interest form'}
+              Onboarding interest form
             </p>
             <h1 className="font-display font-[700] text-primary text-[28px] sm:text-[36px] leading-[1.1]">
-              {isMarketplace ? 'Apply to sell your brand' : 'Apply to sell your product'}
+              Apply to sell your product
             </h1>
             <p className="font-sans text-[14px] text-muted-text mt-3 max-w-[520px] mx-auto">
               Takes 4–5 minutes · Confidential · We review within 48 hours
-              {!isMarketplace && (
-                <>
-                  {' '}· Selected sellers get invited to our <strong className="text-primary font-[600]">launch event</strong>
-                </>
-              )}
+              {' '}· Selected sellers get invited to our <strong className="text-primary font-[600]">launch event</strong>
               .
             </p>
           </div>
         )}
 
         <div className="rounded-2xl overflow-hidden shadow-xl shadow-black/5 border border-border-warm bg-surface flex">
-          <ApplySidebar step={step} sellerType={data.sellerType} />
+          <ApplySidebar step={step} />
 
           <div className="flex-1 flex flex-col min-w-0">
             {applyAsSeller.isSuccess ? (
@@ -267,18 +144,10 @@ export default function ApplyPage() {
                 </div>
                 <div>
                   <p className="text-[20px] font-[700] font-sans text-primary leading-tight">Application received</p>
-                  {isMarketplace ? (
-                    <p className="text-[14px] font-sans text-muted-text mt-2 leading-[1.65] max-w-[400px]">
-                      Thanks for applying to sell {data.brandName.trim() ? `${data.brandName.trim()} ` : 'your brand '}
-                      on Solomon Bharat. Our team will review your application and email you a decision within 48
-                      hours. Your brand account is only created if your application is approved.
-                    </p>
-                  ) : (
                     <p className="text-[14px] font-sans text-muted-text mt-2 leading-[1.65] max-w-[360px]">
                       Thanks for applying to Solomon Bharat. We&apos;ll review your application and follow up by email
                       within 48 hours.
                     </p>
-                  )}
                 </div>
                 <Button size="md" onClick={() => router.push('/')} className="mt-2">
                   Back to home
@@ -295,23 +164,10 @@ export default function ApplyPage() {
 
                 <div ref={panelRef} tabIndex={-1} className="flex-1 p-5 sm:p-9 outline-none">
 
-                  {isMarketplace ? (
-                    <>
-                      {step === 1 && <MarketplaceStepBrand data={data} patch={patch} errors={fieldErrors} />}
-                      {step === 2 && <MarketplaceStepBusiness data={data} patch={patch} errors={fieldErrors} />}
-                      {step === 3 && <MarketplaceStepTerms data={data} patch={patch} errors={fieldErrors} />}
-                      {step === 4 && <MarketplaceStepReview data={data} patch={patch} onEdit={setStep} />}
-                    </>
-                  ) : (
-                    data.sellerType === 'CURATED' && (
-                      <>
-                        {step === 1 && <Step1Seller data={data} patch={patch} />}
-                        {step === 2 && <Step2Products data={data} patch={patch} />}
-                        {step === 3 && <Step3ExportReadiness data={data} patch={patch} />}
-                        {step === 4 && <Step4FinalDetails data={data} patch={patch} />}
-                      </>
-                    )
-                  )}
+                  {step === 1 && <Step1Seller data={data} patch={patch} />}
+                  {step === 2 && <Step2Products data={data} patch={patch} />}
+                  {step === 3 && <Step3ExportReadiness data={data} patch={patch} />}
+                  {step === 4 && <Step4FinalDetails data={data} patch={patch} />}
 
                   {displayError && (
                     <p className="text-[13px] font-sans text-error mt-5" role="alert">{displayError}</p>

@@ -1,11 +1,11 @@
 import { spreadsheetKindFromFilename } from '../../middleware/upload';
 import { AppError } from '../../utils/errors';
-import { SellerType } from '@prisma/client';
 import { Request, Response } from 'express';
 import { sendCreated, sendSuccess } from '../../utils/response';
 import { buildPaginationMeta } from '../../utils/pagination';
 import { sellersService } from './sellers.service';
 import {
+  FavouriteApplicationDto,
   AddNoteDto,
   ApplicationListQueryDto,
   RejectApplicationDto,
@@ -22,9 +22,15 @@ export const sellersController = {
   },
 
   async listApplications(req: Request, res: Response): Promise<void> {
-    const { status, search, ...pagination } = req.query as unknown as ApplicationListQueryDto;
-    const { data, total } = await sellersService.listApplications({ status, search }, pagination);
+    const { status, search, favourite, ...pagination } = req.query as unknown as ApplicationListQueryDto;
+    const { data, total } = await sellersService.listApplications({ status, search, favourite }, pagination);
     sendSuccess(res, data, 'Applications retrieved', 200, buildPaginationMeta(total, pagination));
+  },
+
+  async setApplicationFavourite(req: Request, res: Response): Promise<void> {
+    const { favourite } = req.body as FavouriteApplicationDto;
+    const application = await sellersService.setApplicationFavourite(req.params.id, favourite, req.user!.id);
+    sendSuccess(res, application, favourite ? 'Added to favourites' : 'Removed from favourites');
   },
 
   async getApplication(req: Request, res: Response): Promise<void> {
@@ -33,8 +39,7 @@ export const sellersController = {
   },
 
   async approveApplication(req: Request, res: Response): Promise<void> {
-    const { sellerType } = (req.body ?? {}) as { sellerType?: SellerType };
-    const result = await sellersService.approveApplication(req.params.id, req.user!.id, sellerType);
+    const result = await sellersService.approveApplication(req.params.id, req.user!.id);
     sendSuccess(res, result, 'Seller application approved');
   },
 
@@ -79,18 +84,13 @@ export const sellersController = {
     sendSuccess(res, null, 'Application deleted');
   },
 
-  async switchSellerType(req: Request, res: Response): Promise<void> {
-    const result = await sellersService.switchSellerType(req.user!.id, req.params.id, req.body.sellerType, req.body.brandName);
-    sendSuccess(res, result, 'Seller type changed');
-  },
-
   async setInternalRating(req: Request, res: Response): Promise<void> {
     const profile = await sellersService.setInternalRating(req.user!.id, req.params.id, req.body);
     sendSuccess(res, profile, 'Internal rating saved');
   },
 
   async getMyProfile(req: Request, res: Response): Promise<void> {
-    const profile = await sellersService.getMyProfileWithBrand(req.user!.id);
+    const profile = await sellersService.getMyProfile(req.user!.id);
     sendSuccess(res, profile);
   },
 

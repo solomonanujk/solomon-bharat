@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BrandStatus, ProductApprovalStatus } from '@prisma/client';
+import { ProductApprovalStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { AppError } from '../../utils/errors';
 import { ProductsService } from '../products/products.service';
@@ -121,19 +121,6 @@ describe('OrdersService quote + shared pricing core', () => {
       expect((await service.quoteItems([{ productId: PID, quantity: 10 }], 'BUYER')).lines[0].status).toBe('UNAVAILABLE');
       give(buildProduct({ deletedAt: new Date() }));
       expect((await service.quoteItems([{ productId: PID, quantity: 10 }], 'BUYER')).lines[0].status).toBe('UNAVAILABLE');
-    });
-
-    it('UNAVAILABLE for a suspended brand', async () => {
-      give(buildProduct({ brandId: 'b1' }));
-      vi.mocked(repo.findBrandsByIds).mockResolvedValue([{ id: 'b1', status: BrandStatus.SUSPENDED }] as never);
-      expect((await service.quoteItems([{ productId: PID, quantity: 10 }], 'BUYER')).lines[0].status).toBe('UNAVAILABLE');
-    });
-
-    it('brand product is OK for a buyer but UNAVAILABLE for an agent', async () => {
-      give(buildProduct({ brandId: 'b1' }));
-      vi.mocked(repo.findBrandsByIds).mockResolvedValue([{ id: 'b1', status: BrandStatus.ACTIVE }] as never);
-      expect((await service.quoteItems([{ productId: PID, quantity: 10 }], 'BUYER')).lines[0].status).toBe('OK');
-      expect((await service.quoteItems([{ productId: PID, quantity: 10 }], 'AGENT')).lines[0].status).toBe('UNAVAILABLE');
     });
 
     it('OPTION_CHANGED for a variantId that no longer belongs to the product', async () => {

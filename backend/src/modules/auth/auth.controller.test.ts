@@ -168,12 +168,14 @@ describe('auth controller', () => {
 
   describe('POST /api/v1/auth/reset-password', () => {
     it('resets the password with a valid payload', async () => {
+      vi.mocked(authService.resetPassword).mockResolvedValue({ email: 'a@b.com' });
       const res = await request(app).post('/api/v1/auth/reset-password').send({
         id: '11111111-1111-1111-1111-111111111111',
         token: 'tok',
         password: 'newpassword123',
       });
       expect(res.status).toBe(200);
+      expect(res.body.data).toEqual({ email: 'a@b.com' });
       expect(authService.resetPassword).toHaveBeenCalledWith(
         '11111111-1111-1111-1111-111111111111',
         'tok',

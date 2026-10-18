@@ -8,7 +8,7 @@ const options: swaggerJsdoc.Options = {
       title: 'Solomon Bharat API',
       version: '1.0.0',
       description:
-        'B2B wholesale export marketplace API. Admin-intermediated trade flow — sellers and buyers never interact directly.',
+        'B2B wholesale export platform API (curated catalogue + agent programme). Admin-intermediated trade flow — sellers and buyers never interact directly.',
     },
     servers: [{ url: '/api/v1' }],
     components: {

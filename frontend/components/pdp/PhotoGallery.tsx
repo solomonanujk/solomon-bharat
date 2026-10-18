@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { ImageIcon, ZoomIn } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -12,6 +12,8 @@ import { ImageLightbox } from '@/components/shared/ImageLightbox'
 interface PhotoGalleryProps {
   images: string[]
   productName: string
+  /** Jump to this photo (e.g. the selected colour's image). A new nonce re-focuses the same URL. */
+  focusImage?: { url: string; nonce: number } | null
 }
 
 const SWIPE_THRESHOLD = 50
@@ -42,11 +44,25 @@ function EmptyPlaceholder({ productName }: { productName: string }) {
 // opens the shared zoomable viewer; swiping the frame on touch moves between
 // photos.
 
-export function PhotoGallery({ images, productName }: PhotoGalleryProps) {
+export function PhotoGallery({ images, productName, focusImage }: PhotoGalleryProps) {
   const [index, setIndex] = useState(0)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const thumbStripRef = useRef<HTMLDivElement>(null)
   const touchStart = useRef<{ x: number; y: number } | null>(null)
+
+  // A new focus request (selected colour/variant photo) moves the frame to that
+  // photo — adjusted during render rather than in an effect, per React's
+  // "adjusting state when a prop changes" pattern.
+  const [seenFocusNonce, setSeenFocusNonce] = useState<number | undefined>(undefined)
+  if (focusImage && focusImage.nonce !== seenFocusNonce) {
+    setSeenFocusNonce(focusImage.nonce)
+    const i = images.indexOf(focusImage.url)
+    if (i >= 0) setIndex(i)
+  }
+  useEffect(() => {
+    if (seenFocusNonce === undefined) return
+    thumbStripRef.current?.children[index]?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+  }, [seenFocusNonce]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!images || images.length === 0) return <EmptyPlaceholder productName={productName} />
 

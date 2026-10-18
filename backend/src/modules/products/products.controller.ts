@@ -65,8 +65,7 @@ export const productsController = {
     const dto = req.body as CreateProductDto;
     const { images, videos, craftImage } = extractFiles(req);
     const product = await productsService.createProduct(sellerProfileId, dto, images, videos, craftImage);
-    // A marketplace brand's product publishes immediately; a curated one goes to review.
-    sendCreated(res, product, product.isPublished ? 'Product published' : 'Product submitted for review');
+    sendCreated(res, product, 'Product submitted for review');
   },
 
   async saveDraft(req: Request, res: Response): Promise<void> {
@@ -178,18 +177,6 @@ export const productsController = {
     sendSuccess(res, null, 'Pricing change rejected');
   },
 
-  async publishMine(req: Request, res: Response): Promise<void> {
-    const sellerProfileId = await resolveSellerProfileId(req.user!.id);
-    const product = await productsService.setPublishedBySeller(sellerProfileId, req.params.id, true);
-    sendSuccess(res, product, 'Product published');
-  },
-
-  async unpublishMine(req: Request, res: Response): Promise<void> {
-    const sellerProfileId = await resolveSellerProfileId(req.user!.id);
-    const product = await productsService.setPublishedBySeller(sellerProfileId, req.params.id, false);
-    sendSuccess(res, product, 'Product unpublished');
-  },
-
   async publish(req: Request, res: Response): Promise<void> {
     const product = await productsService.setPublished(req.params.id, true);
     sendSuccess(res, product, 'Product published');
@@ -228,10 +215,10 @@ export const productsController = {
   async listPublic(req: Request, res: Response): Promise<void> {
     const {
       categoryId, collectionId, search, sort, material, minPrice, maxPrice, moqMax,
-      placeOfOrigin, leadTime, brand, curated, ...pagination
+      placeOfOrigin, leadTime, ...pagination
     } = req.query as unknown as PublicProductListQueryDto;
     const { data, total } = await productsService.listPublished(
-      { categoryId, collectionId, search, sort, material, minPrice, maxPrice, moqMax, placeOfOrigin, leadTime, brand, curated },
+      { categoryId, collectionId, search, sort, material, minPrice, maxPrice, moqMax, placeOfOrigin, leadTime },
       pagination,
       req.user?.role,
     );
@@ -243,14 +230,9 @@ export const productsController = {
     sendSuccess(res, result);
   },
 
-  async listPlaceOfOriginFacets(req: Request, res: Response): Promise<void> {
-    const values = await productsService.listPlaceOfOriginFacets(req.user?.role);
+  async listPlaceOfOriginFacets(_req: Request, res: Response): Promise<void> {
+    const values = await productsService.listPlaceOfOriginFacets();
     sendSuccess(res, values);
-  },
-
-  async listBrandFacets(req: Request, res: Response): Promise<void> {
-    const facets = await productsService.listBrandFacets(req.user?.role);
-    sendSuccess(res, facets);
   },
 
   async listRecommended(req: Request, res: Response): Promise<void> {

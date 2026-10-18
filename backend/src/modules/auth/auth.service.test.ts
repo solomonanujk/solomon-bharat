@@ -28,7 +28,6 @@ function buildMockRepo(): AuthRepository {
   return {
     findUserByEmail: vi.fn(),
     findUserById: vi.fn(),
-    findSellerProfileWithBrandByUserId: vi.fn(),
     createBuyerUser: vi.fn(),
     updateUserPassword: vi.fn(),
     markEmailVerified: vi.fn(),
@@ -292,11 +291,43 @@ describe('AuthService', () => {
         createdAt: new Date(),
       });
 
-      await service.resetPassword('prt-1', rawToken, 'new-password123');
+      vi.mocked(repo.updateUserPassword).mockResolvedValue(buildUser({ mustChangePassword: false }));
 
+      const result = await service.resetPassword('prt-1', rawToken, 'new-password123');
+
+      expect(result).toEqual({ email: 'buyer@example.com' });
       expect(repo.updateUserPassword).toHaveBeenCalledWith('user-1', expect.any(String));
       expect(repo.markPasswordResetTokenUsed).toHaveBeenCalledWith('prt-1');
       expect(repo.revokeAllRefreshTokensForUser).toHaveBeenCalledWith('user-1');
+    });
+  });
+
+  describe('createPasswordSetupUrl', () => {
+    it('stores a hashed one-time token valid for 7 days and returns a welcome reset link', async () => {
+      vi.mocked(repo.createPasswordResetToken).mockResolvedValue({
+        id: 'prt-9',
+        userId: 'user-1',
+        tokenHash: 'h',
+        expiresAt: new Date(),
+        usedAt: null,
+        createdAt: new Date(),
+      });
+      const before = Date.now();
+
+      const url = await service.createPasswordSetupUrl('user-1');
+
+      const [userId, tokenHash, expiresAt] = vi.mocked(repo.createPasswordResetToken).mock.calls[0];
+      expect(userId).toBe('user-1');
+      const sevenDays = 7 * 24 * 60 * 60 * 1000;
+      expect(expiresAt.getTime()).toBeGreaterThanOrEqual(before + sevenDays - 1000);
+      expect(expiresAt.getTime()).toBeLessThanOrEqual(Date.now() + sevenDays + 1000);
+      const parsed = new URL(url);
+      expect(parsed.pathname).toBe('/reset-password');
+      expect(parsed.searchParams.get('id')).toBe('prt-9');
+      expect(parsed.searchParams.get('welcome')).toBe('1');
+      const rawToken = parsed.searchParams.get('token')!;
+      expect(rawToken).toMatch(/^[a-f0-9]{64}$/);
+      expect(tokenHash).not.toBe(rawToken);
     });
   });
 
@@ -408,43 +439,5 @@ describe('AuthService', () => {
       expect(result.email).toBe('buyer@example.com');
     });
 
-    it('adds sellerType and a brand summary for a marketplace seller', async () => {
-      vi.mocked(repo.findUserById).mockResolvedValue(buildUser({ role: 'SELLER' as never }));
-      vi.mocked(repo.findSellerProfileWithBrandByUserId).mockResolvedValue({
-        sellerType: 'MARKETPLACE',
-        brand: {
-          id: 'b1',
-          name: 'KK',
-          slug: 'kk',
-          logoUrl: null,
-          status: 'ACTIVE',
-          isVerified: false,
-          minOrderValueInr: 100,
-          legalName: 'secret',
-          gstin: 'secret',
-        },
-      } as never);
-
-      const result = await service.getMe('user-1');
-
-      expect(result.sellerType).toBe('MARKETPLACE');
-      expect(result.brand).toEqual({
-        id: 'b1',
-        name: 'KK',
-        slug: 'kk',
-        logoUrl: null,
-        status: 'ACTIVE',
-        isVerified: false,
-        minOrderValueInr: 100,
-      });
-    });
-
-    it('returns sellerType CURATED with brand null for a curated seller', async () => {
-      vi.mocked(repo.findUserById).mockResolvedValue(buildUser({ role: 'SELLER' as never }));
-      vi.mocked(repo.findSellerProfileWithBrandByUserId).mockResolvedValue({ sellerType: 'CURATED', brand: null } as never);
-      const result = await service.getMe('user-1');
-      expect(result.sellerType).toBe('CURATED');
-      expect(result.brand).toBeNull();
-    });
   });
 });

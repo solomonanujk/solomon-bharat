@@ -5,8 +5,6 @@ import { ShoppingBag } from 'lucide-react'
 import { useSellerOrderItems } from '@/hooks/queries/useOrders'
 import { formatINR } from '@/lib/utils'
 import { OrderItemStatusBadge } from '@/components/seller-portal/StatusBadges'
-import { useSellerType } from '@/hooks/queries/useBrandPortal'
-import { BrandOrdersList } from '@/components/seller-portal/BrandOrdersList'
 
 function SkeletonRows() {
   return (
@@ -160,7 +158,5 @@ function CuratedOrdersPage() {
 }
 
 export default function OrdersPage() {
-  const { isMarketplace, ready } = useSellerType()
-  if (!ready) return <SkeletonRows />
-  return isMarketplace ? <BrandOrdersList /> : <CuratedOrdersPage />
+  return <CuratedOrdersPage />
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useEffect, useMemo } from 'react'
+import { use, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ChevronRight } from 'lucide-react'
@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useProduct } from '@/hooks/queries/useProducts'
 import { useCategoryTree } from '@/hooks/queries/useCategories'
 import { useRecentlyViewed } from '@/hooks/useRecentlyViewed'
-import type { BrandSummary, CategoryNode, Product } from '@/types'
+import type { CategoryNode, Product } from '@/types'
 
 // ─── Category path ────────────────────────────────────────────────────────────
 // The product record only carries its Level-3 categoryId, so the breadcrumb and
@@ -41,35 +41,6 @@ function RelatedProducts({ products, currentId }: { products: Product[]; current
     <section aria-labelledby="pdp-related-heading" className="sb-section bg-white border-t border-line">
       <div className="sb-container">
         <h2 id="pdp-related-heading" className="type-h2 text-ink mb-6 lg:mb-8">Related products</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5 lg:gap-6">
-          {items.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-// ─── Buy more from this brand ────────────────────────────────────────────────
-// Marketplace products only — the API returns an empty list for curated products.
-
-function MoreFromBrand({ products, currentId, brand }: { products: Product[]; currentId: string; brand: BrandSummary | null | undefined }) {
-  const items = products.filter((p) => p.id !== currentId).slice(0, 8)
-  if (!brand || items.length === 0) return null
-
-  return (
-    <section aria-labelledby="pdp-brand-heading" className="sb-section bg-white border-t border-line">
-      <div className="sb-container">
-        <div className="mb-6 lg:mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-          <h2 id="pdp-brand-heading" className="type-h2 text-ink">Buy more from {brand.name}</h2>
-          <Link
-            href={`/brands/${brand.slug}`}
-            className="inline-flex items-center min-h-11 text-[14px] leading-[20px] font-[600] text-forest underline underline-offset-4 hover:text-forest-hover"
-          >
-            View all from {brand.name}
-          </Link>
-        </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5 lg:gap-6">
           {items.map((p) => (
             <ProductCard key={p.id} product={p} />
@@ -116,6 +87,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const { data: product, isLoading, isError } = useProduct(slug)
   const { data: categoryTree } = useCategoryTree()
   const { track } = useRecentlyViewed()
+  // Set when the buyer picks a colour/option with a photo; the nonce lets a
+  // repeat click on the same swatch re-focus it after the buyer has swiped away.
+  const [focusImage, setFocusImage] = useState<{ url: string; nonce: number } | null>(null)
 
   useEffect(() => {
     if (!product) return
@@ -129,7 +103,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       avgRating: product.avgRating,
       reviewCount: product.reviewCount,
       leadTime: product.leadTime,
-      brand: product.brand ?? null,
       hasOptions: product.hasOptions ?? product.variants.length > 0,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -166,7 +139,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     )
   }
 
-  const images = [...(product.images ?? [])].sort((a, b) => a.sortOrder - b.sortOrder).map((img) => img.url)
+  const productImages = [...(product.images ?? [])].sort((a, b) => a.sortOrder - b.sortOrder).map((img) => img.url)
+  // Variant photos that aren't already among the product photos are appended,
+  // so selecting that option always has a slide to show.
+  const images = [...productImages]
+  for (const v of product.variants ?? []) {
+    if (v.status !== 'INACTIVE' && v.imageUrl && !images.includes(v.imageUrl)) images.push(v.imageUrl)
+  }
   const categoryName = categoryPath.length ? categoryPath[categoryPath.length - 1].name : null
 
   const crumbLink =
@@ -217,17 +196,20 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           {/* Gallery : details = 1.1 : 1, 56px gap; stacked with 32px gap below 1024px */}
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] gap-8 lg:gap-14 lg:items-start">
             <div className="min-w-0 lg:sticky lg:top-[136px]">
-              <PhotoGallery images={images} productName={product.name} />
+              <PhotoGallery images={images} productName={product.name} focusImage={focusImage} />
               <ProductVideoStrip videos={product.videos ?? []} productName={product.name} />
             </div>
 
             <div className="min-w-0">
-              <ProductInfo product={product} categoryName={categoryName} />
+              <ProductInfo
+                product={product}
+                categoryName={categoryName}
+                onVariantImage={(url) => setFocusImage((prev) => ({ url, nonce: (prev?.nonce ?? 0) + 1 }))}
+              />
             </div>
           </div>
         </div>
 
-        <MoreFromBrand products={product.moreFromBrand ?? []} currentId={product.id} brand={product.brand} />
         <RelatedProducts products={product.related ?? []} currentId={product.id} />
       </main>
 

@@ -21,8 +21,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { ImageLightbox, type LightboxImage } from '@/components/shared/ImageLightbox'
 import { useProductReviews } from '@/hooks/queries/useReviews'
 import { useWishlist, useAddToWishlist, useRemoveFromWishlist } from '@/hooks/queries/useWishlist'
-import { BrandTag } from '@/components/brands/BrandTag'
-import { useBrand } from '@/hooks/queries/useBrands'
 import type { Product, Review } from '@/types'
 
 // ─── Quantity stepper ─────────────────────────────────────────────────────────
@@ -373,7 +371,18 @@ const GUEST_CTA = 'Sign up to view wholesale prices'
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function ProductInfo({ product, categoryName }: { product: Product; categoryName?: string | null }) {
+export function ProductInfo({
+  product,
+  categoryName,
+  onVariantImage,
+}: {
+  product: Product
+  categoryName?: string | null
+  /** Called when the buyer picks an option value that has a photo, so the
+   *  gallery can jump to it: the matching variant's own image first, else the
+   *  clicked swatch's image. */
+  onVariantImage?: (url: string) => void
+}) {
   const {
     id, name, description, materials, dimensions, weight,
     moq, stepQty, leadTime, placeOfOrigin, images, variants = [],
@@ -381,9 +390,6 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
     howItIsMade, craftImageUrl, tariffCode, craftTechnique, careInstructions, isMadeToOrder,
     offersSamples, sampleMaxQty, samplePrice,
   } = product
-  const brand = product.brand ?? null
-  // Lazy: only marketplace products have a brand page to fetch the display-only return policy from.
-  const { data: brandDetail } = useBrand(brand?.slug)
   const leadImage = images?.[0]?.url ?? null
 
   const [quantity, setQuantity] = useState(moq)
@@ -399,7 +405,13 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
   )
 
   function selectAttr(type: string, value: string) {
-    setSelectedAttrs((prev) => ({ ...prev, [type]: value }))
+    const next = { ...selectedAttrs, [type]: value }
+    setSelectedAttrs(next)
+    if (onVariantImage) {
+      const swatchImage = axes.find((a) => a.type === type)?.values.find((v) => v.value === value)?.imageUrl
+      const image = findMatchingVariant(variants, next)?.imageUrl || swatchImage
+      if (image) onVariantImage(image)
+    }
   }
 
   const { user, requireAuth, isAuthenticated, openAuthModal } = useAuth()
@@ -539,13 +551,12 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
         variantId: activeVariantId,
         variantLabel,
         leadTime,
-        brand: brand ? { id: brand.id, name: brand.name, slug: brand.slug, minOrderValueInr: brand.minOrderValueInr, logoUrl: brand.logoUrl ?? null } : null,
       })
     }, 'add_to_cart')
   }
 
   // A sample goes through the normal cart and checkout: sample price, no MOQ, and it does
-  // not count toward (or need) the brand's minimum order value.
+  // not count toward the MOQ.
   function handleAddSampleToCart() {
     if (variants.length > 0 && !activeVariantId) return
     requireAuth(() => {
@@ -565,7 +576,6 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
         variantId: activeVariantId,
         variantLabel,
         leadTime,
-        brand: brand ? { id: brand.id, name: brand.name, slug: brand.slug, minOrderValueInr: brand.minOrderValueInr, logoUrl: brand.logoUrl ?? null } : null,
       })
     }, 'add_to_cart')
   }
@@ -631,8 +641,6 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
   else craftRows.push({ label: 'Country of origin', value: 'India' })
   if (isHandmade) craftRows.push({ label: 'Handmade', value: 'Yes' })
   if (isGITagged) craftRows.push({ label: 'GI tag', value: 'Geographical Indication tagged' })
-  // A named maker is shown only for marketplace brands; curated suppliers stay anonymous.
-  if (brand && product.artisanName) craftRows.push({ label: 'Made by', value: product.artisanName })
 
   const orderRows: DetailRow[] = []
   orderRows.push({ label: 'Minimum order', value: `${moq} units${qtyStep > 1 ? `, in cases of ${qtyStep}` : ''}` })
@@ -643,14 +651,6 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
     value: offersSamples ? `Available, up to ${sampleMaxQty ?? 1} unit${(sampleMaxQty ?? 1) === 1 ? '' : 's'}` : 'Not offered',
   })
   if (displayTariffCode) orderRows.push({ label: 'HS / tariff code', value: displayTariffCode })
-  if (brandDetail?.returnPolicy) {
-    // Display-only text set by the brand — Solomon Bharat does not handle returns, refunds or disputes.
-    orderRows.push({
-      label: `${brandDetail.name} return policy`,
-      value: <span className="whitespace-pre-line">{brandDetail.returnPolicy}</span>,
-    })
-  }
-
   const ecoRows: DetailRow[] = []
   if (ecoMaterials.length > 0) ecoRows.push({ label: 'Materials', value: ecoMaterials.join(', ') })
   if (ecoPackaging.length > 0) ecoRows.push({ label: 'Packaging', value: ecoPackaging.join(', ') })
@@ -730,7 +730,6 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
         </div>
       )}
 
-      {brand && <BrandTag brand={brand} prefix="by " className="mt-2 !text-[14px] !leading-[20px]" />}
 
       {product.avgRating != null && product.avgRating > 0 && product.reviewCount > 0 && (
         <a
@@ -1097,16 +1096,6 @@ export function ProductInfo({ product, categoryName }: { product: Product; categ
             className="inline-flex items-center justify-center h-11 px-5 rounded bg-forest text-white font-[600] text-[14px] hover:bg-[#0F241D] transition-colors"
           >
             Order a sample
-          </Link>
-        </section>
-      )}
-
-      {brandDetail?.story && (
-        <section aria-labelledby="pdp-brand-story-heading" className="mt-12">
-          <h2 id="pdp-brand-story-heading" className="type-h3 text-ink mb-4">About {brandDetail.name}</h2>
-          <p className="type-body text-muted whitespace-pre-line break-words">{brandDetail.story}</p>
-          <Link href={`/brands/${brandDetail.slug}`} className="mt-3 inline-flex min-h-11 items-center font-[600] text-forest underline underline-offset-4">
-            Visit {brandDetail.name}&apos;s shop
           </Link>
         </section>
       )}

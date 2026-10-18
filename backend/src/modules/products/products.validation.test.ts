@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { saveDraftSchema, updateProductAsAdminSchema, updateProductSchema } from './products.validation';
+import {
+  createProductSchema,
+  readyStockIssue,
+  saveDraftSchema,
+  updateProductAsAdminSchema,
+  updateProductSchema,
+} from './products.validation';
 
 const CATEGORY_ID = '3f1c2b8e-1a2b-4c3d-8e4f-123456789abc';
 
@@ -58,5 +64,58 @@ describe('updateProductAsAdminSchema', () => {
     const body = { priceTiers: [{ moq: 10, sellerPrice: 5, adminPrice: 8, agentPrice: 7 }] };
     expect(updateProductAsAdminSchema.parse(body).priceTiers).toEqual(body.priceTiers);
     expect(updateProductSchema.parse(body).priceTiers).toEqual([{ moq: 10, sellerPrice: 5 }]);
+  });
+});
+
+describe('made to order vs ready stock', () => {
+  const base = {
+    name: 'Rug',
+    description: 'd',
+    categoryId: CATEGORY_ID,
+    materials: 'Wool',
+    weight: '2',
+    moq: 5,
+    sellerPrice: 100,
+  };
+  const variant = (inventory?: number, status = 'ACTIVE') => ({
+    type: 'Size',
+    value: 'S',
+    status,
+    ...(inventory !== undefined ? { inventory } : {}),
+  });
+
+  it('ready stock without variants needs declaredStock of at least 1', () => {
+    expect(createProductSchema.safeParse({ ...base, isMadeToOrder: 'false', declaredStock: '0' }).success).toBe(false);
+    expect(createProductSchema.safeParse({ ...base, isMadeToOrder: 'false', declaredStock: '3' }).success).toBe(true);
+  });
+
+  it('made to order needs no stock quantity', () => {
+    expect(createProductSchema.safeParse({ ...base, isMadeToOrder: 'true', declaredStock: '0' }).success).toBe(true);
+    expect(
+      createProductSchema.safeParse({
+        ...base,
+        isMadeToOrder: 'true',
+        declaredStock: '0',
+        variants: JSON.stringify([variant()]),
+      }).success,
+    ).toBe(true);
+  });
+
+  it('ready stock with variants needs inventory on every active variant', () => {
+    const parse = (variants: unknown[]) =>
+      createProductSchema.safeParse({ ...base, isMadeToOrder: 'false', declaredStock: '0', variants: JSON.stringify(variants) });
+    expect(parse([variant(4), variant()]).success).toBe(false);
+    expect(parse([variant(4), variant(0)]).success).toBe(false);
+    expect(parse([variant(4), variant(undefined, 'INACTIVE')]).success).toBe(true);
+  });
+
+  it('readyStockIssue skips fields a partial update did not send', () => {
+    expect(readyStockIssue({ isMadeToOrder: false })).toBeNull();
+    expect(readyStockIssue({ isMadeToOrder: false, declaredStock: 0 })).not.toBeNull();
+  });
+
+  it('accepts metres as a variant dimension unit', () => {
+    const r = updateProductSchema.safeParse({ variants: [{ type: 'Size', value: 'L', length: 1.2, dimensionUnit: 'm' }] });
+    expect(r.success).toBe(true);
   });
 });

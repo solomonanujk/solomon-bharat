@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import type { ReportType } from '@/types'
-import type { BrandRevenueRow } from '@/types/brand-admin'
 
 // ─── Report type options ────────────────────────────────────────────────────────
 
@@ -37,45 +36,6 @@ function humanizeKey(key: string): string {
     .join(' ')
 }
 
-const inr = (v: number | string) => `₹${Math.round(Number(v) || 0).toLocaleString('en-IN')}`
-
-/** Per-brand GMV / commission table shown under the revenue report. */
-function BrandRevenueTable({ brands }: { brands: BrandRevenueRow[] }) {
-  return (
-    <section className="mt-6" aria-labelledby="brand-revenue-heading">
-      <h2 id="brand-revenue-heading" className="text-[15px] font-[600] font-sans text-[#0F241D] mb-1">Revenue by brand</h2>
-      <p className="text-[12.5px] font-sans text-[#183D33B3] mb-3">
-        Marketplace brand orders only. Commission is Solomon&apos;s earnings on each brand&apos;s GMV.
-      </p>
-      <div className="bg-white border border-[#D9E2DA] rounded-xl overflow-x-auto">
-        {brands.length === 0 ? (
-          <p className="p-5 text-[13px] font-sans text-[#183D33B3]">No brand orders in this period.</p>
-        ) : (
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-[#D9E2DA] bg-[#E7EDE7]/40">
-                {['Brand', 'Orders', 'GMV', 'Commission'].map((h) => (
-                  <th key={h} className="py-3 px-4 text-[12px] font-[600] font-sans text-[#183D33B3] uppercase tracking-[0.06em] text-left">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {brands.map((b) => (
-                <tr key={b.sellerProfileId} className="border-b border-[#D9E2DA] last:border-0">
-                  <td className="py-3 px-4 text-[13px] font-[600] font-sans text-[#0F241D]">{b.brandName}</td>
-                  <td className="py-3 px-4 text-[13px] font-sans text-[#0F241D] tabular-nums">{b.ordersCount}</td>
-                  <td className="py-3 px-4 text-[13px] font-sans text-[#0F241D] tabular-nums">{inr(b.gmv)}</td>
-                  <td className="py-3 px-4 text-[13px] font-sans text-[#0F241D] tabular-nums">{inr(b.commission)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </section>
-  )
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminReportsPage() {
@@ -90,18 +50,7 @@ export default function AdminReportsPage() {
     to: to || undefined,
   })
 
-  // The revenue row carries a nested `brands` array: render it as its own table
-  // instead of an unreadable object cell in the generic grid.
-  const brandRows: BrandRevenueRow[] | null = useMemo(() => {
-    if (type !== 'revenue' || !rows.length) return null
-    const b = (rows[0] as { brands?: BrandRevenueRow[] }).brands
-    return Array.isArray(b) ? b : null
-  }, [rows, type])
-
-  const tableRows = useMemo(
-    () => (type === 'revenue' ? rows.map(({ brands: _brands, ...rest }) => rest) : rows),
-    [rows, type],
-  )
+  const tableRows = rows
 
   const columns: DataTableColumn[] = useMemo(() => {
     if (!tableRows.length) return []
@@ -212,7 +161,6 @@ export default function AdminReportsPage() {
         <DataTable columns={columns} data={tableRows} />
       )}
 
-      {!isLoading && !isFetching && brandRows && <BrandRevenueTable brands={brandRows} />}
 
       {rows.length === 0 && !isLoading && !isFetching && (
         <p className="text-[12px] font-sans text-[#183D33B3] mt-3 flex items-center gap-1.5">

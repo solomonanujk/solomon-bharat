@@ -8,7 +8,6 @@ import { Check, ChevronDown, Eye, EyeOff, Film, GripVertical, Lightbulb, Search,
 import { Button } from '@/components/ui/button'
 import { useCategoryTree } from '@/hooks/queries/useCategories'
 import { useAdminSellers } from '@/hooks/queries/useSellers'
-import { useSellerType } from '@/hooks/queries/useBrandPortal'
 import {
   useSubmitProduct,
   useUpdateMyProduct,
@@ -31,15 +30,23 @@ import { ECO_MATERIALS, ECO_PACKAGING, ECO_PRODUCTION } from '@/lib/ecoAttribute
 import { INDIAN_PLACES } from '@/lib/indianPlaces'
 import { TierTable } from '@/components/seller-portal/TierTable'
 import {
-  FLAT_KEY, MAX_BRAND_TIERS, blankTierRow, buildPricingPayload, cloneTierRows, evaluatePricing,
+  FLAT_KEY, blankTierRow, buildPricingPayload, cloneTierRows, evaluatePricing,
   hydrateTierRows, starterTierRows, tiersEqual, type PayloadTier, type PricingPayload, type TierField, type TierRow,
 } from '@/components/seller-portal/productPricing'
-import type { AdminProduct, MyProduct, VariantStatus } from '@/types'
-import type { AdminProductBrandFields } from '@/types/brand-admin'
+import type { AdminProduct, DimensionUnit, MyProduct, VariantStatus } from '@/types'
 
 const MIN_IMAGES = 2
 const MAX_IMAGES = 10
 const MAX_VIDEOS = 3
+/** Per-video cap — mirrors MAX_VIDEO_FILE_SIZE_BYTES in backend/src/middleware/upload.ts. */
+const MAX_VIDEO_MB = 100
+const ACCEPTED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
+/** Units a seller can pick for dimensions; `in` is stored as-is and shown as "inch" here. */
+const DIMENSION_UNIT_OPTIONS: { value: DimensionUnit; label: string }[] = [
+  { value: 'cm', label: 'cm' },
+  { value: 'in', label: 'inch' },
+  { value: 'm', label: 'm' },
+]
 
 const INPUT_CLS =
   'w-full h-10 px-3 rounded border border-border-warm bg-surface text-[14px] font-sans text-primary placeholder:text-muted-text/50 focus:outline-none focus:border-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
@@ -57,7 +64,7 @@ interface VariantPricing {
   length: string
   width: string
   height: string
-  dimensionUnit: 'cm' | 'in'
+  dimensionUnit: DimensionUnit
   tariffCode: string
   status: VariantStatus
 }
@@ -66,14 +73,19 @@ function defaultVP(): VariantPricing {
 }
 interface VariantCombo { key: string; label: string; attributes: { name: string; value: string }[] }
 
-function Field({ label, required, hint, action, children }: {
-  label: string; required?: boolean; hint?: string; action?: React.ReactNode; children: React.ReactNode
+/** A star after a label, marking a field that must be filled in to publish. */
+function RequiredStar() {
+  return <span className="text-error ml-0.5" aria-hidden="true">*</span>
+}
+
+function Field({ id, label, required, hint, action, children }: {
+  id?: string; label: string; required?: boolean; hint?: string; action?: React.ReactNode; children: React.ReactNode
 }) {
   return (
-    <div>
+    <div id={id} className="scroll-mt-24">
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <label className="text-[14px] font-[600] font-sans text-primary">
-          {label}{required && <span className="text-error ml-0.5">*</span>}
+          {label}{required && <RequiredStar />}
         </label>
         {action}
       </div>
@@ -180,9 +192,9 @@ interface ProductFormProps {
 
 function parseDimensions(dimensions: string | null | undefined) {
   if (!dimensions) return null
-  const m = dimensions.match(/^([\d.]+)\s*x\s*([\d.]+)\s*x\s*([\d.]+)\s*(cm|in)$/i)
+  const m = dimensions.match(/^([\d.]+)\s*x\s*([\d.]+)\s*x\s*([\d.]+)\s*(cm|in|m)$/i)
   if (!m) return null
-  return { length: m[1], width: m[2], height: m[3], unit: (m[4].toLowerCase() as 'cm' | 'in') }
+  return { length: m[1], width: m[2], height: m[3], unit: (m[4].toLowerCase() as DimensionUnit) }
 }
 
 /** Reconstructs the Size + one-other-axis rows from an existing product's variants,
@@ -251,13 +263,8 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const isAdminMode = mode !== 'seller'
   const isAdminCreate = mode === 'admin-create'
   const isEdit = !!product
-  const { isMarketplace: sellerIsMarketplace } = useSellerType()
-  /** Marketplace brand: sets the buyer price directly; publishes immediately, no admin review. */
-  const isBrand = !isAdminMode && sellerIsMarketplace
-  /** Admin editing a marketplace brand's product: the brand owns every price, so price fields are read-only and never sent. */
-  const brandLocked = isAdminMode && !!(product as (MyProduct & AdminProductBrandFields) | undefined)?.brand
 
-  const submitMutation = useSubmitProduct(isBrand ? 'Product published.' : 'Product submitted for review.')
+  const submitMutation = useSubmitProduct('Product submitted for review.')
   const sellerUpdateMutation = useUpdateMyProduct()
   const adminUpdateMutation = useAdminUpdateProduct()
   const adminCreateMutation = useAdminCreateProduct()
@@ -313,13 +320,13 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const [placeOfOrigin, setPlaceOfOrigin] = useState(product?.placeOfOrigin ?? '')
   const [craftTechnique, setCraftTechnique] = useState(product?.craftTechnique ?? '')
   const [careInstructions, setCareInstructions] = useState(product?.careInstructions ?? '')
-  // Samples: marketplace brands must say whether they offer them; admins set them for curated products.
+  // Samples: admins set them for curated products.
   const [offersSamples, setOffersSamples] = useState<'yes' | 'no' | ''>(
     product ? (product.offersSamples ? 'yes' : 'no') : '',
   )
   const [sampleMaxQty, setSampleMaxQty] = useState(product?.sampleMaxQty ? String(product.sampleMaxQty) : '')
   const [samplePrice, setSamplePrice] = useState(product?.samplePrice ? String(product.samplePrice) : '')
-  const samplesRequired = sellerIsMarketplace && !isAdminMode
+  const samplesRequired = false
   const [leadTime, setLeadTime] = useState(product?.leadTime ?? '')
   const [isMadeToOrder, setIsMadeToOrder] = useState<'yes' | 'no' | ''>(
     product ? (product.isMadeToOrder ? 'yes' : 'no') : '',
@@ -420,7 +427,16 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
     if (!files) return
     const room = MAX_VIDEOS - totalVideoCount
     if (room <= 0) { toast.error(`You can have at most ${MAX_VIDEOS} videos.`); return }
-    setNewVideos((prev) => [...prev, ...Array.from(files).slice(0, room)])
+    // The server rejects anything else anyway; catching it here gives a clear reason
+    // before a long upload instead of a failed save afterwards.
+    const all = Array.from(files)
+    const wrongType = all.filter((f) => !ACCEPTED_VIDEO_TYPES.includes(f.type))
+    const tooBig = all.filter((f) => ACCEPTED_VIDEO_TYPES.includes(f.type) && f.size > MAX_VIDEO_MB * 1024 * 1024)
+    if (wrongType.length > 0) toast.error(`${wrongType.length} file${wrongType.length > 1 ? 's' : ''} skipped. Only MP4, MOV or WEBM videos are supported.`)
+    if (tooBig.length > 0) toast.error(`${tooBig.length} video${tooBig.length > 1 ? 's are' : ' is'} over ${MAX_VIDEO_MB} MB. Trim or compress ${tooBig.length > 1 ? 'them' : 'it'} and try again.`)
+    const accepted = all.filter((f) => !wrongType.includes(f) && !tooBig.includes(f))
+    if (accepted.length === 0) return
+    setNewVideos((prev) => [...prev, ...accepted.slice(0, room)])
   }
   function removeExistingVideo(id: string) {
     setExistingVideos((prev) => prev.filter((v) => v.id !== id))
@@ -472,7 +488,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const [variantPricing, setVariantPricing] = useState<Record<string, VariantPricing>>(hydrated.pricing)
   const [colorSwatches, setColorSwatches] = useState<Record<string, string>>(hydrated.colorSwatches)
   // Volume-pricing ladders, keyed like variantPricing ('single' for a product with no options).
-  // Same table for every seller type; only labels and the brand-only validation rules differ.
+  // Same table for sellers and admins; only labels differ.
   const [tierRows, setTierRows] = useState<Record<string, TierRow[]>>(hydrated.tiers)
   const [showTierErrors, setShowTierErrors] = useState(false)
   const tierIdCounter = useRef(0)
@@ -547,7 +563,6 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
     setTierRows((p) => ({ ...p, [key]: update(p[key] && p[key].length > 0 ? p[key] : starterTierRows(key)) }))
   }
   function addTier(key: string) {
-    if (isBrand && getTiers(key).length >= MAX_BRAND_TIERS) return
     tierIdCounter.current += 1
     const id = `${key}::n${tierIdCounter.current}`
     setTiers(key, (rows) => [...rows, blankTierRow(id)])
@@ -568,12 +583,12 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
     toast.success('Applied these tiers to every option.')
   }
 
-  /** Admin-create also prices each tier for buyers and agents. Brand-owned products never do. */
+  /** Admin-create also prices each tier for buyers and agents.  */
   const withAdminPricing = isAdminCreate
   const ladderKeys = activeCombos.map((c) => c.key)
   const pricingEval = evaluatePricing(
     ladderKeys.map((key) => ({ key, rows: getTiers(key) })),
-    { strict: isBrand, withAdminPricing },
+    { strict: false, withAdminPricing },
   )
   function toggleVPStatus(key: string) {
     const current = variantPricing[key]?.status ?? 'ACTIVE'
@@ -595,38 +610,112 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const [resubmitting, setResubmitting] = useState(false)
   const saving = submitMutation.isPending || updateMutation.isPending || adminCreateMutation.isPending || resubmitMutation.isPending
 
+  // ── Publish checklist ───────────────────────────────────────────────────────
+  // One list drives both the publish validation (first unmet item = the error toast)
+  // and the progress bar ("% complete · Next: …"). Each item knows which field to
+  // scroll to. Items that do not apply (e.g. sample price when no samples) are left out.
+  /** Made to order: no stock to declare, so inventory is hidden and not required. */
+  const madeToOrder = isMadeToOrder === 'yes'
+  /** Dimensions and HSN code are mandatory listing fields (BUSINESS_DECISIONS); required
+   *  for new seller listings and drafts, not forced onto already-submitted products. */
+  const requireListingDetails = mode === 'seller' && (!product || product.approvalStatus === 'DRAFT')
+  const optionLabel = (c: VariantCombo) => (c.label === 'Default' ? 'this product' : c.label)
+  /** Hidden options need no stock; the no-options single row always does (mirrors readyStockIssue server-side). */
+  const needsInventory = (c: VariantCombo) => !madeToOrder && (usingSingleRow || getVP(c.key).status !== 'INACTIVE')
+  const unweighted = activeCombos.find((c) => !(Number(getVP(c.key).weight) > 0))
+  const undimensioned = activeCombos.find((c) => {
+    const vp = getVP(c.key)
+    return !(Number(vp.length) > 0 && Number(vp.width) > 0 && Number(vp.height) > 0)
+  })
+  const noHsn = activeCombos.find((c) => !getVP(c.key).tariffCode.trim())
+  const uninventoried = activeCombos.find((c) => {
+    if (!needsInventory(c)) return false
+    const inv = Number(getVP(c.key).inventory)
+    return !(Number.isInteger(inv) && inv >= 1)
+  })
+  const optionsReady = !!hasOptions && !(hasOptions === 'yes' && !optionsSaved) && activeCombos.length > 0
+
+  type ChecklistItem = { key: string; anchor: string; done: boolean; next: string; error: string }
+  const checklist: ChecklistItem[] = [
+    ...(isAdminCreate && sellerMode === 'existing'
+      ? [{ key: 'seller', anchor: 'pf-seller', done: !!selectedSellerId, next: 'Select a seller', error: 'Select a seller.' }]
+      : []),
+    { key: 'name', anchor: 'pf-name', done: !!name.trim(), next: 'Add a product name', error: 'Enter a product name.' },
+    { key: 'category', anchor: 'pf-category', done: !!categoryId, next: 'Choose a product category', error: 'Select a product category.' },
+    { key: 'description', anchor: 'pf-description', done: !!description.trim(), next: 'Write a description', error: 'Enter a description.' },
+    { key: 'materials', anchor: 'pf-materials', done: !!materials.trim(), next: 'Add the materials', error: 'Enter the product materials.' },
+    { key: 'region', anchor: 'pf-region', done: !!placeOfOrigin.trim(), next: 'Choose where it is made', error: 'Select where the product is made (region).' },
+    { key: 'craft', anchor: 'pf-craft', done: !!craftTechnique.trim(), next: 'Add the craft technique', error: 'Enter the craft technique (e.g. block printing, hand weaving).' },
+    { key: 'mto', anchor: 'pf-mto', done: !!isMadeToOrder, next: 'Choose made to order or ready stock', error: 'Choose whether this product is made to order or ready stock.' },
+    { key: 'lead', anchor: 'pf-lead', done: !!leadTime.trim(), next: 'Add the lead time', error: 'Enter the lead time (e.g. 15-20 days).' },
+    { key: 'care', anchor: 'pf-care', done: !!careInstructions.trim(), next: 'Add care instructions', error: 'Enter care instructions.' },
+    ...(samplesRequired
+      ? [{ key: 'samples', anchor: 'pf-samples', done: !!offersSamples, next: 'Say whether you offer samples', error: 'Choose whether you offer samples of this product.' }]
+      : []),
+    ...(offersSamples === 'yes'
+      ? [
+          { key: 'sampleQty', anchor: 'pf-sample-qty', done: Number(sampleMaxQty) >= 1 && Number.isInteger(Number(sampleMaxQty)), next: 'Set the maximum sample quantity', error: 'Enter the maximum sample quantity (a whole number).' },
+          { key: 'samplePrice', anchor: 'pf-sample-price', done: Number(samplePrice) > 0, next: 'Set the sample price', error: 'Enter the price per sample unit.' },
+        ]
+      : []),
+    {
+      key: 'images', anchor: 'pf-images', done: totalImageCount >= MIN_IMAGES && totalImageCount <= MAX_IMAGES,
+      next: totalImageCount > MAX_IMAGES ? `Remove photos (max ${MAX_IMAGES})` : `Add at least ${MIN_IMAGES} photos`,
+      error: `Upload between ${MIN_IMAGES} and ${MAX_IMAGES} images (currently ${totalImageCount}).`,
+    },
+    {
+      key: 'options', anchor: 'pf-options', done: optionsReady,
+      next: !hasOptions ? 'Say whether it comes in options' : 'Finish adding product options',
+      error: !hasOptions
+        ? 'Select whether this product comes in multiple options.'
+        : activeCombos.length === 0 ? 'Add at least one product option, or choose No.' : 'Finish adding product options, or choose No.',
+    },
+    { key: 'pricing', anchor: 'pf-pricing', done: optionsReady && !pricingEval.hasErrors, next: 'Set your volume pricing (MOQ and price)', error: 'Fix the highlighted price tiers.' },
+    {
+      key: 'weight', anchor: 'pf-variants', done: optionsReady && !unweighted,
+      next: 'Add the weight', error: `Set a weight for "${unweighted ? optionLabel(unweighted) : 'this product'}".`,
+    },
+    ...(requireListingDetails
+      ? [
+          {
+            key: 'dimensions', anchor: 'pf-variants', done: optionsReady && !undimensioned,
+            next: 'Add the dimensions (L x W x H)', error: `Set the length, width and height for "${undimensioned ? optionLabel(undimensioned) : 'this product'}".`,
+          },
+          {
+            key: 'hsn', anchor: 'pf-variants', done: optionsReady && !noHsn,
+            next: 'Add the HSN code', error: `Set the HSN code for "${noHsn ? optionLabel(noHsn) : 'this product'}".`,
+          },
+        ]
+      : []),
+    ...(!madeToOrder
+      ? [{
+          key: 'inventory', anchor: 'pf-variants', done: optionsReady && !uninventoried,
+          next: 'Add the stock quantity', error: `Set an inventory of at least 1 for "${uninventoried ? optionLabel(uninventoried) : 'this product'}" (ready stock).`,
+        }]
+      : []),
+  ]
+  const checklistDone = checklist.filter((i) => i.done).length
+  const progressPct = Math.round((checklistDone / checklist.length) * 100)
+  const nextItem = checklist.find((i) => !i.done)
+  const remainingCount = checklist.length - checklistDone
+
+  /** Scrolls a field into view and focuses its first control. Fields under the
+   *  category gate are not rendered yet, so fall back to the category picker. */
+  function scrollToField(anchor: string) {
+    const el = document.getElementById(anchor) ?? document.getElementById('pf-category')
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.querySelector<HTMLElement>('input:not([type=hidden]):not(.hidden), select, textarea, button')?.focus({ preventScroll: true })
+  }
+
   function validate(): string | null {
-    if (!name.trim()) return 'Enter a product name.'
-    if (!categoryId) return 'Select a product category.'
-    if (!description.trim()) return 'Enter a description.'
-    if (!materials.trim()) return 'Enter the product materials.'
-    if (!craftTechnique.trim()) return 'Enter the craft technique (e.g. block printing, hand weaving).'
-    if (!placeOfOrigin.trim()) return 'Select where the product is made (region).'
-    if (!isMadeToOrder) return 'Choose whether this product is made to order or ready stock.'
-    if (!leadTime.trim()) return 'Enter the lead time (e.g. 15-20 days).'
-    if (!careInstructions.trim()) return 'Enter care instructions.'
-    if (samplesRequired && !offersSamples) return 'Choose whether you offer samples of this product.'
-    if (offersSamples === 'yes' && !(Number(sampleMaxQty) >= 1 && Number.isInteger(Number(sampleMaxQty)))) return 'Enter the maximum sample quantity (a whole number).'
-    if (offersSamples === 'yes' && !(Number(samplePrice) > 0)) return 'Enter the price per sample unit.'
-    if (totalImageCount < MIN_IMAGES || totalImageCount > MAX_IMAGES) {
-      return `Upload between ${MIN_IMAGES} and ${MAX_IMAGES} images (currently ${totalImageCount}).`
-    }
     if (totalVideoCount > MAX_VIDEOS) return `You can have at most ${MAX_VIDEOS} videos.`
-    if (!hasOptions) return 'Select whether this product comes in multiple options.'
-    if (hasOptions === 'yes' && !optionsSaved) return 'Finish adding product options, or choose No.'
-    if (activeCombos.length === 0) return 'Add at least one product option, or choose No.'
-    if (!brandLocked && pricingEval.hasErrors) {
-      setShowTierErrors(true)
-      return 'Fix the highlighted price tiers.'
+    const missing = nextItem
+    if (missing) {
+      if (missing.key === 'pricing') setShowTierErrors(true)
+      scrollToField(missing.anchor)
+      return missing.error
     }
-    const unweighted = activeCombos.find((c) => !(Number(getVP(c.key).weight) > 0))
-    if (unweighted) return `Set a weight for "${unweighted.label === 'Default' ? 'this product' : unweighted.label}".`
-    const uninventoried = activeCombos.find((c) => {
-      const inv = getVP(c.key).inventory
-      return !inv.trim() || Number(inv) < 0
-    })
-    if (uninventoried) return `Set inventory for "${uninventoried.label === 'Default' ? 'this product' : uninventoried.label}".`
-    if (isAdminCreate && sellerMode === 'existing' && !selectedSellerId) return 'Select a seller.'
     if (isAdminCreate && !activeCombos.some((c) => pricingEval.ladders[c.key]?.valid.some((t) => Number(t.adminPrice) > 0))) {
       setShowTierErrors(true)
       return 'Set a Buyer Price for at least one tier.'
@@ -637,8 +726,8 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   function computeBase(): { moq: number; sellerPrice: number; weight: number; pricing: PricingPayload | null } | null {
     const rows = activeCombos.map((c) => getVP(c.key))
     // Derived from the tiers: moq = lowest tier MOQ anywhere, sellerPrice = cheapest tier price.
-    const pricing = brandLocked ? null : buildPricingPayload(pricingEval, ladderKeys, usingSingleRow, withAdminPricing)
-    if (!brandLocked && (!pricing || (isBrand && pricingEval.hasErrors))) return null
+    const pricing = buildPricingPayload(pricingEval, ladderKeys, usingSingleRow, withAdminPricing)
+    if (!pricing) return null
     const weightsKg = rows
       .map((r) => (Number(r.weight) > 0 ? (r.weightUnit === 'lb' ? Number(r.weight) * 0.453592 : Number(r.weight)) : null))
       .filter((n): n is number => n !== null)
@@ -651,6 +740,8 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
    *  total server-side from variant inventory too (see deriveDeclaredStock), so this
    *  is really just keeping the client's own required-field value consistent with it. */
   function totalInventory(): number {
+    // Made to order carries no stock; any numbers typed before switching are dropped.
+    if (madeToOrder) return 0
     return activeCombos.reduce((sum, c) => sum + (Number(getVP(c.key).inventory) || 0), 0)
   }
 
@@ -673,8 +764,8 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
         // images in this same submission are uploaded (see newImageIndex server-side).
         imageUrl: newImageIndex === undefined ? swatchValue : undefined,
         newImageIndex,
-        priceTiers: brandLocked ? undefined : pricing?.variantTiers[combo.key],
-        inventory: vp.inventory ? Number(vp.inventory) : undefined,
+        priceTiers: pricing?.variantTiers[combo.key],
+        inventory: !madeToOrder && vp.inventory ? Number(vp.inventory) : undefined,
         weight: vp.weight ? Number(vp.weight) : undefined,
         weightUnit: vp.weight ? vp.weightUnit : undefined,
         length: vp.length ? Number(vp.length) : undefined,
@@ -704,31 +795,6 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
     if (mode === 'admin-edit' && stored.length > 0
       && tiersEqual(tiers, stored.map((t) => ({ moq: t.moq, sellerPrice: Number(t.sellerPrice) })))) return undefined
     return tiers
-  }
-
-  /** Brand-locked admin edit: true only when a variant's non-price data (sku, status, stock,
-   *  weight, size, swatch, attributes) differs from what is stored, or an option was added/removed. */
-  function brandVariantsChanged(built: SubmitVariantInput[]): boolean {
-    const stored = product?.variants ?? []
-    if (built.length !== stored.length) return true
-    const key = (v: { sku?: string | null; type: string; value: string }) => v.sku ?? `${v.type}::${v.value}`
-    const n = (x: number | null | undefined) => (x == null ? null : Number(x))
-    const norm = (v: {
-      sku?: string | null; status?: string | null; imageUrl?: string | null; inventory?: number | null
-      weight?: number | null; weightUnit?: string | null; length?: number | null; width?: number | null
-      height?: number | null; dimensionUnit?: string | null; tariffCode?: string | null
-      attributes?: { name: string; value: string }[]
-    }) => JSON.stringify([
-      v.sku ?? null, v.status ?? 'ACTIVE', v.imageUrl ?? null, n(v.inventory), n(v.weight), v.weight ? v.weightUnit ?? null : null,
-      n(v.length), n(v.width), n(v.height), v.length || v.width || v.height ? v.dimensionUnit ?? null : null,
-      v.tariffCode ?? null, (v.attributes ?? []).map((a) => `${a.name}=${a.value}`).sort(),
-    ])
-    const byKey = new Map(stored.map((v) => [key(v), v]))
-    return built.some((b) => {
-      if (b.newImageIndex !== undefined) return true
-      const old = byKey.get(key(b))
-      return !old || norm(b) !== norm(old)
-    })
   }
 
   /** `resubmit` (rejected product, "Save & resubmit"): the edits are saved first and the
@@ -776,19 +842,12 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
     // never send them: that would overwrite imported tags / previously set flags.
     const createOnlyDefaults = { tags: [] as string[], isHandmade: false, isGITagged: false }
 
-    // Brand-owned products: the backend rejects any price/MOQ/tier change (400 "This price
-    // is set by the brand") and a variant replace must not touch the brand's tiers, so
-    // price fields are never sent and variants only when their non-price data changed.
-    const { moq: _moq, sellerPrice: _sellerPrice, priceTiers: _priceTiers, variants: _variants, ...commonNoPrice } = commonFields
-    void _moq; void _sellerPrice; void _priceTiers
-    const brandLockedFields = brandVariantsChanged(_variants) ? { ...commonNoPrice, variants: _variants } : commonNoPrice
-
     try {
       if (isEdit && product) {
         await updateMutation.mutateAsync({
           id: product.id,
           data: {
-            ...(brandLocked ? brandLockedFields : commonFields),
+            ...(commonFields),
             // Publishing an existing draft (its only ever-false→true transition) —
             // a normal edit of a non-draft product ignores this field entirely.
             publish: product.approvalStatus === 'DRAFT',
@@ -849,7 +908,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       dimensions,
       weight: base?.weight,
       declaredStock: totalInventory(),
-      ...(brandLocked ? {} : { sellerPrice: base?.sellerPrice, moq: base?.moq, priceTiers: flatTiersForSave(base?.pricing ?? null) }),
+      sellerPrice: base?.sellerPrice, moq: base?.moq, priceTiers: flatTiersForSave(base?.pricing ?? null),
       variants: base ? buildVariantPayload(base.pricing) : undefined,
       placeOfOrigin: placeOfOrigin.trim() || undefined,
       craftTechnique: craftTechnique.trim() || undefined,
@@ -901,10 +960,8 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   }
 
   const selectedCategoryPath = categoryId ? categoryPathLabel(tree, categoryId) : ''
-  const priceHeader = isBrand ? 'Price buyers pay (₹)' : isAdminMode ? 'Price per unit (₹)' : 'Your price (₹)'
-  const pricingHint = isBrand
-    ? 'Set the price buyers pay at each order quantity. The first tier is your minimum order quantity; bigger tiers can only cost less per unit. Up to 5 tiers.'
-    : isAdminMode
+  const priceHeader = isAdminMode ? 'Price per unit (₹)' : 'Your price (₹)'
+  const pricingHint = isAdminMode
       ? 'What Solomon Bharat pays the seller per unit at each order quantity. Edit the MOQs, add more tiers, or fill in a price for each.'
       : 'Your price (₹) — what Solomon pays you per unit at each order quantity. Edit the MOQs, add more tiers, or fill in a price for each.'
 
@@ -913,19 +970,15 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       {isEdit && (
         <div className="flex items-center gap-3 mb-6">
           <span className="text-[12px] font-[600] font-sans text-muted-text uppercase tracking-[0.05em]">Status</span>
-          {isBrand && product!.approvalStatus !== 'DRAFT' ? (
-            <span className="text-[13px] font-[600] font-sans text-primary">{product!.isPublished ? 'Published' : 'Unpublished'}</span>
-          ) : (
-            <ApprovalStatusBadge status={product!.approvalStatus} />
-          )}
+          <ApprovalStatusBadge status={product!.approvalStatus} />
         </div>
       )}
 
       {isAdminCreate && (
-        <div className="border border-border-warm rounded-xl p-8 mb-6">
-          <h2 className="text-[20px] font-[700] font-sans text-primary mb-1">Seller</h2>
+        <div className="border border-border-warm rounded-xl p-5 sm:p-8 mb-6">
+          <h2 id="pf-seller" className="text-[20px] font-[700] font-sans text-primary mb-1 scroll-mt-24">Seller<RequiredStar /></h2>
           <p className="text-[13px] font-sans text-muted-text mb-4">Attribute this product to a seller, or create it as house inventory.</p>
-          <div className="flex gap-3 mb-4">
+          <div className="flex flex-wrap gap-3 mb-4">
             <button type="button" onClick={() => setSellerMode('existing')}
               className={`choice-box-like h-10 px-4 rounded border text-[14px] font-[600] font-sans transition-colors ${sellerMode === 'existing' ? 'border-primary bg-forest text-white' : 'border-border-warm text-primary'}`}>
               Existing seller
@@ -938,23 +991,24 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
           {sellerMode === 'existing' && (
             <select value={selectedSellerId} onChange={(e) => setSelectedSellerId(e.target.value)} className={INPUT_CLS}>
               <option value="">Select a seller…</option>
-              {sellers.map((s) => s.sellerType === 'MARKETPLACE'
-                ? <option key={s.id} value={s.id} disabled>{s.businessName} — Marketplace brand, cannot create for</option>
-                : <option key={s.id} value={s.id}>{s.businessName} — {s.contactName}</option>)}
+              {sellers.map((s) => <option key={s.id} value={s.id}>{s.businessName} — {s.contactName}</option>)}
             </select>
           )}
         </div>
       )}
 
       {/* ── Basic information ────────────────────────────────────────────── */}
-      <div className="border border-border-warm rounded-xl p-8 mb-6">
-        <h2 className="text-[20px] font-[700] font-sans text-primary mb-5">Basic information</h2>
+      <div className="border border-border-warm rounded-xl p-5 sm:p-8 mb-6">
+        <div className="flex items-baseline justify-between gap-3 flex-wrap mb-5">
+          <h2 className="text-[20px] font-[700] font-sans text-primary">Basic information</h2>
+          <p className="text-[12px] font-sans text-muted-text">Fields marked <RequiredStar /> are required to publish</p>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
           <div>
-            <p className="text-[14px] font-[600] font-sans text-primary">Product details<span className="text-error ml-0.5">*</span></p>
+            <p className="text-[14px] font-[600] font-sans text-primary">Product details</p>
             <p className="text-[13px] font-sans text-muted-text mb-3.5">Add a name and description to help retailers learn more about your product.</p>
-            <Field label="Name">
+            <Field id="pf-name" label="Name" required>
               <input type="text" value={name} onChange={(e) => setName(e.target.value.slice(0, 60))}
                 placeholder="Give your product a clear, concise name." maxLength={60} className={INPUT_CLS} />
               <p className="text-right text-[12px] font-sans text-muted-text mt-1">{name.length}/60</p>
@@ -962,9 +1016,9 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
           </div>
 
           <div>
-            <p className="text-[14px] font-[600] font-sans text-primary">Product category<span className="text-error ml-0.5">*</span></p>
+            <p className="text-[14px] font-[600] font-sans text-primary">Product category</p>
             <p className="text-[13px] font-sans text-muted-text mb-3.5">Provide additional information to help us categorize your products.</p>
-            <Field label="Product type">
+            <Field id="pf-category" label="Product type" required>
               {isEdit ? (
                 <p className="h-10 flex items-center px-3 rounded border border-border-warm bg-muted-bg/30 text-[14px] font-sans text-primary">
                   {categoryPathLabel(tree, product?.categoryId)}
@@ -977,8 +1031,8 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
         </div>
 
         {categoryId && (
-          <div className="mt-7 grid grid-cols-1 md:grid-cols-2 gap-10">
-            <Field label="Description" required>
+          <div className="mt-7 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
+            <Field id="pf-description" label="Description" required>
               <textarea value={description} onChange={(e) => setDescription(e.target.value.slice(0, 1000))}
                 rows={4} maxLength={1000}
                 placeholder="Include information about details like materials, durability, use, and more."
@@ -996,7 +1050,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                 </p>
               )}
             </Field>
-            <Field label="Materials" required>
+            <Field id="pf-materials" label="Materials" required>
               <input type="text" value={materials} onChange={(e) => setMaterials(e.target.value)}
                 placeholder="e.g. 100% cotton, brass hardware" className={INPUT_CLS} />
             </Field>
@@ -1007,33 +1061,34 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       {categoryId && (
         <>
           {/* ── Additional details ────────────────────────────────────────── */}
-          <div className="border border-border-warm rounded-xl p-8 mb-6">
+          <div className="border border-border-warm rounded-xl p-5 sm:p-8 mb-6">
             <h2 className="text-[20px] font-[700] font-sans text-primary mb-1">Additional details</h2>
             <p className="text-[13px] font-sans text-muted-text mb-5">Include additional details to help retailers make better buying decisions.</p>
 
-            <Field label="Made in (region) *">
+            <Field id="pf-region" label="Made in (region)" required>
               <MadeInCombobox value={placeOfOrigin} onChange={setPlaceOfOrigin} />
             </Field>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
-              <Field label="Craft technique *">
+              <Field id="pf-craft" label="Craft technique" required>
                 <input type="text" value={craftTechnique} maxLength={200}
                   onChange={(e) => setCraftTechnique(e.target.value)}
                   placeholder="e.g. Hand block printing, Dhokra casting" className={INPUT_CLS} />
               </Field>
-              <Field label="Made to order or ready stock? *">
+              <Field id="pf-mto" label="Made to order or ready stock?" required
+                hint={isMadeToOrder === 'yes' ? 'No stock quantity needed. Buyers see your lead time.' : isMadeToOrder === 'no' ? 'You will enter the stock quantity in Product options below.' : undefined}>
                 <select value={isMadeToOrder} onChange={(e) => setIsMadeToOrder(e.target.value as 'yes' | 'no' | '')} className={INPUT_CLS}>
                   <option value="">Select…</option>
                   <option value="no">Ready stock</option>
                   <option value="yes">Made to order</option>
                 </select>
               </Field>
-              <Field label="Lead time *">
+              <Field id="pf-lead" label="Lead time" required>
                 <input type="text" value={leadTime} maxLength={200}
                   onChange={(e) => setLeadTime(e.target.value)}
                   placeholder="e.g. 15-20 days" className={INPUT_CLS} />
               </Field>
-              <Field label="Care instructions *">
+              <Field id="pf-care" label="Care instructions" required>
                 <input type="text" value={careInstructions} maxLength={2000}
                   onChange={(e) => setCareInstructions(e.target.value)}
                   placeholder="e.g. Dry clean only; wipe with a dry cloth" className={INPUT_CLS} />
@@ -1041,7 +1096,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-5">
-              <Field label={samplesRequired ? 'Do you offer samples? *' : 'Offer samples?'}>
+              <Field id="pf-samples" label={samplesRequired ? 'Do you offer samples?' : 'Offer samples?'} required={samplesRequired}>
                 <select value={offersSamples} onChange={(e) => setOffersSamples(e.target.value as 'yes' | 'no' | '')} className={INPUT_CLS}>
                   <option value="">Select…</option>
                   <option value="yes">Yes</option>
@@ -1050,11 +1105,11 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
               </Field>
               {offersSamples === 'yes' && (
                 <>
-                  <Field label="Max sample quantity *">
+                  <Field id="pf-sample-qty" label="Max sample quantity" required>
                     <input type="number" min={1} step={1} value={sampleMaxQty} onChange={(e) => setSampleMaxQty(e.target.value)}
                       placeholder="e.g. 3" className={INPUT_CLS} />
                   </Field>
-                  <Field label="Price per sample unit (₹) *">
+                  <Field id="pf-sample-price" label="Price per sample unit (₹)" required>
                     <input type="number" min={1} step="0.01" value={samplePrice} onChange={(e) => setSamplePrice(e.target.value)}
                       placeholder="e.g. 500" className={INPUT_CLS} />
                   </Field>
@@ -1082,12 +1137,12 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
           </div>
 
           {/* ── Images & videos ───────────────────────────────────────────── */}
-          <div className="border border-border-warm rounded-xl p-8 mb-6">
+          <div className="border border-border-warm rounded-xl p-5 sm:p-8 mb-6">
             <h2 className="text-[20px] font-[700] font-sans text-primary mb-5">Images &amp; videos</h2>
 
-            <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
+            <div id="pf-images" className="flex items-start justify-between gap-3 flex-wrap mb-4 scroll-mt-24">
               <div>
-                <p className="text-[15px] font-[600] font-sans text-primary">Product images<span className="text-error ml-0.5">*</span></p>
+                <p className="text-[15px] font-[600] font-sans text-primary">Product images<RequiredStar /></p>
                 <p className="text-[13px] font-sans text-muted-text">Add a minimum of {MIN_IMAGES} high-quality images that are at least 1,050 by 1,050 pixels in size.</p>
               </div>
               <div className="flex items-center gap-4 flex-shrink-0">
@@ -1168,7 +1223,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
             <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
               <div>
                 <h3 className="text-[16px] font-[700] font-sans text-primary mb-1">Product videos</h3>
-                <p className="text-[13px] font-sans text-muted-text">Add up to {MAX_VIDEOS} videos to show your product in motion. Each video should be 200 MB or smaller. ({totalVideoCount}/{MAX_VIDEOS})</p>
+                <p className="text-[13px] font-sans text-muted-text">Add up to {MAX_VIDEOS} videos to show your product in motion. MP4, MOV or WEBM, up to {MAX_VIDEO_MB} MB each. ({totalVideoCount}/{MAX_VIDEOS})</p>
               </div>
               <div className="flex items-center gap-4 flex-shrink-0">
                 <button type="button" onClick={() => setManageVideosMode((v) => !v)}
@@ -1215,18 +1270,18 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
 
           {/* ── Product options: Yes/No — always visible so the seller can switch
              between Yes and No at any time, not just before answering once. ──── */}
-          <div className="border border-border-warm rounded-xl p-8 mb-6">
-            <h2 className="text-[20px] font-[700] font-sans text-primary mb-1">Product options</h2>
+          <div className="border border-border-warm rounded-xl p-5 sm:p-8 mb-6">
+            <h2 id="pf-options" className="text-[20px] font-[700] font-sans text-primary mb-1 scroll-mt-24">Product options</h2>
             <p className="text-[14px] font-sans text-muted-text mb-4">
-              Does this product come in multiple options, like different sizes, colors, or materials?<span className="text-error ml-0.5">*</span>
+              Does this product come in multiple options, like different sizes, colors, or materials?<RequiredStar />
             </p>
-            <div className="flex gap-4">
+            <div className="flex gap-3 sm:gap-4">
               <button type="button" disabled={pricingLocked} onClick={chooseYes}
-                className={`w-[140px] h-11 rounded border text-[14px] font-[600] font-sans transition-colors disabled:opacity-50 ${hasOptions === 'yes' ? 'border-primary bg-forest text-white' : 'border-border-warm text-primary hover:border-primary'}`}>
+                className={`flex-1 sm:flex-none sm:w-[140px] h-11 rounded border text-[14px] font-[600] font-sans transition-colors disabled:opacity-50 ${hasOptions === 'yes' ? 'border-primary bg-forest text-white' : 'border-border-warm text-primary hover:border-primary'}`}>
                 Yes
               </button>
               <button type="button" disabled={pricingLocked} onClick={chooseNo}
-                className={`w-[140px] h-11 rounded border text-[14px] font-[600] font-sans transition-colors disabled:opacity-50 ${hasOptions === 'no' ? 'border-primary bg-forest text-white' : 'border-border-warm text-primary hover:border-primary'}`}>
+                className={`flex-1 sm:flex-none sm:w-[140px] h-11 rounded border text-[14px] font-[600] font-sans transition-colors disabled:opacity-50 ${hasOptions === 'no' ? 'border-primary bg-forest text-white' : 'border-border-warm text-primary hover:border-primary'}`}>
                 No
               </button>
             </div>
@@ -1234,8 +1289,8 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
 
           {/* ── Product options: table ────────────────────────────────────── */}
           {showOptionsTable && (
-            <div className="border border-border-warm rounded-xl p-8 mb-6">
-              <div className="flex items-start justify-between gap-3 mb-4">
+            <div className="border border-border-warm rounded-xl p-5 sm:p-8 mb-6">
+              <div id="pf-variants" className="flex items-start justify-between gap-3 mb-4 scroll-mt-24">
                 <div>
                   <h2 className="text-[20px] font-[700] font-sans text-primary mb-1">Product options</h2>
                   <p className="text-[13px] font-sans text-muted-text max-w-lg">
@@ -1250,6 +1305,10 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                 )}
               </div>
 
+              {madeToOrder && (
+                <p className="text-[13px] font-sans text-muted-text mb-3">Made to order: no stock quantity needed, so the Inventory column is hidden.</p>
+              )}
+              <p className="text-[12px] font-sans text-muted-text mb-2 sm:hidden">Swipe the table sideways to see every column.</p>
               <div className="overflow-x-auto rounded-lg border border-border-warm">
                 <table className="w-full text-[13px] font-sans min-w-[940px]">
                   <thead>
@@ -1258,12 +1317,13 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                       {sizeValues.length > 0 && hasOptions === 'yes' && <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Size</th>}
                       {axisType && axisValues.length > 0 && hasOptions === 'yes' && <th className="text-left py-2.5 px-3 font-[600] text-muted-text">{axisType}</th>}
                       <th className="text-left py-2.5 px-3 font-[600] text-muted-text">SKU</th>
-                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Inventory</th>
-                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Weight</th>
-                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Length</th>
-                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Width</th>
-                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Height</th>
-                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Tariff code</th>
+                      {!madeToOrder && <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Inventory<RequiredStar /></th>}
+                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Weight<RequiredStar /></th>
+                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Length{requireListingDetails && <RequiredStar />}</th>
+                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Width{requireListingDetails && <RequiredStar />}</th>
+                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Height{requireListingDetails && <RequiredStar />}</th>
+                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Unit</th>
+                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">HSN code{requireListingDetails && <RequiredStar />}</th>
                       <th className="text-center py-2.5 px-3 font-[600] text-muted-text">Actions</th>
                     </tr>
                   </thead>
@@ -1336,11 +1396,14 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                               onChange={(e) => setVPField(combo.key, 'sku', e.target.value)}
                               placeholder={autoSku(combo)} className={INPUT_CLS + ' h-9 w-[110px]'} />
                           </td>
-                          <td className="px-3 py-2">
-                            <input type="number" min="0" value={vp.inventory} disabled={pricingLocked}
-                              onChange={(e) => setVPField(combo.key, 'inventory', e.target.value)}
-                              placeholder="units" className={INPUT_CLS + ' h-9 w-[90px]'} />
-                          </td>
+                          {!madeToOrder && (
+                            <td className="px-3 py-2">
+                              <input type="number" min={needsInventory(combo) ? 1 : 0} step={1} value={vp.inventory} disabled={pricingLocked}
+                                aria-label={`Inventory for ${optionLabel(combo)}`}
+                                onChange={(e) => setVPField(combo.key, 'inventory', e.target.value)}
+                                placeholder="units" className={INPUT_CLS + ' h-9 w-[90px]'} />
+                            </td>
+                          )}
                           <td className="px-3 py-2">
                             <div className="flex border border-border-warm rounded overflow-hidden w-[100px]">
                               <input type="number" min="0" step="0.01" value={vp.weight} disabled={pricingLocked}
@@ -1355,47 +1418,35 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                             </div>
                           </td>
                           <td className="px-3 py-2">
-                            <div className="flex border border-border-warm rounded overflow-hidden w-[92px]">
-                              <input type="number" min="0" value={vp.length} disabled={pricingLocked}
-                                onChange={(e) => setVPField(combo.key, 'length', e.target.value)}
-                                className="w-full h-9 px-2 text-[13px] font-sans text-primary outline-none disabled:opacity-50" />
-                              <select value={vp.dimensionUnit} disabled={pricingLocked}
-                                onChange={(e) => setVPField(combo.key, 'dimensionUnit', e.target.value)}
-                                className="h-9 px-1 border-l border-border-warm bg-muted-bg/30 text-[12px] font-sans text-primary disabled:opacity-50">
-                                <option value="cm">cm</option>
-                                <option value="in">in</option>
-                              </select>
-                            </div>
+                            <input type="number" min="0" step="any" value={vp.length} disabled={pricingLocked}
+                              aria-label={`Length for ${optionLabel(combo)}`}
+                              onChange={(e) => setVPField(combo.key, 'length', e.target.value)}
+                              className={INPUT_CLS + ' h-9 w-[76px] px-2'} />
                           </td>
                           <td className="px-3 py-2">
-                            <div className="flex border border-border-warm rounded overflow-hidden w-[92px]">
-                              <input type="number" min="0" value={vp.width} disabled={pricingLocked}
-                                onChange={(e) => setVPField(combo.key, 'width', e.target.value)}
-                                className="w-full h-9 px-2 text-[13px] font-sans text-primary outline-none disabled:opacity-50" />
-                              <select value={vp.dimensionUnit} disabled={pricingLocked}
-                                onChange={(e) => setVPField(combo.key, 'dimensionUnit', e.target.value)}
-                                className="h-9 px-1 border-l border-border-warm bg-muted-bg/30 text-[12px] font-sans text-primary disabled:opacity-50">
-                                <option value="cm">cm</option>
-                                <option value="in">in</option>
-                              </select>
-                            </div>
+                            <input type="number" min="0" step="any" value={vp.width} disabled={pricingLocked}
+                              aria-label={`Width for ${optionLabel(combo)}`}
+                              onChange={(e) => setVPField(combo.key, 'width', e.target.value)}
+                              className={INPUT_CLS + ' h-9 w-[76px] px-2'} />
                           </td>
                           <td className="px-3 py-2">
-                            <div className="flex border border-border-warm rounded overflow-hidden w-[92px]">
-                              <input type="number" min="0" value={vp.height} disabled={pricingLocked}
-                                onChange={(e) => setVPField(combo.key, 'height', e.target.value)}
-                                className="w-full h-9 px-2 text-[13px] font-sans text-primary outline-none disabled:opacity-50" />
-                              <select value={vp.dimensionUnit} disabled={pricingLocked}
-                                onChange={(e) => setVPField(combo.key, 'dimensionUnit', e.target.value)}
-                                className="h-9 px-1 border-l border-border-warm bg-muted-bg/30 text-[12px] font-sans text-primary disabled:opacity-50">
-                                <option value="cm">cm</option>
-                                <option value="in">in</option>
-                              </select>
-                            </div>
+                            <input type="number" min="0" step="any" value={vp.height} disabled={pricingLocked}
+                              aria-label={`Height for ${optionLabel(combo)}`}
+                              onChange={(e) => setVPField(combo.key, 'height', e.target.value)}
+                              className={INPUT_CLS + ' h-9 w-[76px] px-2'} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <select value={vp.dimensionUnit} disabled={pricingLocked}
+                              aria-label={`Dimension unit for ${optionLabel(combo)}`}
+                              onChange={(e) => setVPField(combo.key, 'dimensionUnit', e.target.value)}
+                              className={INPUT_CLS + ' h-9 w-[80px] px-2'}>
+                              {DIMENSION_UNIT_OPTIONS.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
+                            </select>
                           </td>
                           <td className="px-3 py-2">
                             <input type="text" value={vp.tariffCode} disabled={pricingLocked}
                               onChange={(e) => setVPField(combo.key, 'tariffCode', e.target.value)}
+                              aria-label={`HSN code for ${optionLabel(combo)}`}
                               placeholder="e.g. 5701.10" className={INPUT_CLS + ' h-9 w-[110px]'} />
                           </td>
                           <td className="px-3 py-2">
@@ -1424,21 +1475,11 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
 
               {/* ── Volume pricing: the same tier table for every seller type. With options,
                  each option gets its own table (the Yes/No question above is the master toggle). ── */}
-              <div className="mt-6 border-t border-border-warm pt-6">
+              <div id="pf-pricing" className="mt-6 border-t border-border-warm pt-6 scroll-mt-24">
                 <h3 className="text-[16px] font-[700] font-sans text-ink mb-1">
-                  Volume Pricing<span className="text-error ml-0.5">*</span>
+                  Volume Pricing<RequiredStar />
                 </h3>
                 <p className="text-[13px] font-sans text-muted-text max-w-xl">{pricingHint}</p>
-                {isBrand && (
-                  <p className="text-[13px] font-sans text-ink max-w-xl mt-1">
-                    Solomon keeps 25% on each buyer&apos;s first order with you and 15% on that buyer&apos;s later orders.
-                  </p>
-                )}
-                {brandLocked && (
-                  <p role="note" className="text-[13px] font-[600] font-sans text-ink max-w-xl mt-2">
-                    This price is set by the brand. Only the brand can change it.
-                  </p>
-                )}
 
                 <div className="mt-4 space-y-5">
                   {activeCombos.map((combo, idx) => (
@@ -1455,12 +1496,10 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                         showAdminPricing={withAdminPricing}
                         showAllErrors={showTierErrors}
                         disabled={pricingLocked}
-                        readOnly={brandLocked}
-                        maxTiers={isBrand ? MAX_BRAND_TIERS : undefined}
                         onAdd={() => addTier(combo.key)}
                         onRemove={(id) => removeTier(combo.key, id)}
                         onUpdate={(id, field, value) => updateTier(combo.key, id, field, value)}
-                        onApplyToAll={!usingSingleRow && activeCombos.length > 1 && idx === 0 && !brandLocked ? () => applyTiersToAll(combo.key) : undefined}
+                        onApplyToAll={!usingSingleRow && activeCombos.length > 1 && idx === 0 ? () => applyTiersToAll(combo.key) : undefined}
                       />
                     </div>
                   ))}
@@ -1470,7 +1509,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
           )}
 
           {/* ── Craft story ───────────────────────────────────────────────── */}
-          <div className="border border-border-warm rounded-xl p-8 mb-6">
+          <div className="border border-border-warm rounded-xl p-5 sm:p-8 mb-6">
             <h2 className="text-[20px] font-[700] font-sans text-primary mb-1">Craft story</h2>
             <p className="text-[13px] font-sans text-muted-text mb-5">Recommended: tell buyers the story of the craft and the people behind it. Shown on the product page.</p>
 
@@ -1517,18 +1556,38 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
       )}
 
       {/* Reserves space for the fixed bar below so it never covers the last section. */}
-      <div className="h-24 max-lg:h-32" />
+      <div className="h-28 max-lg:h-44" />
 
       {/* ── Fixed publish bar — pinned to the viewport bottom the whole time,
          not just once you've scrolled to the end, so Publish/Cancel/Draft are
          always reachable on a long form. Sits above the portal's own mobile
          bottom tab bar and to the right of the desktop sidebar. ────────────── */}
       <div className="fixed left-0 right-0 bottom-14 lg:left-[190px] lg:bottom-0 z-20 bg-bg border-t border-border-warm">
-        <div className="max-w-[1100px] mx-auto px-8 max-lg:px-4 py-4 flex items-center justify-between gap-4 flex-wrap">
-          <span className="text-[13px] font-sans text-muted-text">
-            Fields marked with <span className="text-primary">*</span> are required to publish product
-          </span>
-          <div className="flex items-center gap-5">
+        {/* Progress line across the top edge of the bar. */}
+        <div className="h-1 bg-muted-bg" aria-hidden="true">
+          <div className={`h-full transition-all duration-300 ${nextItem ? 'bg-accent' : 'bg-forest'}`} style={{ width: `${progressPct}%` }} />
+        </div>
+        <div className="max-w-[1100px] mx-auto px-8 max-lg:px-4 py-3 lg:py-4 flex items-center justify-between gap-x-4 gap-y-2.5 flex-wrap">
+          {/* Progress: % complete + the next missing required item; tap to jump to it. */}
+          <button type="button" disabled={!nextItem} onClick={() => nextItem && scrollToField(nextItem.anchor)}
+            aria-label={nextItem ? `${progressPct}% complete. Next: ${nextItem.next}. Go to field.` : 'All required fields complete'}
+            className="flex items-center gap-2.5 min-w-0 flex-1 basis-[220px] text-left rounded-lg -m-1 p-1 enabled:hover:bg-muted-bg/50 transition-colors">
+            <span role="progressbar" aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100}
+              className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-[700] font-sans ${nextItem ? 'bg-muted-bg text-primary' : 'bg-forest text-white'}`}>
+              {nextItem ? `${progressPct}%` : <Check size={16} />}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[13px] font-[600] font-sans text-primary">
+                {nextItem ? `${progressPct}% complete` : 'Ready to publish'}
+              </span>
+              <span className="block truncate text-[12px] font-sans text-muted-text">
+                {nextItem
+                  ? <>Next: <span className="text-accent underline underline-offset-2">{nextItem.next}</span>{remainingCount > 1 ? ` · ${remainingCount - 1} more` : ''}</>
+                  : 'All required fields are filled in'}
+              </span>
+            </span>
+          </button>
+          <div className="flex items-center gap-x-5 gap-y-2 flex-wrap">
             {mode === 'seller' && (!product || product.approvalStatus === 'DRAFT') && (
               <button type="button" disabled={saving || savingDraft} onClick={handleSaveDraft}
                 className="text-[13px] font-[500] font-sans text-primary underline hover:text-accent transition-colors disabled:opacity-50">
@@ -1537,7 +1596,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
             )}
             {!isAdminMode && isRejected ? (
               <>
-                <span className="text-[12px] font-sans text-muted-text max-w-[220px] max-lg:max-w-none">
+                <span className="hidden sm:inline text-[12px] font-sans text-muted-text max-w-[220px]">
                   &ldquo;Save changes&rdquo; keeps this product rejected until you resubmit it.
                 </span>
                 <Button type="submit" variant="secondary" size="lg" className="min-h-[44px]"
@@ -1603,12 +1662,10 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
             <div className="w-14 h-14 rounded-full bg-forest/10 text-primary flex items-center justify-center mx-auto mb-4">
               <Check size={26} />
             </div>
-            <h2 className="text-[20px] font-[600] font-display text-primary mb-3">{isBrand ? 'Product published' : isAdminCreate ? 'Product created and published' : 'Submitted for review'}</h2>
+            <h2 className="text-[20px] font-[600] font-display text-primary mb-3">{isAdminCreate ? 'Product created and published' : 'Submitted for review'}</h2>
             <p className="text-[14px] font-sans text-muted-text mb-7">
-              {isBrand
-                ? 'Your product is live on the marketplace. You can unpublish or edit it any time from My Products.'
-                : isAdminCreate
-                  ? 'The product has been created and is now published on the marketplace.'
+              {isAdminCreate
+                  ? 'The product has been created and is now published in the catalogue.'
                   : 'Your product has been submitted to Solomon Bharat for review. We will notify you once it is live.'}
             </p>
             <Button type="button" variant="primary" size="md" className="w-full" onClick={() => router.push(backHref)}>

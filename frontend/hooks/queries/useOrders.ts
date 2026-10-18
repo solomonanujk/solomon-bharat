@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import api from '@/lib/api'
 import { getApiError } from '@/lib/getApiError'
 import type { Order, OrderStatus, PaginatedResult, SellerOrderItem } from '@/types'
-import type { BuyerOrder } from '@/types/brand-orders'
+import type { BuyerOrder } from '@/types/order-extras'
 
 function toPaginated<T>(res: { data: { data: unknown; meta?: { total?: number; page?: number; limit?: number; totalPages?: number } } }): PaginatedResult<T> {
   const items = (res.data.data ?? []) as T[]

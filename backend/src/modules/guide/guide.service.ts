@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
 import { env } from '../../config/env';
-import { BrandStatus, GuideKnowledgeKind, GuideKnowledgeStatus, Prisma, PrismaClient, ProductApprovalStatus } from '@prisma/client';
+import { GuideKnowledgeKind, GuideKnowledgeStatus, Prisma, PrismaClient, ProductApprovalStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { logger } from '../../config/logger';
 import { AppError } from '../../utils/errors';
@@ -534,7 +534,6 @@ export class GuideService {
         deletedAt: null,
         isPublished: true,
         approvalStatus: ProductApprovalStatus.APPROVED,
-        OR: [{ brandId: null }, { brand: { status: BrandStatus.ACTIVE } }],
       },
       orderBy: [{ isFeatured: 'desc' }, { publishedAt: 'desc' }],
       take: 300,

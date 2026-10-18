@@ -12,7 +12,7 @@ export interface CheckoutResult {
   /** First Payment row; capturing it settles every Payment row of the checkout. */
   paymentId: string;
   checkoutId: string;
-  /** One sibling order per brand (sellerProfileId set) plus at most one curated order (null). */
+  /** The checkout's order(s). sellerProfileId is always null now (it was set on historical marketplace-brand orders). */
   orders: { orderId: string; sellerProfileId: string | null }[];
   approveUrl: string | null;
   /** MANUAL = bank transfer: no approveUrl; the order awaits an admin's payment confirmation. */
@@ -47,7 +47,7 @@ export interface Invoice {
   orderId: string;
   issuedAt: Date;
   soldBy: string;
-  /** Set for marketplace-brand orders: Solomon collects payment on the brand's behalf. */
+  /** Only on historical marketplace-brand orders (model removed Oct 2026): Solomon collected payment for the brand. */
   facilitatedBy?: string;
   buyerEmail: string;
   currency: string;

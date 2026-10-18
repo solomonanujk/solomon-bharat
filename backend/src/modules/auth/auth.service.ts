@@ -1,4 +1,3 @@
-import { logger } from '../../config/logger';
 import { User } from '@prisma/client';
 import { env } from '../../config/env';
 import { AppError } from '../../utils/errors';
@@ -11,24 +10,20 @@ import {
   verifyRefreshToken,
 } from '../../utils/jwt';
 import { SafeUser, toSafeUser } from '../../utils/safeUser';
-import { toBrandSummary } from '../../utils/brandSummary';
 import { mailProvider } from '../../providers/mail';
 import { AuthRepository, authRepository } from './auth.repository';
 import { AuthResult, LoginInput, SessionUser, SignupBuyerInput, TokenPair } from './auth.types';
 
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1h
+export const PASSWORD_SETUP_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (welcome emails)
 
 export class AuthService {
   constructor(private readonly repo: AuthRepository = authRepository) {}
 
-  /** Adds sellerType + brand summary for SELLER accounts so the portal can pick its UI without a second call. */
+  /** The user as sent to the client (no secrets). Async so per-role enrichment can be added later. */
   private async toSessionUser(user: User): Promise<SessionUser> {
-    const safe = toSafeUser(user);
-    if (user.role !== 'SELLER') return safe;
-    const profile = await this.repo.findSellerProfileWithBrandByUserId(user.id);
-    if (!profile) return safe;
-    return { ...safe, sellerType: profile.sellerType, brand: profile.brand ? toBrandSummary(profile.brand) : null };
+    return toSafeUser(user);
   }
 
   private async issueTokenPair(user: User): Promise<TokenPair> {
@@ -62,15 +57,6 @@ export class AuthService {
 
     const passwordHash = await hashPassword(input.password);
     const user = await this.repo.createBuyerUser(input, passwordHash);
-
-    // Brands may have emailed this address an invite before the account existed.
-    if (user.buyerProfile?.id) {
-      try {
-        await this.repo.claimBrandEmailInvites(user.email, user.buyerProfile.id);
-      } catch (err) {
-        logger.error({ err, userId: user.id }, 'Failed to claim brand email invites');
-      }
-    }
 
     const rawToken = generateOpaqueToken();
     const tokenHash = await hashToken(rawToken);
@@ -225,7 +211,21 @@ export class AuthService {
     });
   }
 
-  async resetPassword(id: string, token: string, newPassword: string): Promise<void> {
+  /**
+   * One-time "set your password" link for a newly approved account (seller / agent).
+   * Reuses the PasswordResetToken table with a 7-day expiry. The URL carries only the token
+   * id + opaque secret, never the password. Using it clears mustChangePassword.
+   */
+  async createPasswordSetupUrl(userId: string): Promise<string> {
+    const rawToken = generateOpaqueToken();
+    const tokenHash = await hashToken(rawToken);
+    const expiresAt = new Date(Date.now() + PASSWORD_SETUP_TTL_MS);
+    const record = await this.repo.createPasswordResetToken(userId, tokenHash, expiresAt);
+    return `${env.APP_URL}/reset-password?id=${encodeURIComponent(record.id)}&token=${encodeURIComponent(rawToken)}&welcome=1`;
+  }
+
+  /** Returns the account email so the reset page can sign the user straight in. */
+  async resetPassword(id: string, token: string, newPassword: string): Promise<{ email: string }> {
     const record = await this.repo.findPasswordResetTokenById(id);
     if (!record || record.usedAt || record.expiresAt < new Date()) {
       throw AppError.badRequest('Invalid or expired reset link');
@@ -237,9 +237,10 @@ export class AuthService {
     }
 
     const passwordHash = await hashPassword(newPassword);
-    await this.repo.updateUserPassword(record.userId, passwordHash);
+    const user = await this.repo.updateUserPassword(record.userId, passwordHash);
     await this.repo.markPasswordResetTokenUsed(id);
     await this.repo.revokeAllRefreshTokensForUser(record.userId);
+    return { email: user.email };
   }
 
   /** Signed-in password change. Right after first login (temporary password) the current

@@ -1,8 +1,10 @@
 # Business decisions (owner-confirmed, Oct 2026)
 
+> **Decision, 17 Oct 2026 — marketplace model removed.** The business will **not** run the marketplace (brand) model for at least a year. The product is **Curated by Solomon + the Agent programme only**. All marketplace flows were removed from the app; existing marketplace sellers were converted to curated sellers (their products stay live at their current buyer price, which the admin can re-price) and historical marketplace orders are handled by the admin like curated orders. The full marketplace code is preserved on git branch `archive/marketplace-model`; see `docs/MARKETPLACE_MODEL_ARCHIVE.md`. Every "Marketplace" rule below is **historical** and must not be built again without a new owner decision.
+
 First target market: **UK**. Currency is detected automatically and buyers can switch; exchange rates update daily and automatically.
 
-Source of truth for how the two seller models behave. Where code disagrees with this file, the code is wrong.
+Source of truth for how the seller model behaves (the Marketplace column is historical since 17 Oct 2026). Where code disagrees with this file, the code is wrong.
 "Curated" = Curated by Solomon. "Marketplace" = a brand selling under its own name.
 
 ## 1. The two seller models
@@ -120,3 +122,6 @@ Recommended: video, the story of the craft.
 - (16 Oct 2026) Solomon AI starts with 4 tap-to-answer questions (what they do, who they sell to, categories, selling price), then recommends 3 products at a time as cards with photo, story, why it fits, and an estimated cost breakdown (India price, shipping, duty and VAT, landed cost, suggested retail), followed by short advice on who to target, how to position and where to sell. Visitors can like and save products into a shortlist.
 - (16 Oct 2026) Exception to "prices visible after sign-up": Solomon AI may show an indicative "from ₹X" buyer price for catalogue products to visitors who have given their name, email and phone to start the chat. Shipping, duty and landed figures are marked as estimates.
 - (16 Oct 2026) Solomon AI does not promote Solomon Bharat; it shows the WhatsApp button to Pranjal (wa.me/919588007925) only when the visitor shows buying intent.
+- (17 Oct 2026) Approval emails carry a one-time "Set your password and sign in" link valid for 7 days (never the password in a link); temporary password kept as a fallback.
+- (17 Oct 2026) Admins are emailed for every paid order; marketplace brands get "New order — please accept". Curated sellers are not emailed (orders go through admin) unless the owner asks for it.
+- (17 Oct 2026) Listing: made-to-order products need no inventory; ready-stock products need stock of at least 1. Dimensions (with unit cm/inch/m) and HSN code are required for new listings.

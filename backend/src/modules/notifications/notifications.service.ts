@@ -5,7 +5,13 @@ import { env } from '../../config/env';
 import { logger } from '../../config/logger';
 import { mailProvider } from '../../providers/mail';
 import { normalizeWhatsAppNumber, whatsAppProvider } from '../../providers/whatsapp';
+import { emailButton, emailLayout, escapeHtml } from '../../utils/emailTemplates';
 import { NotificationsRepository, notificationsRepository } from './notifications.repository';
+
+/** Short human order number, matching the admin/portal UIs (last 8 chars of the id, upper-case). */
+function orderRef(orderId: string): string {
+  return orderId.slice(-8).toUpperCase();
+}
 
 export class NotificationsService {
   constructor(private readonly repo: NotificationsRepository = notificationsRepository) {}
@@ -46,7 +52,7 @@ export class NotificationsService {
       sellerUserId,
       NotificationType.PRODUCT_APPROVED,
       'Product approved',
-      `"${productName}" has been approved and published to the marketplace.`,
+      `"${productName}" has been approved and published to the catalogue.`,
     );
   }
 
@@ -105,53 +111,63 @@ export class NotificationsService {
     );
   }
 
-  notifyBrandApplicationApproved(brandUserId: string): Promise<Notification> {
-    return this.notify(
-      brandUserId,
-      NotificationType.BRAND_APPLICATION_APPROVED,
-      'Your brand is live on Solomon Bharat',
-      'Your brand application has been approved. Complete your brand profile and publish your products.',
-      '/portal',
-    );
-  }
-
   /**
-   * Alerts a marketplace brand about a newly paid order (in-app + email). Never throws: a
-   * failure here must not fail the payment settlement that triggered it.
-   * The email shows items, qty and gross plus the buyer's city/country only; the portal has the rest.
+   * Alerts every active SUPER_ADMIN about a newly paid (placed) order: in-app + email with the
+   * order number, buyer, total, item count and a link to the admin order page. Never throws:
+   * a failure here must not fail the payment settlement that triggered it.
    */
-  async notifyBrandNewOrder(orderId: string): Promise<void> {
+  async notifyAdminsNewOrder(orderId: string): Promise<void> {
     try {
-      const order = await this.repo.findOrderForBrandAlert(orderId);
-      if (!order || !order.sellerProfile) return;
-      const { user } = order.sellerProfile;
-      const link = `/portal/orders/${orderId}`;
+      const order = await this.repo.findOrderForAdminAlert(orderId);
+      if (!order) return;
+      const admins = await this.repo.findActiveUsersByRole(Role.SUPER_ADMIN);
+      if (admins.length === 0) return;
 
-      await this.notify(
-        user.id,
-        NotificationType.NEW_ORDER_RECEIVED,
-        'New order received',
-        `You have a new paid order with ${order.items.length} item(s). Confirm it to start fulfilment.`,
-        link,
+      const ref = orderRef(order.id);
+      const link = `/admin/orders/${order.id}`;
+      const url = `${env.APP_URL}${link}`;
+      const itemCount = order.items.reduce((sum, i) => sum + i.quantity, 0);
+      const lineCount = order.items.length;
+      const buyerName = order.buyer.companyName
+        ? `${order.buyer.companyName} (${order.buyer.contactName})`
+        : order.buyer.contactName;
+      const total = `₹${order.adminPriceTotal.toString()}`;
+      const message = `Order #${ref} from ${buyerName} — ${total}, ${itemCount} item(s).`;
+
+      await Promise.all(
+        admins.map(async (admin) => {
+          try {
+            await this.repo.create({
+              userId: admin.id,
+              type: NotificationType.NEW_ORDER_RECEIVED,
+              title: 'New order placed',
+              message,
+              link,
+            });
+          } catch (err) {
+            logger.error({ err, orderId, adminId: admin.id }, 'Failed to create admin new-order notification');
+          }
+          try {
+            await mailProvider.sendMail({
+              to: admin.email,
+              subject: 'New order on Solomon Bharat',
+              html: emailLayout(`<p>A new order has been paid on Solomon Bharat.</p>
+<table role="presentation" cellspacing="0" cellpadding="4" border="0" style="font-size:15px;">
+<tr><td style="color:#555555;">Order</td><td><strong>#${ref}</strong></td></tr>
+<tr><td style="color:#555555;">Buyer</td><td>${escapeHtml(buyerName)}${order.placedAsAgent ? ' (agent)' : ''}<br/><span style="color:#555555;">${escapeHtml(order.buyer.user.email)} · ${escapeHtml(order.buyer.country)}</span></td></tr>
+<tr><td style="color:#555555;">Total</td><td>${total}</td></tr>
+<tr><td style="color:#555555;">Items</td><td>${itemCount} (${lineCount} line${lineCount === 1 ? '' : 's'})</td></tr>
+</table>
+${emailButton(url, 'Open the order')}
+<p style="font-size:13px;color:#555555;">Or open: <a href="${escapeHtml(url)}" style="color:#8a3b12;">${escapeHtml(url)}</a></p>`),
+            });
+          } catch (err) {
+            logger.error({ err, orderId, adminId: admin.id }, 'Failed to email admin about new order');
+          }
+        }),
       );
-
-      const escape = (v: string): string => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      const rows = order.items
-        .map((i) => `<li>${escape(i.product.name)} &times; ${i.quantity} &mdash; ₹${i.lineAdminTotal.toString()}</li>`)
-        .join('');
-      const dest = order.shippingAddress
-        ? `${escape(order.shippingAddress.city)}, ${escape(order.shippingAddress.country)}`
-        : null;
-      await mailProvider.sendMail({
-        to: user.email,
-        subject: 'New order on Solomon Bharat',
-        html: `<p>You have received a new paid order.</p>
-<ul>${rows}</ul>
-<p>Order total: ₹${order.adminPriceTotal.toString()}${dest ? `<br/>Shipping to: ${dest}` : ''}</p>
-<p>Open the order in your portal for full details: <a href="${env.APP_URL}${link}">${env.APP_URL}${link}</a></p>`,
-      });
     } catch (err) {
-      logger.error({ err, orderId }, 'Failed to notify brand about new order');
+      logger.error({ err, orderId }, 'Failed to notify admins about new order');
     }
   }
 

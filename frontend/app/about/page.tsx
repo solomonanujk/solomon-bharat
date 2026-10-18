@@ -10,13 +10,13 @@ const ABOUT_PHOTO =
   'https://res.cloudinary.com/dxnqyvcdl/image/upload/v1788845176/homepage/1788845110281-retailer-storefront.png'
 
 // CONFIRM: each value statement below restates an AGENTS.md business rule
-// (Solomon Bharat is the merchant of record for curated products, and the payment collector for marketplace brands; every product is reviewed and
+// (Solomon Bharat is the merchant of record; every product is reviewed and
 // priced by our team before publishing; collections are curated in-house).
 // Owner to confirm the public wording.
 const VALUES = [
   {
-    title: 'Two ways to buy, one checkout',
-    body: 'Curated products are sold by Solomon Bharat: your contract is with us, and we buy from our Indian suppliers and sell to you. Marketplace products are sold and shipped by the brand named on them; we collect your payment in the same checkout. All sales are final.',
+    title: 'One seller, one checkout',
+    body: 'Every product is sold by Solomon Bharat: your contract is with us, and we buy from our Indian suppliers and sell to you. All sales are final.',
   },
   {
     title: 'Every product is reviewed',
@@ -28,7 +28,7 @@ const VALUES = [
   },
 ]
 
-// CONFIRM: the buying steps cover both seller types. Process steps follow the order flow in AGENTS.md (supplier
+// CONFIRM: Process steps follow the order flow in AGENTS.md (supplier
 // submission → admin approval and pricing → buyer order → procurement).
 const STEPS = [
   {
@@ -41,7 +41,7 @@ const STEPS = [
   },
   {
     title: 'You order and pay in one checkout',
-    body: 'You browse, order and pay through Solomon Bharat. For curated products we procure from the supplier once your order is placed; marketplace brands ship their own orders.',
+    body: 'You browse, order and pay through Solomon Bharat. We procure from the supplier once your order is placed, quality-check it in Jaipur and ship it to you.',
   },
 ]
 

@@ -43,15 +43,24 @@ export class NotificationsRepository {
     return this.db.notification.count({ where: { userId, isRead: false } });
   }
 
-  findOrderForBrandAlert(orderId: string) {
+  /** What the admin "new order" alert needs: buyer identity, totals, item count. */
+  findOrderForAdminAlert(orderId: string) {
     return this.db.order.findUnique({
       where: { id: orderId },
       select: {
+        id: true,
         adminPriceTotal: true,
-        sellerProfile: { select: { user: { select: { id: true, email: true } } } },
-        shippingAddress: { select: { city: true, country: true } },
-        items: { select: { quantity: true, lineAdminTotal: true, product: { select: { name: true } } } },
+        placedAsAgent: true,
+        buyer: { select: { companyName: true, contactName: true, country: true, user: { select: { email: true } } } },
+        items: { select: { quantity: true } },
       },
+    });
+  }
+
+  findActiveUsersByRole(role: Role): Promise<{ id: string; email: string }[]> {
+    return this.db.user.findMany({
+      where: { role, status: 'ACTIVE' },
+      select: { id: true, email: true },
     });
   }
 

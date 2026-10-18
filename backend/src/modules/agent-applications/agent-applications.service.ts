@@ -8,6 +8,8 @@ import { SafeUser, toSafeUser } from '../../utils/safeUser';
 import { mailProvider } from '../../providers/mail';
 import { PaginationQuery } from '../../utils/pagination';
 import { notificationsService } from '../notifications/notifications.service';
+import { authService } from '../auth/auth.service';
+import { accountReadyEmailHtml } from '../../utils/emailTemplates';
 import { AgentApplicationsRepository, agentApplicationsRepository } from './agent-applications.repository';
 import {
   AgentApplicationListFilter,
@@ -97,13 +99,17 @@ export class AgentApplicationsService {
 
     await notificationsService.notifyAgentApplicationApproved(user.id);
 
+    const setupUrl = await authService.createPasswordSetupUrl(user.id);
     await mailProvider.sendMail({
       to: user.email,
       subject: 'Your Solomon Bharat agent account is ready',
-      html: `<p>Congratulations — your agent application has been approved.</p>
-<p>You can now sign in at <a href="${env.APP_URL}">${env.APP_URL}</a> — click "Sign In" in the top navigation — with:</p>
-<p>Email: ${user.email}<br/>Temporary password: <strong>${tempPassword}</strong></p>
-<p>When you first sign in you will be asked to choose your own password.</p>`,
+      html: accountReadyEmailHtml({
+        intro: 'Congratulations — your agent application has been approved.',
+        email: user.email,
+        tempPassword,
+        setupUrl,
+        signInUrl: env.APP_URL,
+      }),
     });
 
     return { user: toSafeUser(user), profile };

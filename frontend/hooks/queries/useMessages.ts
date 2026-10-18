@@ -9,7 +9,7 @@ import type { BuyerMessage } from '@/types'
 // Messages are buyer ↔ Solomon Bharat admin only — never buyer-to-seller or
 // seller-to-anyone. A buyer has exactly one conversation (with admin), so
 // there's no conversation list on the buyer side, unlike solomon-bharat2's
-// buyer↔brand inbox.
+// buyer↔seller inbox.
 
 export function useMyMessages() {
   return useQuery<BuyerMessage[]>({
