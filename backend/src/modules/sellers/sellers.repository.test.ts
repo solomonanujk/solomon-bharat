@@ -49,6 +49,40 @@ describe('SellersRepository', () => {
     expect(arg.where).toEqual({ status: { not: 'APPROVED' } });
   });
 
+  it('findApplicationsForExport builds the SAME where as the list, so the CSV cannot disagree with the screen', async () => {
+    db.sellerApplication.findMany.mockResolvedValue([]);
+    db.sellerApplication.count.mockResolvedValue(0);
+    const filter = { status: 'PENDING' as never, search: 'jaipur', favourite: true };
+
+    await repo.findApplications(filter, { page: 1, limit: 20 });
+    const listWhere = db.sellerApplication.findMany.mock.calls[0][0].where;
+
+    await repo.findApplicationsForExport(filter, 10_000);
+    const exportWhere = db.sellerApplication.findMany.mock.calls[1][0].where;
+
+    expect(exportWhere).toEqual(listWhere);
+    expect(exportWhere).toEqual({
+      status: 'PENDING',
+      isFavourite: true,
+      OR: [
+        { businessName: { contains: 'jaipur', mode: 'insensitive' } },
+        { contactName: { contains: 'jaipur', mode: 'insensitive' } },
+        { email: { contains: 'jaipur', mode: 'insensitive' } },
+      ],
+    });
+  });
+
+  it('findApplicationsForExport takes the cap and no skip — all matching rows, not one page', async () => {
+    db.sellerApplication.findMany.mockResolvedValue([]);
+
+    await repo.findApplicationsForExport({}, 10_000);
+
+    const arg = db.sellerApplication.findMany.mock.calls[0][0];
+    expect(arg.take).toBe(10_000);
+    expect(arg.skip).toBeUndefined();
+    expect(arg.orderBy).toEqual([{ isFavourite: 'desc' }, { createdAt: 'desc' }]);
+  });
+
   it('updateApplication updates only the given fields', async () => {
     db.sellerApplication.update.mockResolvedValue({ id: 'app-1' });
     await repo.updateApplication('app-1', { status: 'APPROVED' as never });

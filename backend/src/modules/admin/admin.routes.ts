@@ -132,6 +132,43 @@ adminRouter.post(
 
 /**
  * @openapi
+ * /admin/users/{id}/sign-in-link:
+ *   post:
+ *     summary: Create a fresh one-time sign-in (set-password) link for a seller/agent (SUPER_ADMIN only)
+ *     description: >
+ *       Returns a link the admin can re-share. The link works once and expires in 7 days;
+ *       only its hash is stored. No existing password is ever revealed.
+ *     tags: [Admin]
+ *     responses:
+ *       200: { description: Sign-in link created }
+ */
+adminRouter.post(
+  '/users/:id/sign-in-link',
+  validate(idParamSchema, 'params'),
+  asyncHandler(adminController.createSignInLink),
+);
+
+/**
+ * @openapi
+ * /admin/users/{id}/reset-temp-password:
+ *   post:
+ *     summary: Set a new temporary password on a seller/agent account (SUPER_ADMIN only)
+ *     description: >
+ *       Generates a new temporary password, stores only its bcrypt hash, flags the account
+ *       mustChangePassword, revokes existing sessions and emails the seller. The plaintext is
+ *       returned in this response body once, for the admin to copy, and never again.
+ *     tags: [Admin]
+ *     responses:
+ *       200: { description: Temporary password set }
+ */
+adminRouter.post(
+  '/users/:id/reset-temp-password',
+  validate(idParamSchema, 'params'),
+  asyncHandler(adminController.resetTemporaryPassword),
+);
+
+/**
+ * @openapi
  * /admin/users/{id}/promote:
  *   post:
  *     summary: Promote a user to SUPER_ADMIN (SUPER_ADMIN only) — role escalation, cannot be self-service

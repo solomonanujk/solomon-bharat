@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { sellersController } from './sellers.controller';
 import {
   addNoteSchema,
+  applicationExportQuerySchema,
   applicationListQuerySchema,
   favouriteApplicationSchema,
   idParamSchema,
@@ -51,6 +52,28 @@ sellersRouter.get(
   requireAdmin,
   validate(applicationListQuerySchema, 'query'),
   asyncHandler(sellersController.listApplications),
+);
+
+/**
+ * @openapi
+ * /sellers/applications/export:
+ *   get:
+ *     summary: Download every seller application matching the current filters as CSV (SUPER_ADMIN only)
+ *     description: >
+ *       Same status/search/favourite filters as GET /sellers/applications, but unpaginated —
+ *       the export covers all matching rows (capped at 10,000). Returns text/csv as an attachment.
+ *     tags: [Sellers]
+ *     responses:
+ *       200: { description: CSV attachment }
+ */
+// Registered BEFORE `/applications/:id`, or Express would match "export" as an :id
+// and the uuid param validation would reject the request with 422.
+sellersRouter.get(
+  '/applications/export',
+  requireAuth,
+  requireAdmin,
+  validate(applicationExportQuerySchema, 'query'),
+  asyncHandler(sellersController.exportApplications),
 );
 
 /**

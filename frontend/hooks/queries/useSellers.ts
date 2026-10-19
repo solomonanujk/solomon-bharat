@@ -4,6 +4,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import api from '@/lib/api'
 import { getApiError } from '@/lib/getApiError'
+import {
+  downloadSellerApplicationsCsv,
+  type SellerApplicationExportFilters,
+} from '@/lib/downloadSellerApplicationsCsv'
 import type { PaginatedResult, SellerApplication, SellerApplicationStatus, SellerApplyInput, SellerProfile } from '@/types'
 
 function toPaginated<T>(res: { data: { data: unknown; meta?: { total?: number; page?: number; limit?: number; totalPages?: number } } }): PaginatedResult<T> {
@@ -130,6 +134,17 @@ export function useAddApplicationNote() {
   return useMutation<unknown, Error, { id: string; note: string }>({
     mutationFn: ({ id, note }) => api.post(`/sellers/applications/${id}/notes`, { note }),
     onSuccess: (_, vars) => invalidateApplication(qc, vars.id),
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
+/**
+ * Admin: download every application matching the filters currently on screen as CSV.
+ * Deliberately NOT paginated — the server returns all matching rows, not the page.
+ */
+export function useExportSellerApplications() {
+  return useMutation<void, Error, SellerApplicationExportFilters>({
+    mutationFn: (filters) => downloadSellerApplicationsCsv(filters),
     onError: (err) => toast.error(getApiError(err)),
   })
 }

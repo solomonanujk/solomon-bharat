@@ -4,6 +4,7 @@ import { AppError } from '../../utils/errors';
 import { hashPassword } from '../../utils/bcrypt';
 import { generateTempPassword } from '../../utils/helpers';
 import { writeAuditLog } from '../../utils/auditLog';
+import { buildCsv, toIsoDate } from '../../utils/csv';
 import { readSpreadsheet } from '../product-import/parsers/spreadsheet';
 import type { SpreadsheetKind } from '../../middleware/upload';
 import { mapImportRow } from './applicationImport';
@@ -30,7 +31,51 @@ function appendNote(existing: string | null, note: string): string {
   return existing ? `${existing}\n${stamped}` : stamped;
 }
 
+/**
+ * Column order of the Seller Applications CSV export — every useful field on the
+ * SellerApplication model, in the order the owner reads an application: who they are,
+ * where they are, where the application stands, then the wizard answers.
+ * Arrays and booleans are rendered by `csvCell` (semicolon-joined / Yes-No).
+ */
+const APPLICATION_EXPORT_COLUMNS: { header: string; value: (a: SellerApplication) => unknown }[] = [
+  { header: 'Business name', value: (a) => a.businessName },
+  { header: 'Contact name', value: (a) => a.contactName },
+  { header: 'Email', value: (a) => a.email },
+  { header: 'Phone', value: (a) => a.phone },
+  { header: 'City', value: (a) => a.city },
+  { header: 'Country', value: (a) => a.country },
+  { header: 'Business address', value: (a) => a.businessAddress },
+  { header: 'Status', value: (a) => a.status },
+  { header: 'Favourite', value: (a) => a.isFavourite },
+  { header: 'Applied date', value: (a) => a.createdAt },
+  { header: 'Reviewed date', value: (a) => a.reviewedAt },
+  { header: 'Instagram handle', value: (a) => a.instagramHandle },
+  { header: 'Instagram followers', value: (a) => a.instagramFollowers },
+  { header: 'Website / social link', value: (a) => a.websiteOrSocialLink },
+  { header: 'Craft categories', value: (a) => a.craftCategories },
+  { header: 'Product description', value: (a) => a.productDescription },
+  { header: 'GI tagged products', value: (a) => a.giTaggedProducts },
+  { header: 'Monthly sales volume', value: (a) => a.monthlySalesVolume },
+  { header: 'Shipped internationally', value: (a) => a.shippedInternationally },
+  { header: 'Approx. export orders', value: (a) => a.approxExportOrders },
+  { header: 'Export countries', value: (a) => a.exportCountries },
+  { header: 'Selling on Amazon', value: (a) => a.sellingOnAmazon },
+  { header: 'Other platforms', value: (a) => a.otherPlatforms },
+  { header: 'GST registration', value: (a) => a.gstRegistration },
+  { header: 'Company incorporation', value: (a) => a.companyIncorporation },
+  { header: 'IEC status', value: (a) => a.iecStatus },
+  { header: 'Business type', value: (a) => a.businessType },
+  { header: 'How they heard about us', value: (a) => a.hearAboutUs },
+  { header: 'Agreed to commission terms', value: (a) => a.agreedToCommissionTerms },
+  { header: 'Applicant message', value: (a) => a.message },
+  { header: 'Internal notes', value: (a) => a.internalNotes },
+  { header: 'Rejection reason', value: (a) => a.rejectionReason },
+];
+
 export class SellersService {
+  /** Hard ceiling on one CSV export, so a single click can never load an unbounded table. */
+  static readonly EXPORT_ROW_CAP = 10_000;
+
   constructor(private readonly repo: SellersRepository = sellersRepository) {}
 
   private async getApplicationOrThrow(id: string): Promise<SellerApplication> {
@@ -78,6 +123,32 @@ export class SellersService {
     pagination: PaginationQuery,
   ): Promise<{ data: SellerApplication[]; total: number }> {
     return this.repo.findApplications(filter, pagination);
+  }
+
+  /**
+   * CSV of every application matching the admin's current filters (status tab, search
+   * box, favourites toggle) — not just the page on screen. Capped at
+   * {@link SellersService.EXPORT_ROW_CAP} rows; `truncated` tells the caller the cap bit.
+   */
+  async exportApplicationsCsv(
+    filter: ApplicationListFilter,
+    adminId: string,
+  ): Promise<{ csv: string; filename: string; rows: number; truncated: boolean }> {
+    const rows = await this.repo.findApplicationsForExport(filter, SellersService.EXPORT_ROW_CAP);
+
+    const csv = buildCsv(
+      APPLICATION_EXPORT_COLUMNS.map((c) => c.header),
+      rows.map((a) => APPLICATION_EXPORT_COLUMNS.map((c) => c.value(a))),
+    );
+    const filename = `seller-applications-${toIsoDate(new Date())}.csv`;
+
+    await writeAuditLog(adminId, 'SELLER_APPLICATIONS_EXPORTED', 'SellerApplication', 'export', {
+      rows: rows.length,
+      truncated: rows.length === SellersService.EXPORT_ROW_CAP,
+      filter: { status: filter.status ?? null, search: filter.search ?? null, favourite: filter.favourite ?? null },
+    });
+
+    return { csv, filename, rows: rows.length, truncated: rows.length === SellersService.EXPORT_ROW_CAP };
   }
 
   /** Stars or unstars an application so the owner can shortlist and filter by it. */

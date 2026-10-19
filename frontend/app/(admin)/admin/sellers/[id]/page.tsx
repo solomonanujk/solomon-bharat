@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ArrowLeft, Building2, User, Phone, MapPin, Landmark, Bell, CalendarDays, AlertTriangle, RotateCcw, Package, Upload } from 'lucide-react'
 import { useSetSellerInternalRating, useAdminSeller } from '@/hooks/queries/useSellers'
 import { useSuspendUser, useReactivateUser } from '@/hooks/queries/useAdmin'
+import { SellerAccessCard } from '@/components/admin/SellerAccessCard'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 
@@ -113,6 +114,10 @@ export default function AdminSellerDetailPage() {
           </Button>
         </div>
       </div>
+
+      {/* Sign-in details the owner can re-share at any time. Only rendered once the
+          account behind the profile is known (admin-only field on the detail API). */}
+      {seller.user && <SellerAccessCard user={seller.user} businessName={seller.businessName} />}
 
       {ratingCard}
 
