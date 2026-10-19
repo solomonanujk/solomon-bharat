@@ -23,6 +23,41 @@ const envSchema = z.object({
   TWILIO_ACCOUNT_SID: z.string().default(''),
   TWILIO_AUTH_TOKEN: z.string().default(''),
   TWILIO_WHATSAPP_FROM: z.string().default(''),
+  /** 'auto' uses Meta when its settings are complete, else Twilio, else only logs. */
+  WHATSAPP_PROVIDER: z.enum(['auto', 'twilio', 'meta']).default('auto'),
+  /**
+   * Approved templates for messages we start (the link code) or send after the 24-hour window
+   * (review results, order status, payouts, welcome and reply notices). Meta: the template name. Twilio: the Content SID (HX...).
+   * Empty means plain text is sent instead. See docs/WHATSAPP_LISTING.md.
+   */
+  WHATSAPP_TEMPLATE_AUTH: z.string().default(''),
+  WHATSAPP_TEMPLATE_PRODUCT_APPROVED: z.string().default(''),
+  WHATSAPP_TEMPLATE_PRODUCT_REJECTED: z.string().default(''),
+  WHATSAPP_TEMPLATE_PRICING_APPROVED: z.string().default(''),
+  WHATSAPP_TEMPLATE_PRICING_REJECTED: z.string().default(''),
+  WHATSAPP_TEMPLATE_ORDER_STATUS: z.string().default(''),
+  WHATSAPP_TEMPLATE_PAYOUT_PAID: z.string().default(''),
+  WHATSAPP_TEMPLATE_SELLER_APPROVED: z.string().default(''),
+  WHATSAPP_TEMPLATE_AGENT_APPROVED: z.string().default(''),
+  WHATSAPP_TEMPLATE_NEW_MESSAGE: z.string().default(''),
+  /** Meta language code of those templates (Twilio ignores it). */
+  WHATSAPP_TEMPLATE_LANGUAGE: z.string().default('en'),
+  /** WhatsApp Cloud API (Meta) settings; see docs/WHATSAPP_LISTING.md. */
+  META_WHATSAPP_ACCESS_TOKEN: z.string().default(''),
+  META_WHATSAPP_PHONE_NUMBER_ID: z.string().default(''),
+  /** App secret from the Meta app (Settings, Basic): signs every webhook call. */
+  META_WHATSAPP_APP_SECRET: z.string().default(''),
+  /** A string you choose; Meta sends it back once when you register the webhook. */
+  META_WHATSAPP_VERIFY_TOKEN: z.string().default(''),
+  META_GRAPH_VERSION: z.string().default('v23.0'),
+  /** Public base URL of this API (no trailing slash); Twilio signs webhooks over the full URL. */
+  WHATSAPP_WEBHOOK_BASE_URL: z.string().default(''),
+  /** Set to 'false' to switch off the AI that reads WhatsApp listings (commands keep working). */
+  WHATSAPP_AI_ENABLED: z.string().default('true'),
+  /** Most AI calls one seller may trigger per day over WhatsApp; the budget guard. */
+  WHATSAPP_AI_DAILY_CAP: z.coerce.number().int().min(0).default(20),
+  /** Gemini model that reads WhatsApp listings; keep it a cheap 'lite' model. */
+  WHATSAPP_AI_MODEL: z.string().default('gemini-2.5-flash-lite'),
 
   CLOUDINARY_URL: z.string().default(''),
 

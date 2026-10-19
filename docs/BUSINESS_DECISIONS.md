@@ -125,3 +125,16 @@ Recommended: video, the story of the craft.
 - (17 Oct 2026) Approval emails carry a one-time "Set your password and sign in" link valid for 7 days (never the password in a link); temporary password kept as a fallback.
 - (17 Oct 2026) Admins are emailed for every paid order; marketplace brands get "New order — please accept". Curated sellers are not emailed (orders go through admin) unless the owner asks for it.
 - (17 Oct 2026) Listing: made-to-order products need no inventory; ready-stock products need stock of at least 1. Dimensions (with unit cm/inch/m) and HSN code are required for new listings.
+
+## 14. Listing products over WhatsApp (18 Oct 2026, being built)
+- Sellers can create and manage products by WhatsApp: photos plus a message (English, Hindi or Hinglish; short video allowed). Voice notes are not supported yet.
+- Provider is Twilio. A test (sandbox) number is used for now; the production number is decided before launch.
+- A seller's WhatsApp number is linked to their account with a code sent from the seller portal; messages from unlinked numbers are not processed.
+- The chat collects all mandatory listing fields, then submits the product for admin approval (PENDING). Admin still approves and sets prices on every product.
+- Sellers can also edit products, update stock, see product status and resubmit rejected products by WhatsApp. Variants and tiered prices are added on the website only.
+- **API cost must be kept as low as possible:** simple commands use no AI, one cheap model call per listing (about 2 at most), a daily AI limit per seller, fewer and denser messages.
+- (18 Oct 2026, as built) Product photos sent over WhatsApp are stored but never read by the AI (cost); only the seller's text is read, with one cheap model call. Each seller has a daily AI limit (default 20 calls) and each listing at most 4 rounds; after that the seller is sent to the website.
+- (18 Oct 2026, as built) The chat asks for the same mandatory fields as the website, in one message, including the HSN code. If the seller does not know it, the AI suggests one; the summary marks it "my suggestion, please check" and the admin reviews it with the rest of the product. The owner should confirm this is acceptable.
+- (18 Oct 2026, as built) Products created by WhatsApp are marked as such (`source`) and follow the normal approval flow (PENDING, admin sets prices). Replies are in the language the seller writes in (English, Hindi or Hinglish); product name and description are always written in English for buyers.
+- (19 Oct 2026, as built) Meta's WhatsApp Cloud API provider is built alongside Twilio (choose with `WHATSAPP_PROVIDER`) to cut messaging cost (Twilio charges $0.005 per message in and out, about $0.06 per typical listing; Meta direct is about ₹0 to ₹0.5). Twilio stays for sandbox testing until then. Start Meta business verification early.
+- (19 Oct 2026, as built) Ten WhatsApp messages are sent as pre-approved templates so they reach people outside WhatsApp's 24-hour window: the link code, product approved and rejected, pricing change approved and rejected, order status, payout paid, seller and agent application approved, and a new reply from the team. Each falls back to plain text if its template is not set up or fails. Templates are in English.

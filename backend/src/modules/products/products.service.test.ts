@@ -97,6 +97,7 @@ function buildProduct(overrides: Partial<Product> = {}): Product {
     ecoProduction: [],
     isBestseller: false,
     tariffCode: null,
+    source: 'WEB',
     ...overrides,
   };
 }
@@ -559,6 +560,82 @@ describe('ProductsService', () => {
         approvalStatus: ProductApprovalStatus.RESUBMITTED,
         rejectionReason: null,
       });
+    });
+  });
+
+  describe('createFromWhatsApp', () => {
+    const input = {
+      name: 'Brass Diya',
+      description: 'Hand finished.',
+      categoryId: 'cat-1',
+      materials: 'Brass',
+      weight: '0.2',
+      moq: 10,
+      declaredStock: 100,
+      sellerPrice: 250,
+    };
+
+    it('creates a pending product from already-uploaded photos, flagged as a WhatsApp listing', async () => {
+      vi.mocked(repo.create).mockResolvedValue(withMedia(buildProduct({ name: 'Brass Diya' })));
+      await service.createFromWhatsApp('seller-1', input, ['https://cdn/a.jpg', 'https://cdn/b.jpg'], ['https://cdn/v.mp4']);
+
+      const [sellerId, data, images, videos, overrides] = vi.mocked(repo.create).mock.calls[0];
+      expect(sellerId).toBe('seller-1');
+      expect(data).toMatchObject({ name: 'Brass Diya', slug: expect.any(String), id: expect.any(String) });
+      expect(images).toEqual(['https://cdn/a.jpg', 'https://cdn/b.jpg']);
+      expect(videos).toEqual(['https://cdn/v.mp4']);
+      expect(overrides).toEqual({ source: 'WHATSAPP' });
+    });
+
+    it('needs between 2 and 10 photos', async () => {
+      await expect(service.createFromWhatsApp('seller-1', input, ['https://cdn/a.jpg'])).rejects.toMatchObject({ statusCode: 400 });
+      await expect(
+        service.createFromWhatsApp('seller-1', input, Array.from({ length: 11 }, (_, i) => `https://cdn/${i}.jpg`)),
+      ).rejects.toMatchObject({ statusCode: 400 });
+      expect(repo.create).not.toHaveBeenCalled();
+    });
+
+    it('applies the same ready-stock rule as the website form', async () => {
+      await expect(
+        service.createFromWhatsApp('seller-1', { ...input, declaredStock: 0 }, ['https://cdn/a.jpg', 'https://cdn/b.jpg']),
+      ).rejects.toMatchObject({ statusCode: 400 });
+      expect(repo.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('setStockForSeller', () => {
+    it('sets the stock on an approved product without staging a pricing change', async () => {
+      const approved = buildProduct({ approvalStatus: ProductApprovalStatus.APPROVED });
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(approved);
+      vi.mocked(repo.findByIdWithMedia).mockResolvedValue(withMedia(approved));
+      vi.mocked(repo.update).mockResolvedValue(withMedia({ ...approved, declaredStock: 0 }));
+
+      await service.setStockForSeller('seller-1', 'prod-1', 0);
+
+      expect(repo.update).toHaveBeenCalledWith('prod-1', { declaredStock: 0 }, [], 0, [], 0);
+      expect(repo.upsertPendingPricingChange).not.toHaveBeenCalled();
+    });
+
+    it('refuses made-to-order products', async () => {
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildProduct({ isMadeToOrder: true }));
+      await expect(service.setStockForSeller('seller-1', 'prod-1', 5)).rejects.toMatchObject({ statusCode: 400 });
+      expect(repo.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses products that keep stock per variant', async () => {
+      const product = buildProduct();
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(product);
+      vi.mocked(repo.findByIdWithMedia).mockResolvedValue({
+        ...withMedia(product),
+        variants: [{ inventory: 4 }],
+      } as never);
+      await expect(service.setStockForSeller('seller-1', 'prod-1', 5)).rejects.toMatchObject({ statusCode: 400 });
+      expect(repo.update).not.toHaveBeenCalled();
+    });
+
+    it("refuses another seller's product", async () => {
+      vi.mocked(repo.findByIdRaw).mockResolvedValue(buildProduct({ sellerId: 'someone-else' }));
+      await expect(service.setStockForSeller('seller-1', 'prod-1', 5)).rejects.toMatchObject({ statusCode: 403 });
     });
   });
 
