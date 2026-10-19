@@ -252,6 +252,26 @@ export class AdminRepository {
     return this.db.user.update({ where: { id }, data: { status } });
   }
 
+  /**
+   * Replaces the stored bcrypt hash with a new one and puts the account back into
+   * "must choose a password" state. Only ever handed a hash — the plaintext temporary
+   * password never reaches the database layer.
+   */
+  setUserPasswordHash(id: string, passwordHash: string): Promise<User> {
+    return this.db.user.update({
+      where: { id },
+      data: { passwordHash, mustChangePassword: true },
+    });
+  }
+
+  /** Signs the user out everywhere, so an old session cannot outlive a credential reset. */
+  async revokeRefreshTokensForUser(userId: string): Promise<void> {
+    await this.db.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
   promoteToAdmin(id: string): Promise<User> {
     return this.db.user.update({ where: { id }, data: { role: Role.SUPER_ADMIN } });
   }

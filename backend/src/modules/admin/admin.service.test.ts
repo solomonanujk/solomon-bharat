@@ -2,10 +2,29 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Role, User, UserStatus } from '@prisma/client';
 import { AdminRepository } from './admin.repository';
 import { AdminService } from './admin.service';
+import { writeAuditLog } from '../../utils/auditLog';
+import { mailProvider } from '../../providers/mail';
+import { authService } from '../auth/auth.service';
+import { comparePassword } from '../../utils/bcrypt';
 
 vi.mock('../../utils/auditLog', () => ({
   writeAuditLog: vi.fn().mockResolvedValue(undefined),
 }));
+
+vi.mock('../../providers/mail', () => ({
+  mailProvider: { sendMail: vi.fn().mockResolvedValue(undefined) },
+}));
+
+// Inlined, not a const: vi.mock factories are hoisted above module-level declarations.
+vi.mock('../auth/auth.service', () => ({
+  authService: {
+    createPasswordSetupUrl: vi
+      .fn()
+      .mockResolvedValue('http://localhost:3000/reset-password?id=prt-1&token=secret&welcome=1'),
+  },
+}));
+
+const SETUP_URL = 'http://localhost:3000/reset-password?id=prt-1&token=secret&welcome=1';
 
 function buildUser(overrides: Partial<User> = {}): User {
   return {
@@ -54,6 +73,8 @@ function buildMockRepo(): AdminRepository {
     findUsers: vi.fn(),
     findUserById: vi.fn(),
     setUserStatus: vi.fn(),
+    setUserPasswordHash: vi.fn(),
+    revokeRefreshTokensForUser: vi.fn(),
     promoteToAdmin: vi.fn(),
   } as unknown as AdminRepository;
 }
@@ -285,6 +306,19 @@ describe('AdminService', () => {
       expect(repo.promoteToAdmin).not.toHaveBeenCalled();
     });
 
+    it('exposes the login email, mustChangePassword and updatedAt to admins, never the hash', async () => {
+      const updatedAt = new Date('2026-05-05T10:00:00Z');
+      vi.mocked(repo.findUsers).mockResolvedValue({
+        data: [buildUser({ role: Role.SELLER, mustChangePassword: true, updatedAt })],
+        total: 1,
+      });
+
+      const { data } = await service.listUsers({ role: Role.SELLER }, { page: 1, limit: 20 });
+
+      expect(data[0]).toMatchObject({ email: 'someone@example.com', mustChangePassword: true, updatedAt });
+      expect(data[0]).not.toHaveProperty('passwordHash');
+    });
+
     it('promotes an eligible user and audit-logs it', async () => {
       vi.mocked(repo.findUserById).mockResolvedValue(buildUser({ role: Role.BUYER }));
       vi.mocked(repo.promoteToAdmin).mockResolvedValue(buildUser({ role: Role.SUPER_ADMIN }));
@@ -293,6 +327,143 @@ describe('AdminService', () => {
 
       expect(result.role).toBe(Role.SUPER_ADMIN);
       expect(result).not.toHaveProperty('passwordHash');
+    });
+  });
+
+  // Admin → Sellers "Seller access" card. The invariant under test throughout: an
+  // existing password is never readable, and a newly minted one is stored only as a
+  // bcrypt hash and returned only in the response value.
+  describe('seller/agent sign-in access', () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    describe('createSignInLinkForUser', () => {
+      it('issues a fresh one-time link with its 7-day expiry for a seller', async () => {
+        vi.mocked(repo.findUserById).mockResolvedValue(buildUser({ role: Role.SELLER }));
+
+        const result = await service.createSignInLinkForUser('user-1', 'admin-1');
+
+        expect(authService.createPasswordSetupUrl).toHaveBeenCalledWith('user-1');
+        expect(result).toEqual({ email: 'someone@example.com', url: SETUP_URL, expiresInDays: 7 });
+      });
+
+      it('works for an agent too', async () => {
+        vi.mocked(repo.findUserById).mockResolvedValue(buildUser({ role: Role.AGENT }));
+
+        await expect(service.createSignInLinkForUser('user-1', 'admin-1')).resolves.toMatchObject({
+          url: SETUP_URL,
+        });
+      });
+
+      it('refuses a buyer or admin account', async () => {
+        vi.mocked(repo.findUserById).mockResolvedValue(buildUser({ role: Role.BUYER }));
+        await expect(service.createSignInLinkForUser('user-1', 'admin-1')).rejects.toMatchObject({
+          statusCode: 400,
+        });
+
+        vi.mocked(repo.findUserById).mockResolvedValue(buildUser({ role: Role.SUPER_ADMIN }));
+        await expect(service.createSignInLinkForUser('user-1', 'admin-1')).rejects.toMatchObject({
+          statusCode: 400,
+        });
+
+        expect(authService.createPasswordSetupUrl).not.toHaveBeenCalled();
+      });
+
+      it('404s for a user that does not exist', async () => {
+        vi.mocked(repo.findUserById).mockResolvedValue(null);
+        await expect(service.createSignInLinkForUser('nope', 'admin-1')).rejects.toMatchObject({
+          statusCode: 404,
+        });
+      });
+
+      it('audit-logs the issue without putting the one-time URL in the log', async () => {
+        vi.mocked(repo.findUserById).mockResolvedValue(buildUser({ role: Role.SELLER }));
+
+        await service.createSignInLinkForUser('user-1', 'admin-1');
+
+        expect(writeAuditLog).toHaveBeenCalledWith('admin-1', 'USER_SIGNIN_LINK_ISSUED', 'User', 'user-1', {
+          email: 'someone@example.com',
+          role: Role.SELLER,
+        });
+        expect(JSON.stringify(vi.mocked(writeAuditLog).mock.calls)).not.toContain('token=secret');
+      });
+    });
+
+    describe('resetTemporaryPassword', () => {
+      beforeEach(() => {
+        vi.mocked(repo.findUserById).mockResolvedValue(buildUser({ role: Role.SELLER }));
+        vi.mocked(repo.setUserPasswordHash).mockResolvedValue(buildUser({ mustChangePassword: true }));
+      });
+
+      it('stores only a bcrypt hash of the new password, never the plaintext', async () => {
+        const { tempPassword } = await service.resetTemporaryPassword('user-1', 'admin-1');
+
+        const [userId, storedHash] = vi.mocked(repo.setUserPasswordHash).mock.calls[0];
+        expect(userId).toBe('user-1');
+        expect(storedHash).not.toBe(tempPassword);
+        expect(storedHash).toMatch(/^\$2[aby]\$/);
+        await expect(comparePassword(tempPassword, storedHash)).resolves.toBe(true);
+      });
+
+      it('returns the plaintext once, for the admin to copy', async () => {
+        const result = await service.resetTemporaryPassword('user-1', 'admin-1');
+
+        expect(result.email).toBe('someone@example.com');
+        expect(result.tempPassword).toHaveLength(14);
+        expect(result.emailSent).toBe(true);
+      });
+
+      it('generates a different password each time', async () => {
+        const first = await service.resetTemporaryPassword('user-1', 'admin-1');
+        const second = await service.resetTemporaryPassword('user-1', 'admin-1');
+
+        expect(first.tempPassword).not.toBe(second.tempPassword);
+      });
+
+      it('revokes existing sessions so an old one cannot outlive the reset', async () => {
+        await service.resetTemporaryPassword('user-1', 'admin-1');
+
+        expect(repo.revokeRefreshTokensForUser).toHaveBeenCalledWith('user-1');
+      });
+
+      it('emails the seller the set-your-password email', async () => {
+        const { tempPassword } = await service.resetTemporaryPassword('user-1', 'admin-1');
+
+        expect(mailProvider.sendMail).toHaveBeenCalledWith(
+          expect.objectContaining({
+            to: 'someone@example.com',
+            subject: 'Set your password and sign in to Solomon Bharat',
+            html: expect.stringContaining(tempPassword),
+          }),
+        );
+      });
+
+      it('keeps the password usable when the email provider is down', async () => {
+        vi.mocked(mailProvider.sendMail).mockRejectedValueOnce(new Error('smtp down'));
+
+        const result = await service.resetTemporaryPassword('user-1', 'admin-1');
+
+        expect(result.emailSent).toBe(false);
+        expect(result.tempPassword).toBeTruthy();
+      });
+
+      it('never writes the plaintext password into the audit log', async () => {
+        const { tempPassword } = await service.resetTemporaryPassword('user-1', 'admin-1');
+
+        expect(writeAuditLog).toHaveBeenCalledWith('admin-1', 'USER_TEMP_PASSWORD_RESET', 'User', 'user-1', {
+          email: 'someone@example.com',
+          role: Role.SELLER,
+        });
+        expect(JSON.stringify(vi.mocked(writeAuditLog).mock.calls)).not.toContain(tempPassword);
+      });
+
+      it('refuses a buyer account and changes nothing', async () => {
+        vi.mocked(repo.findUserById).mockResolvedValue(buildUser({ role: Role.BUYER }));
+
+        await expect(service.resetTemporaryPassword('user-1', 'admin-1')).rejects.toMatchObject({
+          statusCode: 400,
+        });
+        expect(repo.setUserPasswordHash).not.toHaveBeenCalled();
+      });
     });
   });
 });
