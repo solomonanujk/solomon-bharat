@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ClipboardList, Search, Mail, Phone, MapPin, CalendarDays, MessageSquare, StickyNote, ChevronDown, ChevronUp, Trash2, Upload, Star } from 'lucide-react'
+import { ClipboardList, Search, Mail, Phone, MapPin, CalendarDays, MessageSquare, StickyNote, ChevronDown, ChevronUp, Trash2, Upload, Download, Star } from 'lucide-react'
 import {
   useSellerApplications,
   useApproveSellerApplication,
@@ -12,6 +12,7 @@ import {
   useAddApplicationNote,
   useDeleteSellerApplication,
   useImportSellerApplications,
+  useExportSellerApplications,
   type ApplicationImportReport,
 } from '@/hooks/queries/useSellers'
 import type { SellerApplication, SellerApplicationStatus } from '@/types'
@@ -410,6 +411,7 @@ export default function SellerApplicationsPage() {
     limit: LIMIT,
   })
   const importApps = useImportSellerApplications()
+  const exportApps = useExportSellerApplications()
   const fileRef = useRef<HTMLInputElement>(null)
   const [report, setReport] = useState<ApplicationImportReport | null>(null)
 
@@ -431,7 +433,25 @@ export default function SellerApplicationsPage() {
             <Link href="/admin/sellers" className="underline underline-offset-2 text-[#183D33]">Sellers</Link>.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Exports every application matching the filters below — status tab, search
+              box and the favourites toggle — not just the page on screen. */}
+          <Button
+            variant="secondary"
+            size="sm"
+            className="gap-1.5"
+            disabled={exportApps.isPending}
+            onClick={() =>
+              exportApps.mutate({
+                status: status || undefined,
+                search: debouncedSearch || undefined,
+                favourite: favouritesOnly || undefined,
+              })
+            }
+          >
+            <Download size={13} aria-hidden="true" />
+            {exportApps.isPending ? 'Preparing…' : 'Download CSV'}
+          </Button>
           <input
             ref={fileRef}
             type="file"

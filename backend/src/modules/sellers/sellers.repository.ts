@@ -21,12 +21,14 @@ export class SellersRepository {
     });
   }
 
-  async findApplications(
-    filter: ApplicationListFilter,
-    pagination: PaginationQuery,
-  ): Promise<{ data: SellerApplication[]; total: number }> {
+  /**
+   * The one place the admin application filter (status tab / search box / favourites
+   * toggle) turns into a Prisma `where`. The list and the CSV export share it so an
+   * export can never disagree with the rows the admin is looking at.
+   */
+  static applicationWhere(filter: ApplicationListFilter): Prisma.SellerApplicationWhereInput {
     // With no status chosen, approved applications are left out: they live in Sellers now.
-    const where: Prisma.SellerApplicationWhereInput = {
+    return {
       status: filter.status ?? { not: 'APPROVED' },
       ...(filter.favourite ? { isFavourite: true } : {}),
       ...(filter.search
@@ -39,6 +41,13 @@ export class SellersRepository {
           }
         : {}),
     };
+  }
+
+  async findApplications(
+    filter: ApplicationListFilter,
+    pagination: PaginationQuery,
+  ): Promise<{ data: SellerApplication[]; total: number }> {
+    const where = SellersRepository.applicationWhere(filter);
     const [data, total] = await Promise.all([
       this.db.sellerApplication.findMany({
         where,
@@ -49,6 +58,20 @@ export class SellersRepository {
       this.db.sellerApplication.count({ where }),
     ]);
     return { data, total };
+  }
+
+  /**
+   * Every application matching the admin's current filters, unpaginated, for the CSV
+   * export. `limit` is a hard safety cap so one click can never pull an unbounded
+   * result set into memory.
+   */
+  findApplicationsForExport(filter: ApplicationListFilter, limit: number): Promise<SellerApplication[]> {
+    return this.db.sellerApplication.findMany({
+      where: SellersRepository.applicationWhere(filter),
+      // Same ordering as the screen: starred first, then newest.
+      orderBy: [{ isFavourite: 'desc' }, { createdAt: 'desc' }],
+      take: limit,
+    });
   }
 
   /** Stars or unstars an application (admin shortlist). */

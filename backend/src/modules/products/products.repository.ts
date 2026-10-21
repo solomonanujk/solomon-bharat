@@ -79,6 +79,13 @@ export class ProductsRepository {
     return this.db.product.findUnique({ where: { id }, include: MEDIA_INCLUDE });
   }
 
+  findByIdForAdmin(id: string) {
+    return this.db.product.findUnique({
+      where: { id },
+      include: { ...MEDIA_INCLUDE, seller: { select: { businessName: true, id: true } } },
+    });
+  }
+
   findByIdRaw(id: string): Promise<Product | null> {
     return this.db.product.findUnique({ where: { id } });
   }

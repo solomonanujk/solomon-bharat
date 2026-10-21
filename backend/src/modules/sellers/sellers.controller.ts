@@ -7,6 +7,7 @@ import { sellersService } from './sellers.service';
 import {
   FavouriteApplicationDto,
   AddNoteDto,
+  ApplicationExportQueryDto,
   ApplicationListQueryDto,
   RejectApplicationDto,
   RequestMoreInfoDto,
@@ -25,6 +26,18 @@ export const sellersController = {
     const { status, search, favourite, ...pagination } = req.query as unknown as ApplicationListQueryDto;
     const { data, total } = await sellersService.listApplications({ status, search, favourite }, pagination);
     sendSuccess(res, data, 'Applications retrieved', 200, buildPaginationMeta(total, pagination));
+  },
+
+  /** CSV of every application matching the current filters (not just the current page). */
+  async exportApplications(req: Request, res: Response): Promise<void> {
+    const { status, search, favourite } = req.query as unknown as ApplicationExportQueryDto;
+    const { csv, filename } = await sellersService.exportApplicationsCsv(
+      { status, search, favourite },
+      req.user!.id,
+    );
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.status(200).send(csv);
   },
 
   async setApplicationFavourite(req: Request, res: Response): Promise<void> {

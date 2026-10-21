@@ -1,6 +1,12 @@
 import { Role, User } from '@prisma/client';
+import { env } from '../../config/env';
 import { AppError } from '../../utils/errors';
 import { writeAuditLog } from '../../utils/auditLog';
+import { hashPassword } from '../../utils/bcrypt';
+import { generateTempPassword } from '../../utils/helpers';
+import { accountReadyEmailHtml } from '../../utils/emailTemplates';
+import { mailProvider } from '../../providers/mail';
+import { authService } from '../auth/auth.service';
 import { toSafeUser, SafeUser } from '../../utils/safeUser';
 import { PaginationQuery } from '../../utils/pagination';
 import { AdminRepository, adminRepository } from './admin.repository';
@@ -17,6 +23,14 @@ import {
   RevenueReport,
   SellerPerformanceRow,
 } from './admin.types';
+
+/**
+ * How long a set-password link stays valid, for the copy the admin UI shows next to it.
+ * Mirrors PASSWORD_SETUP_TTL_MS in auth.service (7 days) — stated as a literal rather than
+ * imported, because importing a *value* from auth.service would make this module fail to
+ * load in every test suite that mocks auth.service with just its methods.
+ */
+const PASSWORD_SETUP_TTL_DAYS = 7;
 
 function toCsv(rows: ReportRow[]): string {
   if (rows.length === 0) return '';
@@ -258,6 +272,83 @@ export class AdminService {
     const updated = await this.repo.setUserStatus(id, 'ACTIVE');
     await writeAuditLog(adminId, 'USER_REACTIVATED', 'User', id);
     return toSafeUser(updated);
+  }
+
+  // ─── Seller / agent sign-in access (Admin → Sellers "Seller access" card) ────
+  //
+  // The owner wants to be able to re-share a seller's sign-in details at any time.
+  // Passwords are bcrypt hashes and stay that way: nothing here can read an existing
+  // password. Instead an admin can hand out a fresh one-time set-password link, or
+  // mint a brand-new temporary password which is returned exactly once, in the HTTP
+  // response body only — never stored in plaintext, never written to an audit log.
+
+  /** Only accounts that actually sign in to a portal have "sign-in details" to share. */
+  private static readonly ACCESS_MANAGED_ROLES: Role[] = [Role.SELLER, Role.AGENT];
+
+  private async getAccessManagedUserOrThrow(id: string): Promise<User> {
+    const user = await this.getUserOrThrow(id);
+    if (!AdminService.ACCESS_MANAGED_ROLES.includes(user.role)) {
+      throw AppError.badRequest('Sign-in details can only be managed for seller and agent accounts');
+    }
+    return user;
+  }
+
+  /**
+   * Mints a fresh one-time "set your password" link the admin can paste into
+   * WhatsApp/email. Only the token's hash is stored (see authService); the link works
+   * once and expires after 7 days.
+   */
+  async createSignInLinkForUser(
+    id: string,
+    adminId: string,
+  ): Promise<{ email: string; url: string; expiresInDays: number }> {
+    const user = await this.getAccessManagedUserOrThrow(id);
+    const url = await authService.createPasswordSetupUrl(user.id);
+    // The URL carries the one-time secret, so only the fact that a link was issued is logged.
+    await writeAuditLog(adminId, 'USER_SIGNIN_LINK_ISSUED', 'User', id, { email: user.email, role: user.role });
+    return { email: user.email, url, expiresInDays: PASSWORD_SETUP_TTL_DAYS };
+  }
+
+  /**
+   * Sets a brand-new temporary password on the account and returns the plaintext ONCE
+   * so the admin can share it. The account is flagged mustChangePassword, every existing
+   * session is revoked, and the seller also gets the normal "set your password" email.
+   */
+  async resetTemporaryPassword(
+    id: string,
+    adminId: string,
+  ): Promise<{ email: string; tempPassword: string; emailSent: boolean }> {
+    const user = await this.getAccessManagedUserOrThrow(id);
+
+    const tempPassword = generateTempPassword();
+    await this.repo.setUserPasswordHash(user.id, await hashPassword(tempPassword));
+    await this.repo.revokeRefreshTokensForUser(user.id);
+
+    // Deliberately no tempPassword in the metadata — the audit trail records that a
+    // reset happened and by whom, never the secret itself.
+    await writeAuditLog(adminId, 'USER_TEMP_PASSWORD_RESET', 'User', id, { email: user.email, role: user.role });
+
+    const setupUrl = await authService.createPasswordSetupUrl(user.id);
+    let emailSent = true;
+    try {
+      await mailProvider.sendMail({
+        to: user.email,
+        subject: 'Set your password and sign in to Solomon Bharat',
+        html: accountReadyEmailHtml({
+          intro: 'An administrator has reset the password on your Solomon Bharat account.',
+          email: user.email,
+          tempPassword,
+          setupUrl,
+          signInUrl: env.APP_URL,
+        }),
+      });
+    } catch {
+      // The admin already has the password to share by hand — a mail outage must not
+      // lose it by failing the request after the reset has been committed.
+      emailSent = false;
+    }
+
+    return { email: user.email, tempPassword, emailSent };
   }
 
   async promoteToAdmin(id: string, adminId: string): Promise<SafeUser> {
