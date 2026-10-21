@@ -107,8 +107,11 @@ function withMedia(product: Product): ProductWithMedia {
 }
 
 function buildMockRepo(): ProductsRepository {
-  return {
+  const repo: ProductsRepository = {
     findByIdWithMedia: vi.fn(),
+    // getForAdmin reads through findByIdForAdmin (which adds the seller name). Tests set up the product
+    // with findByIdWithMedia, so this delegates to it.
+    findByIdForAdmin: vi.fn((id: string) => repo.findByIdWithMedia(id)),
     findByIdRaw: vi.fn(),
     findBySlugWithMedia: vi.fn(),
     slugExists: vi.fn().mockResolvedValue(false),
@@ -139,6 +142,7 @@ function buildMockRepo(): ProductsRepository {
     applyPricingChange: vi.fn(),
     setPricingChangeRejected: vi.fn(),
   } as unknown as ProductsRepository;
+  return repo;
 }
 
 function buildMockCategories(): CategoriesService {
