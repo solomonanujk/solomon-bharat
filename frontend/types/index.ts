@@ -255,6 +255,7 @@ export interface AdminProduct extends Omit<MyProduct, never> {
   adminPrice: number | null
   agentPrice: number | null
   isFeatured: boolean
+  seller?: { businessName: string }
 }
 
 export interface ProductsParams {

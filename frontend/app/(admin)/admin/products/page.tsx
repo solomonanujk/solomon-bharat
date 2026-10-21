@@ -50,6 +50,7 @@ function ProductRow({ product, onOpen }: { product: AdminProduct; onOpen: (id: s
           </div>
         </div>
       </td>
+      <td className="py-3 px-4 text-[13px] font-sans text-[#183D33B3] max-w-[140px] truncate">{product.seller?.businessName ?? '—'}</td>
       <td className="py-3 px-4 text-[13px] font-sans text-[#0F241D]">{formatINR(product.sellerPrice)}</td>
       <td className="py-3 px-4 text-[13px] font-sans">
         {product.adminPrice != null ? (
@@ -212,6 +213,7 @@ export default function AdminProductsPage() {
                   <tr className="border-b border-[#D9E2DA] bg-[#E7EDE7]/40">
                     {[
                       { label: 'Product', align: 'left' },
+                      { label: 'Seller', align: 'left' },
                       { label: 'Seller Price', align: 'left' },
                       { label: 'Admin Price', align: 'left' },
                       { label: 'MOQ', align: 'center' },
