@@ -1210,7 +1210,7 @@ export class ProductsService {
   }
 
   async getForAdmin(productId: string) {
-    const product = await this.repo.findByIdWithMedia(productId);
+    const product = await this.repo.findByIdForAdmin(productId);
     if (!product || product.deletedAt) {
       throw AppError.notFound('Product not found');
     }
