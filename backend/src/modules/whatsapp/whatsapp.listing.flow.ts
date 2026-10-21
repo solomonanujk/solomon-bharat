@@ -2,7 +2,7 @@ import type { Prisma, WhatsAppSession } from '@prisma/client';
 import { logger } from '../../config/logger';
 import { InboundMedia, InboundMessage } from '../../providers/whatsapp';
 import { AppError } from '../../utils/errors';
-import { ExtractionError, ExtractPatch, ListingExtractor } from './whatsapp.ai';
+import { ExtractInput, ExtractionError, ExtractPatch, ExtractResult, ListingExtractor } from './whatsapp.ai';
 import { chooseOption, resolveCategory } from './whatsapp.category';
 import { Command, Language } from './whatsapp.commands';
 import {
@@ -34,11 +34,21 @@ export interface FlowConfig {
   maxAiCallsPerSession: number;
   /** Wait this long after the last message before reading a batch of texts. */
   debounceMs: number;
+  /** Pause before the one retry when the AI service itself fails (busy or unreachable). */
+  retryDelayMs: number;
 }
+
+/** `add` restarts a listing that has been idle this long even while it is still collecting. */
+const ADD_RESTART_IDLE_MS = 10 * 60 * 1000;
+/** Photos arriving after this much silence are a new product, not part of the open listing. */
+const STALE_LISTING_MS = 2 * 60 * 60 * 1000;
+/** Photos joining an unfinished listing get a notice when the last message was this long ago. */
+const JOIN_NOTICE_IDLE_MS = 60 * 1000;
 
 export const DEFAULT_FLOW_CONFIG: Omit<FlowConfig, 'aiEnabled' | 'dailyCap'> = {
   maxAiCallsPerSession: 4,
   debounceMs: 25_000,
+  retryDelayMs: 1_500,
 };
 
 export interface SessionStore {
@@ -150,6 +160,13 @@ export class WhatsAppListingFlow implements ListingFlowPort {
     return this.store.findActive(phone);
   }
 
+  /** Forgets a pending "seller went quiet" timer, e.g. once `done` has already processed the listing. */
+  private cancelTimer(phone: string): void {
+    const timer = this.timers.get(phone);
+    if (timer) clearTimeout(timer);
+    this.timers.delete(phone);
+  }
+
   /** One at a time per phone, so a photo and a text arriving together cannot trample each other. */
   private exclusive<T>(phone: string, fn: () => Promise<T>): Promise<T> {
     const run = (this.locks.get(phone) ?? Promise.resolve()).then(fn, fn);
@@ -183,6 +200,16 @@ export class WhatsAppListingFlow implements ListingFlowPort {
         await this.store.delete(phone);
         session = null;
       }
+      // A new product must not be mixed into an unfinished one. `add` starts over once the old
+      // listing is past the collecting stage (or has sat for a while); photos arriving long after
+      // the last message belong to a new product too.
+      let discarded = false;
+      if (session && this.startsOver(session, ctx.command.kind, mediaFiles.length > 0)) {
+        await this.store.delete(phone);
+        this.cancelTimer(phone);
+        session = null;
+        discarded = true;
+      }
       if (!session && ctx.command.kind !== 'add' && mediaFiles.length === 0) return;
       // A listing is only worth opening if something usable came in.
       if (!session && stored.images.length + stored.videos.length === 0 && ctx.command.kind !== 'add') {
@@ -195,6 +222,8 @@ export class WhatsAppListingFlow implements ListingFlowPort {
         ({ session, created } = await this.store.start(sellerId, phone, ctx.lang));
       }
       const lang = this.languageOf(session, ctx.lang);
+      if (discarded) await this.reply(phone, listingMessages.discardedOld(lang));
+      await this.noticeIfJoiningOldListing(session, created, discarded, stored.images.length + stored.videos.length > 0, lang);
       if (created || (ctx.command.kind === 'add' && !created)) await this.reply(phone, listingMessages.started(lang));
       if (stored.failed) await this.reply(phone, listingMessages.mediaFailed(lang));
 
@@ -203,6 +232,37 @@ export class WhatsAppListingFlow implements ListingFlowPort {
 
       await this.applyCommand(ctx, session, lang, stored.images.length > 0);
     });
+  }
+
+  /**
+   * Photos sent while an unfinished listing is open (past collecting, not waiting for photos) are added to
+   * it: say so once per burst, so a seller starting a different product knows to send `add`.
+   */
+  private async noticeIfJoiningOldListing(
+    session: WhatsAppSession,
+    created: boolean,
+    discarded: boolean,
+    hasMedia: boolean,
+    lang: Language,
+  ): Promise<void> {
+    if (created || discarded || !hasMedia || session.state === 'COLLECTING' || session.missing.includes('photos')) return;
+    const name = ((session.collected ?? {}) as ListingDraft).name;
+    if (!name || Date.now() - session.lastMessageAt.getTime() < JOIN_NOTICE_IDLE_MS) return;
+    await this.reply(session.phone, listingMessages.joinedOld(lang, name));
+  }
+
+  /**
+   * True when the incoming message should replace the open listing instead of joining it:
+   * `add` once the listing is past collecting or idle for 10 minutes (so "photos, then add" keeps
+   * the photos), or photos after the listing sat idle for 2 hours.
+   */
+  private startsOver(session: WhatsAppSession, kind: Command['kind'], hasPhotos: boolean): boolean {
+    const idle = Date.now() - session.lastMessageAt.getTime();
+    const hasContent =
+      session.texts.length > 0 || session.imageUrls.length > 0 || Object.keys((session.collected ?? {}) as object).length > 0;
+    if (!hasContent) return false;
+    if (kind === 'add') return session.state !== 'COLLECTING' || idle > ADD_RESTART_IDLE_MS;
+    return hasPhotos && idle > STALE_LISTING_MS;
   }
 
   private languageOf(session: WhatsAppSession, incoming: Language): Language {
@@ -219,16 +279,25 @@ export class WhatsAppListingFlow implements ListingFlowPort {
     }
 
     if (kind === 'cancel') {
+      this.cancelTimer(phone);
       await this.store.delete(phone);
       await this.reply(phone, listingMessages.cancelled(lang));
       return;
     }
     if (kind === 'done') {
+      // Processing now makes any pending "went quiet" timer redundant: it would only repeat the reply.
+      this.cancelTimer(phone);
       await this.process(session, lang);
       return;
     }
     if (kind === 'confirm' && session.state === 'AWAITING_CONFIRM') {
+      this.cancelTimer(phone);
       await this.submit(session, lang);
+      return;
+    }
+    // "yes" while questions are open is not an answer: say what is expected instead of staying silent.
+    if (kind === 'confirm' && session.state === 'AWAITING_ANSWERS') {
+      await this.reply(phone, listingMessages.answerFirst(lang));
       return;
     }
     if (kind === 'add') return;
@@ -276,6 +345,9 @@ export class WhatsAppListingFlow implements ListingFlowPort {
         if (!session) return;
         // A newer message re-armed the timer; let that one fire instead.
         if (Date.now() - session.lastMessageAt.getTime() < this.config.debounceMs - 1000) return;
+        // Nothing new to read (`done` already handled it): answering again would repeat the last message.
+        const waitingForPhotos = session.state !== 'COLLECTING' && session.missing.includes('photos');
+        if (session.texts.length === 0 && !waitingForPhotos) return;
         await this.process(session, session.language as Language);
       });
     } catch (err) {
@@ -309,7 +381,24 @@ export class WhatsAppListingFlow implements ListingFlowPort {
       merged = await this.applyPatch(draft, patch);
     }
 
-    const missing = missingFields(merged, session.imageUrls.length);
+    let missing = missingFields(merged, session.imageUrls.length);
+    if (missing.includes('category')) {
+      const options = merged.categoryOptions ?? [];
+      if (options.length > 0 && (merged.categoryAsks ?? 0) >= 1) {
+        // Already asked once without a usable answer: take the closest match and flag it, instead of
+        // leaving the seller stuck on one question. The summary says so and admin can still change it.
+        merged = {
+          ...merged,
+          categoryId: options[0].id,
+          categoryPath: options[0].path,
+          categorySuggested: true,
+          categoryOptions: undefined,
+        };
+        missing = missingFields(merged, session.imageUrls.length);
+      } else {
+        merged = { ...merged, categoryAsks: (merged.categoryAsks ?? 0) + 1 };
+      }
+    }
     const base: SessionUpdate = { texts: [], collected: merged as unknown as Prisma.InputJsonValue, aiCalls, missing };
     if (missing.length > 0) {
       await this.store.update(session.phone, { ...base, state: 'AWAITING_ANSWERS' });
@@ -338,25 +427,43 @@ export class WhatsAppListingFlow implements ListingFlowPort {
     const day = new Date().toISOString().slice(0, 10);
     if ((await this.store.callsOn(session.sellerId, day)) >= this.config.dailyCap) return giveUp(listingMessages.aiLimit(lang));
 
+    const input = {
+      texts: session.texts,
+      known: draft,
+      asked: session.missing as FieldKey[],
+      categoryOptions: draft.categoryOptions,
+    };
     try {
-      const result = await this.extractor.extract({
-        texts: session.texts,
-        known: draft,
-        asked: session.missing as FieldKey[],
-        categoryOptions: draft.categoryOptions,
-      });
+      const result = await this.extractWithRetry(input);
       await this.store.recordCall(session.sellerId, day, result.inputTokens, result.outputTokens);
       return { stop: false, patch: result.patch };
     } catch (err) {
       if (err instanceof ExtractionError) {
+        // The model answered but not in a usable form: count the call, drop the text so the seller can
+        // write it again, and keep the listing.
         await this.store.recordCall(session.sellerId, day, err.usage.inputTokens, err.usage.outputTokens);
+        await this.store.update(phone, { texts: [], aiCalls: session.aiCalls + 1 });
+        await this.reply(phone, listingMessages.extractFailed(lang));
       } else {
+        // The AI service itself is busy or unreachable (retried once already). Nothing was read, so keep
+        // the seller's text and let `done` try again; it costs them no retyping and no AI call.
         logger.error({ err }, '[whatsapp] AI extraction failed');
+        await this.reply(phone, listingMessages.serviceBusy(lang));
       }
-      // Drop the unreadable text so the seller can write it again, and keep the listing.
-      await this.store.update(phone, { texts: [], aiCalls: session.aiCalls + 1 });
-      await this.reply(phone, listingMessages.extractFailed(lang));
       return { stop: true };
+    }
+  }
+
+  /** One retry after a short pause when the AI service fails; a malformed answer is not retried. */
+  private async extractWithRetry(input: ExtractInput): Promise<ExtractResult> {
+    try {
+      return await this.extractor.extract(input);
+    } catch (err) {
+      // A quota error (429) will not clear in a second, so only other failures are retried.
+      if (err instanceof ExtractionError || (err as { status?: unknown })?.status === 429) throw err;
+      logger.warn({ err }, '[whatsapp] AI service failed, retrying once');
+      await new Promise((resolve) => setTimeout(resolve, this.config.retryDelayMs));
+      return this.extractor.extract(input);
     }
   }
 
@@ -368,17 +475,22 @@ export class WhatsAppListingFlow implements ListingFlowPort {
       draft = { ...base };
       delete draft.categoryId;
       delete draft.categoryPath;
+      delete draft.categorySuggested;
     }
     draft = mergeDraft(draft, fields);
 
     if (draft.categoryId) return draft;
 
     const chosen = chooseOption(categoryChoice, base.categoryOptions ?? []);
-    if (chosen) return { ...draft, categoryId: chosen.id, categoryPath: chosen.path, categoryOptions: undefined };
+    if (chosen) {
+      return { ...draft, categoryId: chosen.id, categoryPath: chosen.path, categoryOptions: undefined, categorySuggested: undefined };
+    }
 
     const leaves = await this.categories.leaves();
     const { match, options } = resolveCategory(draft.categoryText ?? '', draft.name ?? '', leaves);
-    if (match) return { ...draft, categoryId: match.id, categoryPath: match.path, categoryOptions: undefined };
+    if (match) {
+      return { ...draft, categoryId: match.id, categoryPath: match.path, categoryOptions: undefined, categorySuggested: undefined };
+    }
     return { ...draft, categoryOptions: options };
   }
 

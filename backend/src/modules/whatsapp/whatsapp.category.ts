@@ -75,7 +75,10 @@ export function resolveCategory(
   if (confident(byHint)) return { match: byHint[0].leaf, options: [] };
   const withName = rankCategories(`${hint} ${name}`, leaves);
   if (confident(withName)) return { match: withName[0].leaf, options: [] };
-  return { options: (withName.length > 0 ? withName : byHint).map((r) => r.leaf) };
+  // Offer only categories whose own name matches a word; fall back to the closest few when none does.
+  const pool = withName.length > 0 ? withName : byHint;
+  const named = pool.filter((r) => r.score >= 3);
+  return { options: (named.length > 0 ? named : pool.slice(0, 3)).slice(0, 5).map((r) => r.leaf) };
 }
 
 /** Picks one of the offered options by the exact name the AI echoed back, or by its list number. */

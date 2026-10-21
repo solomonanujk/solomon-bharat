@@ -191,6 +191,24 @@ describe('WhatsAppConversation', () => {
   });
 });
 
+describe('WhatsAppConversation help text', () => {
+  it('tells the seller how to add a product and no longer says it is coming soon', async () => {
+    const ctx = build();
+    await ctx.conversation.handle(msg('help'));
+    expect(ctx.sent()[0]).toContain('*add*');
+    expect(ctx.sent()[0]).not.toContain('coming soon');
+  });
+
+  it('says the same in Hindi and Hinglish', async () => {
+    const ctx = build();
+    await ctx.conversation.handle(msg('मदद'));
+    await ctx.conversation.handle(msg('madad'));
+    expect(ctx.sent()[0]).toContain('*add*');
+    expect(ctx.sent()[1]).toContain('*add*');
+    expect(ctx.sent().join(' ')).not.toMatch(/जल्द आ रहा|jaldi aa raha/);
+  });
+});
+
 describe('WhatsAppConversation with the listing flow', () => {
   let ctx: ReturnType<typeof build>;
   const photo = [{ url: 'https://api.twilio.com/m', contentType: 'image/jpeg' }];

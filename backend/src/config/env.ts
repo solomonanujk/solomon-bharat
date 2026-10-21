@@ -58,6 +58,8 @@ const envSchema = z.object({
   WHATSAPP_AI_DAILY_CAP: z.coerce.number().int().min(0).default(20),
   /** Gemini model that reads WhatsApp listings; keep it a cheap 'lite' model. */
   WHATSAPP_AI_MODEL: z.string().default('gemini-2.5-flash-lite'),
+  /** Tried when the main model is busy or over its quota (each model has its own quota); empty disables. */
+  WHATSAPP_AI_FALLBACK_MODEL: z.string().default('gemini-3.5-flash-lite'),
 
   CLOUDINARY_URL: z.string().default(''),
 

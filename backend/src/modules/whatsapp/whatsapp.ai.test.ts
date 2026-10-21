@@ -8,7 +8,7 @@ vi.mock('@google/generative-ai', () => ({
   },
 }));
 
-import { ExtractionError, GeminiListingExtractor, MAX_INPUT_CHARS, parseExtraction } from './whatsapp.ai';
+import { ExtractionError, GeminiListingExtractor, MAX_INPUT_CHARS, isModelBusy, parseExtraction } from './whatsapp.ai';
 
 describe('parseExtraction', () => {
   it('reads a normal reply', () => {
@@ -47,6 +47,18 @@ describe('parseExtraction', () => {
     expect(patch.name).toHaveLength(60);
     expect(patch.name).not.toContain('<');
     expect(patch.materials).toBe('alert(1) Brass');
+  });
+
+  it('keeps a list of strings as one text and writes a number out, instead of dropping them', () => {
+    expect(parseExtraction('{"materials":["brass"],"craftTechnique":["hand cast","polished"],"leadTime":7}')).toEqual({
+      materials: 'brass',
+      craftTechnique: 'hand cast, polished',
+      leadTime: '7',
+    });
+  });
+
+  it('still ignores values that are neither text, a list of text nor a number', () => {
+    expect(parseExtraction('{"materials":{"a":1},"name":true,"placeOfOrigin":[1,2]}')).toEqual({});
   });
 
   it('treats the HSN the seller gave as theirs and a guess as a suggestion', () => {
@@ -115,6 +127,50 @@ describe('GeminiListingExtractor', () => {
       ExtractionError,
     );
     expect(generateContent).not.toHaveBeenCalled();
+  });
+
+  describe('fallback model', () => {
+    const quota = () => Object.assign(new Error('quota exceeded'), { status: 429 });
+    const input = { texts: ['hi'], known: {}, asked: [] as never[] };
+
+    it('tries the fallback model when the first is over its quota', async () => {
+      getGenerativeModel.mockClear();
+      generateContent.mockRejectedValueOnce(quota()).mockResolvedValueOnce(response('{"name":"Diya"}'));
+      const result = await new GeminiListingExtractor(() => 'key').extract(input);
+      expect(result.patch).toEqual({ name: 'Diya' });
+      expect(getGenerativeModel.mock.calls.map((c) => c[0].model)).toEqual(['gemini-2.5-flash-lite', 'gemini-3.5-flash-lite']);
+    });
+
+    it('also falls back when the first model is overloaded', async () => {
+      generateContent.mockRejectedValueOnce(Object.assign(new Error('overloaded'), { status: 503 })).mockResolvedValueOnce(response('{}'));
+      await expect(new GeminiListingExtractor(() => 'key').extract(input)).resolves.toMatchObject({ patch: {} });
+      expect(generateContent).toHaveBeenCalledTimes(2);
+    });
+
+    it('gives up with the original error when both models are unavailable', async () => {
+      generateContent.mockRejectedValue(quota());
+      await expect(new GeminiListingExtractor(() => 'key').extract(input)).rejects.toMatchObject({ status: 429 });
+      expect(generateContent).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not switch models for an error that is not about capacity', async () => {
+      generateContent.mockRejectedValue(Object.assign(new Error('bad request'), { status: 400 }));
+      await expect(new GeminiListingExtractor(() => 'key').extract(input)).rejects.toMatchObject({ status: 400 });
+      expect(generateContent).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not ask a second model when the first answered but the answer was unusable', async () => {
+      generateContent.mockResolvedValue(response('not json'));
+      await expect(new GeminiListingExtractor(() => 'key').extract(input)).rejects.toBeInstanceOf(ExtractionError);
+      expect(generateContent).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('isModelBusy recognises capacity errors only', () => {
+    for (const status of [429, 500, 502, 503, 504]) expect(isModelBusy({ status })).toBe(true);
+    for (const status of [400, 401, 403, 404]) expect(isModelBusy({ status })).toBe(false);
+    expect(isModelBusy(new Error('network'))).toBe(false);
+    expect(isModelBusy(undefined)).toBe(false);
   });
 
   it('keeps the usage when the reply cannot be read, so the call is still counted', async () => {

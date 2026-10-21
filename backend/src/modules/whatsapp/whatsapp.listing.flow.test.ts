@@ -120,7 +120,7 @@ function build(config: Partial<FlowConfig> = {}) {
     categories,
     products,
     reply,
-    { aiEnabled: true, dailyCap: 20, maxAiCallsPerSession: 4, debounceMs: 0, ...config },
+    { aiEnabled: true, dailyCap: 20, maxAiCallsPerSession: 4, debounceMs: 0, retryDelayMs: 0, ...config },
     (key, fn) => void scheduled.set(key, fn),
   );
 
@@ -406,6 +406,142 @@ describe('number re-linked to another seller', () => {
   });
 });
 
+describe('problems found by replaying real conversations', () => {
+  it('a pending quiet timer does not repeat the reply once "done" has processed the listing', async () => {
+    const t = build();
+    await t.send('', [photo(1), photo(2)]);
+    await t.send('brass diya');
+    await t.send('done');
+    const sentSoFar = t.sent.length;
+    await t.settle();
+    expect(t.sent.length).toBe(sentSoFar);
+  });
+
+  it('"yes" while questions are open gets a reminder instead of silence', async () => {
+    const t = build();
+    t.extractor.extract.mockResolvedValueOnce({ patch: { ...fullPatch, price: undefined }, inputTokens: 1, outputTokens: 1 });
+    await t.send('', [photo(1), photo(2)]);
+    await t.send('diya');
+    await t.send('done');
+    expect(t.session()?.state).toBe('AWAITING_ANSWERS');
+    await t.send('yes');
+    expect(t.last()).toContain('answer the questions above');
+    expect(t.extractor.extract).toHaveBeenCalledTimes(1);
+  });
+
+  it('after one unanswered category question the closest category is taken and flagged', async () => {
+    const t = build();
+    t.extractor.extract.mockResolvedValueOnce({
+      patch: { ...fullPatch, name: 'Handloom Saree', categoryText: 'saree' },
+      inputTokens: 1,
+      outputTokens: 1,
+    });
+    await t.send('', [photo(1), photo(2)]);
+    await t.send('handloom saree');
+    await t.send('done');
+    expect(t.session()?.state).toBe('AWAITING_ANSWERS');
+    expect(t.last()).toContain('a) Cotton Sarees');
+
+    t.extractor.extract.mockResolvedValueOnce({ patch: { price: 300 }, inputTokens: 1, outputTokens: 1 });
+    await t.send('price is 300');
+    await t.send('done');
+    const draft = t.session()?.collected as ListingDraft;
+    expect(t.session()?.state).toBe('AWAITING_CONFIRM');
+    expect(draft.categoryId).toBe('c-cotton');
+    expect(draft.categorySuggested).toBe(true);
+    expect(t.last()).toContain('my best guess');
+  });
+
+  it('a category the seller names clears the "best guess" flag', async () => {
+    const t = build();
+    t.extractor.extract.mockResolvedValueOnce({
+      patch: { ...fullPatch, name: 'Handloom Saree', categoryText: 'saree' },
+      inputTokens: 1,
+      outputTokens: 1,
+    });
+    await t.send('', [photo(1), photo(2)]);
+    await t.send('handloom saree');
+    await t.send('done');
+    t.extractor.extract.mockResolvedValueOnce({ patch: { price: 300 }, inputTokens: 1, outputTokens: 1 });
+    await t.send('price is 300');
+    await t.send('done');
+    t.extractor.extract.mockResolvedValueOnce({ patch: { categoryText: 'silk saree' }, inputTokens: 1, outputTokens: 1 });
+    await t.send('it is a silk saree');
+    await t.send('done');
+    const draft = t.session()?.collected as ListingDraft;
+    expect(draft.categoryId).toBe('c-silk');
+    expect(draft.categorySuggested).toBeUndefined();
+  });
+
+  async function reachSummary() {
+    const t = build();
+    await t.send('', [photo(1), photo(2)]);
+    await t.send('brass diya');
+    await t.send('done');
+    expect(t.session()?.state).toBe('AWAITING_CONFIRM');
+    return t;
+  }
+
+  it('"add" after the summary discards the old listing and starts a clean one', async () => {
+    const t = await reachSummary();
+    await t.send('add');
+    expect(t.sent.slice(-2)[0]).toContain('earlier unfinished listing was discarded');
+    expect(t.last()).toContain("Let's add a product");
+    const session = t.session();
+    expect(session?.state).toBe('COLLECTING');
+    expect(session?.imageUrls).toEqual([]);
+    expect(session?.collected).toEqual({});
+  });
+
+  it('"add" right after the first photos keeps those photos', async () => {
+    const t = build();
+    await t.send('', [photo(1), photo(2)]);
+    await t.send('add');
+    expect(t.session()?.imageUrls).toHaveLength(2);
+    expect(t.sent.some((s) => s.includes('discarded'))).toBe(false);
+  });
+
+  it('photos after two hours of silence start a new product instead of joining the old one', async () => {
+    const t = await reachSummary();
+    const old = t.session()!;
+    t.store.sessions.set(PHONE, { ...old, lastMessageAt: new Date(Date.now() - 3 * 3600_000) });
+    await t.send('', [photo(9)]);
+    const session = t.session();
+    expect(session?.imageUrls).toHaveLength(1);
+    expect(session?.collected).toEqual({});
+    expect(t.sent.some((s) => s.includes('earlier unfinished listing was discarded'))).toBe(true);
+  });
+
+  it('tells the seller when new photos join an unfinished listing, once per burst', async () => {
+    const t = await reachSummary();
+    const old = t.session()!;
+    t.store.sessions.set(PHONE, { ...old, lastMessageAt: new Date(Date.now() - 10 * 60_000) });
+    await Promise.all([t.send('', [photo(8)]), t.send('', [photo(9)])]);
+    const notices = t.sent.filter((s) => s.includes('added to your unfinished listing'));
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toContain('Brass Diya');
+    expect(t.session()?.imageUrls).toHaveLength(4);
+  });
+
+  it('does not nag about photos the bot itself asked for', async () => {
+    const t = build();
+    await t.send('', [photo(1)]);
+    await t.send('diya');
+    await t.send('done');
+    expect(t.session()?.missing).toContain('photos');
+    const old = t.session()!;
+    t.store.sessions.set(PHONE, { ...old, lastMessageAt: new Date(Date.now() - 10 * 60_000) });
+    await t.send('', [photo(2)]);
+    expect(t.sent.some((s) => s.includes('added to your unfinished listing'))).toBe(false);
+  });
+
+  it('photos within two hours still join the open listing', async () => {
+    const t = await reachSummary();
+    await t.send('', [photo(9)]);
+    expect(t.session()?.imageUrls).toHaveLength(3);
+  });
+});
+
 describe('cancel', () => {
   it('discards the listing', async () => {
     const t = build();
@@ -464,15 +600,52 @@ describe('AI cost guards', () => {
     expect(t.store.recorded).toEqual([{ input: 50, output: 5 }]);
   });
 
-  it('keeps the listing when the AI service itself fails', async () => {
+  it('keeps the seller text, tells them to try again, and spends nothing when the AI service is down', async () => {
     const t = build();
-    t.extractor.extract.mockRejectedValue(new Error('network down'));
+    t.extractor.extract.mockRejectedValue(new Error('503 service unavailable'));
     await t.send('', [photo(1), photo(2)]);
-    await t.send('diya');
+    await t.send('diya 250 rupees');
     await t.send('done');
-    expect(t.last()).toContain('could not understand that');
-    expect(t.session()).toBeDefined();
+    expect(t.extractor.extract).toHaveBeenCalledTimes(2); // one retry
+    expect(t.last()).toContain('not available right now');
+    expect(t.session()?.texts).toEqual(['diya 250 rupees']);
+    expect(t.session()?.aiCalls).toBe(0);
     expect(t.store.recorded).toEqual([]);
+  });
+
+  it('works when the AI service comes back: "done" again reads the saved text without retyping', async () => {
+    const t = build();
+    t.extractor.extract.mockRejectedValueOnce(new Error('503')).mockRejectedValueOnce(new Error('503'));
+    await t.send('', [photo(1), photo(2)]);
+    await t.send('diya 250 rupees');
+    await t.send('done');
+    expect(t.last()).toContain('not available right now');
+    await t.send('done');
+    expect(t.extractor.extract).toHaveBeenCalledTimes(3);
+    expect(t.extractor.extract.mock.calls[2][0].texts).toEqual(['diya 250 rupees']);
+    expect(t.session()?.state).toBe('AWAITING_CONFIRM');
+  });
+
+  it('does not retry a quota error, which will not clear in a second', async () => {
+    const t = build();
+    t.extractor.extract.mockRejectedValue(Object.assign(new Error('quota'), { status: 429 }));
+    await t.send('', [photo(1), photo(2)]);
+    await t.send('diya 250 rupees');
+    await t.send('done');
+    expect(t.extractor.extract).toHaveBeenCalledTimes(1);
+    expect(t.last()).toContain('not available right now');
+    expect(t.session()?.texts).toEqual(['diya 250 rupees']);
+  });
+
+  it('a single hiccup is retried quietly and the seller never notices', async () => {
+    const t = build();
+    t.extractor.extract.mockRejectedValueOnce(new Error('503'));
+    await t.send('', [photo(1), photo(2)]);
+    await t.send('diya 250 rupees');
+    await t.send('done');
+    expect(t.extractor.extract).toHaveBeenCalledTimes(2);
+    expect(t.last()).toContain('Please check your listing');
+    expect(t.store.recorded).toHaveLength(1);
   });
 });
 

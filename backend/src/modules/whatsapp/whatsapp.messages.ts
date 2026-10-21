@@ -33,9 +33,8 @@ export const messages = {
         '*stock 2 20* - set stock of product 2 to 20 (or *stock saree 20*)',
         '*out of stock 2* - mark product 2 out of stock',
         '*resubmit 2* - send a rejected product 2 for review again',
+        '*add* - add a product: send 2 to 10 photos and describe it (then *done*)',
         '*help* - this message',
-        '',
-        'Adding products by photo on WhatsApp is coming soon. For now add them on the website.',
       ].join('\n'),
       hi: [
         'सोलोमन भारत विक्रेता सहायता',
@@ -44,9 +43,8 @@ export const messages = {
         '*stock 2 20* - प्रोडक्ट 2 का स्टॉक 20 करें (या *stock saree 20*)',
         '*out of stock 2* - प्रोडक्ट 2 का स्टॉक खत्म करें',
         '*resubmit 2* - अस्वीकृत प्रोडक्ट 2 को दोबारा भेजें',
+        '*add* - प्रोडक्ट जोड़ें: 2 से 10 फोटो भेजें और उसके बारे में बताएं (फिर *done*)',
         '*help* - यह संदेश',
-        '',
-        'WhatsApp पर फोटो भेजकर प्रोडक्ट जोड़ना जल्द आ रहा है। अभी वेबसाइट पर जोड़ें।',
       ].join('\n'),
       hinglish: [
         'Solomon Bharat seller madad',
@@ -55,9 +53,8 @@ export const messages = {
         '*stock 2 20* - product 2 ka stock 20 karein (ya *stock saree 20*)',
         '*out of stock 2* - product 2 ka stock khatam karein',
         '*resubmit 2* - rejected product 2 ko dobara bhejein',
+        '*add* - product jodein: 2 se 10 photo bhejein aur uske baare mein bataiye (phir *done*)',
         '*help* - yeh message',
-        '',
-        'WhatsApp par photo bhejkar product jodna jaldi aa raha hai. Abhi website par jodein.',
       ].join('\n'),
     });
   },

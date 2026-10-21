@@ -121,7 +121,12 @@ export const listingMessages = {
     const L = (en: string, hi: string, hinglish: string) => pick(lang, { en, hi, hinglish });
     const lines: string[] = [];
     lines.push(`${L('Name', 'नाम', 'Naam')}: ${draft.name}`);
-    if (draft.categoryPath) lines.push(`${L('Category', 'श्रेणी', 'Category')}: ${draft.categoryPath}`);
+    if (draft.categoryPath) {
+      const guess = draft.categorySuggested
+        ? ` (${L('my best guess, tell me if it is wrong', 'मेरा अनुमान, गलत हो तो बताएं', 'mera andaza, galat ho to bataiye')})`
+        : '';
+      lines.push(`${L('Category', 'श्रेणी', 'Category')}: ${draft.categoryPath}${guess}`);
+    }
     lines.push(`${L('Price', 'कीमत', 'Keemat')}: ₹${draft.price} ${L('per piece', 'प्रति पीस', 'per piece')}`);
     lines.push(
       `${L('Minimum order', 'न्यूनतम ऑर्डर', 'Minimum order')}: ${draft.moq} | ${L('Stock', 'स्टॉक', 'Stock')}: ${
@@ -158,6 +163,38 @@ export const listingMessages = {
       en: `Submitted: "${name}" is waiting for approval. Solomon Bharat will review it and set the buyer price. Send *list* to see its status.`,
       hi: `भेज दिया: "${name}" अनुमोदन का इंतज़ार कर रहा है। सोलोमन भारत इसकी समीक्षा करेगा और खरीदार की कीमत तय करेगा। स्थिति देखने के लिए *list* भेजें।`,
       hinglish: `Bhej diya: "${name}" approval ka intezaar kar raha hai. Solomon Bharat review karke buyer ki keemat tay karega. Status dekhne ke liye *list* bhejein.`,
+    });
+  },
+
+  serviceBusy(lang: Language): string {
+    return pick(lang, {
+      en: 'The assistant is not available right now. Your message is saved: send *done* a little later to try again.',
+      hi: 'सहायक अभी उपलब्ध नहीं है। आपका संदेश सुरक्षित है: थोड़ी देर बाद फिर कोशिश करने के लिए *done* भेजें।',
+      hinglish: 'Assistant abhi available nahi hai. Aapka message save hai: thodi der baad phir koshish ke liye *done* bhejein.',
+    });
+  },
+
+  joinedOld(lang: Language, name: string): string {
+    return pick(lang, {
+      en: `These photos were added to your unfinished listing "${name}". To start a different product instead, send *add*.`,
+      hi: `ये फोटो आपकी अधूरी लिस्टिंग "${name}" में जोड़ दी गईं। दूसरा प्रोडक्ट शुरू करने के लिए *add* भेजें।`,
+      hinglish: `Yeh photos aapki adhoori listing "${name}" mein jod di gayi. Doosra product shuru karne ke liye *add* bhejein.`,
+    });
+  },
+
+  discardedOld(lang: Language): string {
+    return pick(lang, {
+      en: 'Your earlier unfinished listing was discarded.',
+      hi: 'आपकी पहले की अधूरी लिस्टिंग हटा दी गई।',
+      hinglish: 'Aapki pehle ki adhoori listing hata di gayi.',
+    });
+  },
+
+  answerFirst(lang: Language): string {
+    return pick(lang, {
+      en: 'Please answer the questions above first, or send *cancel* to stop.',
+      hi: 'कृपया पहले ऊपर के सवालों के जवाब दें, या रोकने के लिए *cancel* भेजें।',
+      hinglish: 'Kripya pehle upar ke sawalon ke jawab dein, ya rokne ke liye *cancel* bhejein.',
     });
   },
 

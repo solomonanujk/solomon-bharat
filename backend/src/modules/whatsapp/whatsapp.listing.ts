@@ -22,6 +22,10 @@ export interface ListingDraft {
   categoryPath?: string;
   /** Close matches shown to the seller while the category is still ambiguous. */
   categoryOptions?: CategoryOption[];
+  /** How many times the seller has been asked to pick the category. */
+  categoryAsks?: number;
+  /** True when the category is our closest match after the seller did not settle it. */
+  categorySuggested?: boolean;
   materials?: string;
   craftTechnique?: string;
   placeOfOrigin?: string;

@@ -54,6 +54,30 @@ describe('resolveCategory', () => {
   });
 });
 
+describe('resolveCategory options', () => {
+  const brass = [
+    { id: 'idols', name: 'Brass Idols', path: 'Metal Crafts > Brass > Brass Idols' },
+    { id: 'utensils', name: 'Brass Utensils', path: 'Metal Crafts > Brass > Brass Utensils' },
+    { id: 'bowls', name: 'Bowls', path: 'Metal Crafts > Brass > Bowls' },
+  ];
+
+  it('offers only categories whose own name matches a word, not ones that only share a parent', () => {
+    const { match, options } = resolveCategory('brass murti', '', brass);
+    expect(match).toBeUndefined();
+    expect(options.map((o) => o.name).sort()).toEqual(['Brass Idols', 'Brass Utensils']);
+  });
+
+  it('falls back to the closest few when no category name matches', () => {
+    const { options } = resolveCategory('brass', '', [{ id: 'b', name: 'Bowls', path: 'Metal Crafts > Brass > Bowls' }]);
+    expect(options.map((o) => o.name)).toEqual(['Bowls']);
+  });
+
+  it('never offers more than five', () => {
+    const many = Array.from({ length: 9 }, (_, i) => ({ id: `s${i}`, name: `Wooden Toy ${i}`, path: `Toys > Wooden > Wooden Toy ${i}` }));
+    expect(resolveCategory('wooden toy', '', many).options.length).toBeLessThanOrEqual(5);
+  });
+});
+
 describe('rankCategories', () => {
   it('ranks name matches above matches on the parent path', () => {
     const ranked = rankCategories('lighting lamp', leaves);
