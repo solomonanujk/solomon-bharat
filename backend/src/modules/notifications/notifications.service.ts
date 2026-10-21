@@ -4,7 +4,13 @@ import { PaginationQuery } from '../../utils/pagination';
 import { env } from '../../config/env';
 import { logger } from '../../config/logger';
 import { mailProvider } from '../../providers/mail';
-import { normalizeWhatsAppNumber, whatsAppProvider } from '../../providers/whatsapp';
+import {
+  normalizeWhatsAppNumber,
+  sendWithTemplateFallback,
+  WhatsAppTemplate,
+  whatsAppProvider,
+  whatsAppTemplates,
+} from '../../providers/whatsapp';
 import { emailButton, emailLayout, escapeHtml } from '../../utils/emailTemplates';
 import { NotificationsRepository, notificationsRepository } from './notifications.repository';
 
@@ -22,19 +28,30 @@ export class NotificationsService {
     title: string,
     message: string,
     link?: string,
+    template?: WhatsAppTemplate | null,
   ): Promise<Notification> {
     const notification = await this.repo.create({ userId, type, title, message, link });
     // WhatsApp copy of the same notice. Never awaited by callers' success path: a failure is logged only.
-    void this.sendWhatsApp(userId, title, message, link);
+    void this.sendWhatsApp(userId, title, message, link, template ?? null);
     return notification;
   }
 
-  private async sendWhatsApp(userId: string, title: string, message: string, link?: string): Promise<void> {
+  /**
+   * `template` (when one is set up) reaches a seller who has been silent for over 24 hours, which
+   * is the usual case for a review result; the plain text is the fallback.
+   */
+  private async sendWhatsApp(
+    userId: string,
+    title: string,
+    message: string,
+    link: string | undefined,
+    template: WhatsAppTemplate | null,
+  ): Promise<void> {
     try {
       const to = normalizeWhatsAppNumber(await this.repo.findUserPhone(userId));
       if (!to) return;
       const url = link ? `\n${env.APP_URL}${link}` : '';
-      await whatsAppProvider.sendText(to, `Solomon Bharat: ${title}\n${message}${url}`);
+      await sendWithTemplateFallback(whatsAppProvider, to, template, `Solomon Bharat: ${title}\n${message}${url}`);
     } catch (err) {
       logger.error({ err, userId }, 'WhatsApp notification failed');
     }
@@ -53,6 +70,8 @@ export class NotificationsService {
       NotificationType.PRODUCT_APPROVED,
       'Product approved',
       `"${productName}" has been approved and published to the catalogue.`,
+      undefined,
+      whatsAppTemplates.productApproved(productName),
     );
   }
 
@@ -62,6 +81,8 @@ export class NotificationsService {
       NotificationType.PRODUCT_REJECTED,
       'Product rejected',
       `"${productName}" was rejected: ${reason}`,
+      undefined,
+      whatsAppTemplates.productRejected(productName, reason),
     );
   }
 
@@ -71,6 +92,8 @@ export class NotificationsService {
       NotificationType.PRODUCT_PRICING_CHANGE_APPROVED,
       'Pricing change approved',
       `Your pricing/variant update for "${productName}" has been approved and is now live.`,
+      undefined,
+      whatsAppTemplates.pricingApproved(productName),
     );
   }
 
@@ -80,16 +103,20 @@ export class NotificationsService {
       NotificationType.PRODUCT_PRICING_CHANGE_REJECTED,
       'Pricing change rejected',
       `Your pricing/variant update for "${productName}" was rejected: ${reason}`,
+      undefined,
+      whatsAppTemplates.pricingRejected(productName, reason),
     );
   }
 
   notifyOrderStatusChanged(buyerUserId: string, orderId: string, status: string): Promise<Notification> {
+    const statusWords = status.replace(/_/g, ' ').toLowerCase();
     return this.notify(
       buyerUserId,
       NotificationType.ORDER_STATUS_CHANGED,
       'Order status updated',
-      `Your order is now ${status.replace(/_/g, ' ').toLowerCase()}.`,
+      `Your order is now ${statusWords}.`,
       `/orders/${orderId}`,
+      whatsAppTemplates.orderStatus(orderRef(orderId), statusWords),
     );
   }
 
@@ -99,6 +126,8 @@ export class NotificationsService {
       NotificationType.PAYOUT_PAID,
       'Payout paid',
       `A payout of ₹${amount} has been marked as paid.`,
+      undefined,
+      whatsAppTemplates.payoutPaid(amount),
     );
   }
 
@@ -108,6 +137,8 @@ export class NotificationsService {
       NotificationType.SELLER_APPLICATION_APPROVED,
       'Welcome to Solomon Bharat',
       'Your seller application has been approved.',
+      undefined,
+      whatsAppTemplates.sellerApproved(),
     );
   }
 
@@ -177,6 +208,8 @@ ${emailButton(url, 'Open the order')}
       NotificationType.AGENT_APPLICATION_APPROVED,
       'Welcome to Solomon Bharat',
       'Your agent application has been approved.',
+      undefined,
+      whatsAppTemplates.agentApproved(),
     );
   }
 
@@ -203,6 +236,8 @@ ${emailButton(url, 'Open the order')}
       NotificationType.NEW_MESSAGE,
       'New message from Solomon Bharat',
       'You have a new reply from our team.',
+      undefined,
+      whatsAppTemplates.newMessage(),
     );
   }
 

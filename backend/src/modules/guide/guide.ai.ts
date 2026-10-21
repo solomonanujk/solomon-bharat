@@ -31,6 +31,8 @@ export function setAdminGeminiKey(key: string): void {
 }
 // The key entered in Admin → Solomon AI wins over the server's GEMINI_API_KEY.
 const geminiKey = (): string => adminGeminiKey || env.GEMINI_API_KEY;
+/** The Gemini key currently in force (admin-entered, else the server's); empty when none. */
+export const getGeminiApiKey = (): string => geminiKey();
 let adminOpenRouterKey = '';
 export function setAdminOpenRouterKey(key: string): void {
   adminOpenRouterKey = key;

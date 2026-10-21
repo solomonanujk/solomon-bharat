@@ -16,6 +16,7 @@ import { agentApplicationsRouter } from '../modules/agent-applications/agent-app
 import { cataloguesRouter } from '../modules/catalogues/catalogues.routes';
 import { productImportRouter } from '../modules/product-import/product-import.routes';
 import { rfqsRouter } from '../modules/rfqs/rfqs.routes';
+import { whatsAppRouter } from '../modules/whatsapp/whatsapp.routes';
 
 export const apiRouter = Router();
 
@@ -51,3 +52,4 @@ apiRouter.use('/agent/catalogues', cataloguesRouter);
 apiRouter.use('/product-import', productImportRouter);
 apiRouter.use('/rfqs', rfqsRouter);
 apiRouter.use('/guide', guideRouter);
+apiRouter.use('/whatsapp', whatsAppRouter);

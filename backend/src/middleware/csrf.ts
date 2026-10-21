@@ -23,7 +23,12 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
  */
 export function csrfProtection(req: Request, _res: Response, next: NextFunction): void {
   // Provider webhooks are machine-to-machine (verified by signature, never by a browser cookie).
-  if (SAFE_METHODS.has(req.method) || req.path.startsWith('/auth/') || req.path.startsWith('/payments/webhooks/')) {
+  if (
+    SAFE_METHODS.has(req.method) ||
+    req.path.startsWith('/auth/') ||
+    req.path.startsWith('/payments/webhooks/') ||
+    req.path === '/whatsapp/webhook'
+  ) {
     next();
     return;
   }

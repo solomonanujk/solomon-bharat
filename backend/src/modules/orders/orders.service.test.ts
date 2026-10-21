@@ -71,6 +71,7 @@ function buildProduct(overrides: Partial<Product> = {}): ProductWithMedia {
     ecoProduction: [],
     isBestseller: false,
     tariffCode: null,
+    source: 'WEB',
     ...overrides,
   };
   return { ...product, images: [], videos: [], variants: [], priceTiers: [] };

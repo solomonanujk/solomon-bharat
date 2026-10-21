@@ -1,4 +1,4 @@
-import { OrderStatus, Prisma, PrismaClient, Product, ProductApprovalStatus, ProductPricingChangeRequest } from '@prisma/client';
+import { OrderStatus, Prisma, PrismaClient, Product, ProductApprovalStatus, ProductPricingChangeRequest, ProductSource } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { PaginationQuery, toSkipTake } from '../../utils/pagination';
 import {
@@ -114,6 +114,7 @@ export class ProductsRepository {
       publishedAt: Date;
       adminPrice: number | null;
       agentPrice: number | null;
+      source: ProductSource;
     }>,
   ): Promise<ProductWithMedia> {
     return this.db.product.create({
