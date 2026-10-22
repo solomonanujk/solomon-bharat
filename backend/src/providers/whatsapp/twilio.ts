@@ -9,6 +9,19 @@ import {
   normalizeWhatsAppNumber,
 } from './types';
 
+/**
+ * A readable reason from Twilio's error body (never any credential), e.g. "400 (code 21654: ContentSid
+ * Required)". Without it a refused send is only a bare status number.
+ */
+async function errorDetail(res: Response): Promise<string> {
+  try {
+    const body = (await res.json()) as { code?: number; message?: string };
+    return `${res.status} (code ${body.code ?? 'unknown'}: ${body.message ?? 'no message'})`;
+  } catch {
+    return String(res.status);
+  }
+}
+
 /** Twilio webhook fields: From (whatsapp:+91...), Body, MessageSid, NumMedia, MediaUrl0.. */
 export function parseTwilioInbound(params: Record<string, string>): InboundMessage | null {
   const providerMessageId = params.MessageSid || params.SmsMessageSid;
@@ -64,9 +77,7 @@ export class TwilioWhatsAppProvider implements WhatsAppProvider {
       },
       body: new URLSearchParams({ From: `whatsapp:${this.from}`, To: `whatsapp:${to}`, Body: body }).toString(),
     });
-    if (!res.ok) {
-      throw new Error(`Twilio WhatsApp send failed with ${res.status}`);
-    }
+    if (!res.ok) throw new Error(`Twilio WhatsApp send failed with ${await errorDetail(res)}`);
   }
 
   /** Twilio sends templates through the Content API: the template is a Content SID with numbered variables. */
@@ -89,7 +100,7 @@ export class TwilioWhatsAppProvider implements WhatsAppProvider {
         ContentVariables: JSON.stringify(variables),
       }).toString(),
     });
-    if (!res.ok) throw new Error(`Twilio WhatsApp template send failed with ${res.status}`);
+    if (!res.ok) throw new Error(`Twilio WhatsApp template send failed with ${await errorDetail(res)}`);
   }
 
   verifyWebhook(req: WebhookRequest): boolean {

@@ -85,6 +85,23 @@ describe('TwilioWhatsAppProvider.sendTemplate', () => {
     expect(JSON.parse(form.get('ContentVariables') ?? '')).toEqual({ '1': '123456' });
   });
 
+  it('says why when Twilio refuses: its error code and message, never a credential', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 400, json: async () => ({ code: 21654, message: 'ContentSid Required' }) });
+    const err = await provider.sendTemplate('+919812345678', { name: 'HX1', language: 'en', body: [] }).catch((e: Error) => e);
+    expect((err as Error).message).toContain('400 (code 21654: ContentSid Required)');
+    expect((err as Error).message).not.toContain('token');
+  });
+
+  it('plain-text sends say why they were refused too (this is the link code path)', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 400, json: async () => ({ code: 21654, message: 'ContentSid Required' }) });
+    await expect(provider.sendText('+919812345678', 'hello')).rejects.toThrow('Twilio WhatsApp send failed with 400 (code 21654: ContentSid Required)');
+  });
+
+  it('falls back to the bare status when Twilio sends no readable error body', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 503 });
+    await expect(provider.sendText('+919812345678', 'hello')).rejects.toThrow('Twilio WhatsApp send failed with 503');
+  });
+
   it('throws when Twilio refuses', async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 400 });
     await expect(provider.sendTemplate('+919812345678', { name: 'HX1', language: 'en', body: [] })).rejects.toThrow(/400/);

@@ -399,6 +399,16 @@ export class WhatsAppListingFlow implements ListingFlowPort {
         merged = { ...merged, categoryAsks: (merged.categoryAsks ?? 0) + 1 };
       }
     }
+    if (missing.includes('hsn')) {
+      if ((merged.hsnAsks ?? 0) >= 1) {
+        // Asked once and still no code (the seller does not know it and we could not suggest one): go on
+        // without it instead of asking forever. The Solomon Bharat team fills it in at review.
+        merged = { ...merged, hsnSkipped: true };
+        missing = missingFields(merged, session.imageUrls.length);
+      } else {
+        merged = { ...merged, hsnAsks: 1 };
+      }
+    }
     const base: SessionUpdate = { texts: [], collected: merged as unknown as Prisma.InputJsonValue, aiCalls, missing };
     if (missing.length > 0) {
       await this.store.update(session.phone, { ...base, state: 'AWAITING_ANSWERS' });
@@ -470,6 +480,11 @@ export class WhatsAppListingFlow implements ListingFlowPort {
   /** Merges the AI's fields, then settles the category (the one step that needs the real tree). */
   private async applyPatch(base: ListingDraft, patch: ExtractPatch): Promise<ListingDraft> {
     const { categoryChoice, ...fields } = patch;
+    // No options were on offer, so a "choice" is really the seller's own word for the product type
+    // (the model sometimes files "Saree" under categoryChoice and keeps the old categoryText).
+    if (categoryChoice && !chooseOption(categoryChoice, base.categoryOptions ?? [])) {
+      fields.categoryText = categoryChoice;
+    }
     let draft = base;
     if (fields.categoryText && fields.categoryText !== base.categoryText) {
       draft = { ...base };

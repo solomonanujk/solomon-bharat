@@ -271,6 +271,8 @@ Done in code, no tokens: the AI returns a short product type ("brass lamp"); it 
 
 **No dead end.** After one question without a usable answer, the closest match is taken and flagged: the summary says "(my best guess, tell me if it is wrong)", the seller can correct it, and admin can still change the category when reviewing. This was added after a replay showed a listing stuck on the same category question when none of the offered categories fitted a wooden toy.
 
+**HSN code has no dead end either.** If the seller says "not sure", the AI gives its best guess (shown as a suggestion). If it gives none, the question is asked once only; then the listing goes on and the summary says the team will fill the code in at review. A reply written as a numbered list follows the order of the questions, and unit words such as "inch" are read as in, cm or m.
+
 ### 5.5 AI contract
 
 - **Models:** `WHATSAPP_AI_MODEL` (default `gemini-2.5-flash-lite`), then `WHATSAPP_AI_FALLBACK_MODEL` (default `gemini-3.5-flash-lite`) when the first answers 429 (over quota) or 5xx (overloaded). Each model has its own quota. A malformed answer is not retried on another model. Key: the admin-entered Gemini key in Solomon AI settings, else `GEMINI_API_KEY`.
@@ -500,6 +502,8 @@ New variables are already in `backend/src/config/env.ts`, `backend/.env.example`
 
 ### 9.2 Twilio sandbox setup (testing)
 
+> **A Twilio trial account cannot run this feature.** Found on 21 Oct 2026 while testing: a trial account may only send Twilio's pre-approved template messages ([Twilio's trial page](https://www.twilio.com/docs/usage/trials/try-out-whatsapp)). Joining the sandbox and receiving messages work, but every plain-text send is refused with error 21654 "ContentSid Required", so the link code and every bot reply fail, even right after the tester messages the sandbox. The Content (template) API is also "not available on a Trial account". **Use an upgraded Twilio account, or test on Meta's free test number instead ([§9.2b](#92b-meta-cloud-api-setup-testing-and-production)), which has no such limit.**
+
 1. Twilio console → Messaging → Try it out → WhatsApp sandbox. Note the sandbox number and the join phrase.
 2. Put the account SID, auth token and sandbox number in the environment (`TWILIO_WHATSAPP_FROM=+14155238886` or whatever the console shows).
 3. Set `WHATSAPP_WEBHOOK_BASE_URL` to the public API URL. For local testing use a tunnel (for example `ngrok http 4000`) and its https URL.
@@ -590,6 +594,7 @@ A listing in `COLLECTING` or `AWAITING_ANSWERS` with texts waiting after a serve
 | No reply at all | Number not linked (stranger already got their one reply today), over 60 messages an hour, sandbox join lapsed, Twilio credentials empty (replies only logged) |
 | "I cannot read listings in chat right now" | AI switched off or no Gemini key |
 | "The assistant is not available right now" | Gemini over its quota (the free tier is 20 requests a day per model) or down. Look for `429` in the logs; enable billing. The seller's text is saved, so a later `done` works |
+| Seller sees "We could not send the code on WhatsApp just now" (502) | Look for `could not send link code` in the logs; the line now ends with the provider's reason. Twilio 21654 "ContentSid Required" = trial account (see §9.2). Meta 131047 = the seller has not messaged the number in the last 24 hours and no template is set up. Meta 131030 = the number is not on the test number's recipient list |
 | "today's limit" | Seller hit `WHATSAPP_AI_DAILY_CAP` |
 | Code never arrives | Cold number outside the 24-hour window without a template; sandbox not joined |
 | Photos "could not be saved" | HEIC or other unsupported type, file over the size limit, storage misconfigured |
@@ -717,6 +722,7 @@ Not tested live: Twilio, Meta, Cloudinary photo upload, and the ten templates (n
 | Voice notes unsupported | Artisans who prefer speaking must type | Gemini audio in version 2 |
 | Name matching is by words contained in the name | Names containing numbers or very short words can confuse a command | Stable product codes |
 | Gemini free tier: 20 requests a day per model | About 10 listings a day, then every seller sees "assistant not available" until the quota resets | Enable billing on the key |
+| Twilio trial accounts cannot send plain text | The bot cannot reply at all on a trial sandbox | Upgrade the Twilio account, or use Meta's free test number |
 | The fallback model is only used for capacity errors | If the main model returns poor answers, there is no switch | Compare models in the pilot |
 | Product numbers follow `list` order | A new product can shift numbers between `list` and the next command | Confirmation repeats the name; product codes |
 | Only the latest 50 products are searchable by chat | Large catalogues need the website | Pagination or search |

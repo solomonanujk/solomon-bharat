@@ -42,6 +42,12 @@ describe('parseExtraction', () => {
     expect(patch).toEqual({ name: 'Ok' });
   });
 
+  it('reads "inch", "inches" and "centimeters" as a dimension unit', () => {
+    expect(parseExtraction('{"dimensionUnit":"inch"}')).toEqual({ dimensionUnit: 'in' });
+    expect(parseExtraction('{"dimensionUnit":"Inches"}')).toEqual({ dimensionUnit: 'in' });
+    expect(parseExtraction('{"dimensionUnit":"centimeters"}')).toEqual({ dimensionUnit: 'cm' });
+  });
+
   it('strips markup, trims and caps text length', () => {
     const patch = parseExtraction(JSON.stringify({ name: `<b>${'x'.repeat(100)}</b>`, materials: '  <script>alert(1)</script> Brass ' }));
     expect(patch.name).toHaveLength(60);

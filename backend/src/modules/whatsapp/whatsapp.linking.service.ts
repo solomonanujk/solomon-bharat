@@ -84,7 +84,7 @@ export class WhatsAppLinkingService {
     } catch (err) {
       logger.error({ err }, '[whatsapp] could not send link code');
       await this.repo.deleteCode(row.id);
-      throw new AppError(502, 'We could not send the code to that WhatsApp number. Check the number and try again.');
+      throw new AppError(502, 'We could not send the code on WhatsApp just now. Please try again in a minute. If it keeps failing, contact Solomon Bharat support.');
     }
     return { expiresAt };
   }
