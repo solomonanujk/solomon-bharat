@@ -473,6 +473,47 @@ describe('problems found by replaying real conversations', () => {
     expect(draft.categorySuggested).toBeUndefined();
   });
 
+  it('a category word the model files under categoryChoice (no options offered) still sets the category', async () => {
+    const t = build();
+    t.extractor.extract.mockResolvedValueOnce({
+      patch: { ...fullPatch, name: "Designer Women's Top", categoryText: "Women's Top" },
+      inputTokens: 1,
+      outputTokens: 1,
+    });
+    await t.send('', [photo(1), photo(2)]);
+    await t.send('top');
+    await t.send('done');
+    expect(t.session()?.state).toBe('AWAITING_ANSWERS');
+    t.extractor.extract.mockResolvedValueOnce({
+      patch: { categoryText: "Women's Top", categoryChoice: 'Silk Saree' },
+      inputTokens: 1,
+      outputTokens: 1,
+    });
+    await t.send('1. silk saree');
+    await t.send('done');
+    const draft = t.session()?.collected as ListingDraft;
+    expect(draft.categoryId).toBe('c-silk');
+    expect(t.session()?.state).toBe('AWAITING_CONFIRM');
+  });
+
+  it('an HSN code the seller does not know is asked once, then the listing goes on without it', async () => {
+    const t = build();
+    t.extractor.extract.mockResolvedValueOnce({ patch: { ...fullPatch, hsn: undefined }, inputTokens: 1, outputTokens: 1 });
+    await t.send('', [photo(1), photo(2)]);
+    await t.send('diya');
+    await t.send('done');
+    expect(t.session()?.state).toBe('AWAITING_ANSWERS');
+    expect(t.last()).toContain('HSN');
+
+    t.extractor.extract.mockResolvedValueOnce({ patch: {}, inputTokens: 1, outputTokens: 1 });
+    await t.send('not sure');
+    await t.send('done');
+    const draft = t.session()?.collected as ListingDraft;
+    expect(draft.hsnSkipped).toBe(true);
+    expect(t.session()?.state).toBe('AWAITING_CONFIRM');
+    expect(t.last()).toContain('our team will fill it in');
+  });
+
   async function reachSummary() {
     const t = build();
     await t.send('', [photo(1), photo(2)]);

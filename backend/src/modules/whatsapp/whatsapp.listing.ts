@@ -44,6 +44,10 @@ export interface ListingDraft {
   hsn?: string;
   /** True when the HSN code is the AI's guess, not something the seller said. */
   hsnSuggested?: boolean;
+  /** How many times the seller has been asked for the HSN code. */
+  hsnAsks?: number;
+  /** True when the seller did not know the HSN code and we could not suggest one; the team fills it in. */
+  hsnSkipped?: boolean;
   isGITagged?: boolean;
   artisanName?: string;
 }
@@ -123,7 +127,7 @@ export function missingFields(draft: ListingDraft, photoCount: number): FieldKey
         if (!has(draft.careInstructions)) missing.push(key);
         break;
       case 'hsn':
-        if (!draft.hsn) missing.push(key);
+        if (!draft.hsn && !draft.hsnSkipped) missing.push(key);
         break;
     }
   }

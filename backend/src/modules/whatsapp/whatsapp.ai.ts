@@ -59,7 +59,7 @@ Rules:
 - leadTime: how long until an order is dispatched, like "5 days" or "7-10 days", also when the seller writes "dispatch 5 days" or "ships in a week". materials (what it is made of, also when it is only said in the product words, such as cotton saree, brass lamp or wooden toy; translate Hindi words: pital = brass, tamba = copper, lakdi = wood, mitti = clay, sooti = cotton, resham = silk), craftTechnique ("haath se banayi" = handmade), careInstructions, placeOfOrigin (an Indian city or state), artisanName.
 - isGITagged: true only if the seller states a GI tag.
 - hsn: digits only (4 to 8), only if the seller states an HSN code. hsnGuess: your best-guess HSN heading (digits only) for this product, only if you are fairly sure.
-- When the seller is answering questions ("asked"), map each answer to the asked key(s).
+- When the seller is answering questions ("asked"), map each answer to the asked key(s). A numbered list of answers follows the order of the questions. If "category" was asked and no "categoryOptions" are given, put the seller's own words in categoryText (not in categoryChoice). If "hsn" was asked and the seller says they do not know ("not sure", "pata nahi"), return your best-guess hsnGuess for the product, never hsn.
 - When "categoryOptions" are given (each starts with a letter like "a) "), and the seller picked one by letter or name, return categoryChoice with that option's exact name without the letter.`;
 
 const clean = (s: string): string =>
@@ -95,6 +95,16 @@ const numberField = (max: number, integer = false) =>
     .optional()
     .catch(undefined);
 
+/** "inch", "inches", "centimeters", "metre" and the like, mapped onto cm, in, m. */
+const normaliseUnit = (v: unknown): unknown => {
+  if (typeof v !== 'string') return v;
+  const u = v.trim().toLowerCase().replace(/\./g, '');
+  if (['in', 'inch', 'inches', '"'].includes(u)) return 'in';
+  if (['cm', 'cms', 'centimeter', 'centimeters', 'centimetre', 'centimetres'].includes(u)) return 'cm';
+  if (['m', 'meter', 'meters', 'metre', 'metres'].includes(u)) return 'm';
+  return u;
+};
+
 const hsnField = z
   .preprocess(
     (v) => (typeof v === 'string' || typeof v === 'number' ? String(v).replace(/\D/g, '') : v),
@@ -119,7 +129,7 @@ const outputSchema = z.object({
   length: numberField(10_000),
   width: numberField(10_000),
   height: numberField(10_000),
-  dimensionUnit: z.enum(DIMENSION_UNITS).optional().catch(undefined),
+  dimensionUnit: z.preprocess(normaliseUnit, z.enum(DIMENSION_UNITS)).optional().catch(undefined),
   leadTime: text(200),
   careInstructions: text(2000),
   hsn: hsnField,
@@ -176,6 +186,8 @@ function knownContext(known: ListingDraft): Record<string, unknown> {
     hsnSuggested: _suggested,
     categoryAsks: _asks,
     categorySuggested: _categorySuggested,
+    hsnAsks: _hsnAsks,
+    hsnSkipped: _hsnSkipped,
     ...rest
   } = known;
   return Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));

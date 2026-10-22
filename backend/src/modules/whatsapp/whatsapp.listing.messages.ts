@@ -146,6 +146,10 @@ export const listingMessages = {
         ? ` (${L('my suggestion, please check', 'मेरा सुझाव, कृपया जाँचें', 'mera suggestion, kripya check karein')})`
         : '';
       lines.push(`HSN: ${draft.hsn}${note}`);
+    } else if (draft.hsnSkipped) {
+      lines.push(
+        `HSN: ${L('not given, our team will fill it in', 'नहीं दिया, हमारी टीम भर देगी', 'nahi diya, hamari team bhar degi')}`,
+      );
     }
     lines.push(`${L('Photos', 'फोटो', 'Photos')}: ${photos} | ${L('Videos', 'वीडियो', 'Videos')}: ${videos}`);
 

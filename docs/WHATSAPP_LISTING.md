@@ -271,6 +271,8 @@ Done in code, no tokens: the AI returns a short product type ("brass lamp"); it 
 
 **No dead end.** After one question without a usable answer, the closest match is taken and flagged: the summary says "(my best guess, tell me if it is wrong)", the seller can correct it, and admin can still change the category when reviewing. This was added after a replay showed a listing stuck on the same category question when none of the offered categories fitted a wooden toy.
 
+**HSN code has no dead end either.** If the seller says "not sure", the AI gives its best guess (shown as a suggestion). If it gives none, the question is asked once only; then the listing goes on and the summary says the team will fill the code in at review. A reply written as a numbered list follows the order of the questions, and unit words such as "inch" are read as in, cm or m.
+
 ### 5.5 AI contract
 
 - **Models:** `WHATSAPP_AI_MODEL` (default `gemini-2.5-flash-lite`), then `WHATSAPP_AI_FALLBACK_MODEL` (default `gemini-3.5-flash-lite`) when the first answers 429 (over quota) or 5xx (overloaded). Each model has its own quota. A malformed answer is not retried on another model. Key: the admin-entered Gemini key in Solomon AI settings, else `GEMINI_API_KEY`.
