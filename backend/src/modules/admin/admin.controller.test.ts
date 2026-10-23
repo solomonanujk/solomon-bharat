@@ -24,6 +24,8 @@ vi.mock('./admin.service', () => ({
     listUsers: vi.fn(),
     suspendUser: vi.fn(),
     reactivateUser: vi.fn(),
+    createSignInLinkForUser: vi.fn(),
+    resetTemporaryPassword: vi.fn(),
     promoteToAdmin: vi.fn(),
   },
 }));
@@ -152,6 +154,74 @@ describe('admin controller', () => {
     it('is not reachable by a non-admin', async () => {
       const res = await request(app).post(`/api/v1/admin/users/${USER_ID}/promote`).set(authHeader(Role.BUYER));
       expect(res.status).toBe(403);
+    });
+  });
+
+  describe('POST /api/v1/admin/users/:id/sign-in-link', () => {
+    it('returns a fresh one-time link for SUPER_ADMIN', async () => {
+      vi.mocked(adminService.createSignInLinkForUser).mockResolvedValue({
+        email: 'asha@example.test',
+        url: 'http://localhost:3000/reset-password?id=prt-1&token=secret&welcome=1',
+        expiresInDays: 7,
+      } as never);
+
+      const res = await request(app)
+        .post(`/api/v1/admin/users/${USER_ID}/sign-in-link`)
+        .set(authHeader(Role.SUPER_ADMIN, 'admin-1'));
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.expiresInDays).toBe(7);
+      expect(adminService.createSignInLinkForUser).toHaveBeenCalledWith(USER_ID, 'admin-1');
+    });
+
+    it('is SUPER_ADMIN-only', async () => {
+      const res = await request(app)
+        .post(`/api/v1/admin/users/${USER_ID}/sign-in-link`)
+        .set(authHeader(Role.SELLER));
+      expect(res.status).toBe(403);
+      expect(adminService.createSignInLinkForUser).not.toHaveBeenCalled();
+    });
+
+    it('rejects a non-uuid id with 422', async () => {
+      const res = await request(app)
+        .post('/api/v1/admin/users/not-a-uuid/sign-in-link')
+        .set(authHeader(Role.SUPER_ADMIN));
+      expect(res.status).toBe(422);
+    });
+  });
+
+  describe('POST /api/v1/admin/users/:id/reset-temp-password', () => {
+    it('returns the new temporary password once, for the admin to share', async () => {
+      vi.mocked(adminService.resetTemporaryPassword).mockResolvedValue({
+        email: 'asha@example.test',
+        tempPassword: 'Xk4mTq9bRs2wPd',
+        emailSent: true,
+      } as never);
+
+      const res = await request(app)
+        .post(`/api/v1/admin/users/${USER_ID}/reset-temp-password`)
+        .set(authHeader(Role.SUPER_ADMIN, 'admin-1'));
+
+      expect(res.status).toBe(200);
+      expect(res.body.data).toEqual({
+        email: 'asha@example.test',
+        tempPassword: 'Xk4mTq9bRs2wPd',
+        emailSent: true,
+      });
+      expect(adminService.resetTemporaryPassword).toHaveBeenCalledWith(USER_ID, 'admin-1');
+    });
+
+    it('is SUPER_ADMIN-only', async () => {
+      const res = await request(app)
+        .post(`/api/v1/admin/users/${USER_ID}/reset-temp-password`)
+        .set(authHeader(Role.AGENT));
+      expect(res.status).toBe(403);
+      expect(adminService.resetTemporaryPassword).not.toHaveBeenCalled();
+    });
+
+    it('requires authentication', async () => {
+      const res = await request(app).post(`/api/v1/admin/users/${USER_ID}/reset-temp-password`);
+      expect(res.status).toBe(401);
     });
   });
 });

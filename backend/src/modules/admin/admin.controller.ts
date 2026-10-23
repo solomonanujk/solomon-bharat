@@ -58,6 +58,21 @@ export const adminController = {
     sendSuccess(res, user, 'User reactivated');
   },
 
+  /** Issues a fresh one-time, 7-day "set your password" link for a seller/agent to re-share. */
+  async createSignInLink(req: Request, res: Response): Promise<void> {
+    const result = await adminService.createSignInLinkForUser(req.params.id, req.user!.id);
+    sendSuccess(res, result, 'Sign-in link created');
+  },
+
+  /**
+   * Resets the account to a new temporary password. The plaintext is in THIS response
+   * body and nowhere else — it is never persisted, logged or returned again.
+   */
+  async resetTemporaryPassword(req: Request, res: Response): Promise<void> {
+    const result = await adminService.resetTemporaryPassword(req.params.id, req.user!.id);
+    sendSuccess(res, result, 'Temporary password set');
+  },
+
   async promoteToAdmin(req: Request, res: Response): Promise<void> {
     const user = await adminService.promoteToAdmin(req.params.id, req.user!.id);
     sendSuccess(res, user, 'User promoted to SUPER_ADMIN');

@@ -4,6 +4,7 @@ import { SellersRepository } from './sellers.repository';
 import { SellersService } from './sellers.service';
 import { notificationsService } from '../notifications/notifications.service';
 import { mailProvider } from '../../providers/mail';
+import { writeAuditLog } from '../../utils/auditLog';
 
 vi.mock('../../providers/mail', () => ({
   mailProvider: { sendMail: vi.fn().mockResolvedValue(undefined) },
@@ -100,6 +101,7 @@ function buildMockRepo(): SellersRepository {
     findApplicationById: vi.fn(),
     findLatestApplicationByEmail: vi.fn(),
     findApplications: vi.fn(),
+    findApplicationsForExport: vi.fn(),
     setApplicationFavourite: vi.fn(),
     updateApplication: vi.fn(),
     findUserByEmail: vi.fn(),
@@ -238,6 +240,8 @@ describe('SellersService', () => {
           isOnVacation: false,
           internalRating: null,
           internalNotes: null,
+          whatsappNumber: null,
+          whatsappVerifiedAt: null,
           sellerType: SellerType.CURATED,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -381,6 +385,8 @@ describe('SellersService', () => {
         isOnVacation: false,
         internalRating: null,
         internalNotes: null,
+        whatsappNumber: null,
+        whatsappVerifiedAt: null,
         sellerType: SellerType.CURATED,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -399,6 +405,8 @@ describe('SellersService', () => {
         isOnVacation: false,
         internalRating: null,
         internalNotes: null,
+        whatsappNumber: null,
+        whatsappVerifiedAt: null,
         sellerType: SellerType.CURATED,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -456,6 +464,103 @@ describe('SellersService', () => {
     });
   });
 
+  describe('exportApplicationsCsv', () => {
+    it('passes the screen filters straight through, unpaginated and capped', async () => {
+      vi.mocked(repo.findApplicationsForExport).mockResolvedValue([]);
+
+      await service.exportApplicationsCsv(
+        { status: SellerApplicationStatus.PENDING, search: 'jaipur', favourite: true },
+        'admin-1',
+      );
+
+      expect(repo.findApplicationsForExport).toHaveBeenCalledWith(
+        { status: SellerApplicationStatus.PENDING, search: 'jaipur', favourite: true },
+        SellersService.EXPORT_ROW_CAP,
+      );
+    });
+
+    it('names the file with today’s date', async () => {
+      vi.mocked(repo.findApplicationsForExport).mockResolvedValue([]);
+
+      const { filename } = await service.exportApplicationsCsv({}, 'admin-1');
+
+      expect(filename).toMatch(/^seller-applications-\d{4}-\d{2}-\d{2}\.csv$/);
+    });
+
+    it('writes a BOM, the header row and one row per application', async () => {
+      vi.mocked(repo.findApplicationsForExport).mockResolvedValue([
+        buildApplication({ createdAt: new Date('2026-02-03T00:00:00Z') }),
+        buildApplication({ id: 'app-2', businessName: 'Kutch Weavers' }),
+      ]);
+
+      const { csv, rows, truncated } = await service.exportApplicationsCsv({}, 'admin-1');
+
+      expect(csv.startsWith('﻿')).toBe(true);
+      const lines = csv.trimEnd().split('\r\n');
+      expect(lines).toHaveLength(3);
+      expect(lines[0]).toContain('Business name');
+      expect(lines[0]).toContain('Rejection reason');
+      expect(lines[1]).toContain('Jaipur Handicrafts');
+      expect(lines[1]).toContain('2026-02-03');
+      expect(lines[2]).toContain('Kutch Weavers');
+      expect(rows).toBe(2);
+      expect(truncated).toBe(false);
+    });
+
+    it('renders the favourite flag as Yes/No and semicolon-joins craft categories', async () => {
+      vi.mocked(repo.findApplicationsForExport).mockResolvedValue([
+        buildApplication({ isFavourite: true, craftCategories: ['Textiles', 'Pottery'] }),
+      ]);
+
+      const { csv } = await service.exportApplicationsCsv({}, 'admin-1');
+
+      expect(csv).toContain('Yes');
+      expect(csv).toContain('Textiles; Pottery');
+    });
+
+    it('escapes a multi-line internal note instead of breaking the row grid', async () => {
+      vi.mocked(repo.findApplicationsForExport).mockResolvedValue([
+        buildApplication({ internalNotes: 'called them\nno answer, retry' }),
+      ]);
+
+      const { csv } = await service.exportApplicationsCsv({}, 'admin-1');
+
+      expect(csv).toContain('"called them\nno answer, retry"');
+    });
+
+    it('neutralises a formula smuggled into an applicant field', async () => {
+      vi.mocked(repo.findApplicationsForExport).mockResolvedValue([
+        buildApplication({ businessName: '=cmd|\' /c calc\'!A1' }),
+      ]);
+
+      const { csv } = await service.exportApplicationsCsv({}, 'admin-1');
+
+      expect(csv).not.toContain(',=cmd');
+      expect(csv).toContain("'=cmd");
+    });
+
+    it('reports truncation and audit-logs the export without leaking row contents', async () => {
+      vi.mocked(repo.findApplicationsForExport).mockResolvedValue(
+        Array.from({ length: SellersService.EXPORT_ROW_CAP }, () => buildApplication()),
+      );
+
+      const { truncated } = await service.exportApplicationsCsv({ search: 'a' }, 'admin-1');
+
+      expect(truncated).toBe(true);
+      expect(writeAuditLog).toHaveBeenCalledWith(
+        'admin-1',
+        'SELLER_APPLICATIONS_EXPORTED',
+        'SellerApplication',
+        'export',
+        expect.objectContaining({
+          rows: SellersService.EXPORT_ROW_CAP,
+          truncated: true,
+          filter: { status: null, search: 'a', favourite: null },
+        }),
+      );
+    });
+  });
+
   describe('getOrCreateHouseSellerProfile', () => {
     it('returns the cached id without creating anything when already provisioned', async () => {
       vi.mocked(repo.findPlatformSettingValue).mockResolvedValue({ sellerId: 'house-profile-1' });
@@ -483,6 +588,8 @@ describe('SellersService', () => {
           isOnVacation: false,
           internalRating: null,
           internalNotes: null,
+          whatsappNumber: null,
+          whatsappVerifiedAt: null,
           sellerType: SellerType.CURATED,
           createdAt: new Date(),
           updatedAt: new Date(),

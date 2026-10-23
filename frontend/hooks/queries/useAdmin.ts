@@ -92,7 +92,10 @@ export interface AdminUser {
   email: string
   role: Role
   status: 'ACTIVE' | 'SUSPENDED'
+  /** True while the account is still on an admin-issued temporary password. */
+  mustChangePassword?: boolean
   createdAt: string
+  updatedAt?: string
 }
 
 export function useAdminUsers(params?: { role?: Role; page?: number; limit?: number }) {
@@ -121,6 +124,53 @@ export function useReactivateUser() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-users'] })
       toast.success('User reactivated.')
+    },
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
+// ─── Seller / agent sign-in access (Admin → Sellers "Seller access" card) ─────
+//
+// Passwords are bcrypt hashes server-side and are never readable. These two actions
+// are the safe equivalent of "show me their password": issue a fresh one-time
+// set-password link, or mint a new temporary password that the API returns exactly
+// once, in the mutation result, for the admin to copy and share.
+
+export interface SignInLink {
+  email: string
+  url: string
+  expiresInDays: number
+}
+
+/** Creates a fresh one-time, 7-day set-password link the admin can re-share. */
+export function useCreateSignInLink() {
+  return useMutation<SignInLink, Error, string>({
+    mutationFn: async (userId) => (await api.post(`/admin/users/${userId}/sign-in-link`)).data.data,
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
+export interface TempPasswordReset {
+  email: string
+  /** Shown to the admin ONCE. Never persisted here, never re-fetchable. */
+  tempPassword: string
+  emailSent: boolean
+}
+
+/**
+ * Resets the account to a new temporary password and emails the seller. The plaintext
+ * comes back in this one response only — the caller must show it immediately and must
+ * not write it to storage.
+ */
+export function useResetTempPassword() {
+  const qc = useQueryClient()
+  return useMutation<TempPasswordReset, Error, string>({
+    mutationFn: async (userId) => (await api.post(`/admin/users/${userId}/reset-temp-password`)).data.data,
+    onSuccess: () => {
+      // mustChangePassword / updatedAt just changed on the account.
+      qc.invalidateQueries({ queryKey: ['admin-users'] })
+      qc.invalidateQueries({ queryKey: ['admin-sellers'] })
+      qc.invalidateQueries({ queryKey: ['admin-seller'] })
     },
     onError: (err) => toast.error(getApiError(err)),
   })

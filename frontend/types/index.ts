@@ -249,12 +249,16 @@ export interface MyProduct extends ProductListingDetails {
   pendingPricingChange: PendingPricingChange | null
 }
 
+export interface PrivateSupplier { id: string; name: string }
+
 /** Full admin projection — includes both prices + seller attribution. */
 export interface AdminProduct extends Omit<MyProduct, never> {
   sellerId: string
   adminPrice: number | null
   agentPrice: number | null
   isFeatured: boolean
+  seller?: { businessName: string }
+  privateSupplier?: PrivateSupplier | null
 }
 
 export interface ProductsParams {
@@ -379,9 +383,29 @@ export interface SellerApplyInput {
   agreedToCommissionTerms: boolean
 }
 
+/**
+ * The account behind a seller/agent profile, as the admin seller list/detail APIs
+ * return it. There is deliberately no password field of any kind: passwords are
+ * stored as bcrypt hashes and are never readable (see the Seller access card).
+ */
+export interface SellerAccountUser {
+  id: string
+  email: string
+  role: Role
+  status: UserStatus
+  /** True while the seller is still on an admin-issued temporary password. */
+  mustChangePassword: boolean
+  emailVerifiedAt: string | null
+  createdAt: string
+  /** Account row's last write — an honest proxy for "password last changed". */
+  updatedAt: string
+}
+
 export interface SellerProfile {
   id: string
   userId: string
+  /** Admin-only: the login account. Absent on seller-facing responses. */
+  user?: SellerAccountUser
   businessName: string
   contactName: string
   phone: string

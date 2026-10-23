@@ -76,7 +76,7 @@ export const productsController = {
   },
 
   async createAsAdmin(req: Request, res: Response): Promise<void> {
-    const { sellerMode, sellerId, ...dto } = req.body as CreateProductAsAdminDto;
+    const { sellerMode, sellerId, privateSupplierId, privateSupplierName, ...dto } = req.body as CreateProductAsAdminDto;
     const { images, videos, craftImage } = extractFiles(req);
     const product = await productsService.createProductAsAdmin(
       sellerMode,
@@ -86,6 +86,8 @@ export const productsController = {
       req.user!.id,
       videos,
       craftImage,
+      privateSupplierId,
+      privateSupplierName,
     );
     sendCreated(res, product, 'Product created and published');
   },

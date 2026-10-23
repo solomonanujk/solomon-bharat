@@ -17,6 +17,7 @@ vi.mock('./sellers.service', () => ({
   sellersService: {
     submitApplication: vi.fn(),
     listApplications: vi.fn(),
+    exportApplicationsCsv: vi.fn(),
     getApplicationDetail: vi.fn(),
     approveApplication: vi.fn(),
     rejectApplication: vi.fn(),
@@ -79,6 +80,79 @@ describe('sellers controller', () => {
       vi.mocked(sellersService.listApplications).mockResolvedValue({ data: [], total: 0 } as never);
       const res = await request(app).get('/api/v1/sellers/applications').set(authHeader(Role.SUPER_ADMIN));
       expect(res.status).toBe(200);
+    });
+  });
+
+  describe('GET /api/v1/sellers/applications/export', () => {
+    const CSV = '﻿Business name\r\nKala Kendra\r\n';
+
+    beforeEach(() => {
+      vi.mocked(sellersService.exportApplicationsCsv).mockResolvedValue({
+        csv: CSV,
+        filename: 'seller-applications-2026-10-19.csv',
+        rows: 1,
+        truncated: false,
+      } as never);
+    });
+
+    it('requires admin auth', async () => {
+      const res = await request(app).get('/api/v1/sellers/applications/export');
+      expect(res.status).toBe(401);
+    });
+
+    it('rejects a non-admin role with 403', async () => {
+      const res = await request(app)
+        .get('/api/v1/sellers/applications/export')
+        .set(authHeader(Role.SELLER));
+      expect(res.status).toBe(403);
+    });
+
+    it('returns a dated CSV attachment, not the application-detail route', async () => {
+      const res = await request(app)
+        .get('/api/v1/sellers/applications/export')
+        .set(authHeader(Role.SUPER_ADMIN, 'admin-1'));
+
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('text/csv');
+      expect(res.headers['content-disposition']).toBe(
+        'attachment; filename="seller-applications-2026-10-19.csv"',
+      );
+      expect(res.text).toBe(CSV);
+      // Proof that "export" was not swallowed by GET /applications/:id.
+      expect(sellersService.getApplicationDetail).not.toHaveBeenCalled();
+    });
+
+    it('forwards the status, search and favourite filters', async () => {
+      const res = await request(app)
+        .get('/api/v1/sellers/applications/export')
+        .query({ status: 'PENDING', search: 'jaipur', favourite: 'true' })
+        .set(authHeader(Role.SUPER_ADMIN, 'admin-1'));
+
+      expect(res.status).toBe(200);
+      expect(sellersService.exportApplicationsCsv).toHaveBeenCalledWith(
+        { status: 'PENDING', search: 'jaipur', favourite: true },
+        'admin-1',
+      );
+    });
+
+    it('ignores pagination — the export is never limited to one page', async () => {
+      await request(app)
+        .get('/api/v1/sellers/applications/export')
+        .query({ page: 3, limit: 5 })
+        .set(authHeader(Role.SUPER_ADMIN, 'admin-1'));
+
+      expect(sellersService.exportApplicationsCsv).toHaveBeenCalledWith(
+        { status: undefined, search: undefined, favourite: undefined },
+        'admin-1',
+      );
+    });
+
+    it('rejects an unknown status with 422', async () => {
+      const res = await request(app)
+        .get('/api/v1/sellers/applications/export')
+        .query({ status: 'NOT_A_STATUS' })
+        .set(authHeader(Role.SUPER_ADMIN));
+      expect(res.status).toBe(422);
     });
   });
 

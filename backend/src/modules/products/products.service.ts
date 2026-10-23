@@ -1,4 +1,4 @@
-import { Product, ProductApprovalStatus, ProductPricingChangeRequest, Role } from '@prisma/client';
+import { Product, ProductApprovalStatus, ProductPricingChangeRequest, ProductSource, Role } from '@prisma/client';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { randomUUID } from 'crypto';
 import { env } from '../../config/env';
@@ -12,6 +12,7 @@ import { prisma } from '../../config/prisma';
 import { categoriesService, CategoriesService } from '../categories/categories.service';
 import { notificationsService } from '../notifications/notifications.service';
 import { sellersService } from '../sellers/sellers.service';
+import { privateSuppliersService } from '../private-suppliers/private-suppliers.service';
 import { reviewsRepository, ReviewsRepository } from '../reviews/reviews.repository';
 import { ProductsRepository, productsRepository } from './products.repository';
 import { readyStockIssue } from './products.validation';
@@ -523,6 +524,41 @@ export class ProductsService {
   }
 
   /**
+   * Submits a product a seller described over WhatsApp. The photos and videos were already
+   * uploaded as they arrived, so this takes their URLs instead of files. Everything else is the
+   * same as createProduct: it lands in PENDING for admin review and pricing.
+   */
+  async createFromWhatsApp(
+    sellerProfileId: string,
+    input: CreateProductInput,
+    imageUrls: string[],
+    videoUrls: string[] = [],
+  ): Promise<SellerProduct> {
+    if (imageUrls.length < MIN_IMAGES || imageUrls.length > MAX_IMAGES) {
+      throw AppError.badRequest(`Products require between ${MIN_IMAGES} and ${MAX_IMAGES} images`);
+    }
+    if (videoUrls.length > MAX_VIDEOS) {
+      throw AppError.badRequest(`Products allow at most ${MAX_VIDEOS} videos`);
+    }
+    const stockIssue = readyStockIssue({ isMadeToOrder: input.isMadeToOrder, declaredStock: input.declaredStock });
+    if (stockIssue) throw AppError.badRequest(stockIssue);
+
+    await this.categories.assertValidLeafCategory(input.categoryId);
+
+    const slug = await this.generateUniqueSlug(input.name);
+    const id = randomUUID();
+    const product = await this.repo.create(
+      sellerProfileId,
+      { ...input, slug, id },
+      imageUrls,
+      videoUrls,
+      { source: ProductSource.WHATSAPP },
+    );
+    await this.invalidatePublishedListCache();
+    return toSellerProduct(product, null);
+  }
+
+  /**
    * Saves a minimally-valid, seller-only, invisible-everywhere-else draft the seller
    * can come back and finish later — deliberately skips the image-count check and
    * every other requirement createProduct enforces; DB-required-but-business-optional
@@ -564,18 +600,29 @@ export class ProductsService {
    * approver in this flow — a separate later approval step would be pointless).
    */
   async createProductAsAdmin(
-    sellerMode: 'existing' | 'house',
+    sellerMode: 'existing' | 'house' | 'private',
     sellerId: string | undefined,
     input: CreateProductInput,
     files: UploadedImageFile[],
     adminId: string,
     videoFiles: UploadedImageFile[] = [],
     craftImageFile?: UploadedImageFile,
+    privateSupplierId?: string,
+    privateSupplierName?: string,
   ) {
-    const sellerProfileId =
-      sellerMode === 'existing'
-        ? (await sellersService.getSellerDetailForAdmin(sellerId!)).id
-        : await sellersService.getOrCreateHouseSellerProfile();
+    let resolvedPrivateSupplierId: string | null = null;
+    let sellerProfileId: string;
+    if (sellerMode === 'existing') {
+      sellerProfileId = (await sellersService.getSellerDetailForAdmin(sellerId!)).id;
+    } else if (sellerMode === 'private') {
+      sellerProfileId = await sellersService.getOrCreateHouseSellerProfile();
+      const supplier = privateSupplierId
+        ? await privateSuppliersService.assertExists(privateSupplierId)
+        : await privateSuppliersService.findOrCreate(privateSupplierName!);
+      resolvedPrivateSupplierId = supplier.id;
+    } else {
+      sellerProfileId = await sellersService.getOrCreateHouseSellerProfile();
+    }
 
     if (files.length < MIN_IMAGES || files.length > MAX_IMAGES) {
       throw AppError.badRequest(`Products require between ${MIN_IMAGES} and ${MAX_IMAGES} images`);
@@ -622,6 +669,7 @@ export class ProductsService {
         publishedAt: new Date(),
         adminPrice,
         agentPrice,
+        privateSupplierId: resolvedPrivateSupplierId,
       },
     );
 
@@ -853,6 +901,32 @@ export class ProductsService {
     await this.invalidatePublishedListCache();
     const withMedia = await this.repo.findByIdWithMedia(updated.id);
     return this.toSellerProductWithPending(withMedia as ProductWithMedia);
+  }
+
+  /**
+   * Sets the available quantity of a product that has a single stock figure (used by WhatsApp
+   * stock messages). 0 is allowed: it is how a seller marks a ready-stock product out of stock.
+   * Like any other non-pricing edit it applies immediately and needs no re-approval.
+   */
+  async setStockForSeller(sellerProfileId: string, productId: string, quantity: number): Promise<SellerProduct> {
+    const product = await this.getOwnedProductOrThrow(sellerProfileId, productId);
+    if (product.isMadeToOrder) {
+      throw AppError.badRequest('This product is made to order, so it has no stock quantity');
+    }
+    const withMedia = await this.repo.findByIdWithMedia(productId);
+    if (withMedia?.variants.some((v) => v.inventory != null)) {
+      throw AppError.badRequest('This product keeps its stock per variant. Update it on the website.');
+    }
+    const updated = await this.repo.update(
+      productId,
+      { declaredStock: quantity },
+      [],
+      withMedia?.images.length ?? 0,
+      [],
+      withMedia?.videos.length ?? 0,
+    );
+    await this.invalidatePublishedListCache();
+    return this.toSellerProductWithPending(updated);
   }
 
   async deleteProduct(sellerProfileId: string, productId: string): Promise<void> {
@@ -1210,7 +1284,7 @@ export class ProductsService {
   }
 
   async getForAdmin(productId: string) {
-    const product = await this.repo.findByIdWithMedia(productId);
+    const product = await this.repo.findByIdForAdmin(productId);
     if (!product || product.deletedAt) {
       throw AppError.notFound('Product not found');
     }

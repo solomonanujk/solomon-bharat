@@ -145,7 +145,7 @@ export class OrdersRepository {
       include: {
         items: {
           include: {
-            product: { select: { name: true, tariffCode: true, weight: true, dimensions: true, placeOfOrigin: true } },
+            product: { select: { name: true, tariffCode: true, weight: true, dimensions: true, placeOfOrigin: true, privateSupplier: { select: { name: true } } } },
             variant: {
               select: {
                 sku: true, weight: true, weightUnit: true, length: true, width: true, height: true,

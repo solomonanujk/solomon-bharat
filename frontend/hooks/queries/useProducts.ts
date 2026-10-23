@@ -445,8 +445,10 @@ export function useAdminUpdateProduct() {
  * immediately.
  */
 export interface CreateProductAsAdminInput extends SubmitProductInput {
-  sellerMode: 'existing' | 'house'
+  sellerMode: 'existing' | 'house' | 'private'
   sellerId?: string
+  privateSupplierId?: string
+  privateSupplierName?: string
 }
 
 export function useAdminCreateProduct() {

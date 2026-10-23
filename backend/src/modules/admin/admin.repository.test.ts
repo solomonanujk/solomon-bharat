@@ -21,6 +21,7 @@ describe('AdminRepository', () => {
       auditLog: mockModel(),
       platformSetting: mockModel(),
       user: mockModel(),
+      refreshToken: mockModel(),
     });
     repo = new AdminRepository(db as never);
   });
@@ -170,6 +171,23 @@ describe('AdminRepository', () => {
     db.user.update.mockResolvedValue({ id: 'u1', status: 'SUSPENDED' });
     await repo.setUserStatus('u1', 'SUSPENDED');
     expect(db.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { status: 'SUSPENDED' } });
+  });
+
+  it('setUserPasswordHash writes the hash and re-flags mustChangePassword', async () => {
+    db.user.update.mockResolvedValue({ id: 'u1' });
+    await repo.setUserPasswordHash('u1', '$2b$12$hash');
+    expect(db.user.update).toHaveBeenCalledWith({
+      where: { id: 'u1' },
+      data: { passwordHash: '$2b$12$hash', mustChangePassword: true },
+    });
+  });
+
+  it('revokeRefreshTokensForUser revokes only the still-live tokens', async () => {
+    db.refreshToken.updateMany.mockResolvedValue({ count: 2 });
+    await repo.revokeRefreshTokensForUser('u1');
+    const arg = db.refreshToken.updateMany.mock.calls[0][0];
+    expect(arg.where).toEqual({ userId: 'u1', revokedAt: null });
+    expect(arg.data.revokedAt).toBeInstanceOf(Date);
   });
 
   it('promoteToAdmin sets role to SUPER_ADMIN', async () => {

@@ -55,7 +55,8 @@ const submitApplicationBaseSchema = z.object({
 export const submitApplicationSchema = submitApplicationBaseSchema;
 export type SubmitApplicationDto = z.infer<typeof submitApplicationSchema>;
 
-export const applicationListQuerySchema = paginationQuerySchema.extend({
+/** The filters the Seller Applications screen applies — shared by the list and the CSV export. */
+const applicationFilterSchema = z.object({
   status: z.nativeEnum(SellerApplicationStatus).optional(),
   search: z.string().trim().max(200).optional(),
   /** `?favourite=true` narrows the list to starred applications. */
@@ -64,7 +65,14 @@ export const applicationListQuerySchema = paginationQuerySchema.extend({
     .optional()
     .transform((v) => (v === undefined ? undefined : v === 'true')),
 });
+
+export const applicationListQuerySchema = paginationQuerySchema.merge(applicationFilterSchema);
 export type ApplicationListQueryDto = z.infer<typeof applicationListQuerySchema>;
+
+/** CSV export: the same filters as the list, but deliberately *not* paginated — the
+ *  export covers every matching row, not the page the admin happens to be on. */
+export const applicationExportQuerySchema = applicationFilterSchema;
+export type ApplicationExportQueryDto = z.infer<typeof applicationExportQuerySchema>;
 
 export const favouriteApplicationSchema = z.object({ favourite: z.boolean() });
 export type FavouriteApplicationDto = z.infer<typeof favouriteApplicationSchema>;

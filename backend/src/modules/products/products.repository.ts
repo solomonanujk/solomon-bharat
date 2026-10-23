@@ -1,4 +1,4 @@
-import { OrderStatus, Prisma, PrismaClient, Product, ProductApprovalStatus, ProductPricingChangeRequest } from '@prisma/client';
+import { OrderStatus, Prisma, PrismaClient, Product, ProductApprovalStatus, ProductPricingChangeRequest, ProductSource } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { PaginationQuery, toSkipTake } from '../../utils/pagination';
 import {
@@ -79,6 +79,13 @@ export class ProductsRepository {
     return this.db.product.findUnique({ where: { id }, include: MEDIA_INCLUDE });
   }
 
+  findByIdForAdmin(id: string) {
+    return this.db.product.findUnique({
+      where: { id },
+      include: { ...MEDIA_INCLUDE, seller: { select: { businessName: true, id: true } }, privateSupplier: { select: { id: true, name: true } } },
+    });
+  }
+
   findByIdRaw(id: string): Promise<Product | null> {
     return this.db.product.findUnique({ where: { id } });
   }
@@ -107,6 +114,8 @@ export class ProductsRepository {
       publishedAt: Date;
       adminPrice: number | null;
       agentPrice: number | null;
+      privateSupplierId: string | null;
+      source: ProductSource;
     }>,
   ): Promise<ProductWithMedia> {
     return this.db.product.create({
@@ -722,6 +731,7 @@ export class ProductsRepository {
           ...MEDIA_INCLUDE,
           seller: { select: { businessName: true } },
           category: { select: { name: true } },
+          privateSupplier: { select: { id: true, name: true } },
         },
         orderBy: { createdAt: 'desc' },
         ...toSkipTake(pagination),

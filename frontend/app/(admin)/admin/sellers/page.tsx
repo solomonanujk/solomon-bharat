@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building2, Search } from 'lucide-react'
+import { AlertTriangle, Building2, Search, ShieldCheck } from 'lucide-react'
 import { useAdminSellers } from '@/hooks/queries/useSellers'
 import { cn } from '@/lib/utils'
 
@@ -27,7 +27,8 @@ export default function AdminSellersPage() {
     return (
       s.businessName.toLowerCase().includes(q) ||
       s.contactName.toLowerCase().includes(q) ||
-      s.phone.toLowerCase().includes(q)
+      s.phone.toLowerCase().includes(q) ||
+      (s.user?.email.toLowerCase().includes(q) ?? false)
     )
   })
 
@@ -53,7 +54,7 @@ export default function AdminSellersPage() {
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name, contact, or phone…"
+          placeholder="Search by name, contact, phone or login email…"
           className={cn(
             'w-full h-9 pl-9 pr-3 rounded-lg border border-[#D9E2DA] bg-white',
             'text-[14px] font-sans text-[#0F241D] placeholder:text-[#183D33B3]',
@@ -94,7 +95,7 @@ export default function AdminSellersPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-[#D9E2DA] bg-[#E7EDE7]/40">
-                    {['Business', 'Contact', 'Phone', 'Address', 'Created'].map((h) => (
+                    {['Business', 'Contact', 'Sign-in', 'Phone', 'Address', 'Created'].map((h) => (
                       <th
                         key={h}
                         className="py-3 px-4 text-[12px] font-[600] font-sans text-[#183D33B3] uppercase tracking-[0.06em] text-left"
@@ -115,6 +116,38 @@ export default function AdminSellersPage() {
                         <p className="text-[13px] font-[600] font-sans text-[#0F241D]">{seller.businessName}</p>
                       </td>
                       <td className="py-3.5 px-4 text-[13px] font-sans text-[#183D33B3]">{seller.contactName}</td>
+                      {/* Compact "Seller access": the login id plus whether they have
+                          chosen their own password. The actions (sign-in link, temporary
+                          password reset) live on the detail page. */}
+                      <td className="py-3.5 px-4">
+                        {seller.user ? (
+                          <>
+                            <p
+                              className="text-[13px] font-sans text-[#0F241D] max-w-[220px] truncate"
+                              title={seller.user.email}
+                            >
+                              {seller.user.email}
+                            </p>
+                            <span
+                              className={cn(
+                                'mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-[600] font-sans whitespace-nowrap',
+                                seller.user.mustChangePassword
+                                  ? 'bg-[#FFF7E8] text-[#8A5F10]'
+                                  : 'bg-selected text-forest'
+                              )}
+                            >
+                              {seller.user.mustChangePassword ? (
+                                <AlertTriangle size={10} aria-hidden="true" />
+                              ) : (
+                                <ShieldCheck size={10} aria-hidden="true" />
+                              )}
+                              {seller.user.mustChangePassword ? 'Temp password' : 'Own password'}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-[13px] font-sans text-[#183D33B3]">—</span>
+                        )}
+                      </td>
                       <td className="py-3.5 px-4 text-[13px] font-sans text-[#183D33B3] whitespace-nowrap">{seller.phone}</td>
                       <td className="py-3.5 px-4 text-[13px] font-sans text-[#183D33B3] max-w-[260px] truncate" title={seller.businessAddress}>
                         {seller.businessAddress}
