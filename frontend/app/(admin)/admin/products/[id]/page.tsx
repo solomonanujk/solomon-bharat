@@ -170,10 +170,14 @@ export default function AdminProductDetailPage() {
         {/* Left column */}
         <div className="space-y-5 min-w-0">
 
-          {product.seller && (
-            <div className="rounded-xl bg-[#EEF5F0] border border-[#D6E8DC] px-4 py-3 flex items-center gap-2">
-              <span className="text-[12px] font-[600] font-sans text-[#183D33B3] uppercase tracking-[0.06em]">Submitted by</span>
-              <span className="text-[13.5px] font-[600] font-sans text-[#0F241D]">{product.seller.businessName}</span>
+          {(product.privateSupplier || product.seller) && (
+            <div className="rounded-xl bg-[#EEF5F0] border border-[#D6E8DC] px-4 py-3 flex items-center gap-2 flex-wrap">
+              <span className="text-[12px] font-[600] font-sans text-[#183D33B3] uppercase tracking-[0.06em]">
+                {product.privateSupplier ? 'Private Supplier' : 'Submitted by'}
+              </span>
+              <span className="text-[13.5px] font-[600] font-sans text-[#0F241D]">
+                {product.privateSupplier?.name ?? product.seller?.businessName}
+              </span>
             </div>
           )}
 

@@ -249,6 +249,8 @@ export interface MyProduct extends ProductListingDetails {
   pendingPricingChange: PendingPricingChange | null
 }
 
+export interface PrivateSupplier { id: string; name: string }
+
 /** Full admin projection — includes both prices + seller attribution. */
 export interface AdminProduct extends Omit<MyProduct, never> {
   sellerId: string
@@ -256,6 +258,7 @@ export interface AdminProduct extends Omit<MyProduct, never> {
   agentPrice: number | null
   isFeatured: boolean
   seller?: { businessName: string }
+  privateSupplier?: PrivateSupplier | null
 }
 
 export interface ProductsParams {

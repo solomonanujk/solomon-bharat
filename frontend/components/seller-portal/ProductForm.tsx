@@ -8,6 +8,7 @@ import { Check, ChevronDown, Eye, EyeOff, Film, GripVertical, Lightbulb, Search,
 import { Button } from '@/components/ui/button'
 import { useCategoryTree } from '@/hooks/queries/useCategories'
 import { useAdminSellers } from '@/hooks/queries/useSellers'
+import { usePrivateSuppliers } from '@/hooks/queries/usePrivateSuppliers'
 import {
   useSubmitProduct,
   useUpdateMyProduct,
@@ -278,10 +279,13 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const pricingLocked = !isAdminMode && isApproved && !!pendingPricingChange
   const backHref = mode === 'seller' ? '/portal/products' : product ? `/admin/products/${product.id}` : '/admin/products'
 
-  const [sellerMode, setSellerMode] = useState<'existing' | 'house'>('existing')
+  const [sellerMode, setSellerMode] = useState<'existing' | 'house' | 'private'>('existing')
   const [selectedSellerId, setSelectedSellerId] = useState('')
+  const [selectedPrivateSupplierId, setSelectedPrivateSupplierId] = useState('')
+  const [newPrivateSupplierName, setNewPrivateSupplierName] = useState('')
   const { data: sellersPage } = useAdminSellers({ limit: 100, enabled: isAdminCreate })
   const sellers = sellersPage?.items ?? []
+  const { data: privateSuppliers = [] } = usePrivateSuppliers()
 
   // ── Basic information ──────────────────────────────────────────────────────
   const [name, setName] = useState(product?.name ?? '')
@@ -639,6 +643,8 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
   const checklist: ChecklistItem[] = [
     ...(isAdminCreate && sellerMode === 'existing'
       ? [{ key: 'seller', anchor: 'pf-seller', done: !!selectedSellerId, next: 'Select a seller', error: 'Select a seller.' }]
+      : isAdminCreate && sellerMode === 'private'
+      ? [{ key: 'supplier', anchor: 'pf-seller', done: !!(selectedPrivateSupplierId || newPrivateSupplierName.trim()), next: 'Set a private supplier', error: 'Select or name a private supplier.' }]
       : []),
     { key: 'name', anchor: 'pf-name', done: !!name.trim(), next: 'Add a product name', error: 'Enter a product name.' },
     { key: 'category', anchor: 'pf-category', done: !!categoryId, next: 'Choose a product category', error: 'Select a product category.' },
@@ -867,6 +873,8 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
           videos: newVideos,
           sellerMode,
           sellerId: sellerMode === 'existing' ? selectedSellerId : undefined,
+          privateSupplierId: sellerMode === 'private' && selectedPrivateSupplierId ? selectedPrivateSupplierId : undefined,
+          privateSupplierName: sellerMode === 'private' && !selectedPrivateSupplierId ? newPrivateSupplierName.trim() || undefined : undefined,
         })
         setPublishModalOpen(true)
       } else {
@@ -987,12 +995,39 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
               className={`h-10 px-4 rounded border text-[14px] font-[600] font-sans transition-colors ${sellerMode === 'house' ? 'border-primary bg-forest text-white' : 'border-border-warm text-primary'}`}>
               House inventory
             </button>
+            <button type="button" onClick={() => setSellerMode('private')}
+              className={`h-10 px-4 rounded border text-[14px] font-[600] font-sans transition-colors ${sellerMode === 'private' ? 'border-primary bg-forest text-white' : 'border-border-warm text-primary'}`}>
+              Private supplier
+            </button>
           </div>
           {sellerMode === 'existing' && (
             <select value={selectedSellerId} onChange={(e) => setSelectedSellerId(e.target.value)} className={INPUT_CLS}>
               <option value="">Select a seller…</option>
               {sellers.map((s) => <option key={s.id} value={s.id}>{s.businessName} — {s.contactName}</option>)}
             </select>
+          )}
+          {sellerMode === 'private' && (
+            <div className="space-y-3">
+              {privateSuppliers.length > 0 && (
+                <div>
+                  <label className="block text-[12.5px] font-[600] font-sans text-[#0F241D] mb-1">Select existing supplier</label>
+                  <select value={selectedPrivateSupplierId} onChange={(e) => { setSelectedPrivateSupplierId(e.target.value); if (e.target.value) setNewPrivateSupplierName('') }} className={INPUT_CLS}>
+                    <option value="">— or add a new one below —</option>
+                    {privateSuppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="block text-[12.5px] font-[600] font-sans text-[#0F241D] mb-1">{privateSuppliers.length > 0 ? 'Or add new supplier name' : 'Supplier name'}</label>
+                <input
+                  type="text"
+                  value={newPrivateSupplierName}
+                  onChange={(e) => { setNewPrivateSupplierName(e.target.value); if (e.target.value) setSelectedPrivateSupplierId('') }}
+                  placeholder="e.g. Bubber Handicrafts"
+                  className={INPUT_CLS}
+                />
+              </div>
+            </div>
           )}
         </div>
       )}

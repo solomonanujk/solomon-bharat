@@ -12,6 +12,7 @@ import { prisma } from '../../config/prisma';
 import { categoriesService, CategoriesService } from '../categories/categories.service';
 import { notificationsService } from '../notifications/notifications.service';
 import { sellersService } from '../sellers/sellers.service';
+import { privateSuppliersService } from '../private-suppliers/private-suppliers.service';
 import { reviewsRepository, ReviewsRepository } from '../reviews/reviews.repository';
 import { ProductsRepository, productsRepository } from './products.repository';
 import { readyStockIssue } from './products.validation';
@@ -599,18 +600,29 @@ export class ProductsService {
    * approver in this flow — a separate later approval step would be pointless).
    */
   async createProductAsAdmin(
-    sellerMode: 'existing' | 'house',
+    sellerMode: 'existing' | 'house' | 'private',
     sellerId: string | undefined,
     input: CreateProductInput,
     files: UploadedImageFile[],
     adminId: string,
     videoFiles: UploadedImageFile[] = [],
     craftImageFile?: UploadedImageFile,
+    privateSupplierId?: string,
+    privateSupplierName?: string,
   ) {
-    const sellerProfileId =
-      sellerMode === 'existing'
-        ? (await sellersService.getSellerDetailForAdmin(sellerId!)).id
-        : await sellersService.getOrCreateHouseSellerProfile();
+    let resolvedPrivateSupplierId: string | null = null;
+    let sellerProfileId: string;
+    if (sellerMode === 'existing') {
+      sellerProfileId = (await sellersService.getSellerDetailForAdmin(sellerId!)).id;
+    } else if (sellerMode === 'private') {
+      sellerProfileId = await sellersService.getOrCreateHouseSellerProfile();
+      const supplier = privateSupplierId
+        ? await privateSuppliersService.assertExists(privateSupplierId)
+        : await privateSuppliersService.findOrCreate(privateSupplierName!);
+      resolvedPrivateSupplierId = supplier.id;
+    } else {
+      sellerProfileId = await sellersService.getOrCreateHouseSellerProfile();
+    }
 
     if (files.length < MIN_IMAGES || files.length > MAX_IMAGES) {
       throw AppError.badRequest(`Products require between ${MIN_IMAGES} and ${MAX_IMAGES} images`);
@@ -657,6 +669,7 @@ export class ProductsService {
         publishedAt: new Date(),
         adminPrice,
         agentPrice,
+        privateSupplierId: resolvedPrivateSupplierId,
       },
     );
 

@@ -97,6 +97,7 @@ function buildProduct(overrides: Partial<Product> = {}): Product {
     ecoProduction: [],
     isBestseller: false,
     tariffCode: null,
+    privateSupplierId: null,
     source: 'WEB',
     ...overrides,
   };

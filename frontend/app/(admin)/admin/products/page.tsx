@@ -50,7 +50,10 @@ function ProductRow({ product, onOpen }: { product: AdminProduct; onOpen: (id: s
           </div>
         </div>
       </td>
-      <td className="py-3 px-4 text-[13px] font-sans text-[#183D33B3] max-w-[140px] truncate">{product.seller?.businessName ?? '—'}</td>
+      <td className="py-3 px-4 text-[13px] font-sans text-[#183D33B3] max-w-[140px] truncate">
+        {product.privateSupplier?.name ?? product.seller?.businessName ?? '—'}
+        {product.privateSupplier && <span className="ml-1 text-[10px] font-[600] uppercase tracking-wide text-[#183D33B3]/60">(private)</span>}
+      </td>
       <td className="py-3 px-4 text-[13px] font-sans text-[#0F241D]">{formatINR(product.sellerPrice)}</td>
       <td className="py-3 px-4 text-[13px] font-sans">
         {product.adminPrice != null ? (

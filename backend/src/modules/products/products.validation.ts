@@ -125,8 +125,10 @@ const variantWithAdminPricingSchema = variantSchema.extend({
 
 export const createProductAsAdminSchema = z
   .object({
-    sellerMode: z.enum(['existing', 'house']),
+    sellerMode: z.enum(['existing', 'house', 'private']),
     sellerId: z.string().uuid().optional(),
+    privateSupplierId: z.string().uuid().optional(),
+    privateSupplierName: z.string().max(200).optional(),
     name: z.string().min(1).max(60),
     description: z.string().min(1).max(1000),
     categoryId: z.string().uuid(),
@@ -165,6 +167,10 @@ export const createProductAsAdminSchema = z
     message: 'sellerId is required when sellerMode is "existing"',
     path: ['sellerId'],
   })
+  .refine(
+    (data) => data.sellerMode !== 'private' || !!(data.privateSupplierId || data.privateSupplierName),
+    { message: 'privateSupplierId or privateSupplierName is required when sellerMode is "private"', path: ['privateSupplierName'] },
+  )
   .superRefine(refineReadyStock);
 export type CreateProductAsAdminDto = z.infer<typeof createProductAsAdminSchema>;
 
