@@ -42,6 +42,17 @@ enum CategoryStatus {
   ARCHIVED
 }
 
+enum ProductSource {
+  WEB
+  WHATSAPP
+}
+
+enum WhatsAppSessionState {
+  COLLECTING
+  AWAITING_ANSWERS
+  AWAITING_CONFIRM
+}
+
 enum ProductApprovalStatus {
   DRAFT
   PENDING
@@ -137,16 +148,16 @@ enum BrandStatus {
 // ─────────────────────────────────────────────────────────────
 
 model User {
-  id              String     @id @default(uuid())
-  email           String     @unique
-  passwordHash    String
-  role            Role
-  status          UserStatus @default(ACTIVE)
-  emailVerifiedAt DateTime?
+  id                 String     @id @default(uuid())
+  email              String     @unique
+  passwordHash       String
+  role               Role
+  status             UserStatus @default(ACTIVE)
+  emailVerifiedAt    DateTime?
   /// Set when an admin approval emails a temporary password; cleared once the user picks their own.
-  mustChangePassword Boolean @default(false)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  mustChangePassword Boolean    @default(false)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 
   refreshTokens           RefreshToken[]
   emailVerificationTokens EmailVerificationToken[]
@@ -262,9 +273,9 @@ model SellerApplication {
   commissionAgreedAt     DateTime?
 
   /// Admin shortlist: starred applications the owner wants to come back to.
-  isFavourite     Boolean   @default(false)
-  favouritedById  String?
-  favouritedAt    DateTime?
+  isFavourite    Boolean   @default(false)
+  favouritedById String?
+  favouritedAt   DateTime?
 
   sellerProfile SellerProfile?
 
@@ -274,36 +285,114 @@ model SellerApplication {
 }
 
 model SellerProfile {
-  id                String             @id @default(uuid())
-  userId            String             @unique
-  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  applicationId     String?            @unique
-  application       SellerApplication? @relation(fields: [applicationId], references: [id])
-  businessName      String
-  contactName       String
-  phone             String
-  businessAddress   String
-  bankDetails       String?
-  notificationPrefs Json?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  deletedAt         DateTime?
-  sellerType        SellerType         @default(CURATED)
+  id                 String             @id @default(uuid())
+  userId             String             @unique
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applicationId      String?            @unique
+  application        SellerApplication? @relation(fields: [applicationId], references: [id])
+  businessName       String
+  contactName        String
+  phone              String
+  businessAddress    String
+  bankDetails        String?
+  notificationPrefs  Json?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  deletedAt          DateTime?
+  sellerType         SellerType         @default(CURATED)
   /// Seller-controlled: while true their products cannot be ordered.
-  isOnVacation      Boolean            @default(false)
+  isOnVacation       Boolean            @default(false)
   /// Admin-only performance rating (1-5) and notes. Never sent to the seller.
-  internalRating    Int?
-  internalNotes     String?
+  internalRating     Int?
+  internalNotes      String?
+  /// Verified WhatsApp number (E.164) the seller lists products from; unique across sellers.
+  whatsappNumber     String?            @unique
+  whatsappVerifiedAt DateTime?
 
-  products Product[]
-  payouts  Payout[]
-  brand    Brand?
+  products          Product[]
+  payouts           Payout[]
+  whatsappLinkCodes WhatsAppLinkCode[]
+  whatsappSessions  WhatsAppSession[]
+  whatsappAiUsage   WhatsAppAiUsage[]
+  brand             Brand?
   /// Orders fulfilled by this seller (marketplace brands only).
-  orders   Order[]   @relation("BrandOrders")
+  orders            Order[]            @relation("BrandOrders")
 
   @@index([deletedAt])
   @@index([sellerType])
   @@map("seller_profiles")
+}
+
+/// A short-lived code sent to a seller's WhatsApp to prove they own the number. Only a hash is kept.
+model WhatsAppLinkCode {
+  id        String        @id @default(uuid())
+  sellerId  String
+  seller    SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  phone     String
+  codeHash  String
+  attempts  Int           @default(0)
+  expiresAt DateTime
+  createdAt DateTime      @default(now())
+
+  @@index([sellerId, createdAt])
+  @@map("whatsapp_link_codes")
+}
+
+/// A listing a seller is building in chat. One per number; deleted on submit, cancel or expiry.
+/// Photos are uploaded to storage as they arrive, so only their URLs are kept here.
+model WhatsAppSession {
+  id            String               @id @default(uuid())
+  sellerId      String
+  seller        SellerProfile        @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  phone         String               @unique
+  state         WhatsAppSessionState @default(COLLECTING)
+  /// 'en' | 'hi' | 'hinglish' — the language replies are written in.
+  language      String               @default("en")
+  /// Text messages received since the last AI/answer pass.
+  texts         String[]
+  imageUrls     String[]
+  videoUrls     String[]
+  /// Listing fields collected so far (see whatsapp.listing.ts).
+  collected     Json                 @default("{}")
+  /// Field keys the last question message asked for.
+  missing       String[]
+  aiCalls       Int                  @default(0)
+  lastMessageAt DateTime             @default(now())
+  expiresAt     DateTime
+  createdAt     DateTime             @default(now())
+
+  @@index([expiresAt])
+  @@map("whatsapp_sessions")
+}
+
+/// AI calls made for a seller on one day, so a daily cap can keep the bill predictable.
+model WhatsAppAiUsage {
+  id           String        @id @default(uuid())
+  sellerId     String
+  seller       SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  /// UTC date, YYYY-MM-DD.
+  day          String
+  calls        Int           @default(0)
+  inputTokens  Int           @default(0)
+  outputTokens Int           @default(0)
+
+  @@unique([sellerId, day])
+  @@map("whatsapp_ai_usage")
+}
+
+/// Every WhatsApp message the webhook has accepted. The unique provider message id makes
+/// Twilio retries harmless: a repeat is dropped before it can trigger an AI call or a reply.
+model WhatsAppMessage {
+  id                String   @id @default(uuid())
+  providerMessageId String   @unique
+  /// Sender's normalised number (+919812345678).
+  phone             String
+  type              String
+  mediaCount        Int      @default(0)
+  createdAt         DateTime @default(now())
+
+  @@index([phone, createdAt])
+  @@map("whatsapp_messages")
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -501,12 +590,12 @@ model Product {
   deletedAt       DateTime?
 
   // Listing detail fields (parity with the solomon-bharat2 "Add Product" experience)
-  tags          String[] @default([])
-  stepQty       Int      @default(1)
-  isHandmade    Boolean  @default(false)
-  placeOfOrigin String?
-  isGITagged    Boolean  @default(false)
-  howItIsMade   String?
+  tags             String[] @default([])
+  stepQty          Int      @default(1)
+  isHandmade       Boolean  @default(false)
+  placeOfOrigin    String?
+  isGITagged       Boolean  @default(false)
+  howItIsMade      String?
   craftTechnique   String?
   careInstructions String?
   /// true = made to order (lead time applies); false = ready stock.
@@ -516,15 +605,17 @@ model Product {
   offersSamples    Boolean  @default(false)
   sampleMaxQty     Int?
   samplePrice      Decimal? @db.Decimal(12, 2)
-  artisanName   String?
-  craftImageUrl String?
+  artisanName      String?
+  craftImageUrl    String?
 
   // Faire-parity fields (see PRD §8.5/§8.9, §15.3)
-  ecoMaterials  String[] @default([])
-  ecoPackaging  String[] @default([])
-  ecoProduction String[] @default([])
-  isBestseller  Boolean  @default(false)
-  tariffCode    String?  @db.VarChar(50)
+  ecoMaterials  String[]      @default([])
+  ecoPackaging  String[]      @default([])
+  ecoProduction String[]      @default([])
+  isBestseller  Boolean       @default(false)
+  tariffCode    String?       @db.VarChar(50)
+  /// Where the listing was created: the website form or a seller's WhatsApp chat.
+  source        ProductSource @default(WEB)
 
   images                ProductImage[]
   videos                ProductVideo[]
@@ -535,6 +626,7 @@ model Product {
   orderItems            OrderItem[]
   reviews               Review[]
   pricingChangeRequests ProductPricingChangeRequest[]
+  rfqs                  Rfq[]
 
   @@index([sellerId])
   @@index([privateSupplierId])
@@ -544,7 +636,6 @@ model Product {
   @@index([createdAt])
   @@index([deletedAt])
   @@map("products")
-  rfqs            Rfq[]
 }
 
 model PrivateSupplier {
@@ -962,9 +1053,9 @@ model Brand {
   createdAt                DateTime      @default(now())
   updatedAt                DateTime      @updatedAt
 
-  products  Product[]
-  followers BrandFollow[]
-  ownBuyers BrandOwnBuyer[]
+  products     Product[]
+  followers    BrandFollow[]
+  ownBuyers    BrandOwnBuyer[]
   emailInvites BrandEmailInvite[]
 
   @@index([status])
@@ -1090,7 +1181,7 @@ enum GuideKnowledgeKind {
 /// Material the admin feeds the Solomon AI guide. `content` is the text the AI reads
 /// (typed text, or text read out of a PDF / image / spreadsheet at upload).
 model GuideKnowledge {
-  id          String             @id @default(uuid())
+  id          String               @id @default(uuid())
   title       String
   kind        GuideKnowledgeKind
   content     String
@@ -1103,8 +1194,8 @@ model GuideKnowledge {
   fileName    String?
   sizeBytes   Int?
   createdById String?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
 
   @@index([createdAt])
   @@map("guide_knowledge")

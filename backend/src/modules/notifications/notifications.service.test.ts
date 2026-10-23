@@ -4,11 +4,26 @@ import { NotificationsRepository } from './notifications.repository';
 
 const { sendMailMock } = vi.hoisted(() => ({ sendMailMock: vi.fn() }));
 vi.mock('../../providers/mail', () => ({ mailProvider: { sendMail: sendMailMock } }));
-const { sendTextMock } = vi.hoisted(() => ({ sendTextMock: vi.fn() }));
-vi.mock('../../providers/whatsapp', async (orig) => ({
-  ...(await orig<typeof import('../../providers/whatsapp')>()),
-  whatsAppProvider: { sendText: sendTextMock },
-}));
+const { sendTextMock, sendTemplateMock } = vi.hoisted(() => ({ sendTextMock: vi.fn(), sendTemplateMock: vi.fn() }));
+vi.mock('../../providers/whatsapp', async (orig) => {
+  const actual = await orig<typeof import('../../providers/whatsapp')>();
+  return {
+    ...actual,
+    whatsAppProvider: { sendText: sendTextMock, sendTemplate: sendTemplateMock },
+    whatsAppTemplates: actual.createTemplateCatalog({
+      ...actual.EMPTY_TEMPLATE_SETTINGS,
+      WHATSAPP_TEMPLATE_PRODUCT_APPROVED: 'product_approved',
+      WHATSAPP_TEMPLATE_PRODUCT_REJECTED: 'product_rejected',
+      WHATSAPP_TEMPLATE_PRICING_APPROVED: 'pricing_approved',
+      WHATSAPP_TEMPLATE_PRICING_REJECTED: 'pricing_rejected',
+      WHATSAPP_TEMPLATE_ORDER_STATUS: 'order_status',
+      WHATSAPP_TEMPLATE_PAYOUT_PAID: 'payout_paid',
+      WHATSAPP_TEMPLATE_SELLER_APPROVED: 'seller_approved',
+      WHATSAPP_TEMPLATE_AGENT_APPROVED: 'agent_approved',
+      WHATSAPP_TEMPLATE_NEW_MESSAGE: 'new_message',
+    }),
+  };
+});
 import { NotificationsService } from './notifications.service';
 
 function buildNotification(overrides: Partial<Notification> = {}): Notification {
@@ -55,6 +70,109 @@ describe('NotificationsService', () => {
     await service.notify('user-1', NotificationType.ORDER_STATUS_CHANGED, 'Order update', 'Shipped', '/orders/o1');
     await new Promise((r) => setTimeout(r, 0));
     expect(sendTextMock).toHaveBeenCalledWith('+919812345678', expect.stringContaining('Order update'));
+  });
+
+  describe('WhatsApp templates for product review results', () => {
+    beforeEach(() => {
+      sendTextMock.mockReset();
+      sendTemplateMock.mockReset().mockResolvedValue(undefined);
+      vi.mocked(repo.create).mockResolvedValue({ id: 'n1' } as never);
+      vi.mocked(repo.findUserPhone).mockResolvedValue('+91 98123 45678');
+    });
+    const settle = () => new Promise((r) => setTimeout(r, 0));
+
+    it('sends the approved template so it reaches a seller silent for over 24 hours', async () => {
+      await service.notifyProductApproved('user-1', 'Brass Diya');
+      await settle();
+      expect(sendTemplateMock).toHaveBeenCalledWith('+919812345678', { name: 'product_approved', language: 'en', body: ['Brass Diya'] });
+      expect(sendTextMock).not.toHaveBeenCalled();
+    });
+
+    it('sends the rejected template with the reason flattened onto one line', async () => {
+      await service.notifyProductRejected('user-1', 'Brass Diya', 'Photos are blurry.\nPlease retake them.');
+      await settle();
+      expect(sendTemplateMock).toHaveBeenCalledWith('+919812345678', {
+        name: 'product_rejected',
+        language: 'en',
+        body: ['Brass Diya', 'Photos are blurry. Please retake them.'],
+      });
+    });
+
+    it('still sends the full plain text when the template is refused', async () => {
+      sendTemplateMock.mockRejectedValue(new Error('template not approved'));
+      await service.notifyProductRejected('user-1', 'Brass Diya', 'Blurry');
+      await settle();
+      expect(sendTextMock).toHaveBeenCalledWith('+919812345678', expect.stringContaining('"Brass Diya" was rejected: Blurry'));
+    });
+
+    it('sends a notice that has no template as plain text', async () => {
+      await service.notifyAgentApplicationRejected('user-1', 'Not enough experience');
+      await settle();
+      expect(sendTemplateMock).not.toHaveBeenCalled();
+      expect(sendTextMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('WhatsApp templates for the other notices', () => {
+    beforeEach(() => {
+      sendTextMock.mockReset();
+      sendTemplateMock.mockReset().mockResolvedValue(undefined);
+      vi.mocked(repo.create).mockResolvedValue({ id: 'n1' } as never);
+      vi.mocked(repo.findUserPhone).mockResolvedValue('+91 98123 45678');
+    });
+    const settle = () => new Promise((r) => setTimeout(r, 0));
+    const sentTemplate = () => sendTemplateMock.mock.calls[0][1];
+
+    it('pricing change approved', async () => {
+      await service.notifyPricingChangeApproved('user-1', 'Brass Diya');
+      await settle();
+      expect(sentTemplate()).toMatchObject({ name: 'pricing_approved', body: ['Brass Diya'] });
+    });
+
+    it('pricing change rejected, with the reason on one line', async () => {
+      await service.notifyPricingChangeRejected('user-1', 'Brass Diya', 'Too low\nfor the weight');
+      await settle();
+      expect(sentTemplate()).toMatchObject({ name: 'pricing_rejected', body: ['Brass Diya', 'Too low for the weight'] });
+    });
+
+    it('order status, with the short order number and the status in words', async () => {
+      await service.notifyOrderStatusChanged('user-1', '11111111-2222-3333-4444-abcdef123456', 'OUT_FOR_DELIVERY');
+      await settle();
+      expect(sentTemplate()).toMatchObject({ name: 'order_status', body: ['EF123456', 'out for delivery'] });
+    });
+
+    it('payout paid', async () => {
+      await service.notifyPayoutPaid('user-1', '12500.00');
+      await settle();
+      expect(sentTemplate()).toMatchObject({ name: 'payout_paid', body: ['12500.00'] });
+    });
+
+    it('seller and agent welcome and the reply notice carry no variables', async () => {
+      await service.notifySellerApplicationApproved('user-1');
+      await service.notifyAgentApplicationApproved('user-1');
+      await service.notifyNewMessageToBuyer('user-1');
+      await settle();
+      expect(sendTemplateMock.mock.calls.map((c) => [c[1].name, c[1].body])).toEqual([
+        ['seller_approved', []],
+        ['agent_approved', []],
+        ['new_message', []],
+      ]);
+    });
+
+    it('falls back to the plain text of the same notice when its template fails', async () => {
+      sendTemplateMock.mockRejectedValue(new Error('template not approved'));
+      await service.notifyPayoutPaid('user-1', '500');
+      await settle();
+      expect(sendTextMock).toHaveBeenCalledWith('+919812345678', expect.stringContaining('A payout of ₹500 has been marked as paid.'));
+    });
+
+    it('does not message a user who has no phone number', async () => {
+      vi.mocked(repo.findUserPhone).mockResolvedValue(null);
+      await service.notifyPayoutPaid('user-1', '500');
+      await settle();
+      expect(sendTemplateMock).not.toHaveBeenCalled();
+      expect(sendTextMock).not.toHaveBeenCalled();
+    });
   });
 
   describe('markRead', () => {

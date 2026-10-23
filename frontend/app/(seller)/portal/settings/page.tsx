@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { User, CreditCard, Bell, Shield } from 'lucide-react'
+import { User, CreditCard, Bell, Shield, MessageCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useMySellerProfile, useUpdateMySellerProfile } from '@/hooks/queries/useSellers'
 import { useMe, useForgotPassword } from '@/hooks/queries/useAuth'
 import { ChangePasswordForm } from '@/components/shared/ChangePasswordForm'
+import { WhatsAppLinkForm } from '@/components/shared/WhatsAppLinkForm'
 
 const INPUT_CLS =
   'w-full h-10 px-3.5 rounded-lg border border-[#D9E2DA] bg-[#E7EDE7] text-[14px] font-sans text-[#0F241D] placeholder:text-[#6B7E6B] focus:outline-none focus:border-[#183D33] transition-colors'
@@ -212,6 +213,15 @@ export default function SettingsPage() {
             />
           </Field>
         </div>
+      </Section>
+
+      {/* WhatsApp */}
+      <Section
+        title="WhatsApp listing"
+        description="Add and manage products by chatting on WhatsApp."
+        icon={MessageCircle}
+      >
+        <WhatsAppLinkForm />
       </Section>
 
       {/* Bank Details */}

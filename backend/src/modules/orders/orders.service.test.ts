@@ -72,6 +72,7 @@ function buildProduct(overrides: Partial<Product> = {}): ProductWithMedia {
     isBestseller: false,
     tariffCode: null,
     privateSupplierId: null,
+    source: 'WEB',
     ...overrides,
   };
   return { ...product, images: [], videos: [], variants: [], priceTiers: [] };
