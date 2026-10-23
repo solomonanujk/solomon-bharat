@@ -1,5 +1,5 @@
 import { privateSuppliersRepository } from './private-suppliers.repository'
-import { AppError } from '@/utils/errors'
+import { AppError } from '../../utils/errors'
 
 class PrivateSuppliersService {
   list() {
