@@ -383,6 +383,33 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
     ...newImagePreviews.map((src, i): ImageTile => ({ key: src, url: src, onRemove: () => removeNewImage(i) })),
   ]
 
+  const dragImageIdx = useRef<number | null>(null)
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+
+  function handleImageDragStart(i: number) { dragImageIdx.current = i }
+  function handleImageDragOver(e: React.DragEvent, i: number) { e.preventDefault(); setDragOverIdx(i) }
+  function handleImageDrop(i: number) {
+    const from = dragImageIdx.current
+    if (from === null || from === i) { setDragOverIdx(null); return }
+    const totalExisting = existingImages.length
+    if (from < totalExisting && i < totalExisting) {
+      // both existing — reorder existingImages
+      setExistingImages((prev) => { const a = [...prev]; const [item] = a.splice(from, 1); a.splice(i, 0, item); return a })
+    } else if (from >= totalExisting && i >= totalExisting) {
+      // both new — reorder newImages
+      const nf = from - totalExisting; const ni = i - totalExisting
+      setNewImages((prev) => { const a = [...prev]; const [item] = a.splice(nf, 1); a.splice(ni, 0, item); return a })
+    } else if (from >= totalExisting && i < totalExisting) {
+      // new dragged before an existing — move new image to front of existing
+      const nf = from - totalExisting
+      const movedFile = newImages[nf]
+      setNewImages((prev) => prev.filter((_, idx) => idx !== nf))
+      setExistingImages((prev) => { const a = [...prev]; a.splice(i, 0, { id: `new:${nf}`, url: URL.createObjectURL(movedFile), sortOrder: i }); return a })
+    }
+    dragImageIdx.current = null; setDragOverIdx(null)
+  }
+  function handleImageDragEnd() { dragImageIdx.current = null; setDragOverIdx(null) }
+
   /** A stored swatch value is either a real URL or a new:<index> reference to a
    *  not-yet-uploaded photo — resolves either to something actually displayable. */
   function resolveSwatchDisplayUrl(value: string | undefined): string | undefined {
@@ -1227,9 +1254,15 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                   const tile = imageTiles[i]
                   if (tile) {
                     return (
-                      <div key={tile.key} className="relative aspect-square rounded-lg overflow-hidden border border-border-warm group">
+                      <div key={tile.key}
+                        draggable
+                        onDragStart={() => handleImageDragStart(i)}
+                        onDragOver={(e) => handleImageDragOver(e, i)}
+                        onDrop={() => handleImageDrop(i)}
+                        onDragEnd={handleImageDragEnd}
+                        className={`relative aspect-square rounded-lg overflow-hidden border group cursor-grab active:cursor-grabbing transition-all ${dragOverIdx === i ? 'border-[#183D33] ring-2 ring-[#183D33]/30 scale-[1.02]' : 'border-border-warm'}`}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={cloudinaryFill(tile.url, 300, 300)} alt="" className="w-full h-full object-cover cursor-pointer"
+                        <img src={cloudinaryFill(tile.url, 300, 300)} alt="" className="w-full h-full object-cover"
                           onClick={() => openLightbox(tile.url)} />
                         {i === 0 && <span className="absolute bottom-1.5 left-1.5 bg-black/60 text-white text-[10px] font-sans px-1.5 py-0.5 rounded">Featured</span>}
                         <button type="button" onClick={tile.onRemove} aria-label="Remove image"
@@ -1357,7 +1390,10 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                       <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Length{requireListingDetails && <RequiredStar />}</th>
                       <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Width{requireListingDetails && <RequiredStar />}</th>
                       <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Height{requireListingDetails && <RequiredStar />}</th>
-                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">Unit</th>
+                      <th className="text-left py-2.5 px-3 font-[600] text-muted-text">
+                        Unit
+                        <span className="block text-[10px] font-[400] text-muted-text/70 whitespace-nowrap">cm / inch / m</span>
+                      </th>
                       <th className="text-left py-2.5 px-3 font-[600] text-muted-text">HSN code{requireListingDetails && <RequiredStar />}</th>
                       <th className="text-center py-2.5 px-3 font-[600] text-muted-text">Actions</th>
                     </tr>
@@ -1474,7 +1510,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                             <select value={vp.dimensionUnit} disabled={pricingLocked}
                               aria-label={`Dimension unit for ${optionLabel(combo)}`}
                               onChange={(e) => setVPField(combo.key, 'dimensionUnit', e.target.value)}
-                              className={INPUT_CLS + ' h-9 w-[80px] px-2'}>
+                              className={INPUT_CLS + ' h-9 w-[80px] px-2 text-[#0F241D]'}>
                               {DIMENSION_UNIT_OPTIONS.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
                             </select>
                           </td>
@@ -1515,6 +1551,11 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                   Volume Pricing<RequiredStar />
                 </h3>
                 <p className="text-[13px] font-sans text-muted-text max-w-xl">{pricingHint}</p>
+                {isAdminMode && (
+                  <p className="text-[12px] text-[#6B7E72] mt-1">
+                    <span className="font-[600]">Price per unit</span> = what Solomon pays the supplier · <span className="font-[600]">Buyer Price</span> = what the customer pays · <span className="font-[600]">Agent Price</span> = price for Solomon&apos;s agents
+                  </p>
+                )}
 
                 <div className="mt-4 space-y-5">
                   {activeCombos.map((combo, idx) => (
