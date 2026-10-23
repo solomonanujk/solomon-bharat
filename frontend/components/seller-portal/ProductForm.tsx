@@ -898,7 +898,11 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
           categoryId,
           images: newImages,
           videos: newVideos,
-          sellerMode,
+          // Map 'private' → 'house' so older backend deployments accept the request.
+          // Once the backend with 'private' enum support is live on Render this stays
+          // compatible (house is still valid). privateSupplierId/Name fields are stored
+          // regardless.
+          sellerMode: (sellerMode === 'private' ? 'house' : sellerMode) as 'existing' | 'house',
           sellerId: sellerMode === 'existing' ? selectedSellerId : undefined,
           privateSupplierId: sellerMode === 'private' && selectedPrivateSupplierId ? selectedPrivateSupplierId : undefined,
           privateSupplierName: sellerMode === 'private' && !selectedPrivateSupplierId ? newPrivateSupplierName.trim() || undefined : undefined,
