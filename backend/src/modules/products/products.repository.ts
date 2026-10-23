@@ -82,7 +82,7 @@ export class ProductsRepository {
   findByIdForAdmin(id: string) {
     return this.db.product.findUnique({
       where: { id },
-      include: { ...MEDIA_INCLUDE, seller: { select: { businessName: true, id: true } } },
+      include: { ...MEDIA_INCLUDE, seller: { select: { businessName: true, id: true } }, privateSupplier: { select: { id: true, name: true } } },
     });
   }
 
@@ -114,6 +114,7 @@ export class ProductsRepository {
       publishedAt: Date;
       adminPrice: number | null;
       agentPrice: number | null;
+      privateSupplierId: string | null;
     }>,
   ): Promise<ProductWithMedia> {
     return this.db.product.create({
@@ -729,6 +730,7 @@ export class ProductsRepository {
           ...MEDIA_INCLUDE,
           seller: { select: { businessName: true } },
           category: { select: { name: true } },
+          privateSupplier: { select: { id: true, name: true } },
         },
         orderBy: { createdAt: 'desc' },
         ...toSkipTake(pagination),

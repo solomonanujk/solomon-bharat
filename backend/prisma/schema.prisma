@@ -472,6 +472,8 @@ model Product {
   id              String                @id @default(uuid())
   sellerId        String
   seller          SellerProfile         @relation(fields: [sellerId], references: [id])
+  privateSupplierId String?
+  privateSupplier   PrivateSupplier?    @relation(fields: [privateSupplierId], references: [id])
   /// Set for marketplace-brand products only; null = Solomon-curated.
   brandId         String?
   brand           Brand?                @relation(fields: [brandId], references: [id])
@@ -535,6 +537,7 @@ model Product {
   pricingChangeRequests ProductPricingChangeRequest[]
 
   @@index([sellerId])
+  @@index([privateSupplierId])
   @@index([brandId])
   @@index([categoryId])
   @@index([approvalStatus])
@@ -542,6 +545,13 @@ model Product {
   @@index([deletedAt])
   @@map("products")
   rfqs            Rfq[]
+}
+
+model PrivateSupplier {
+  id        String    @id @default(uuid())
+  name      String
+  createdAt DateTime  @default(now())
+  products  Product[]
 }
 
 model ProductImage {
