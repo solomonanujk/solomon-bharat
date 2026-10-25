@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Package, Search, Star, CheckCircle2, X, Plus } from 'lucide-react'
+import { Package, Search, Star, CheckCircle2, X, Plus, MessageCircle } from 'lucide-react'
 import { useAdminProducts } from '@/hooks/queries/useProducts'
 import { useAdminCategoryTree } from '@/hooks/queries/useCategories'
 import { CategoryCascadeSelect } from '@/components/seller-portal/CategoryCascade'
@@ -47,6 +47,11 @@ function ProductRow({ product, onOpen }: { product: AdminProduct; onOpen: (id: s
           )}
           <div className="min-w-0">
             <p className="text-[13px] font-[600] font-sans text-[#0F241D] truncate max-w-[220px]">{product.name}</p>
+            {product.source === 'WHATSAPP' && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-[600] font-sans text-[#183D33] bg-[#E7EDE7] rounded px-1.5 py-0.5 mt-0.5">
+                <MessageCircle size={10} aria-hidden="true" /> via WhatsApp
+              </span>
+            )}
           </div>
         </div>
       </td>

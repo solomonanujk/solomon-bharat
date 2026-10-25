@@ -200,10 +200,10 @@ export const productsController = {
   },
 
   async listAdmin(req: Request, res: Response): Promise<void> {
-    const { approvalStatus, sellerId, categoryId, ...pagination } =
+    const { approvalStatus, sellerId, categoryId, source, ...pagination } =
       req.query as unknown as AdminProductListQueryDto;
     const { data, total } = await productsService.listForAdmin(
-      { approvalStatus, sellerId, categoryId },
+      { approvalStatus, sellerId, categoryId, source },
       pagination,
     );
     sendSuccess(res, data, 'Products retrieved', 200, buildPaginationMeta(total, pagination));

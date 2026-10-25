@@ -4,6 +4,7 @@ import {
   ProductImage,
   ProductPriceTier,
   ProductPricingChangeStatus,
+  ProductSource,
   ProductVariant,
   ProductVideo,
   VariantAttribute,
@@ -270,6 +271,8 @@ export interface AdminProductListFilter {
   approvalStatus?: ProductApprovalStatus;
   sellerId?: string;
   categoryId?: string;
+  /** Where the product was created: the website or a WhatsApp chat. */
+  source?: ProductSource;
 }
 
 export interface SellerProductListFilter {

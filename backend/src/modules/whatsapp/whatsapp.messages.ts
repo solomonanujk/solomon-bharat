@@ -175,6 +175,30 @@ export const messages = {
     });
   },
 
+  bulkReplyReceived(lang: Language): string {
+    return pick(lang, {
+      en: 'Thank you, the Solomon Bharat team has your message. Send *help* to manage your products here.',
+      hi: 'धन्यवाद, सोलोमन भारत टीम को आपका संदेश मिल गया है। यहाँ अपने प्रोडक्ट संभालने के लिए *help* भेजें।',
+      hinglish: 'Dhanyavaad, Solomon Bharat team ko aapka message mil gaya hai. Yahan apne products sambhalne ke liye *help* bhejein.',
+    });
+  },
+
+  optedOut(lang: Language): string {
+    return pick(lang, {
+      en: 'You will no longer get announcements from Solomon Bharat here. Your products and orders are not affected. Send *subscribe* to get them again.',
+      hi: 'अब आपको यहाँ सोलोमन भारत की घोषणाएँ नहीं मिलेंगी। आपके प्रोडक्ट और ऑर्डर पर कोई असर नहीं पड़ेगा। फिर से पाने के लिए *subscribe* भेजें।',
+      hinglish: 'Ab aapko yahan Solomon Bharat ki announcements nahi milengi. Aapke products aur orders par koi asar nahi padega. Dobara pane ke liye *subscribe* bhejein.',
+    });
+  },
+
+  optedIn(lang: Language): string {
+    return pick(lang, {
+      en: 'You will get announcements from Solomon Bharat here again. Send *unsubscribe* to stop them.',
+      hi: 'आपको फिर से यहाँ सोलोमन भारत की घोषणाएँ मिलेंगी। रोकने के लिए *unsubscribe* भेजें।',
+      hinglish: 'Aapko dobara yahan Solomon Bharat ki announcements milengi. Rokne ke liye *unsubscribe* bhejein.',
+    });
+  },
+
   photoListingSoon(lang: Language): string {
     return pick(lang, {
       en: 'Adding products from photos on WhatsApp is coming soon. For now please add the product on the website. Send *help* for what works today.',

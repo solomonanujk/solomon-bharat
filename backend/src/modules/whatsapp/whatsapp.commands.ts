@@ -14,6 +14,8 @@ export type Command =
   | { kind: 'cancel' }
   | { kind: 'add' }
   | { kind: 'done' }
+  | { kind: 'optOut' }
+  | { kind: 'optIn' }
   | { kind: 'confirm' }
   | { kind: 'stock'; target: Target; quantity: number }
   | { kind: 'outOfStock'; target: Target }
@@ -22,6 +24,10 @@ export type Command =
   | { kind: 'resubmitUsage' }
   | { kind: 'outOfStockUsage' }
   | { kind: 'unknown' };
+
+/** Stops or resumes bulk messages from Solomon Bharat. Plain "stop" stays "cancel my listing". */
+const OPT_OUT = new Set(['unsubscribe', 'optout', 'opt out', 'stop messages', 'stop message', 'stop updates', 'stop broadcast', 'stop all', 'unsubscribe me']);
+const OPT_IN = new Set(['subscribe', 'optin', 'opt in', 'resubscribe', 'start messages', 'start updates', 'subscribe me']);
 
 const DEVANAGARI_DIGITS = '०१२३४५६७८९';
 
@@ -76,6 +82,8 @@ export function parseCommand(text: string): Command {
   const tokens = normalized.split(' ');
   const first = tokens[0];
 
+  if (OPT_OUT.has(normalized)) return { kind: 'optOut' };
+  if (OPT_IN.has(normalized)) return { kind: 'optIn' };
   if (tokens.length <= 2 && HELP.has(first)) return { kind: 'help' };
   if (tokens.length <= 2 && CANCEL.has(first)) return { kind: 'cancel' };
   if (LIST.has(first) || (first === 'my' && LIST.has(tokens[1] ?? '')) || (first === 'mere' && LIST.has(tokens[1] ?? ''))) {

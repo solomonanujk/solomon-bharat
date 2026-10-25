@@ -162,6 +162,8 @@ Admin rejects with a reason (existing flow) → seller sends `list` and sees "Re
 
 ## 4. Message routing
 
+> **Since 25 Oct 2026:** when admin has sent the seller a bulk message in the last 24 hours, a plain reply such as "Thanks" is saved for admin instead of getting "did not understand"; an open listing, photos and the real commands below still win, and `unsubscribe` / `subscribe` switch bulk messages off and on. See [BULK_MESSAGES.md](BULK_MESSAGES.md) section 5.
+
 What happens to every inbound message, in order:
 
 ```mermaid
@@ -561,6 +563,16 @@ Behaviour:
 
 ## 10. Operating it
 
+**Admin tab.** Admin sidebar, Catalogue, **WhatsApp** (`/admin/whatsapp`, SUPER_ADMIN only). Three views:
+
+| View | Shows | Source |
+|---|---|---|
+| Products | Products created by chat (`source = WHATSAPP`) with status tabs; a row opens the normal product page to approve, reject or price. The sidebar badge counts the pending ones. | `GET /api/v1/whatsapp/admin/products` (same data as `/products/admin` with a `source` filter) |
+| In progress | Listings a seller has started and not finished: product name so far, seller and number, stage, fields still missing, photo and video count, language, last message. Refreshes every 30 s. Raw seller messages are never returned. | `GET /api/v1/whatsapp/admin/sessions` |
+| Linked sellers | Sellers with a verified number: number, date linked, products created by chat, AI calls today; searchable by business name or number. | `GET /api/v1/whatsapp/admin/sellers` |
+
+Counts for the tab headers come from `GET /api/v1/whatsapp/admin/summary`. The main admin products list also shows a "via WhatsApp" tag on these products. **Limit:** a listing is deleted when the seller cancels, submits or goes quiet for 24 hours, so cancelled and abandoned attempts leave no record to show; a history would need a new table and storing chat text.
+
 **Logs.** All lines are tagged `[whatsapp]`. Useful ones: `inbound message accepted`, `duplicate delivery dropped`, `webhook rejected: bad signature` (wrong auth token or wrong `WHATSAPP_WEBHOOK_BASE_URL`), `hourly message cap reached`, `AI extraction failed`, `reply could not be sent`, `could not store a media file`.
 
 **Cost check (SQL).**
@@ -746,7 +758,7 @@ Not tested live: Twilio, Meta, Cloudinary photo upload, and the ten templates (n
 | 5a | Meta Cloud API provider (cuts messaging cost from about ₹5.3 to about ₹0 to ₹0.5 per typical listing): webhook handshake and app-secret signature, Graph API send, two-step media download, provider choice by setting | Built, not yet tried against Meta |
 | 5b | Meta business verification, test number, production number and permanent token | Not started (owner action) |
 | 5c | Template sending for the link code and all nine notices (ten templates; sending built, templates still to create and approve) | Built, not yet tried |
-| 5d | Admin and seller "created via WhatsApp" badge; pilot with real Hinglish messages and wording fixes; edit other fields by chat; persisted timer and cleanup of abandoned uploads; Hindi template versions | Not started |
+| 5d | Seller-side "created via WhatsApp" badge (the admin tab and admin badge are built); pilot with real Hinglish messages and wording fixes; edit other fields by chat; persisted timer and cleanup of abandoned uploads; Hindi template versions | Not started |
 | Later | Voice notes; variants and price tiers in chat; a short "how it works" page for sellers in the portal | Ideas |
 
 ---

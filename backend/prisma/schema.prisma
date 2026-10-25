@@ -308,12 +308,15 @@ model SellerProfile {
   /// Verified WhatsApp number (E.164) the seller lists products from; unique across sellers.
   whatsappNumber     String?            @unique
   whatsappVerifiedAt DateTime?
+  /// Set when the seller replied STOP: no more bulk (marketing) WhatsApp messages until they reply START.
+  whatsappOptedOutAt DateTime?
 
   products          Product[]
   payouts           Payout[]
   whatsappLinkCodes WhatsAppLinkCode[]
   whatsappSessions  WhatsAppSession[]
   whatsappAiUsage   WhatsAppAiUsage[]
+  bulkRecipients    BulkRecipient[]
   brand             Brand?
   /// Orders fulfilled by this seller (marketplace brands only).
   orders            Order[]            @relation("BrandOrders")
@@ -1221,4 +1224,144 @@ model GuideConversation {
   @@index([createdAt])
   @@index([email])
   @@map("guide_conversations")
+}
+
+// ─── Bulk WhatsApp messages (admin) ─────────────────────────────────────────
+
+enum BulkTemplateCategory {
+  MARKETING
+  UTILITY
+}
+
+enum BulkTemplateStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  PAUSED
+  DISABLED
+}
+
+enum BulkCampaignStatus {
+  DRAFT
+  RUNNING
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum BulkRecipientStatus {
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+/// A WhatsApp message template built in the admin portal and submitted to Meta for approval.
+model BulkTemplate {
+  id               String               @id @default(uuid())
+  /// Meta template name: lowercase letters, digits and underscores.
+  name             String
+  category         BulkTemplateCategory @default(UTILITY)
+  language         String               @default("en")
+  headerText       String?
+  /// Body text with {{1}}, {{2}} ... placeholders.
+  body             String
+  footer           String?
+  /// Static buttons: [{ type: QUICK_REPLY|URL|PHONE_NUMBER, text, url?, phone? }].
+  buttons          Json?
+  /// One sample value per placeholder (Meta requires them).
+  variableExamples Json                 @default("[]")
+  metaTemplateId   String?
+  status           BulkTemplateStatus   @default(DRAFT)
+  rejectionReason  String?
+  createdById      String
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  campaigns BulkCampaign[]
+
+  @@unique([name, language])
+  @@index([status])
+  @@map("bulk_templates")
+}
+
+model BulkCampaign {
+  id              String             @id @default(uuid())
+  name            String
+  templateId      String
+  template        BulkTemplate       @relation(fields: [templateId], references: [id])
+  status          BulkCampaignStatus @default(DRAFT)
+  /// The audience spec the admin chose (mode, filters, picked ids).
+  audience        Json
+  /// How each {{n}} is filled: seller.businessName, seller.contactName, fixed:<text> or csv:<column>.
+  variableMapping Json               @default("[]")
+  totalCount      Int                @default(0)
+  /// Sellers left out when the audience was resolved (no linked number, opted out, suspended, unmatched CSV row).
+  skippedCount    Int                @default(0)
+  createdById     String
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  recipients BulkRecipient[]
+  replies    BulkReply[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("bulk_campaigns")
+}
+
+/// One seller in one campaign: the frozen audience and the send log.
+model BulkRecipient {
+  id                String              @id @default(uuid())
+  campaignId        String
+  campaign          BulkCampaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  sellerId          String
+  seller            SellerProfile       @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  /// E.164 number at the time of sending.
+  phone             String
+  /// Values for {{1}}, {{2}} ...
+  variables         Json                @default("[]")
+  status            BulkRecipientStatus @default(QUEUED)
+  attempts          Int                 @default(0)
+  providerMessageId String?
+  errorCode         Int?
+  errorMessage      String?
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  createdAt         DateTime            @default(now())
+
+  replies BulkReply[]
+
+  @@unique([campaignId, sellerId])
+  @@index([campaignId, status])
+  @@index([providerMessageId])
+  @@index([phone, sentAt])
+  @@map("bulk_recipients")
+}
+
+/// A seller's answer to a bulk message, kept so admin can read it (deleted after 90 days).
+model BulkReply {
+  id                String        @id @default(uuid())
+  recipientId       String
+  recipient         BulkRecipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  campaignId        String
+  campaign          BulkCampaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  sellerId          String
+  phone             String
+  /// text | button | media
+  type              String
+  text              String?
+  providerMessageId String        @unique
+  receivedAt        DateTime      @default(now())
+  readByAdminAt     DateTime?
+
+  @@index([campaignId, receivedAt])
+  @@index([readByAdminAt])
+  @@map("bulk_replies")
 }

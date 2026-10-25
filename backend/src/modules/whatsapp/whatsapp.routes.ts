@@ -2,9 +2,12 @@ import { Router } from 'express';
 import { Role } from '@prisma/client';
 import { whatsAppController } from './whatsapp.controller';
 import { whatsAppLinkingController } from './whatsapp.linking.controller';
+import { whatsAppAdminController } from './whatsapp.admin.controller';
+import { adminProductsQuerySchema, adminSellersQuerySchema } from './whatsapp.admin.validation';
 import { requestLinkSchema, verifyLinkSchema } from './whatsapp.validation';
 import { validate } from '../../middleware/validate';
-import { requireAuth, requireRole } from '../../middleware/auth';
+import { requireAdmin, requireAuth, requireRole } from '../../middleware/auth';
+import { paginationQuerySchema } from '../../utils/pagination';
 import { asyncHandler } from '../../utils/asyncHandler';
 
 export const whatsAppRouter = Router();
@@ -65,3 +68,37 @@ whatsAppRouter.delete('/link', ...seller, asyncHandler(whatsAppLinkingController
  *       200: { description: Linked }
  */
 whatsAppRouter.post('/link/verify', ...seller, validate(verifyLinkSchema), asyncHandler(whatsAppLinkingController.verify));
+
+const admin = [requireAuth, requireAdmin];
+
+/**
+ * @openapi
+ * /whatsapp/admin/summary:
+ *   get:
+ *     summary: Counts for the admin WhatsApp tab (SUPER_ADMIN)
+ *     tags: [WhatsApp]
+ *     responses:
+ *       200: { description: Pending WhatsApp products, live listings, linked sellers }
+ * /whatsapp/admin/products:
+ *   get:
+ *     summary: Products sellers created by WhatsApp chat (SUPER_ADMIN)
+ *     tags: [WhatsApp]
+ *     responses:
+ *       200: { description: Paginated products }
+ * /whatsapp/admin/sessions:
+ *   get:
+ *     summary: Listings sellers are in the middle of right now (SUPER_ADMIN)
+ *     tags: [WhatsApp]
+ *     responses:
+ *       200: { description: Paginated open listings }
+ * /whatsapp/admin/sellers:
+ *   get:
+ *     summary: Sellers with a verified WhatsApp number (SUPER_ADMIN)
+ *     tags: [WhatsApp]
+ *     responses:
+ *       200: { description: Paginated sellers }
+ */
+whatsAppRouter.get('/admin/summary', ...admin, asyncHandler(whatsAppAdminController.summary));
+whatsAppRouter.get('/admin/products', ...admin, validate(adminProductsQuerySchema, 'query'), asyncHandler(whatsAppAdminController.products));
+whatsAppRouter.get('/admin/sessions', ...admin, validate(paginationQuerySchema, 'query'), asyncHandler(whatsAppAdminController.sessions));
+whatsAppRouter.get('/admin/sellers', ...admin, validate(adminSellersQuerySchema, 'query'), asyncHandler(whatsAppAdminController.sellers));

@@ -64,6 +64,17 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   ARCHIVED: { label: 'Archived', className: 'bg-muted-bg text-muted-text' },
   SUSPENDED: { label: 'Suspended', className: 'bg-error/10 text-error' },
 
+  // Bulk messages (templates, campaigns, recipients)
+  RUNNING: { label: 'Sending', className: 'bg-accent/10 text-accent-hover' },
+  PAUSED: { label: 'Paused', className: 'bg-warning/[12%] text-warning' },
+  COMPLETED: { label: 'Completed', className: 'bg-success/10 text-success' },
+  DISABLED: { label: 'Disabled', className: 'bg-error/10 text-error' },
+  QUEUED: { label: 'Queued', className: 'bg-muted-bg text-muted-text' },
+  SENDING: { label: 'Sending', className: 'bg-accent/10 text-accent-hover' },
+  SENT: { label: 'Sent', className: 'bg-accent/10 text-accent-hover' },
+  READ: { label: 'Read', className: 'bg-success/10 text-success' },
+  FAILED: { label: 'Failed', className: 'bg-error/10 text-error' },
+
   // Collections
   DRAFT: { label: 'Draft', className: 'bg-muted-bg text-muted-text' },
   SCHEDULED: { label: 'Scheduled', className: 'bg-warning/[12%] text-warning' },
