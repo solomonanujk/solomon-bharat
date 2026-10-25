@@ -54,6 +54,7 @@ bulkMessagesRouter.get('/summary', asyncHandler(c.summary));
 
 bulkMessagesRouter.get('/templates', validate(templateListQuerySchema, 'query'), asyncHandler(c.listTemplates));
 bulkMessagesRouter.post('/templates', validate(templateInputSchema), asyncHandler(c.createTemplate));
+bulkMessagesRouter.post('/templates/sync', asyncHandler(c.syncTemplates));
 bulkMessagesRouter.get('/templates/:id', validate(idParamSchema, 'params'), asyncHandler(c.getTemplate));
 bulkMessagesRouter.put('/templates/:id', validate(idParamSchema, 'params'), validate(templateInputSchema), asyncHandler(c.updateTemplate));
 bulkMessagesRouter.post('/templates/:id/submit', validate(idParamSchema, 'params'), asyncHandler(c.submitTemplate));

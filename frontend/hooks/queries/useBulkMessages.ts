@@ -37,8 +37,17 @@ export interface BulkTemplate extends TemplateInput {
   status: BulkTemplateStatus
   metaTemplateId: string | null
   rejectionReason: string | null
+  /** Pulled in from Meta's WhatsApp Manager: read-only here. */
+  syncedFromMeta?: boolean
   createdAt: string
   updatedAt: string
+}
+
+export interface TemplateSyncResult {
+  created: number
+  updated: number
+  unchanged: number
+  skipped: { name: string; language: string; reason: string }[]
 }
 
 export type AudienceMode = 'ALL_LINKED' | 'FILTERED' | 'PICKED' | 'CSV'
@@ -152,6 +161,18 @@ export function useRefreshBulkTemplate() {
     mutationFn: async (id) => (await api.post(`${BASE}/templates/${id}/refresh`)).data.data,
     onSuccess: (t) => {
       toast.success(`Status: ${t.status.toLowerCase()}`)
+      void qc.invalidateQueries({ queryKey: ['bulk-templates'] })
+    },
+    onError: (err) => toast.error(getApiError(err)),
+  })
+}
+
+export function useSyncBulkTemplates() {
+  const qc = useQueryClient()
+  return useMutation<TemplateSyncResult, Error, void>({
+    mutationFn: async () => (await api.post(`${BASE}/templates/sync`)).data.data,
+    onSuccess: (r) => {
+      toast.success(`Synced from Meta: ${r.created} new, ${r.updated} updated${r.skipped.length ? `, ${r.skipped.length} left out` : ''}`)
       void qc.invalidateQueries({ queryKey: ['bulk-templates'] })
     },
     onError: (err) => toast.error(getApiError(err)),

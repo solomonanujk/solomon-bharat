@@ -15,7 +15,7 @@ vi.mock('../../config/redis', () => ({
 vi.mock('./bulk-messages.service', async () => {
   const actual = await vi.importActual<typeof import('./bulk-messages.service')>('./bulk-messages.service');
   const fns = [
-    'listTemplates', 'getTemplate', 'createTemplate', 'updateTemplate', 'submitTemplate', 'refreshTemplate', 'deleteTemplate',
+    'listTemplates', 'syncTemplates', 'getTemplate', 'createTemplate', 'updateTemplate', 'submitTemplate', 'refreshTemplate', 'deleteTemplate',
     'previewAudience', 'listCampaigns', 'getCampaign', 'createCampaign', 'listRecipients', 'start', 'pause', 'resume', 'cancel',
     'exportCampaign', 'testSend', 'listReplies', 'unreadReplyCount', 'markReplyRead', 'markAllRepliesRead',
   ];
@@ -38,6 +38,7 @@ describe('access', () => {
     ['get', '/summary'],
     ['get', '/templates'],
     ['post', '/templates'],
+    ['post', '/templates/sync'],
     ['post', `/templates/${ID}/submit`],
     ['post', '/audience/preview'],
     ['post', '/test-send'],
@@ -91,6 +92,14 @@ describe('templates', () => {
     expect(res.status).toBe(200);
     expect(svc.listTemplates).toHaveBeenCalledWith({ status: 'APPROVED' }, { page: 2, limit: 5 });
     expect(res.body.meta).toMatchObject({ page: 2, limit: 5 });
+  });
+
+  it('syncs templates from Meta as the admin', async () => {
+    svc.syncTemplates.mockResolvedValue({ created: 1, updated: 0, unchanged: 0, skipped: [] });
+    const res = await request(app).post(`${base}/templates/sync`).set(admin);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ created: 1, updated: 0, unchanged: 0, skipped: [] });
+    expect(svc.syncTemplates).toHaveBeenCalledWith('admin-9');
   });
 
   it('rejects a malformed id', async () => {

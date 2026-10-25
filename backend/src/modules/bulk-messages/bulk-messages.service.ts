@@ -22,6 +22,7 @@ import {
   TemplateButton,
   TemplateDefinition,
   countPlaceholders,
+  parseMetaTemplate,
 } from '../../providers/whatsapp/metaTemplates';
 import { writeAuditLog } from '../../utils/auditLog';
 import { buildCsv } from '../../utils/csv';
@@ -248,7 +249,9 @@ export class BulkMessagesService {
     if ((await this.repo.countCampaignsForTemplate(id)) > 0) {
       throw AppError.conflict('This template was used in a campaign and cannot be deleted');
     }
-    if (template.metaTemplateId) {
+    // A template pulled in from Meta belongs to the WhatsApp Manager: removing it here only removes it from
+    // this list (Sync from Meta would bring it back), it is never deleted at Meta.
+    if (template.metaTemplateId && !template.syncedFromMeta) {
       const client = this.deps.templateClient();
       if (client) {
         try {
@@ -259,6 +262,78 @@ export class BulkMessagesService {
       }
     }
     await this.repo.deleteTemplate(id);
+  }
+
+  /**
+   * Pulls the templates already on the WhatsApp Business Account (created in WhatsApp Manager, or Meta's own
+   * `hello_world`) into the list, so approved ones can be used in a campaign. Templates our sender cannot
+   * fill in (media header, variable link, named variables, authentication) are left out and reported.
+   * Re-running it refreshes the status of templates already imported or submitted from here.
+   */
+  async syncTemplates(adminId: string): Promise<{
+    created: number;
+    updated: number;
+    unchanged: number;
+    skipped: { name: string; language: string; reason: string }[];
+  }> {
+    const client = this.requireClient();
+    let raws;
+    try {
+      raws = await client.list();
+    } catch (err) {
+      this.metaFailure(err);
+    }
+
+    const result = { created: 0, updated: 0, unchanged: 0, skipped: [] as { name: string; language: string; reason: string }[] };
+    for (const raw of raws) {
+      const parsed = parseMetaTemplate(raw);
+      if (!parsed.ok) {
+        result.skipped.push({ name: raw.name ?? 'unknown', language: raw.language ?? '', reason: parsed.reason });
+        continue;
+      }
+      const { metaTemplateId, definition: d } = parsed.value;
+      const status = mapMetaStatus(parsed.value.status) ?? BulkTemplateStatus.PENDING;
+      const rejectionReason = status === BulkTemplateStatus.REJECTED ? parsed.value.rejectedReason ?? 'Rejected by Meta' : null;
+
+      const existing =
+        (await this.repo.findTemplateByMetaId(metaTemplateId)) ?? (await this.repo.findTemplateByNameAndLanguage(d.name, d.language));
+      if (existing) {
+        if (!existing.metaTemplateId && !existing.syncedFromMeta) {
+          result.skipped.push({ name: d.name, language: d.language, reason: 'a draft with this name already exists here' });
+          continue;
+        }
+        if (existing.status === status && existing.rejectionReason === rejectionReason && existing.metaTemplateId === metaTemplateId) {
+          result.unchanged += 1;
+          continue;
+        }
+        await this.repo.updateTemplate(existing.id, { status, rejectionReason, metaTemplateId });
+        result.updated += 1;
+        continue;
+      }
+      await this.repo.createTemplate({
+        name: d.name,
+        category: d.category,
+        language: d.language,
+        headerText: d.headerText ?? null,
+        body: d.body,
+        footer: d.footer ?? null,
+        buttons: d.buttons && d.buttons.length > 0 ? (d.buttons as never) : undefined,
+        variableExamples: d.variableExamples as never,
+        metaTemplateId,
+        status,
+        rejectionReason,
+        syncedFromMeta: true,
+        createdById: adminId,
+      });
+      result.created += 1;
+    }
+
+    await this.deps.audit(adminId, 'BULK_TEMPLATES_SYNCED', 'BulkTemplate', 'sync', {
+      created: result.created,
+      updated: result.updated,
+      skipped: result.skipped.length,
+    });
+    return result;
   }
 
   /** Meta's `message_template_status_update` webhook. */

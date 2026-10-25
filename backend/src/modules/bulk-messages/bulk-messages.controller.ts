@@ -42,6 +42,10 @@ export class BulkMessagesController {
     sendSuccess(res, await this.service.refreshTemplate(req.params.id), 'Template status refreshed');
   };
 
+  syncTemplates = async (req: Request, res: Response): Promise<void> => {
+    sendSuccess(res, await this.service.syncTemplates(req.user!.id), 'Templates synced from Meta');
+  };
+
   deleteTemplate = async (req: Request, res: Response): Promise<void> => {
     await this.service.deleteTemplate(req.params.id);
     sendSuccess(res, null, 'Template deleted');

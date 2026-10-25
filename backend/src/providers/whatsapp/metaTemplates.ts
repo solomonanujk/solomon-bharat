@@ -92,6 +92,104 @@ export interface MetaTemplateConfig {
   graphVersion: string;
 }
 
+/** A template as Meta lists it, before we decide whether our sender can send it. */
+export interface MetaTemplateRaw {
+  id?: string | number;
+  name?: string;
+  language?: string;
+  status?: string;
+  category?: string;
+  rejected_reason?: string;
+  parameter_format?: string;
+  components?: unknown[];
+}
+
+export interface ImportableTemplate {
+  metaTemplateId: string;
+  status: string;
+  rejectedReason?: string;
+  definition: TemplateDefinition;
+}
+
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+const text = (v: unknown): string => (typeof v === 'string' ? v : '');
+
+/**
+ * Turns a template Meta lists into one our sender can send, or says why not. Our sender fills text variables
+ * in the body only, so templates with a media header, a variable in the header or a button link, named
+ * variables, copy-code or flow buttons, or the authentication category are left out.
+ */
+export function parseMetaTemplate(raw: MetaTemplateRaw): { ok: true; value: ImportableTemplate } | { ok: false; reason: string } {
+  const name = text(raw.name);
+  const id = raw.id === undefined ? '' : String(raw.id);
+  if (!name || !id) return { ok: false, reason: 'Meta sent no name or id' };
+  if (raw.category !== 'MARKETING' && raw.category !== 'UTILITY') {
+    return { ok: false, reason: `${(raw.category ?? 'unknown').toLowerCase()} templates are not supported` };
+  }
+  if (raw.parameter_format === 'NAMED') return { ok: false, reason: 'uses named variables' };
+
+  let headerText: string | null = null;
+  let body = '';
+  let footer: string | null = null;
+  let examples: string[] = [];
+  let buttons: TemplateButton[] = [];
+
+  for (const c of raw.components ?? []) {
+    if (!isObj(c)) continue;
+    const type = text(c.type).toUpperCase();
+    if (type === 'HEADER') {
+      if (text(c.format).toUpperCase() !== 'TEXT') return { ok: false, reason: `has a ${text(c.format).toLowerCase() || 'media'} header` };
+      headerText = text(c.text) || null;
+      if (headerText && headerText.includes('{{')) return { ok: false, reason: 'has a variable in the header' };
+    } else if (type === 'BODY') {
+      body = text(c.text);
+      const sample = isObj(c.example) && Array.isArray(c.example.body_text) ? c.example.body_text[0] : undefined;
+      examples = Array.isArray(sample) ? sample.map((e) => text(e)) : [];
+    } else if (type === 'FOOTER') {
+      footer = text(c.text) || null;
+    } else if (type === 'BUTTONS') {
+      const list = Array.isArray(c.buttons) ? c.buttons : [];
+      for (const b of list) {
+        if (!isObj(b)) continue;
+        const bt = text(b.type).toUpperCase();
+        if (bt === 'QUICK_REPLY') buttons.push({ type: 'QUICK_REPLY', text: text(b.text) });
+        else if (bt === 'URL') {
+          if (text(b.url).includes('{{')) return { ok: false, reason: 'has a button link with a variable' };
+          buttons.push({ type: 'URL', text: text(b.text), url: text(b.url) });
+        } else if (bt === 'PHONE_NUMBER') buttons.push({ type: 'PHONE_NUMBER', text: text(b.text), phone: text(b.phone_number) });
+        else return { ok: false, reason: `has a ${bt.toLowerCase().replace(/_/g, ' ')} button` };
+      }
+    } else {
+      return { ok: false, reason: `has a ${type.toLowerCase().replace(/_/g, ' ')} section` };
+    }
+  }
+  if (!body) return { ok: false, reason: 'has no body text' };
+  if (/\{\{\s*[a-zA-Z_]/.test(body)) return { ok: false, reason: 'uses named variables' };
+
+  const count = countPlaceholders(body);
+  examples = Array.from({ length: count }, (_, i) => examples[i]?.trim() || 'example');
+  if (buttons.length === 0) buttons = [];
+
+  return {
+    ok: true,
+    value: {
+      metaTemplateId: id,
+      status: text(raw.status).toUpperCase() || 'PENDING',
+      rejectedReason: raw.rejected_reason && raw.rejected_reason !== 'NONE' ? raw.rejected_reason : undefined,
+      definition: {
+        name,
+        category: raw.category,
+        language: text(raw.language) || 'en',
+        headerText,
+        body,
+        footer,
+        buttons: buttons.length > 0 ? buttons : null,
+        variableExamples: examples,
+      },
+    },
+  };
+}
+
 export class MetaTemplateClient {
   constructor(private readonly config: MetaTemplateConfig) {}
 
@@ -158,6 +256,25 @@ export class MetaTemplateClient {
       category: body.category,
       rejectedReason: body.rejected_reason && body.rejected_reason !== 'NONE' ? body.rejected_reason : undefined,
     };
+  }
+
+  /** Every template on the account (all pages, up to 1,000), as Meta lists them. */
+  async list(): Promise<MetaTemplateRaw[]> {
+    const all: MetaTemplateRaw[] = [];
+    let after = '';
+    for (let page = 0; page < 10; page += 1) {
+      const url =
+        `${this.graph}/${this.config.wabaId}/message_templates` +
+        `?fields=id,name,language,status,category,rejected_reason,parameter_format,components&limit=100` +
+        (after ? `&after=${encodeURIComponent(after)}` : '');
+      const res = await fetch(url, { headers: this.auth });
+      if (!res.ok) return this.fail(res, 'list the templates');
+      const body = (await res.json()) as { data?: MetaTemplateRaw[]; paging?: { cursors?: { after?: string }; next?: string } };
+      all.push(...(body.data ?? []));
+      after = body.paging?.next ? (body.paging.cursors?.after ?? '') : '';
+      if (!after) break;
+    }
+    return all;
   }
 
   /** Deletes every language version of the template name. */
