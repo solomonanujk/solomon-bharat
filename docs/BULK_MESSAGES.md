@@ -32,6 +32,7 @@ Always skipped, and counted in the preview: sellers who have not linked WhatsApp
 - Variables are `{{1}}`, `{{2}}` ... without gaps; the body cannot start or end with one and two cannot sit together; the header cannot have any. Each needs an example for Meta's review. The wizard and the server both check these rules.
 - A submitted template cannot be edited (Meta's rule); make a new one. A template used by a campaign cannot be deleted.
 - Status comes back by webhook (`message_template_status_update`) and the **Refresh status** button.
+- **Sync from Meta** (button on the Templates tab) pulls in the templates already on the WhatsApp Business Account: ones made in WhatsApp Manager and Meta's own samples such as `hello_world`. They show a "From Meta" tag, are read-only here, and can be used in campaigns once Approved. Re-running it refreshes their status and that of templates submitted from here. Removing one only removes it from this list (it stays in Meta; syncing again brings it back). Templates the sender cannot fill in are left out and listed with the reason: image/video/document header, a variable in the header or in a button link, named variables, copy-code/flow buttons, authentication category, and anything with a section other than header, body, footer and buttons. A local draft with the same name is never overwritten.
 - v1 limits: text templates only (no image/video header), no buttons with a variable link.
 
 ## 4. Sending
@@ -70,11 +71,11 @@ Without `META_WABA_ID` the wizard still works but **Submit to Meta** answers "Me
 
 ## 7. API (all `SUPER_ADMIN`, base `/api/v1/admin/bulk-messages`)
 
-`GET /summary` (unread replies) · `GET|POST /templates`, `GET|PUT|DELETE /templates/:id`, `POST /templates/:id/submit`, `POST /templates/:id/refresh` · `POST /audience/preview` · `POST /test-send` · `GET|POST /campaigns`, `GET /campaigns/:id`, `GET /campaigns/:id/recipients`, `GET /campaigns/:id/export`, `POST /campaigns/:id/start|pause|resume|cancel` · `GET /replies`, `POST /replies/:id/read`, `POST /replies/read-all`.
+`GET /summary` (unread replies) · `GET|POST /templates`, `GET|PUT|DELETE /templates/:id`, `POST /templates/:id/submit`, `POST /templates/:id/refresh`, `POST /templates/sync` · `POST /audience/preview` · `POST /test-send` · `GET|POST /campaigns`, `GET /campaigns/:id`, `GET /campaigns/:id/recipients`, `GET /campaigns/:id/export`, `POST /campaigns/:id/start|pause|resume|cancel` · `GET /replies`, `POST /replies/:id/read`, `POST /replies/read-all`.
 
 ## 8. Data
 
-`bulk_templates`, `bulk_campaigns`, `bulk_recipients` (frozen audience and send log; unique per campaign and seller; message id indexed for receipts), `bulk_replies` (deleted after 90 days), and `seller_profiles.whatsappOptedOutAt`. Audit log entries (ids and counts only, never message text or numbers): `BULK_TEMPLATE_SUBMITTED`, `BULK_CAMPAIGN_STARTED`, `_PAUSED`, `_RESUMED`, `_CANCELLED`, `_EXPORTED`.
+`bulk_templates` (with `syncedFromMeta`), `bulk_campaigns`, `bulk_recipients` (frozen audience and send log; unique per campaign and seller; message id indexed for receipts), `bulk_replies` (deleted after 90 days), and `seller_profiles.whatsappOptedOutAt`. Audit log entries (ids and counts only, never message text or numbers): `BULK_TEMPLATE_SUBMITTED`, `BULK_TEMPLATES_SYNCED`, `BULK_CAMPAIGN_STARTED`, `_PAUSED`, `_RESUMED`, `_CANCELLED`, `_EXPORTED`.
 
 ## 9. Troubleshooting
 
@@ -83,6 +84,8 @@ Without `META_WABA_ID` the wizard still works but **Submit to Meta** answers "Me
 | "Meta template access is not set up" | `META_WABA_ID` or the token's `whatsapp_business_management` permission is missing (section 6). |
 | Template stays Pending | Meta is reviewing (minutes to a day). Press Refresh status. If webhook events are not arriving, subscribe to `message_template_status_update`. |
 | Template Rejected | The reason from Meta is shown. Make a new template with changed wording (marketing wording in a Utility template is a common cause). |
+| Sync from Meta says it cannot list templates | The token lacks `whatsapp_business_management`, or `META_WABA_ID` is wrong. |
+| A template is missing after Sync from Meta | It is listed under "Left out" with the reason (for example an image header). |
 | Seller Failed, code 131049 | Meta did not deliver a marketing message to protect the seller from too many marketing messages. Not retried. |
 | Seller Failed, code 131026 | The number is not on WhatsApp or cannot receive the message. |
 | Seller Failed, code 131030 | Test number only: the seller is not on the test recipient list. |

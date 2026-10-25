@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Megaphone, Plus } from 'lucide-react'
+import { Megaphone, Plus, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -18,6 +18,7 @@ import {
   useMarkBulkRepliesRead,
   useRefreshBulkTemplate,
   useSubmitBulkTemplate,
+  useSyncBulkTemplates,
   type BulkCampaign,
   type BulkTemplate,
 } from '@/hooks/queries/useBulkMessages'
@@ -99,10 +100,32 @@ function TemplatesTab({ onNew, onEdit }: { onNew: () => void; onEdit: (t: BulkTe
   const submit = useSubmitBulkTemplate()
   const refresh = useRefreshBulkTemplate()
   const remove = useDeleteBulkTemplate()
+  const sync = useSyncBulkTemplates()
   const items = data?.items ?? []
   const link = 'text-[12px] font-[600] font-sans text-[#183D33] hover:underline disabled:opacity-40'
 
   return (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <p className="text-[12px] font-sans text-[#183D33B3] max-w-[640px]">
+          Templates made in Meta&apos;s WhatsApp Manager, and Meta&apos;s own samples like hello_world, can be brought in with Sync from Meta. Only templates Meta has approved can be sent.
+        </p>
+        <Button variant="secondary" size="sm" onClick={() => sync.mutate()} loading={sync.isPending}>
+          <RefreshCw size={14} aria-hidden="true" /> Sync from Meta
+        </Button>
+      </div>
+      {sync.data && sync.data.skipped.length > 0 && (
+        <div className="mb-3 rounded-xl border border-[#D9E2DA] bg-[#E7EDE7]/40 px-4 py-3">
+          <p className="text-[12px] font-[600] font-sans text-[#0F241D]">Left out because they cannot be sent from here:</p>
+          <ul className="mt-1 text-[12px] font-sans text-[#183D33B3] list-disc pl-4">
+            {sync.data.skipped.map((s, i) => (
+              <li key={`${s.name}-${s.language}-${i}`}>
+                {s.name} ({s.language}): {s.reason}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     <div className="bg-white border border-[#D9E2DA] rounded-xl overflow-hidden">
       {isLoading ? (
         <Skeleton />
@@ -118,7 +141,12 @@ function TemplatesTab({ onNew, onEdit }: { onNew: () => void; onEdit: (t: BulkTe
             {items.map((t) => (
               <tr key={t.id} className="border-b border-[#D9E2DA] last:border-0 align-top">
                 <td className="py-3 px-4 max-w-[300px]">
-                  <p className="text-[13px] font-[600] font-sans text-[#0F241D] break-all">{t.name}</p>
+                  <p className="text-[13px] font-[600] font-sans text-[#0F241D] break-all">
+                    {t.name}
+                    {t.syncedFromMeta && (
+                      <span className="ml-2 align-middle text-[10px] font-[600] uppercase tracking-wide text-[#183D33] bg-[#E7EDE7] rounded px-1.5 py-0.5">From Meta</span>
+                    )}
+                  </p>
                   <p className="text-[12px] font-sans text-[#183D33B3] line-clamp-2 mt-0.5">{t.body}</p>
                 </td>
                 <td className={cell}>{t.category === 'MARKETING' ? 'Marketing' : 'Utility'}</td>
@@ -152,10 +180,13 @@ function TemplatesTab({ onNew, onEdit }: { onNew: () => void; onEdit: (t: BulkTe
                       className={cn(link, 'text-error')}
                       disabled={remove.isPending}
                       onClick={() => {
-                        if (window.confirm(`Delete the template "${t.name}"? This also removes it from Meta.`)) remove.mutate(t.id)
+                        const message = t.syncedFromMeta
+                          ? `Remove "${t.name}" from this list? It stays in Meta, and Sync from Meta would bring it back.`
+                          : `Delete the template "${t.name}"? This also removes it from Meta.`
+                        if (window.confirm(message)) remove.mutate(t.id)
                       }}
                     >
-                      Delete
+                      {t.syncedFromMeta ? 'Remove' : 'Delete'}
                     </button>
                   </div>
                 </td>
@@ -166,6 +197,7 @@ function TemplatesTab({ onNew, onEdit }: { onNew: () => void; onEdit: (t: BulkTe
         </>
       )}
     </div>
+    </>
   )
 }
 

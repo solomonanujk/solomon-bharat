@@ -37,7 +37,7 @@ function build() {
   const repo = {
     findTemplate: vi.fn(),
     findTemplateByNameAndLanguage: vi.fn().mockResolvedValue(null),
-    findTemplateByMetaId: vi.fn(),
+    findTemplateByMetaId: vi.fn().mockResolvedValue(null),
     createTemplate: vi.fn().mockImplementation(async (d) => ({ id: 't-new', ...d })),
     updateTemplate: vi.fn().mockImplementation(async (id, d) => ({ id, ...d })),
     deleteTemplate: vi.fn().mockResolvedValue({}),
@@ -55,7 +55,7 @@ function build() {
     createReply: vi.fn().mockResolvedValue({}),
     setOptedOut: vi.fn().mockResolvedValue(undefined),
   };
-  const client = { create: vi.fn(), get: vi.fn(), remove: vi.fn() };
+  const client = { create: vi.fn(), get: vi.fn(), remove: vi.fn(), list: vi.fn() };
   const provider = { sendTemplate: vi.fn().mockResolvedValue({ messageId: 'wamid.1' }), sendText: vi.fn() };
   const audit = vi.fn().mockResolvedValue(undefined);
   const service = new BulkMessagesService(repo as never, {
@@ -357,5 +357,88 @@ describe('hooks used by the WhatsApp module', () => {
     t.repo.findRecentRecipientByPhone.mockResolvedValue({ id: 'r1', campaignId: 'c1', sellerId: 's1' });
     await t.service.recordReply({ ...message, body: 'x'.repeat(5000) });
     expect(t.repo.createReply.mock.calls[0][0].text).toHaveLength(1000);
+  });
+});
+
+describe('syncTemplates (Sync from Meta)', () => {
+  const metaTemplate = (over: Record<string, unknown> = {}) => ({
+    id: '900',
+    name: 'hello_world',
+    language: 'en_US',
+    status: 'APPROVED',
+    category: 'UTILITY',
+    components: [{ type: 'BODY', text: 'Welcome and congratulations!!' }],
+    ...over,
+  });
+
+  it('imports new templates as read-only copies and audits counts only', async () => {
+    t.client.list.mockResolvedValue([metaTemplate()]);
+    const res = await t.service.syncTemplates(ADMIN);
+    expect(res).toMatchObject({ created: 1, updated: 0, unchanged: 0, skipped: [] });
+    expect(t.repo.createTemplate.mock.calls[0][0]).toMatchObject({
+      name: 'hello_world',
+      language: 'en_US',
+      body: 'Welcome and congratulations!!',
+      metaTemplateId: '900',
+      status: 'APPROVED',
+      syncedFromMeta: true,
+      createdById: ADMIN,
+    });
+    expect(t.audit.mock.calls[0][1]).toBe('BULK_TEMPLATES_SYNCED');
+    expect(JSON.stringify(t.audit.mock.calls[0][4])).not.toContain('Welcome');
+  });
+
+  it('refreshes the status of templates it already has, and counts unchanged ones', async () => {
+    t.client.list.mockResolvedValue([metaTemplate({ id: '1', name: 'a', status: 'APPROVED' }), metaTemplate({ id: '2', name: 'b', status: 'REJECTED', rejected_reason: 'INVALID_FORMAT' })]);
+    t.repo.findTemplateByMetaId.mockImplementation(async (id: string) =>
+      id === '1'
+        ? template({ id: 'x1', status: 'APPROVED', metaTemplateId: '1', syncedFromMeta: true })
+        : template({ id: 'x2', status: 'PENDING', metaTemplateId: '2' }),
+    );
+    const res = await t.service.syncTemplates(ADMIN);
+    expect(res).toMatchObject({ created: 0, updated: 1, unchanged: 1 });
+    expect(t.repo.updateTemplate).toHaveBeenCalledWith('x2', { status: 'REJECTED', rejectionReason: 'INVALID_FORMAT', metaTemplateId: '2' });
+    expect(t.repo.createTemplate).not.toHaveBeenCalled();
+  });
+
+  it('does not overwrite a local draft that has the same name', async () => {
+    t.client.list.mockResolvedValue([metaTemplate({ name: 'festival_offer', language: 'en' })]);
+    t.repo.findTemplateByNameAndLanguage.mockResolvedValue(template({ metaTemplateId: null, syncedFromMeta: false }));
+    const res = await t.service.syncTemplates(ADMIN);
+    expect(res.skipped).toEqual([{ name: 'festival_offer', language: 'en', reason: 'a draft with this name already exists here' }]);
+    expect(t.repo.updateTemplate).not.toHaveBeenCalled();
+    expect(t.repo.createTemplate).not.toHaveBeenCalled();
+  });
+
+  it('reports templates it cannot send instead of importing them', async () => {
+    t.client.list.mockResolvedValue([
+      metaTemplate({ name: 'otp', category: 'AUTHENTICATION' }),
+      metaTemplate({ id: '901', name: 'promo', components: [{ type: 'HEADER', format: 'IMAGE' }, { type: 'BODY', text: 'x' }] }),
+      metaTemplate({ id: '902', name: 'ok_one' }),
+    ]);
+    const res = await t.service.syncTemplates(ADMIN);
+    expect(res.created).toBe(1);
+    expect(res.skipped.map((s) => s.name)).toEqual(['otp', 'promo']);
+    expect(res.skipped[1].reason).toContain('image header');
+  });
+
+  it('says plainly when Meta access is not set up, and shows Meta\'s refusal', async () => {
+    const noClient = new BulkMessagesService(t.repo as never, { templateClient: () => null, audit: t.audit, maxRecipients: 3 });
+    await expect(noClient.syncTemplates(ADMIN)).rejects.toMatchObject({ statusCode: 503 });
+    t.client.list.mockRejectedValue(new MetaTemplateError('Meta could not list the templates: no permission', 403));
+    await expect(t.service.syncTemplates(ADMIN)).rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining('no permission') });
+  });
+
+  it('removing a synced template only removes it from the list, never at Meta', async () => {
+    t.repo.findTemplate.mockResolvedValue(template({ status: 'APPROVED', metaTemplateId: '900', syncedFromMeta: true }));
+    await t.service.deleteTemplate('t1');
+    expect(t.client.remove).not.toHaveBeenCalled();
+    expect(t.repo.deleteTemplate).toHaveBeenCalledWith('t1');
+  });
+
+  it('deleting a template made here still deletes it at Meta', async () => {
+    t.repo.findTemplate.mockResolvedValue(template({ status: 'REJECTED', metaTemplateId: '900', syncedFromMeta: false }));
+    await t.service.deleteTemplate('t1');
+    expect(t.client.remove).toHaveBeenCalledWith('festival_offer');
   });
 });

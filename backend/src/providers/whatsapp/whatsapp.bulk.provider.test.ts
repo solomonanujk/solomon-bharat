@@ -10,6 +10,7 @@ import {
   MetaTemplateError,
   buildTemplateComponents,
   countPlaceholders,
+  parseMetaTemplate,
 } from './metaTemplates';
 
 const config = { accessToken: 'tok', phoneNumberId: 'PN1', appSecret: 's', verifyToken: 'v', graphVersion: 'v23.0' };
@@ -206,5 +207,122 @@ describe('MetaTemplateClient', () => {
     await client.remove('my offer');
     expect(fetchMock.mock.calls[0][0]).toBe('https://graph.facebook.com/v23.0/WABA1/message_templates?name=my%20offer');
     expect(fetchMock.mock.calls[0][1].method).toBe('DELETE');
+  });
+});
+
+describe('parseMetaTemplate (templates pulled in from Meta)', () => {
+  const helloWorld = {
+    id: '1',
+    name: 'hello_world',
+    language: 'en_US',
+    status: 'APPROVED',
+    category: 'UTILITY',
+    components: [
+      { type: 'HEADER', format: 'TEXT', text: 'Hello World' },
+      { type: 'BODY', text: 'Welcome and congratulations!!' },
+      { type: 'FOOTER', text: 'WhatsApp Business Platform sample message' },
+    ],
+  };
+
+  it('reads Meta\'s own hello_world sample', () => {
+    const res = parseMetaTemplate(helloWorld);
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.value.metaTemplateId).toBe('1');
+      expect(res.value.status).toBe('APPROVED');
+      expect(res.value.definition).toMatchObject({
+        name: 'hello_world',
+        language: 'en_US',
+        category: 'UTILITY',
+        headerText: 'Hello World',
+        body: 'Welcome and congratulations!!',
+        footer: 'WhatsApp Business Platform sample message',
+        buttons: null,
+        variableExamples: [],
+      });
+    }
+  });
+
+  it('keeps the examples for variables, and fills a missing one', () => {
+    const res = parseMetaTemplate({
+      id: 2,
+      name: 'offer',
+      language: 'en',
+      status: 'pending',
+      category: 'MARKETING',
+      components: [{ type: 'BODY', text: 'Hi {{1}}, sale on {{2}}.', example: { body_text: [['Asha']] } }],
+    });
+    expect(res.ok && res.value.definition.variableExamples).toEqual(['Asha', 'example']);
+    expect(res.ok && res.value.status).toBe('PENDING');
+    expect(res.ok && res.value.metaTemplateId).toBe('2');
+  });
+
+  it('reads quick reply, link and call buttons', () => {
+    const res = parseMetaTemplate({
+      ...helloWorld,
+      components: [
+        { type: 'BODY', text: 'Hello there.' },
+        {
+          type: 'BUTTONS',
+          buttons: [
+            { type: 'QUICK_REPLY', text: 'Yes' },
+            { type: 'URL', text: 'Open', url: 'https://solomonbharat.com' },
+            { type: 'PHONE_NUMBER', text: 'Call', phone_number: '+911234567890' },
+          ],
+        },
+      ],
+    });
+    expect(res.ok && res.value.definition.buttons).toEqual([
+      { type: 'QUICK_REPLY', text: 'Yes' },
+      { type: 'URL', text: 'Open', url: 'https://solomonbharat.com' },
+      { type: 'PHONE_NUMBER', text: 'Call', phone: '+911234567890' },
+    ]);
+  });
+
+  it('carries the rejection reason and drops the placeholder NONE', () => {
+    const rejected = parseMetaTemplate({ ...helloWorld, status: 'REJECTED', rejected_reason: 'INVALID_FORMAT' });
+    expect(rejected.ok && rejected.value.rejectedReason).toBe('INVALID_FORMAT');
+    const none = parseMetaTemplate({ ...helloWorld, rejected_reason: 'NONE' });
+    expect(none.ok && none.value.rejectedReason).toBeUndefined();
+  });
+
+  const why = (raw: object) => {
+    const res = parseMetaTemplate({ ...helloWorld, ...raw });
+    return res.ok ? 'ok' : res.reason;
+  };
+
+  it('leaves out what the sender cannot fill in, with the reason', () => {
+    expect(why({ category: 'AUTHENTICATION' })).toContain('authentication');
+    expect(why({ parameter_format: 'NAMED' })).toContain('named variables');
+    expect(why({ components: [{ type: 'HEADER', format: 'IMAGE' }, { type: 'BODY', text: 'x' }] })).toContain('image header');
+    expect(why({ components: [{ type: 'HEADER', format: 'TEXT', text: 'Hi {{1}}' }, { type: 'BODY', text: 'x' }] })).toContain('variable in the header');
+    expect(
+      why({ components: [{ type: 'BODY', text: 'x' }, { type: 'BUTTONS', buttons: [{ type: 'URL', text: 'Open', url: 'https://x.com/{{1}}' }] }] }),
+    ).toContain('button link with a variable');
+    expect(why({ components: [{ type: 'BODY', text: 'x' }, { type: 'BUTTONS', buttons: [{ type: 'COPY_CODE', text: 'Copy' }] }] })).toContain('copy code button');
+    expect(why({ components: [{ type: 'BODY', text: 'x' }, { type: 'CAROUSEL' }] })).toContain('carousel section');
+    expect(why({ components: [{ type: 'FOOTER', text: 'only a footer' }] })).toContain('no body');
+    expect(why({ components: [{ type: 'BODY', text: 'Hi {{name}}, welcome.' }] })).toContain('named variables');
+    expect(parseMetaTemplate({ category: 'UTILITY' }).ok).toBe(false);
+  });
+});
+
+describe('MetaTemplateClient.list', () => {
+  const client = new MetaTemplateClient({ accessToken: 'tok', wabaId: 'WABA1', graphVersion: 'v23.0' });
+
+  it('reads every page of templates', async () => {
+    fetchMock
+      .mockResolvedValueOnce(json({ data: [{ id: '1', name: 'a' }], paging: { cursors: { after: 'CUR1' }, next: 'https://graph/next' } }))
+      .mockResolvedValueOnce(json({ data: [{ id: '2', name: 'b' }], paging: { cursors: { after: 'CUR2' } } }));
+    const all = await client.list();
+    expect(all.map((t) => t.id)).toEqual(['1', '2']);
+    expect(fetchMock.mock.calls[0][0]).toContain('/WABA1/message_templates?fields=');
+    expect(fetchMock.mock.calls[0][0]).toContain('components');
+    expect(fetchMock.mock.calls[1][0]).toContain('after=CUR1');
+  });
+
+  it('explains a refusal', async () => {
+    fetchMock.mockResolvedValue(json({ error: { code: 200, message: 'Missing permission whatsapp_business_management' } }, 403));
+    await expect(client.list()).rejects.toMatchObject({ message: expect.stringContaining('whatsapp_business_management') });
   });
 });
