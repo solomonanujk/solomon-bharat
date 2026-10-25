@@ -511,6 +511,15 @@ describe('ProductsRepository', () => {
     expect(arg.include.category).toEqual({ select: { name: true } });
   });
 
+  it('findForAdmin filters by where the product was created when a source is given', async () => {
+    db.product.findMany.mockResolvedValue([]);
+    db.product.count.mockResolvedValue(0);
+    await repo.findForAdmin({ source: 'WHATSAPP' as never }, { page: 1, limit: 20 });
+    expect(db.product.findMany.mock.calls[0][0].where).toMatchObject({ source: 'WHATSAPP' });
+    await repo.findForAdmin({}, { page: 1, limit: 20 });
+    expect(db.product.findMany.mock.calls[1][0].where).not.toHaveProperty('source');
+  });
+
   describe('staged pricing/variant changes', () => {
     it('findPendingPricingChange looks up the one PENDING row for a product', async () => {
       db.productPricingChangeRequest.findFirst.mockResolvedValue(null);

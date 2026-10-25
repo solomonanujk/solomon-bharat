@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ProductApprovalStatus } from '@prisma/client';
+import { ProductApprovalStatus, ProductSource } from '@prisma/client';
 import { paginationQuerySchema } from '../../utils/pagination';
 import { ECO_MATERIALS, ECO_PACKAGING, ECO_PRODUCTION } from './ecoAttributes.constants';
 
@@ -397,6 +397,7 @@ export const adminProductListQuerySchema = paginationQuerySchema.extend({
   approvalStatus: z.nativeEnum(ProductApprovalStatus).optional(),
   sellerId: z.string().uuid().optional(),
   categoryId: z.string().uuid().optional(),
+  source: z.nativeEnum(ProductSource).optional(),
 });
 export type AdminProductListQueryDto = z.infer<typeof adminProductListQuerySchema>;
 

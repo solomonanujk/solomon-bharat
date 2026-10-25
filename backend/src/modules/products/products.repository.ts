@@ -723,6 +723,7 @@ export class ProductsRepository {
       ...(filter.approvalStatus ? { approvalStatus: filter.approvalStatus } : { approvalStatus: { not: ProductApprovalStatus.DRAFT } }),
       ...(filter.sellerId ? { sellerId: filter.sellerId } : {}),
       ...(filter.categoryId ? { categoryId: filter.categoryId } : {}),
+      ...(filter.source ? { source: filter.source } : {}),
     };
     const [data, total] = await Promise.all([
       this.db.product.findMany({

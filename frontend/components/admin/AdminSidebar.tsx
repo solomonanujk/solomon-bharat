@@ -20,16 +20,19 @@ import {
   Briefcase,
   MessageSquareQuote,
   ScrollText,
+  MessageCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { useAdminDashboard } from '@/hooks/queries/useAdmin'
+import { useWhatsAppAdminSummary } from '@/hooks/queries/useWhatsApp'
 
 type NavItem = { href: string; label: string; icon: React.ElementType; exact?: boolean; badge?: number | null }
 type NavGroup = { label: string; items: NavItem[] }
 
 function useNavGroups(): NavGroup[] {
   const { data: stats } = useAdminDashboard()
+  const { data: whatsapp } = useWhatsAppAdminSummary()
 
   return [
     {
@@ -51,6 +54,7 @@ function useNavGroups(): NavGroup[] {
       label: 'Catalogue',
       items: [
         { href: '/admin/products', label: 'Products', icon: Package, badge: stats?.pendingProductReviews ?? null },
+        { href: '/admin/whatsapp', label: 'WhatsApp', icon: MessageCircle, badge: whatsapp?.pendingProducts || null },
         { href: '/admin/pricing-changes', label: 'Pricing Changes', icon: Clock },
         { href: '/admin/categories', label: 'Categories', icon: FolderTree },
         { href: '/admin/collections', label: 'Collections', icon: Layers },

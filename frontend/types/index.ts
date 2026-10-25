@@ -259,6 +259,8 @@ export interface AdminProduct extends Omit<MyProduct, never> {
   isFeatured: boolean
   seller?: { businessName: string }
   privateSupplier?: PrivateSupplier | null
+  /** Where the product was created: the website or a WhatsApp chat. */
+  source?: 'WEB' | 'WHATSAPP'
 }
 
 export interface ProductsParams {
