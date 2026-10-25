@@ -6,7 +6,14 @@ import { createTemplateCatalog } from './templates';
 import { DownloadedMedia, InboundMessage, WebhookRequest, WhatsAppProvider, WhatsAppTemplate } from './types';
 
 export * from './types';
-export { MetaWhatsAppProvider, isValidMetaSignature, metaSignature, parseMetaInbound } from './meta';
+export {
+  MetaWhatsAppProvider,
+  isValidMetaSignature,
+  metaSignature,
+  parseMetaInbound,
+  parseMetaStatuses,
+  parseMetaTemplateStatuses,
+} from './meta';
 export { TwilioWhatsAppProvider, isValidTwilioSignature, parseTwilioInbound, twilioSignature } from './twilio';
 export { EMPTY_TEMPLATE_SETTINGS, createTemplateCatalog, sendWithTemplateFallback, templateParam } from './templates';
 export type { TemplateCatalog, TemplateSettings } from './templates';

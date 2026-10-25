@@ -141,3 +141,11 @@ Recommended: video, the story of the craft.
 - (19 Oct 2026, as built) Ten WhatsApp messages are sent as pre-approved templates so they reach people outside WhatsApp's 24-hour window: the link code, product approved and rejected, pricing change approved and rejected, order status, payout paid, seller and agent application approved, and a new reply from the team. Each falls back to plain text if its template is not set up or fails. Templates are in English.
 - (19 Oct 2026, as built) If the seller does not settle the product category after one question, the closest category is used and flagged "my best guess" in the summary rather than blocking the listing; admin can still change it at review. The owner should confirm this.
 - (19 Oct 2026) The Gemini key in use is on the free tier (20 requests a day per model). Billing must be enabled before WhatsApp listing goes live, or the AI stops after about 10 listings a day.
+
+## 15. Bulk messages to sellers (25 Oct 2026, as built)
+- Admin gets a **Bulk Messages** tab to create WhatsApp templates step by step and send them to sellers in bulk. Templates are built in our admin and submitted to Meta for approval; only approved templates can be sent.
+- WhatsApp only (no email in this version).
+- Audience: all sellers with a linked number, filters, hand-picked sellers, or a CSV. **Only registered sellers are ever messaged**; the CSV only selects registered sellers (by number, phone or email), it never adds other numbers. Only a registered seller with a verified linked number can list products by chat, exactly as before.
+- Sending runs inside the API in throttled batches (no separate worker service); it resumes after a restart.
+- A seller's reply to a bulk message is kept for admin (90 days) and does not go to the listing bot; an open listing, photos and real commands (`list`, `stock`, `add`, ...) keep their usual meaning. Sellers can stop bulk messages by replying `unsubscribe` (or `stop` right after one) and resume with `subscribe`.
+- Marketing templates cost per delivered message on Meta and can be refused for sellers who got many marketing messages; admin sees the reason per seller.

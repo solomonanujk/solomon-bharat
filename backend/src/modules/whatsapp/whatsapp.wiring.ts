@@ -5,6 +5,7 @@ import { storageProvider } from '../../providers/storage';
 import { categoriesService } from '../categories/categories.service';
 import { getGeminiApiKey } from '../guide/guide.ai';
 import { productsService } from '../products/products.service';
+import { bulkMessagesService } from '../bulk-messages/bulk-messages.service';
 import { GeminiListingExtractor } from './whatsapp.ai';
 import { flattenLeaves } from './whatsapp.category';
 import { ProductsPort, WhatsAppConversation } from './whatsapp.conversation';
@@ -54,6 +55,7 @@ const conversation: WhatsAppConversation = new WhatsAppConversation(
   whatsAppProvider,
   `${env.APP_URL.replace(/\/$/, '')}/portal/settings`,
   flow,
+  bulkMessagesService,
 );
 
-export const whatsAppService: WhatsAppService = new WhatsAppService(repo, whatsAppProvider, conversation);
+export const whatsAppService: WhatsAppService = new WhatsAppService(repo, whatsAppProvider, conversation, bulkMessagesService);

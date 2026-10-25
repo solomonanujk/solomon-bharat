@@ -50,6 +50,12 @@ const envSchema = z.object({
   /** A string you choose; Meta sends it back once when you register the webhook. */
   META_WHATSAPP_VERIFY_TOKEN: z.string().default(''),
   META_GRAPH_VERSION: z.string().default('v23.0'),
+  /** WhatsApp Business Account id (not the phone number id): needed to create and read message templates. */
+  META_WABA_ID: z.string().default(''),
+  /** Bulk messages: how many templates are sent per second (Meta allows far more; this keeps us gentle). */
+  BULK_SEND_PER_SECOND: z.coerce.number().int().min(1).max(50).default(5),
+  /** Bulk messages: the most sellers one campaign may target. */
+  BULK_MAX_RECIPIENTS: z.coerce.number().int().min(1).default(5000),
   /** Public base URL of this API (no trailing slash); Twilio signs webhooks over the full URL. */
   WHATSAPP_WEBHOOK_BASE_URL: z.string().default(''),
   /** Set to 'false' to switch off the AI that reads WhatsApp listings (commands keep working). */

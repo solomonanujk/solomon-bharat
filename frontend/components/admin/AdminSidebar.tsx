@@ -21,11 +21,13 @@ import {
   MessageSquareQuote,
   ScrollText,
   MessageCircle,
+  Megaphone,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/store/useAuthStore'
 import { useAdminDashboard } from '@/hooks/queries/useAdmin'
 import { useWhatsAppAdminSummary } from '@/hooks/queries/useWhatsApp'
+import { useBulkSummary } from '@/hooks/queries/useBulkMessages'
 
 type NavItem = { href: string; label: string; icon: React.ElementType; exact?: boolean; badge?: number | null }
 type NavGroup = { label: string; items: NavItem[] }
@@ -33,6 +35,7 @@ type NavGroup = { label: string; items: NavItem[] }
 function useNavGroups(): NavGroup[] {
   const { data: stats } = useAdminDashboard()
   const { data: whatsapp } = useWhatsAppAdminSummary()
+  const { data: bulk } = useBulkSummary()
 
   return [
     {
@@ -63,6 +66,7 @@ function useNavGroups(): NavGroup[] {
     {
       label: 'Operations',
       items: [
+        { href: '/admin/bulk-messages', label: 'Bulk Messages', icon: Megaphone, badge: bulk?.unreadReplies || null },
         { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
         { href: '/admin/rfqs', label: 'Custom Requirements', icon: MessageSquareQuote, badge: stats?.newRfqs ?? null },
         { href: '/admin/payouts', label: 'Payouts', icon: CreditCard },

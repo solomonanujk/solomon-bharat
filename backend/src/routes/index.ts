@@ -18,6 +18,7 @@ import { productImportRouter } from '../modules/product-import/product-import.ro
 import { rfqsRouter } from '../modules/rfqs/rfqs.routes';
 import { privateSuppliersRouter } from '../modules/private-suppliers/private-suppliers.controller';
 import { whatsAppRouter } from '../modules/whatsapp/whatsapp.routes';
+import { bulkMessagesRouter } from '../modules/bulk-messages/bulk-messages.routes';
 
 export const apiRouter = Router();
 
@@ -46,6 +47,7 @@ apiRouter.use('/orders', ordersRouter);
 apiRouter.use('/payments', paymentsRouter);
 apiRouter.use('/payouts', payoutsRouter);
 apiRouter.use('/notifications', notificationsRouter);
+apiRouter.use('/admin/bulk-messages', bulkMessagesRouter);
 apiRouter.use('/admin', adminRouter);
 apiRouter.use('/reviews', reviewsRouter);
 apiRouter.use('/agents', agentApplicationsRouter);

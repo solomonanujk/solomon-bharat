@@ -1,7 +1,7 @@
 import { logger } from '../../config/logger';
 import { InboundMessage, WhatsAppProvider } from '../../providers/whatsapp';
 import { AppError } from '../../utils/errors';
-import { Command, Language, detectLanguage, parseCommand, resolveTarget, Target } from './whatsapp.commands';
+import { Command, Language, detectLanguage, normalizeText, parseCommand, resolveTarget, Target } from './whatsapp.commands';
 import { ListingFlowPort } from './whatsapp.listing.flow';
 import { MAX_LISTED, ProductLine, messages } from './whatsapp.messages';
 
@@ -42,6 +42,31 @@ export interface ProductsPort {
   resubmitProduct(sellerId: string, productId: string): Promise<unknown>;
 }
 
+/**
+ * What the conversation needs from the admin Bulk Messages feature: a seller's answer to a broadcast
+ * is saved for admin instead of being run through the listing bot, and STOP-style words switch
+ * broadcasts off.
+ */
+export interface BulkPort {
+  /** Saves a reply to a bulk message sent in the last 24 h; null when none was sent to this number. */
+  recordReply(message: InboundMessage): Promise<{ firstReply: boolean } | null>;
+  hasRecentBulkMessage(phone: string): Promise<boolean>;
+  setOptOut(sellerId: string, optedOut: boolean): Promise<void>;
+}
+
+/** Commands that always keep their usual meaning, even right after a broadcast. */
+const MANAGEMENT_COMMANDS = new Set<Command['kind']>([
+  'help',
+  'list',
+  'add',
+  'stock',
+  'outOfStock',
+  'resubmit',
+  'stockUsage',
+  'outOfStockUsage',
+  'resubmitUsage',
+]);
+
 export interface ConversationHandler {
   handle(message: InboundMessage): Promise<void>;
 }
@@ -58,6 +83,7 @@ export class WhatsAppConversation implements ConversationHandler {
     private readonly provider: WhatsAppProvider,
     private readonly portalUrl: string,
     private readonly flow?: ListingFlowPort,
+    private readonly bulk?: BulkPort,
   ) {}
 
   async handle(message: InboundMessage): Promise<void> {
@@ -79,8 +105,33 @@ export class WhatsAppConversation implements ConversationHandler {
 
     const command = message.body ? parseCommand(message.body) : ({ kind: 'unknown' } as Command);
 
+    // Switching broadcasts off or on is unambiguous, so it works even in the middle of a listing.
+    if (this.bulk && (command.kind === 'optOut' || command.kind === 'optIn')) {
+      const optOut = command.kind === 'optOut';
+      await this.bulk.setOptOut(seller.id, optOut);
+      await this.reply(message.from, optOut ? messages.optedOut(lang) : messages.optedIn(lang));
+      return;
+    }
+
+    const session = this.flow ? await this.flow.findSession(message.from) : null;
+
+    // An answer to an admin broadcast ("Thanks", a tapped button) is saved for admin, never sent to the
+    // listing bot or answered with "did not understand". An open listing, photos and real commands win.
+    if (this.bulk && session === null && message.media.length === 0 && !MANAGEMENT_COMMANDS.has(command.kind)) {
+      const asksToStop = command.kind === 'cancel' && normalizeText(message.body) === 'stop';
+      if (asksToStop && (await this.bulk.hasRecentBulkMessage(message.from))) {
+        await this.bulk.setOptOut(seller.id, true);
+        await this.reply(message.from, messages.optedOut(lang));
+        return;
+      }
+      const saved = await this.bulk.recordReply(message);
+      if (saved) {
+        if (saved.firstReply) await this.reply(message.from, messages.bulkReplyReceived(lang));
+        return;
+      }
+    }
+
     if (this.flow) {
-      const session = await this.flow.findSession(message.from);
       // While a listing is open only help, list and cancel keep their usual meaning; everything
       // else the seller types is part of the product. Photos and "add" open a new listing.
       const inListing = session !== null && command.kind !== 'help' && command.kind !== 'list';

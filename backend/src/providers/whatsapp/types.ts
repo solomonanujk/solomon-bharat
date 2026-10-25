@@ -47,15 +47,57 @@ export interface WhatsAppTemplate {
   copyCode?: string;
 }
 
+/** What a send returns: the provider's id for the message, used to match delivery receipts. */
+export interface SendResult {
+  messageId?: string;
+}
+
+/**
+ * A refused send. `code` is the provider's own error code (Meta 131049, 130429, 132001 ...).
+ * `transient` means trying again later can work (rate limit, provider outage); otherwise it never will.
+ */
+export class WhatsAppSendError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: number,
+    readonly transient = false,
+  ) {
+    super(message);
+    this.name = 'WhatsAppSendError';
+  }
+}
+
+/** A delivery receipt for a message we sent. */
+export interface StatusUpdate {
+  providerMessageId: string;
+  status: 'sent' | 'delivered' | 'read' | 'failed';
+  errorCode?: number;
+  errorMessage?: string;
+}
+
+/** Meta's verdict on a template we submitted (the `message_template_status_update` event). */
+export interface TemplateStatusUpdate {
+  metaTemplateId: string;
+  name: string;
+  language: string;
+  event: string;
+  reason?: string;
+}
+
 export interface WhatsAppProvider {
   /** `to` is an international number such as +919812345678. */
   sendText(to: string, body: string): Promise<void>;
   /** Sends an approved template; works outside the 24-hour window. Absent on the console logger. */
-  sendTemplate?(to: string, template: WhatsAppTemplate): Promise<void>;
+  sendTemplate?(to: string, template: WhatsAppTemplate): Promise<SendResult | void>;
   /** True when the webhook request really came from the provider. */
   verifyWebhook(req: WebhookRequest): boolean;
   /** The messages in one webhook call (Meta can batch several; status updates give none). */
   parseInbound(req: WebhookRequest): InboundMessage[];
+  /** Delivery receipts (sent, delivered, read, failed) in one webhook call (Meta). */
+  parseStatuses?(req: WebhookRequest): StatusUpdate[];
+  /** Template approval events in one webhook call (Meta). */
+  parseTemplateStatuses?(req: WebhookRequest): TemplateStatusUpdate[];
   /** Fetches a media file from a webhook media reference, rejecting anything over `maxBytes`. */
   downloadMedia(url: string, maxBytes: number): Promise<DownloadedMedia>;
   /** Answers the provider's one-time "is this really your webhook?" GET, or null to refuse (Meta only). */

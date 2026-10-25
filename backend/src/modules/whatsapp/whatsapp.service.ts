@@ -3,6 +3,8 @@ import {
   DownloadedMedia,
   InboundMedia,
   InboundMessage,
+  StatusUpdate,
+  TemplateStatusUpdate,
   WebhookRequest,
   WhatsAppProvider,
   whatsAppProvider,
@@ -26,11 +28,18 @@ export function classifyMessage(message: InboundMessage): WhatsAppMessageType {
   return 'text';
 }
 
+/** What the webhook hands to Bulk Messages: delivery receipts and Meta's template verdicts. */
+export interface BulkHooks {
+  recordStatuses(updates: StatusUpdate[]): Promise<void>;
+  applyTemplateStatus(update: TemplateStatusUpdate): Promise<void>;
+}
+
 export class WhatsAppService {
   constructor(
     private readonly repo: WhatsAppRepository = new WhatsAppRepository(),
     private readonly provider: WhatsAppProvider = whatsAppProvider,
     private readonly conversation?: ConversationHandler,
+    private readonly bulk?: BulkHooks,
   ) {}
 
   verifyRequest(req: WebhookRequest): boolean {
@@ -47,6 +56,7 @@ export class WhatsAppService {
    * blocks the others.
    */
   async handleInbound(req: WebhookRequest): Promise<void> {
+    await this.handleReceipts(req);
     const messages = this.provider.parseInbound(req);
     if (messages.length === 0) {
       logger.info('[whatsapp] webhook carried no messages (receipt, other number or unusable)');
@@ -58,6 +68,20 @@ export class WhatsAppService {
       } catch (err) {
         logger.error({ err, id: message.providerMessageId }, '[whatsapp] could not handle a message');
       }
+    }
+  }
+
+  /** Delivery receipts and template verdicts for admin Bulk Messages; a failure here never blocks messages. */
+  private async handleReceipts(req: WebhookRequest): Promise<void> {
+    if (!this.bulk) return;
+    try {
+      const statuses = this.provider.parseStatuses?.(req) ?? [];
+      if (statuses.length > 0) await this.bulk.recordStatuses(statuses);
+      for (const update of this.provider.parseTemplateStatuses?.(req) ?? []) {
+        await this.bulk.applyTemplateStatus(update);
+      }
+    } catch (err) {
+      logger.error({ err }, '[whatsapp] could not record delivery receipts');
     }
   }
 

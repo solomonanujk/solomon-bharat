@@ -162,6 +162,8 @@ Admin rejects with a reason (existing flow) → seller sends `list` and sees "Re
 
 ## 4. Message routing
 
+> **Since 25 Oct 2026:** when admin has sent the seller a bulk message in the last 24 hours, a plain reply such as "Thanks" is saved for admin instead of getting "did not understand"; an open listing, photos and the real commands below still win, and `unsubscribe` / `subscribe` switch bulk messages off and on. See [BULK_MESSAGES.md](BULK_MESSAGES.md) section 5.
+
 What happens to every inbound message, in order:
 
 ```mermaid

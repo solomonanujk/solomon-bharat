@@ -3,6 +3,7 @@ import {
   DownloadedMedia,
   InboundMedia,
   InboundMessage,
+  SendResult,
   WebhookRequest,
   WhatsAppProvider,
   WhatsAppTemplate,
@@ -81,7 +82,7 @@ export class TwilioWhatsAppProvider implements WhatsAppProvider {
   }
 
   /** Twilio sends templates through the Content API: the template is a Content SID with numbered variables. */
-  async sendTemplate(to: string, template: WhatsAppTemplate): Promise<void> {
+  async sendTemplate(to: string, template: WhatsAppTemplate): Promise<SendResult> {
     const variables: Record<string, string> = {};
     const values = template.copyCode && template.body.length === 0 ? [template.copyCode] : template.body;
     values.forEach((value, i) => {
@@ -101,6 +102,12 @@ export class TwilioWhatsAppProvider implements WhatsAppProvider {
       }).toString(),
     });
     if (!res.ok) throw new Error(`Twilio WhatsApp template send failed with ${await errorDetail(res)}`);
+    try {
+      const sid = ((await res.json()) as { sid?: string }).sid;
+      return sid ? { messageId: sid } : {};
+    } catch {
+      return {};
+    }
   }
 
   verifyWebhook(req: WebhookRequest): boolean {
