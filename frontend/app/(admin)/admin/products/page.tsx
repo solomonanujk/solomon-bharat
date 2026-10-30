@@ -3,8 +3,8 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Package, Search, Star, CheckCircle2, X, Plus, MessageCircle } from 'lucide-react'
-import { useAdminProducts } from '@/hooks/queries/useProducts'
+import { Package, Search, Star, CheckCircle2, X, Plus, MessageCircle, Trash2 } from 'lucide-react'
+import { useAdminProducts, useRejectProduct } from '@/hooks/queries/useProducts'
 import { useAdminCategoryTree } from '@/hooks/queries/useCategories'
 import { CategoryCascadeSelect } from '@/components/seller-portal/CategoryCascade'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -28,15 +28,33 @@ const PAGE_LIMIT = 20
 
 // ─── Row ────────────────────────────────────────────────────────────────────────
 
-function ProductRow({ product, onOpen }: { product: AdminProduct; onOpen: (id: string) => void }) {
+function ProductRow({
+  product,
+  onOpen,
+  selected,
+  onToggle,
+}: {
+  product: AdminProduct
+  onOpen: (id: string) => void
+  selected: boolean
+  onToggle: (id: string) => void
+}) {
   const thumb = product.images?.[0]?.url
 
   return (
     <tr
-      onClick={() => onOpen(product.id)}
-      className="border-b border-[#D9E2DA] last:border-0 hover:bg-[#E7EDE7]/30 transition-colors cursor-pointer"
+      className={cn('border-b border-[#D9E2DA] last:border-0 hover:bg-[#E7EDE7]/30 transition-colors cursor-pointer', selected && 'bg-[#E7EDE7]/50')}
     >
-      <td className="py-3 px-4">
+      <td className="py-3 px-3 w-10" onClick={(e) => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggle(product.id)}
+          className="w-4 h-4 rounded border-[#D9E2DA] accent-[#183D33] cursor-pointer"
+          aria-label={`Select ${product.name}`}
+        />
+      </td>
+      <td className="py-3 px-4" onClick={() => onOpen(product.id)}>
         <div className="flex items-center gap-3">
           {thumb ? (
             <img src={cloudinaryFill(thumb, 160, 160)} alt="" className="w-9 h-9 rounded object-contain bg-[#E7EDE7] border border-[#D9E2DA] flex-shrink-0" />
@@ -55,21 +73,21 @@ function ProductRow({ product, onOpen }: { product: AdminProduct; onOpen: (id: s
           </div>
         </div>
       </td>
-      <td className="py-3 px-4 text-[13px] font-sans text-[#183D33B3] max-w-[140px] truncate">
+      <td className="py-3 px-4 text-[13px] font-sans text-[#183D33B3] max-w-[140px] truncate" onClick={() => onOpen(product.id)}>
         {product.privateSupplier?.name ?? product.seller?.businessName ?? '—'}
         {product.privateSupplier && <span className="ml-1 text-[10px] font-[600] uppercase tracking-wide text-[#183D33B3]/60">(private)</span>}
       </td>
-      <td className="py-3 px-4 text-[13px] font-sans text-[#0F241D]">{formatINR(product.sellerPrice)}</td>
-      <td className="py-3 px-4 text-[13px] font-sans">
+      <td className="py-3 px-4 text-[13px] font-sans text-[#0F241D]" onClick={() => onOpen(product.id)}>{formatINR(product.sellerPrice)}</td>
+      <td className="py-3 px-4 text-[13px] font-sans" onClick={() => onOpen(product.id)}>
         {product.adminPrice != null ? (
           <span className="text-[#0F241D] font-[600]">{formatINR(product.adminPrice)}</span>
         ) : (
           <span className="text-[#183D33B3] italic">not set</span>
         )}
       </td>
-      <td className="py-3 px-4 text-[13px] font-sans text-[#183D33B3] text-center">{product.moq}</td>
-      <td className="py-3 px-4"><StatusBadge status={product.approvalStatus} /></td>
-      <td className="py-3 px-4 text-center">
+      <td className="py-3 px-4 text-[13px] font-sans text-[#183D33B3] text-center" onClick={() => onOpen(product.id)}>{product.moq}</td>
+      <td className="py-3 px-4" onClick={() => onOpen(product.id)}><StatusBadge status={product.approvalStatus} /></td>
+      <td className="py-3 px-4 text-center" onClick={() => onOpen(product.id)}>
         {product.isPublished ? (
           <span className="inline-flex items-center gap-1 text-[11px] font-[600] font-sans text-[#183D33]">
             <CheckCircle2 size={12} aria-hidden="true" /> Published
@@ -78,14 +96,14 @@ function ProductRow({ product, onOpen }: { product: AdminProduct; onOpen: (id: s
           <span className="text-[11px] font-sans text-[#183D33B3]">Unpublished</span>
         )}
       </td>
-      <td className="py-3 px-4 text-center">
+      <td className="py-3 px-4 text-center" onClick={() => onOpen(product.id)}>
         {product.isFeatured ? (
           <Star size={14} className="text-[#183D33] fill-[#183D33] inline-block" aria-label="Featured" />
         ) : (
           <span className="text-[#183D33B3]">—</span>
         )}
       </td>
-      <td className="py-3 px-4 text-[12px] font-sans text-[#183D33B3] whitespace-nowrap">
+      <td className="py-3 px-4 text-[12px] font-sans text-[#183D33B3] whitespace-nowrap" onClick={() => onOpen(product.id)}>
         {new Date(product.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
       </td>
     </tr>
@@ -101,6 +119,9 @@ export default function AdminProductsPage() {
   const [categoryId, setCategoryId] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkWorking, setBulkWorking] = useState(false)
+  const reject = useRejectProduct()
 
   const { data, isLoading } = useAdminProducts({
     approvalStatus: approvalStatus || undefined,
@@ -121,14 +142,48 @@ export default function AdminProductsPage() {
     return items.filter((p) => p.name.toLowerCase().includes(q))
   }, [items, search])
 
+  const allSelected = filtered.length > 0 && filtered.every((p) => selected.has(p.id))
+  const someSelected = selected.size > 0
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(filtered.map((p) => p.id)))
+    }
+  }
+
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
   function handleTabChange(value: ApprovalStatus | '') {
     setApprovalStatus(value)
     setPage(1)
+    setSelected(new Set())
   }
 
   function handleCategoryChange(value: string) {
     setCategoryId(value)
     setPage(1)
+  }
+
+  async function handleBulkReject() {
+    const reason = window.prompt(`Reject ${selected.size} product${selected.size !== 1 ? 's' : ''}?\n\nEnter rejection reason:`)
+    if (reason === null) return
+    setBulkWorking(true)
+    const ids = [...selected]
+    for (const id of ids) {
+      await new Promise<void>((resolve) =>
+        reject.mutate({ id, reason: reason || 'Rejected by admin' }, { onSettled: () => resolve() })
+      )
+    }
+    setSelected(new Set())
+    setBulkWorking(false)
   }
 
   return (
@@ -219,6 +274,15 @@ export default function AdminProductsPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-[#D9E2DA] bg-[#E7EDE7]/40">
+                    <th className="py-3 px-3 w-10">
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={toggleAll}
+                        className="w-4 h-4 rounded border-[#D9E2DA] accent-[#183D33] cursor-pointer"
+                        aria-label="Select all"
+                      />
+                    </th>
                     {[
                       { label: 'Product', align: 'left' },
                       { label: 'Seller', align: 'left' },
@@ -244,7 +308,13 @@ export default function AdminProductsPage() {
                 </thead>
                 <tbody>
                   {filtered.map((p) => (
-                    <ProductRow key={p.id} product={p} onOpen={(id) => router.push(`/admin/products/${id}`)} />
+                    <ProductRow
+                      key={p.id}
+                      product={p}
+                      onOpen={(id) => router.push(`/admin/products/${id}`)}
+                      selected={selected.has(p.id)}
+                      onToggle={toggleOne}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -278,6 +348,30 @@ export default function AdminProductsPage() {
           </>
         )}
       </div>
+      {/* Bulk action bar */}
+      {someSelected && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-[#0F241D] text-white px-5 py-3 rounded-2xl shadow-xl">
+          <span className="text-[13px] font-[600] font-sans">{selected.size} selected</span>
+          <div className="w-px h-5 bg-white/20" />
+          <button
+            type="button"
+            disabled={bulkWorking}
+            onClick={handleBulkReject}
+            className="flex items-center gap-1.5 text-[13px] font-[600] font-sans text-red-300 hover:text-red-200 transition-colors disabled:opacity-40"
+          >
+            <Trash2 size={13} />
+            Reject selected
+          </button>
+          <div className="w-px h-5 bg-white/20" />
+          <button
+            type="button"
+            onClick={() => setSelected(new Set())}
+            className="text-[12px] font-sans text-white/60 hover:text-white transition-colors"
+          >
+            Clear
+          </button>
+        </div>
+      )}
     </div>
   )
 }
