@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Plus, Package, Upload } from 'lucide-react'
+import { Plus, Package, Upload, Trash2, RefreshCw, CheckSquare } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useMyProducts, useResubmitProduct, useDeleteMyProduct } from '@/hooks/queries/useProducts'
@@ -52,6 +52,8 @@ export default function ProductsPage() {
   const [filter, setFilter] = useState<FilterValue>('All')
   const [page, setPage] = useState(1)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkWorking, setBulkWorking] = useState(false)
   const { openLightbox, lightboxNode } = useImageLightbox()
 
   const { data: tree = [] } = useCategoryTree()
@@ -68,15 +70,67 @@ export default function ProductsPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_LIMIT))
 
+  const allIds = useMemo(() => products.map((p) => p.id), [products])
+  const allSelected = allIds.length > 0 && allIds.every((id) => selected.has(id))
+  const someSelected = selected.size > 0
+
+  const selectedProducts = useMemo(
+    () => products.filter((p) => selected.has(p.id)),
+    [products, selected],
+  )
+  const canBulkResubmit = selectedProducts.every((p) => p.approvalStatus === 'REJECTED')
+  const hasRejected = selectedProducts.some((p) => p.approvalStatus === 'REJECTED')
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(allIds))
+    }
+  }
+
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
   function handleFilterChange(value: FilterValue) {
     setFilter(value)
     setPage(1)
+    setSelected(new Set())
   }
 
   function handleDelete(id: string, name: string) {
     if (!window.confirm(`Remove "${name}"? This can't be undone.`)) return
     setDeletingId(id)
     del.mutate(id, { onSettled: () => setDeletingId(null) })
+  }
+
+  async function handleBulkDelete() {
+    if (!window.confirm(`Delete ${selected.size} product${selected.size !== 1 ? 's' : ''}? This can't be undone.`)) return
+    setBulkWorking(true)
+    const ids = [...selected]
+    for (const id of ids) {
+      await new Promise<void>((resolve) => del.mutate(id, { onSettled: () => resolve() }))
+    }
+    setSelected(new Set())
+    setBulkWorking(false)
+  }
+
+  async function handleBulkResubmit() {
+    setBulkWorking(true)
+    const ids = [...selected].filter((id) => {
+      const p = products.find((x) => x.id === id)
+      return p?.approvalStatus === 'REJECTED'
+    })
+    for (const id of ids) {
+      await new Promise<void>((resolve) => resubmit.mutate(id, { onSettled: () => resolve() }))
+    }
+    setSelected(new Set())
+    setBulkWorking(false)
   }
 
   return (
@@ -164,6 +218,15 @@ export default function ProductsPage() {
               <table className="w-full min-w-[720px]">
                 <thead>
                   <tr className="border-b border-[#D9E2DA] bg-[#E7EDE7]">
+                    <th className="px-4 py-3 w-10">
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={toggleAll}
+                        className="w-4 h-4 rounded border-[#D9E2DA] text-[#183D33] accent-[#183D33] cursor-pointer"
+                        aria-label="Select all"
+                      />
+                    </th>
                     {['', 'Product', 'Category', 'Stock', 'Status', 'Submitted', 'Actions'].map((col) => (
                       <th key={col} className="px-5 py-3 text-left text-[11px] font-[700] font-sans text-[#6B7E6B] uppercase tracking-[0.07em]">
                         {col}
@@ -177,7 +240,16 @@ export default function ProductsPage() {
                     const canResubmit = product.approvalStatus === 'REJECTED'
 
                     return (
-                      <tr key={product.id} className="hover:bg-[#E7EDE7] transition-colors">
+                      <tr key={product.id} className={cn('hover:bg-[#E7EDE7] transition-colors', selected.has(product.id) && 'bg-[#E7EDE7]')}>
+                        <td className="px-4 py-4 w-10">
+                          <input
+                            type="checkbox"
+                            checked={selected.has(product.id)}
+                            onChange={() => toggleOne(product.id)}
+                            className="w-4 h-4 rounded border-[#D9E2DA] text-[#183D33] accent-[#183D33] cursor-pointer"
+                            aria-label={`Select ${product.name}`}
+                          />
+                        </td>
                         <td className="px-5 py-4">
                           {imageUrl ? (
                             <button
@@ -309,6 +381,43 @@ export default function ProductsPage() {
             </div>
           )}
         </>
+      )}
+      {/* Bulk action bar */}
+      {someSelected && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-[#0F241D] text-white px-5 py-3 rounded-2xl shadow-xl">
+          <span className="text-[13px] font-[600] font-sans">
+            {selected.size} selected
+          </span>
+          <div className="w-px h-5 bg-white/20" />
+          {hasRejected && (
+            <button
+              type="button"
+              disabled={bulkWorking}
+              onClick={handleBulkResubmit}
+              className="flex items-center gap-1.5 text-[13px] font-[600] font-sans hover:text-[#A8C5A8] transition-colors disabled:opacity-40"
+            >
+              <RefreshCw size={13} />
+              Resubmit rejected
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={bulkWorking}
+            onClick={handleBulkDelete}
+            className="flex items-center gap-1.5 text-[13px] font-[600] font-sans text-red-300 hover:text-red-200 transition-colors disabled:opacity-40"
+          >
+            <Trash2 size={13} />
+            Delete
+          </button>
+          <div className="w-px h-5 bg-white/20" />
+          <button
+            type="button"
+            onClick={() => setSelected(new Set())}
+            className="text-[12px] font-sans text-white/60 hover:text-white transition-colors"
+          >
+            Clear
+          </button>
+        </div>
       )}
       {lightboxNode}
     </div>
