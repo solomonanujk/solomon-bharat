@@ -1076,7 +1076,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
             <p className="text-[13px] font-sans text-muted-text mb-3.5">Add a name and description to help retailers learn more about your product.</p>
             <Field id="pf-name" label="Name" required>
               <input type="text" value={name} onChange={(e) => setName(e.target.value.slice(0, 60))}
-                placeholder="Give your product a clear, concise name." maxLength={60} className={INPUT_CLS} />
+                placeholder="Give your product a clear, concise name." className={INPUT_CLS} />
               <p className="text-right text-[12px] font-sans text-muted-text mt-1">{name.length}/60</p>
             </Field>
           </div>
@@ -1100,7 +1100,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
           <div className="mt-7 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10">
             <Field id="pf-description" label="Description" required>
               <textarea value={description} onChange={(e) => setDescription(e.target.value.slice(0, 1000))}
-                rows={4} maxLength={1000}
+                rows={4}
                 placeholder="Include information about details like materials, durability, use, and more."
                 className={TEXTAREA_CLS} />
               <div className="flex items-center justify-between mt-1">
@@ -1137,7 +1137,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
               <Field id="pf-craft" label="Craft technique" required>
-                <input type="text" value={craftTechnique} maxLength={200}
+                <input type="text" value={craftTechnique}
                   onChange={(e) => setCraftTechnique(e.target.value)}
                   placeholder="e.g. Hand block printing, Dhokra casting" className={INPUT_CLS} />
               </Field>
@@ -1150,12 +1150,12 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
                 </select>
               </Field>
               <Field id="pf-lead" label="Lead time" required>
-                <input type="text" value={leadTime} maxLength={200}
+                <input type="text" value={leadTime}
                   onChange={(e) => setLeadTime(e.target.value)}
                   placeholder="e.g. 15-20 days" className={INPUT_CLS} />
               </Field>
               <Field id="pf-care" label="Care instructions" required>
-                <input type="text" value={careInstructions} maxLength={2000}
+                <input type="text" value={careInstructions}
                   onChange={(e) => setCareInstructions(e.target.value)}
                   placeholder="e.g. Dry clean only; wipe with a dry cloth" className={INPUT_CLS} />
               </Field>
@@ -1597,7 +1597,7 @@ export function ProductForm({ product, mode = 'seller' }: ProductFormProps) {
               <div className="space-y-5">
                 <Field label="How it's made">
                   <textarea value={howItIsMade} onChange={(e) => setHowItIsMade(e.target.value.slice(0, 5000))}
-                    rows={4} maxLength={5000}
+                    rows={4}
                     placeholder="Describe the craft process, techniques, and materials behind this product."
                     className={TEXTAREA_CLS} />
                 </Field>

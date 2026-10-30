@@ -128,12 +128,12 @@ export const createProductAsAdminSchema = z
     sellerMode: z.enum(['existing', 'house', 'private']),
     sellerId: z.string().uuid().optional(),
     privateSupplierId: z.string().uuid().optional(),
-    privateSupplierName: z.string().max(200).optional(),
-    name: z.string().min(1).max(60),
-    description: z.string().min(1).max(1000),
+    privateSupplierName: z.string().optional(),
+    name: z.string().min(1),
+    description: z.string().min(1),
     categoryId: z.string().uuid(),
-    materials: z.string().min(1).max(500),
-    dimensions: z.string().max(200).optional(),
+    materials: z.string().min(1),
+    dimensions: z.string().optional(),
     weight: z
       .string()
       .min(1)
@@ -141,21 +141,21 @@ export const createProductAsAdminSchema = z
     moq: z.coerce.number().int().min(1),
     declaredStock: z.coerce.number().int().min(0),
     sellerPrice: z.coerce.number().positive(),
-    leadTime: z.string().max(200).optional(),
+    leadTime: z.string().optional(),
     variants: jsonArrayField(variantWithAdminPricingSchema),
-    tags: jsonArrayField(z.string().min(1).max(50)),
+    tags: jsonArrayField(z.string().min(1)),
     stepQty: z.coerce.number().int().positive().default(1),
     isHandmade: formBoolean(false),
     isMadeToOrder: formBoolean(false),
-    placeOfOrigin: z.string().max(200).optional(),
+    placeOfOrigin: z.string().optional(),
     isGITagged: formBoolean(false),
-    howItIsMade: z.string().max(5000).optional(),
-    craftTechnique: z.string().max(200).optional(),
-    careInstructions: z.string().max(2000).optional(),
+    howItIsMade: z.string().optional(),
+    craftTechnique: z.string().optional(),
+    careInstructions: z.string().optional(),
     offersSamples: formBoolean(false),
     sampleMaxQty: z.coerce.number().int().positive().max(100000).optional(),
     samplePrice: z.coerce.number().positive().optional(),
-    artisanName: z.string().max(200).optional(),
+    artisanName: z.string().optional(),
     priceTiers: jsonArrayField(priceTierWithAdminPricingSchema),
     ecoMaterials: jsonArrayField(z.enum(ECO_MATERIALS)),
     ecoPackaging: jsonArrayField(z.enum(ECO_PACKAGING)),
@@ -175,11 +175,11 @@ export const createProductAsAdminSchema = z
 export type CreateProductAsAdminDto = z.infer<typeof createProductAsAdminSchema>;
 
 export const createProductSchema = z.object({
-  name: z.string().min(1).max(60),
-  description: z.string().min(1).max(1000),
+  name: z.string().min(1),
+  description: z.string().min(1),
   categoryId: z.string().uuid(),
-  materials: z.string().min(1).max(500),
-  dimensions: z.string().max(200).optional(),
+  materials: z.string().min(1),
+  dimensions: z.string().optional(),
   weight: z
     .string()
     .min(1)
@@ -187,21 +187,21 @@ export const createProductSchema = z.object({
   moq: z.coerce.number().int().min(1),
   declaredStock: z.coerce.number().int().min(0),
   sellerPrice: z.coerce.number().positive(),
-  leadTime: z.string().max(200).optional(),
+  leadTime: z.string().optional(),
   variants: jsonArrayField(variantSchema),
-  tags: jsonArrayField(z.string().min(1).max(50)),
+  tags: jsonArrayField(z.string().min(1)),
   stepQty: z.coerce.number().int().positive().default(1),
   isHandmade: formBoolean(false),
   isMadeToOrder: formBoolean(false),
-  placeOfOrigin: z.string().max(200).optional(),
+  placeOfOrigin: z.string().optional(),
   isGITagged: formBoolean(false),
-  howItIsMade: z.string().max(5000).optional(),
-  craftTechnique: z.string().max(200).optional(),
-  careInstructions: z.string().max(2000).optional(),
+  howItIsMade: z.string().optional(),
+  craftTechnique: z.string().optional(),
+  careInstructions: z.string().optional(),
   offersSamples: formBoolean(false),
   sampleMaxQty: z.coerce.number().int().positive().max(100000).optional(),
   samplePrice: z.coerce.number().positive().optional(),
-  artisanName: z.string().max(200).optional(),
+  artisanName: z.string().optional(),
   priceTiers: jsonArrayField(priceTierSchema),
   ecoMaterials: jsonArrayField(z.enum(ECO_MATERIALS)),
   ecoPackaging: jsonArrayField(z.enum(ECO_PACKAGING)),
@@ -216,30 +216,30 @@ export type CreateProductDto = z.infer<typeof createProductSchema>;
 // the seller recognize it in their product list). Everything else the full
 // createProductSchema requires gets a safe placeholder in the service layer instead.
 export const saveDraftSchema = z.object({
-  name: z.string().min(1).max(60),
+  name: z.string().min(1),
   categoryId: z.string().uuid(),
-  description: z.string().max(1000).optional(),
-  materials: z.string().max(500).optional(),
-  dimensions: z.string().max(200).optional(),
+  description: z.string().optional(),
+  materials: z.string().optional(),
+  dimensions: z.string().optional(),
   weight: numberishString(100),
   moq: z.coerce.number().int().min(0).optional(),
   declaredStock: z.coerce.number().int().min(0).optional(),
   sellerPrice: z.coerce.number().min(0).optional(),
-  leadTime: z.string().max(200).optional(),
+  leadTime: z.string().optional(),
   variants: jsonArrayField(variantSchema),
-  tags: jsonArrayField(z.string().min(1).max(50)),
+  tags: jsonArrayField(z.string().min(1)),
   stepQty: z.coerce.number().int().positive().optional(),
   isHandmade: formBoolean(false),
   isMadeToOrder: formBoolean(false),
-  placeOfOrigin: z.string().max(200).optional(),
+  placeOfOrigin: z.string().optional(),
   isGITagged: formBoolean(false),
-  howItIsMade: z.string().max(5000).optional(),
-  craftTechnique: z.string().max(200).optional(),
-  careInstructions: z.string().max(2000).optional(),
+  howItIsMade: z.string().optional(),
+  craftTechnique: z.string().optional(),
+  careInstructions: z.string().optional(),
   offersSamples: formBoolean(false),
   sampleMaxQty: z.coerce.number().int().positive().max(100000).optional(),
   samplePrice: z.coerce.number().positive().optional(),
-  artisanName: z.string().max(200).optional(),
+  artisanName: z.string().optional(),
   priceTiers: jsonArrayField(priceTierSchema),
   ecoMaterials: jsonArrayField(z.enum(ECO_MATERIALS)),
   ecoPackaging: jsonArrayField(z.enum(ECO_PACKAGING)),
@@ -250,15 +250,15 @@ export const saveDraftSchema = z.object({
 export type SaveDraftDto = z.infer<typeof saveDraftSchema>;
 
 export const updateProductSchema = z.object({
-  name: z.string().min(1).max(60).optional(),
-  description: z.string().min(1).max(1000).optional(),
-  materials: z.string().min(1).max(500).optional(),
-  dimensions: z.string().max(200).optional(),
+  name: z.string().min(1).optional(),
+  description: z.string().min(1).optional(),
+  materials: z.string().min(1).optional(),
+  dimensions: z.string().optional(),
   weight: z.string().max(100).optional(),
   moq: z.coerce.number().int().min(1).optional(),
   declaredStock: z.coerce.number().int().min(0).optional(),
   sellerPrice: z.coerce.number().positive().optional(),
-  leadTime: z.string().max(200).optional(),
+  leadTime: z.string().optional(),
   variants: jsonArrayField(variantSchema),
   // Only meaningful when the product being updated is currently a DRAFT — set true to
   // validate it fully and transition it to PENDING (submit for review); omitted/false
@@ -269,7 +269,7 @@ export const updateProductSchema = z.object({
   removeImageIds: jsonArrayField(z.string().uuid()),
   removeVideoIds: jsonArrayField(z.string().uuid()),
   removeCraftImage: formBoolean(false),
-  tags: jsonArrayField(z.string().min(1).max(50)),
+  tags: jsonArrayField(z.string().min(1)),
   stepQty: z.coerce.number().int().positive().optional(),
   isHandmade: z
     .preprocess((val) => (val === 'true' ? true : val === 'false' ? false : val), z.boolean())
@@ -277,19 +277,19 @@ export const updateProductSchema = z.object({
   isMadeToOrder: z
     .preprocess((val) => (val === 'true' ? true : val === 'false' ? false : val), z.boolean())
     .optional(),
-  placeOfOrigin: z.string().max(200).optional(),
+  placeOfOrigin: z.string().optional(),
   isGITagged: z
     .preprocess((val) => (val === 'true' ? true : val === 'false' ? false : val), z.boolean())
     .optional(),
-  howItIsMade: z.string().max(5000).optional(),
-  craftTechnique: z.string().max(200).optional(),
-  careInstructions: z.string().max(2000).optional(),
+  howItIsMade: z.string().optional(),
+  craftTechnique: z.string().optional(),
+  careInstructions: z.string().optional(),
   offersSamples: z
     .preprocess((val) => (val === 'true' ? true : val === 'false' ? false : val), z.boolean())
     .optional(),
   sampleMaxQty: z.coerce.number().int().positive().max(100000).optional(),
   samplePrice: z.coerce.number().positive().optional(),
-  artisanName: z.string().max(200).optional(),
+  artisanName: z.string().optional(),
   priceTiers: jsonArrayField(priceTierSchema),
   ecoMaterials: jsonArrayField(z.enum(ECO_MATERIALS)),
   ecoPackaging: jsonArrayField(z.enum(ECO_PACKAGING)),
@@ -342,7 +342,7 @@ export const approveProductSchema = z
 export type ApproveProductDto = z.infer<typeof approveProductSchema>;
 
 export const rejectProductSchema = z.object({
-  reason: z.string().min(1).max(1000),
+  reason: z.string().min(1),
 });
 export type RejectProductDto = z.infer<typeof rejectProductSchema>;
 
@@ -380,16 +380,16 @@ export type ReassignCategoryDto = z.infer<typeof reassignCategorySchema>;
 export const publicProductListQuerySchema = paginationQuerySchema.extend({
   categoryId: z.string().uuid().optional(),
   collectionId: z.string().uuid().optional(),
-  search: z.string().max(200).optional(),
+  search: z.string().optional(),
   // Curated unscoped browse modes ("New Products" / "Bestsellers" / "Trending" navbar
   // links) — the other deliberate exception to "always scoped", alongside `search`.
   sort: z.enum(['newest', 'featured', 'trending']).optional(),
-  material: z.string().max(200).optional(),
+  material: z.string().optional(),
   minPrice: z.coerce.number().min(0).optional(),
   maxPrice: z.coerce.number().min(0).optional(),
   moqMax: z.coerce.number().int().min(1).optional(),
-  placeOfOrigin: z.string().max(200).optional(),
-  leadTime: z.string().max(200).optional(),
+  placeOfOrigin: z.string().optional(),
+  leadTime: z.string().optional(),
 });
 export type PublicProductListQueryDto = z.infer<typeof publicProductListQuerySchema>;
 
