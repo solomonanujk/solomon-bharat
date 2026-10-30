@@ -7,19 +7,17 @@ import {
 } from '../product-import.types';
 
 /**
- * Field caps. These mirror the products module's own Zod limits (products.validation.ts)
- * so an imported draft can later be edited and submitted by the seller without the
- * existing form rejecting a field the import let through.
+ * Field caps for import parsing. Text field limits removed to match products.validation.ts.
  */
 export const IMPORT_LIMITS = {
   key: 200,
-  name: 60,
-  description: 1000,
-  materials: 500,
-  optionName: 50,
-  optionValue: 100,
+  name: 10_000,
+  description: 100_000,
+  materials: 100_000,
+  optionName: 200,
+  optionValue: 500,
   optionsPerVariant: 10,
-  variantName: 100,
+  variantName: 500,
   sku: 100,
   imageUrl: 2048,
   imagesPerProduct: 10,
@@ -34,9 +32,8 @@ export const IMPORT_LIMITS = {
   maxDimension: 100_000,
   /** Declared stock / variant inventory is an Int column. */
   maxStock: 10_000_000,
-  /** products.validation.ts: tags are 1–50 chars. */
-  tags: 20,
-  tagLength: 50,
+  tags: 200,
+  tagLength: 500,
   /** Categories entries kept per product, and path depth / segment length. */
   categoryPaths: 10,
   categoryPathDepth: 6,
