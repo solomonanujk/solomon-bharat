@@ -173,8 +173,7 @@ export class ProductImportService {
       description: candidate.description ? stripHtml(candidate.description) : '',
       categoryId,
       materials: candidate.materials?.trim() ?? '',
-      // The seller completes MOQ (and the rest) before submitting the draft.
-      moq: 0,
+      moq: candidate.moq ?? 0,
       declaredStock: this.declaredStock(candidate, variants),
       sellerPrice,
       variants,

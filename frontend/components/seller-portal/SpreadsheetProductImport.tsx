@@ -37,6 +37,7 @@ const ACCEPTED_EXTENSIONS = ['.csv', '.xlsx']
 const SOURCE_LABEL: Record<ProductImportSource, string> = {
   shopify: 'Shopify export',
   woocommerce: 'WooCommerce export',
+  etsy: 'Etsy export',
 }
 
 type Step = 'upload' | 'review' | 'result'
@@ -60,7 +61,8 @@ function validateFile(file: File): string | null {
 }
 
 /** Seller-price summary for a candidate: its own price, or the range across variants. */
-function priceLabel(product: ImportCandidate): string | null {
+function priceLabel(product: ImportCandidate, override?: number): string | null {
+  if (typeof override === 'number') return formatINR(override)
   const prices = [product.sellerPrice, ...product.variants.map((v) => v.sellerPrice)].filter(
     (p): p is number => typeof p === 'number',
   )
@@ -70,7 +72,7 @@ function priceLabel(product: ImportCandidate): string | null {
   return min === max ? formatINR(min) : `${formatINR(min)} – ${formatINR(max)}`
 }
 
-const PUBLISHED_BADGE: Record<ProductImportSource, Record<'private' | 'draft', string>> = {
+const PUBLISHED_BADGE: Partial<Record<ProductImportSource, Record<'private' | 'draft', string>>> = {
   woocommerce: {
     private: 'Private in WooCommerce',
     draft: 'Draft in WooCommerce',
@@ -275,8 +277,8 @@ function UploadStep({
         Upload your product export
       </h2>
       <p className="text-[13px] font-sans text-muted-text mt-1 mb-5 max-w-2xl">
-        Upload the product spreadsheet exported from your Shopify or WooCommerce store. You’ll review the products
-        before anything is created.
+        Upload the product spreadsheet exported from your Shopify, WooCommerce, or Etsy store. You'll review the
+        products before anything is created.
       </p>
 
       <button
@@ -334,7 +336,7 @@ function UploadStep({
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 mt-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-6">
         <div className="rounded-lg border border-border-warm p-4">
           <h3 className="text-[13px] font-[700] font-sans text-primary mb-1.5">Exporting from Shopify</h3>
           <p className="text-[12.5px] font-sans text-muted-text leading-relaxed">
@@ -347,17 +349,11 @@ function UploadStep({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 font-[600] text-primary underline underline-offset-2 hover:no-underline"
             >
-              Shopify’s product CSV guide
+              Shopify's product CSV guide
               <ExternalLink size={12} aria-hidden="true" />
               <span className="sr-only"> (opens in a new tab)</span>
             </a>
             ; both the older and the current Shopify column names are accepted.
-          </p>
-          <p className="text-[12.5px] font-sans text-muted-text leading-relaxed mt-2">
-            <strong className="text-primary">Used:</strong> title, description, price, variants and options, SKU,
-            images, weight (grams), inventory quantity, packed dimensions, product category, type, tags and
-            status/published. <strong className="text-primary">Ignored:</strong> vendor, cost per item, compare-at
-            price, SEO and Google Shopping columns, barcodes, collections and market-specific prices.
           </p>
           <a
             href="/templates/shopify-product-import-template.csv"
@@ -385,12 +381,6 @@ function UploadStep({
             </a>
             .
           </p>
-          <p className="text-[12.5px] font-sans text-muted-text leading-relaxed mt-2">
-            <strong className="text-primary">Used:</strong> name, description, price, variations, images, weight,
-            dimensions, stock, categories and tags. <strong className="text-primary">Ignored:</strong> sale price and
-            dates, tax, reviews, shipping class, downloads, upsells and cross-sells, and grouped, external, virtual and
-            downloadable products.
-          </p>
           <a
             href="/templates/woocommerce-product-import-template.csv"
             download
@@ -399,6 +389,18 @@ function UploadStep({
             <Download size={14} aria-hidden="true" />
             Download WooCommerce template
           </a>
+        </div>
+        <div className="rounded-lg border border-border-warm p-4">
+          <h3 className="text-[13px] font-[700] font-sans text-primary mb-1.5">Exporting from Etsy</h3>
+          <p className="text-[12.5px] font-sans text-muted-text leading-relaxed">
+            In Etsy Seller Dashboard go to <strong className="text-primary">Listings → Manage listings</strong>, click{' '}
+            <strong className="text-primary">Download CSV</strong> at the top right. Upload the downloaded file here.
+          </p>
+          <p className="text-[12.5px] font-sans text-muted-text leading-relaxed mt-2">
+            <strong className="text-primary">Used:</strong> title, description, price, quantity, tags, materials, images
+            and variation options. <strong className="text-primary">Note:</strong> Etsy prices are in your listing
+            currency — set your INR price in the review step.
+          </p>
         </div>
       </div>
 
@@ -417,6 +419,106 @@ function UploadStep({
   )
 }
 
+// ─── Bulk edit bar ────────────────────────────────────────────────────────────
+
+function BulkEditBar({
+  selectedCount,
+  tree,
+  disabled,
+  onApply,
+}: {
+  selectedCount: number
+  tree: CategoryNode[]
+  disabled: boolean
+  onApply: (values: { moq?: number; price?: number; categoryId?: string }) => void
+}) {
+  const [moq, setMoq] = useState('')
+  const [price, setPrice] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const moqId = useId()
+  const priceId = useId()
+  const catId = useId()
+
+  function handleApply() {
+    const values: { moq?: number; price?: number; categoryId?: string } = {}
+    const moqNum = parseInt(moq, 10)
+    if (moq.trim() && !isNaN(moqNum) && moqNum >= 0) values.moq = moqNum
+    const priceNum = parseFloat(price)
+    if (price.trim() && !isNaN(priceNum) && priceNum > 0) values.price = priceNum
+    if (categoryId) values.categoryId = categoryId
+    if (Object.keys(values).length === 0) return
+    onApply(values)
+    setMoq('')
+    setPrice('')
+    setCategoryId('')
+  }
+
+  return (
+    <div className="sticky bottom-0 z-10 border-t border-border-warm bg-surface shadow-[0_-2px_12px_rgba(0,0,0,0.08)] px-5 py-3">
+      <p className="text-[12px] font-[700] font-sans text-muted-text mb-2">
+        Bulk edit — {plural(selectedCount, 'product')} selected
+      </p>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="w-28">
+          <label htmlFor={moqId} className="block text-[11.5px] font-[600] font-sans text-muted-text mb-1">
+            MOQ
+          </label>
+          <input
+            id={moqId}
+            type="number"
+            min="0"
+            step="1"
+            value={moq}
+            disabled={disabled}
+            onChange={(e) => setMoq(e.target.value)}
+            placeholder="e.g. 10"
+            className={INPUT_CLS}
+          />
+        </div>
+        <div className="w-36">
+          <label htmlFor={priceId} className="block text-[11.5px] font-[600] font-sans text-muted-text mb-1">
+            Seller price (₹)
+          </label>
+          <input
+            id={priceId}
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={price}
+            disabled={disabled}
+            onChange={(e) => setPrice(e.target.value)}
+            placeholder="e.g. 1500"
+            className={INPUT_CLS}
+          />
+        </div>
+        <div className="w-64">
+          <label htmlFor={catId} className="block text-[11.5px] font-[600] font-sans text-muted-text mb-1">
+            Category
+          </label>
+          <CategoryTypeahead
+            id={catId}
+            tree={tree}
+            value={categoryId}
+            onChange={setCategoryId}
+            disabled={disabled}
+            className={INPUT_CLS}
+          />
+        </div>
+        <Button
+          type="button"
+          variant="primary"
+          size="sm"
+          disabled={disabled}
+          onClick={handleApply}
+          className="min-h-[40px]"
+        >
+          Apply to selected
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Step 2: Review ───────────────────────────────────────────────────────────
 
 function ReviewStep({
@@ -431,6 +533,10 @@ function ReviewStep({
   onCategoryChange,
   productCategory,
   onProductCategory,
+  productMoq,
+  onProductMoq,
+  productPrice,
+  onProductPrice,
   importing,
   progress,
   error,
@@ -448,6 +554,10 @@ function ReviewStep({
   onCategoryChange: (id: string) => void
   productCategory: Record<string, string>
   onProductCategory: (key: string, id: string) => void
+  productMoq: Record<string, number>
+  onProductMoq: (key: string, moq: number | undefined) => void
+  productPrice: Record<string, number>
+  onProductPrice: (key: string, price: number | undefined) => void
   importing: boolean
   progress: { processed: number; total: number } | null
   error: string | null
@@ -467,6 +577,16 @@ function ReviewStep({
   const withIssues = products.filter((p) => p.issues.length > 0).length
   const missingCategory = products.filter((p) => selected.has(p.key) && !productCategory[p.key] && !categoryId)
   const missingKeys = new Set(missingCategory.map((p) => p.key))
+
+  function handleBulkApply(values: { moq?: number; price?: number; categoryId?: string }) {
+    for (const key of selected) {
+      if (values.moq !== undefined) onProductMoq(key, values.moq)
+      if (values.price !== undefined) onProductPrice(key, values.price)
+      if (values.categoryId !== undefined) onProductCategory(key, values.categoryId)
+    }
+  }
+
+  const publishedBadge = PUBLISHED_BADGE[source]
 
   return (
     <section aria-labelledby="import-review-heading" className="flex flex-col gap-5">
@@ -511,7 +631,7 @@ function ReviewStep({
           <Package size={24} className="text-muted-text/60 mb-3" aria-hidden="true" />
           <p className="text-[15px] font-[600] font-sans text-primary">No products found in this file</p>
           <p className="text-[13px] font-sans text-muted-text mt-1">
-            Check that it’s a product export from Shopify or WooCommerce, then try again.
+            Check that it's a product export from Shopify, WooCommerce, or Etsy, then try again.
           </p>
         </div>
       ) : (
@@ -532,69 +652,129 @@ function ReviewStep({
               {selected.size} of {products.length} selected
             </p>
           </div>
-          <ul className="divide-y divide-border-warm max-h-[560px] overflow-y-auto">
-            {products.map((p) => {
-              const checkboxId = `import-${p.key}`
-              const price = priceLabel(p)
-              const details = detailLabels(p)
-              return (
-                <li key={p.key} className={cn('px-5 py-3.5', selected.has(p.key) && 'bg-muted-bg/40')}>
-                  <div className="flex items-start gap-4">
-                    <input
-                      id={checkboxId}
-                      type="checkbox"
-                      checked={selected.has(p.key)}
-                      disabled={importing}
-                      onChange={() => onToggle(p.key)}
-                      className="w-4 h-4 mt-5 shrink-0 rounded border-border-warm accent-primary cursor-pointer"
-                    />
-                    <Thumbnail src={p.imageUrls[0]} alt={p.name} />
-                    <div className="flex-1 min-w-0">
-                      <label
-                        htmlFor={checkboxId}
-                        className="block text-[14px] font-[600] font-sans text-primary cursor-pointer truncate"
-                      >
-                        {p.name}
-                      </label>
-                      <p className="text-[12.5px] font-sans text-muted-text mt-0.5">
-                        {p.variants.length > 0 ? plural(p.variants.length, 'variant') : 'No variants'}
-                        {' · '}
-                        {plural(p.imageUrls.length, 'image')}
-                        {details.map((d) => ` · ${d}`).join('')}
-                      </p>
-                      {(p.published === 'private' || p.published === 'draft') && (
-                        <span className="inline-flex items-center gap-1 mt-1 rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-[11.5px] font-[600] font-sans text-primary">
-                          <AlertTriangle size={11} aria-hidden="true" />
-                          {PUBLISHED_BADGE[source][p.published]}
-                        </span>
-                      )}
-                      <ProductCategory
-                        tree={tree}
-                        value={productCategory[p.key] ?? ''}
-                        defaultCategoryId={categoryId}
-                        suggestedPath={p.suggestedCategory?.path ?? null}
-                        productName={p.name}
+          <div className="relative">
+            <ul className="divide-y divide-border-warm max-h-[560px] overflow-y-auto">
+              {products.map((p) => {
+                const checkboxId = `import-${p.key}`
+                const price = priceLabel(p, productPrice[p.key])
+                const details = detailLabels(p)
+                const moqVal = productMoq[p.key]
+                return (
+                  <li key={p.key} className={cn('px-5 py-3.5', selected.has(p.key) && 'bg-muted-bg/40')}>
+                    <div className="flex items-start gap-4">
+                      <input
+                        id={checkboxId}
+                        type="checkbox"
+                        checked={selected.has(p.key)}
                         disabled={importing}
-                        missing={missingKeys.has(p.key)}
-                        onChange={(id) => onProductCategory(p.key, id)}
+                        onChange={() => onToggle(p.key)}
+                        className="w-4 h-4 mt-5 shrink-0 rounded border-border-warm accent-primary cursor-pointer"
                       />
-                      <IssueList issues={p.issues} />
+                      <Thumbnail src={p.imageUrls[0]} alt={p.name} />
+                      <div className="flex-1 min-w-0">
+                        <label
+                          htmlFor={checkboxId}
+                          className="block text-[14px] font-[600] font-sans text-primary cursor-pointer truncate"
+                        >
+                          {p.name}
+                        </label>
+                        <p className="text-[12.5px] font-sans text-muted-text mt-0.5">
+                          {p.variants.length > 0 ? plural(p.variants.length, 'variant') : 'No variants'}
+                          {' · '}
+                          {plural(p.imageUrls.length, 'image')}
+                          {details.map((d) => ` · ${d}`).join('')}
+                        </p>
+                        {publishedBadge && (p.published === 'private' || p.published === 'draft') && (
+                          <span className="inline-flex items-center gap-1 mt-1 rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-[11.5px] font-[600] font-sans text-primary">
+                            <AlertTriangle size={11} aria-hidden="true" />
+                            {publishedBadge[p.published]}
+                          </span>
+                        )}
+                        <ProductCategory
+                          tree={tree}
+                          value={productCategory[p.key] ?? ''}
+                          defaultCategoryId={categoryId}
+                          suggestedPath={p.suggestedCategory?.path ?? null}
+                          productName={p.name}
+                          disabled={importing}
+                          missing={missingKeys.has(p.key)}
+                          onChange={(id) => onProductCategory(p.key, id)}
+                        />
+                        {/* Per-product MOQ + price inline edit */}
+                        <div className="flex flex-wrap gap-3 mt-2">
+                          <div className="flex items-center gap-1.5">
+                            <label
+                              htmlFor={`moq-${p.key}`}
+                              className="text-[12px] font-[600] font-sans text-muted-text whitespace-nowrap"
+                            >
+                              MOQ:
+                            </label>
+                            <input
+                              id={`moq-${p.key}`}
+                              type="number"
+                              min="0"
+                              step="1"
+                              disabled={importing}
+                              value={moqVal ?? ''}
+                              onChange={(e) => {
+                                const n = parseInt(e.target.value, 10)
+                                onProductMoq(p.key, isNaN(n) || e.target.value === '' ? undefined : n)
+                              }}
+                              placeholder="0"
+                              className="w-20 h-8 px-2 rounded border border-border-warm bg-surface text-[13px] font-sans text-primary focus:outline-none focus:border-primary disabled:opacity-50"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <label
+                              htmlFor={`price-${p.key}`}
+                              className="text-[12px] font-[600] font-sans text-muted-text whitespace-nowrap"
+                            >
+                              Price ₹:
+                            </label>
+                            <input
+                              id={`price-${p.key}`}
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              disabled={importing}
+                              value={productPrice[p.key] ?? ''}
+                              onChange={(e) => {
+                                const n = parseFloat(e.target.value)
+                                onProductPrice(p.key, isNaN(n) || e.target.value === '' ? undefined : n)
+                              }}
+                              placeholder={price ?? 'Enter price'}
+                              className="w-28 h-8 px-2 rounded border border-border-warm bg-surface text-[13px] font-sans text-primary focus:outline-none focus:border-primary disabled:opacity-50"
+                            />
+                          </div>
+                        </div>
+                        <IssueList issues={p.issues} />
+                      </div>
+                      <div className="text-right shrink-0">
+                        {price ? (
+                          <>
+                            <p className="text-[14px] font-[600] font-sans text-primary">{price}</p>
+                            <p className="text-[11.5px] font-sans text-muted-text">
+                              {typeof productPrice[p.key] === 'number' ? 'Edited' : 'Your price'}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-[12.5px] font-sans text-muted-text">No price</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      {price ? (
-                        <>
-                          <p className="text-[14px] font-[600] font-sans text-primary">{price}</p>
-                          <p className="text-[11.5px] font-sans text-muted-text">Your price</p>
-                        </>
-                      ) : (
-                        <p className="text-[12.5px] font-sans text-muted-text">No price</p>
-                      )}
-                    </div>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
+                  </li>
+                )
+              })}
+            </ul>
+            {selected.size > 0 && (
+              <BulkEditBar
+                selectedCount={selected.size}
+                tree={tree}
+                disabled={importing}
+                onApply={handleBulkApply}
+              />
+            )}
+          </div>
         </div>
       )}
 
@@ -725,7 +905,7 @@ function ResultStep({
           )}
         </div>
         <p className="text-[12.5px] font-sans text-muted-text mt-3">
-          Drafts aren’t visible to anyone yet. Open each one to confirm MOQ, pricing and details, then submit it for
+          Drafts aren't visible to anyone yet. Open each one to confirm MOQ, pricing and details, then submit it for
           review.
         </p>
         <div className="mt-5">
@@ -781,7 +961,7 @@ function ResultStep({
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
-/** Spreadsheet (Shopify / WooCommerce export) product import. Drives both the
+/** Spreadsheet (Shopify / WooCommerce / Etsy export) product import. Drives both the
  *  seller self-service page and the admin on-behalf-of page — pass
  *  `sellerProfileId` for the admin case. */
 export function SpreadsheetProductImport({ sellerProfileId }: { sellerProfileId?: string }) {
@@ -792,6 +972,8 @@ export function SpreadsheetProductImport({ sellerProfileId }: { sellerProfileId?
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [categoryId, setCategoryId] = useState('')
   const [productCategory, setProductCategory] = useState<Record<string, string>>({})
+  const [productMoq, setProductMoq] = useState<Record<string, number>>({})
+  const [productPrice, setProductPrice] = useState<Record<string, number>>({})
   const [progress, setProgress] = useState<{ processed: number; total: number } | null>(null)
 
   const step: Step = importer.data ? 'result' : preview.data ? 'review' : 'upload'
@@ -821,6 +1003,8 @@ export function SpreadsheetProductImport({ sellerProfileId }: { sellerProfileId?
           if (p.suggestedCategory?.id) suggested[p.key] = p.suggestedCategory.id
         }
         setProductCategory(suggested)
+        setProductMoq({})
+        setProductPrice({})
       },
     })
   }
@@ -837,11 +1021,16 @@ export function SpreadsheetProductImport({ sellerProfileId }: { sellerProfileId?
   function handleImport() {
     const chosen = products.filter((p) => selected.has(p.key))
     if (chosen.length === 0) return
-    const withCategory = chosen.map((p) => ({ ...p, categoryId: productCategory[p.key] || null }))
-    if (withCategory.some((p) => !p.categoryId) && !categoryId) return
+    const withOverrides = chosen.map((p) => ({
+      ...p,
+      categoryId: productCategory[p.key] || null,
+      moq: productMoq[p.key],
+      sellerPrice: productPrice[p.key] ?? p.sellerPrice,
+    }))
+    if (withOverrides.some((p) => !p.categoryId) && !categoryId) return
     importer.mutate({
       categoryId: categoryId || undefined,
-      products: withCategory,
+      products: withOverrides,
       onProgress: (processed, total) => setProgress({ processed, total }),
     })
   }
@@ -852,6 +1041,8 @@ export function SpreadsheetProductImport({ sellerProfileId }: { sellerProfileId?
     setFileError(null)
     setSelected(new Set())
     setProductCategory({})
+    setProductMoq({})
+    setProductPrice({})
     setProgress(null)
     // Keep the chosen category — sellers often import several files into the same one.
   }
@@ -887,6 +1078,24 @@ export function SpreadsheetProductImport({ sellerProfileId }: { sellerProfileId?
           setProductCategory((prev) => {
             const next = { ...prev }
             if (id) next[key] = id
+            else delete next[key]
+            return next
+          })
+        }
+        productMoq={productMoq}
+        onProductMoq={(key, moq) =>
+          setProductMoq((prev) => {
+            const next = { ...prev }
+            if (moq !== undefined) next[key] = moq
+            else delete next[key]
+            return next
+          })
+        }
+        productPrice={productPrice}
+        onProductPrice={(key, price) =>
+          setProductPrice((prev) => {
+            const next = { ...prev }
+            if (price !== undefined) next[key] = price
             else delete next[key]
             return next
           })
