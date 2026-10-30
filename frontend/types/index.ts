@@ -748,7 +748,7 @@ export interface CartQuote {
 
 // ─── Spreadsheet product import (Shopify / WooCommerce CSV or .xlsx) ─────────
 
-export type ProductImportSource = 'shopify' | 'woocommerce'
+export type ProductImportSource = 'shopify' | 'woocommerce' | 'etsy'
 
 export interface ImportCandidateVariant {
   name: string
@@ -794,6 +794,8 @@ export interface ImportCandidate {
   suggestedCategory?: ImportSuggestedCategory | null
   /** Sent by the client: the category chosen for this product. */
   categoryId?: string | null
+  /** MOQ set by the user in the review screen. */
+  moq?: number
 }
 
 export interface ProductImportPreview {

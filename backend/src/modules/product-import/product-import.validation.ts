@@ -66,6 +66,7 @@ const candidateSchema = z.object({
     .nullable()
     .optional(),
   categoryId: z.string().uuid().nullable().optional(),
+  moq: z.number().int().min(0).max(99999).optional(),
 });
 
 export const importProductsSchema = z.object({

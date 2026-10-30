@@ -1834,6 +1834,7 @@ These exist in the shipped code and are now documented in the body of this PRD a
 | 4.0 | 17 October 2026 | **Marketplace model removed** (owner decision): curation + agent programme only for at least a year. Brand storefronts, brand portal, MOV, 24h brand acceptance and auto-cancel, commission, brand payouts, brand invites/follows, admin Brands page and seller-type switch, marketplace application path and marketplace copy removed; existing marketplace sellers converted to Curated by data migration. §17 marked historical; code preserved on branch `archive/marketplace-model`. |
 | 3.15 | 15 October 2026 | Solomon AI guide and admin knowledge base (§18.14a). |
 | 3.14 | 15 October 2026 | Excel import of seller applications; approved applications move to Sellers; server-side search (§18.2). |
+| 3.16 | October 2026 | Etsy CSV import: auto-detects Etsy listing export format (TITLE/PRICE/CURRENCY_CODE columns) alongside Shopify/WooCommerce; generates variants from VARIATION columns; per-product MOQ and price editing in the review step; bulk select + bulk edit bar for applying MOQ, price and category to multiple products at once. Updated §17.14. |
 | 3.13 | 15 October 2026 | Admin deletes non-approved seller applications (§18.2). |
 | 3.12 | 15 October 2026 | Admin switch between Curated and Marketplace for approved sellers (§18.2). |
 | 3.11 | 15 October 2026 | Direct sample ordering through cart and checkout (§18.7). |
@@ -2106,13 +2107,13 @@ For marketplace sellers the Seller Portal becomes a Brand Portal. Curated seller
 | Brand order status change | Buyer | In-app |
 | Payout marked paid | Seller | In-app (amount in ₹) |
 
-### 17.14 Product import from Shopify / WooCommerce spreadsheets
+### 17.14 Product import from Shopify / WooCommerce / Etsy spreadsheets
 
-Sellers can bring an existing catalogue in by uploading a store export instead of re-typing products. This is **file-based only** — there is no live connection to a Shopify or WooCommerce store, no stored store credentials and no background sync.
+Sellers can bring an existing catalogue in by uploading a store export instead of re-typing products. This is **file-based only** — there is no live connection to any store, no stored store credentials and no background sync.
 
 - **Who:** any approved seller from Portal → Import products; admin can import on behalf of a seller from the seller's page.
-- **Formats:** Shopify product CSV export, WooCommerce product CSV export, or either saved as `.xlsx`. The format is detected from the column headers; an unknown format gets a clear error naming the supported ones. Limits: 5 MB per file, 1,000 products per file.
-- **Flow:** (1) **Upload** the file, with on-page instructions for exporting from each platform. (2) **Review** — the detected source, file-level warnings, and a list of the products found, each with a thumbnail, name, variant count, price and any per-product issues (such as "No price found" or "No images"); the seller ticks the products to import and chooses one level-3 category for the batch. (3) **Result** — created products with links, and any failures with reasons.
+- **Formats:** Shopify product CSV export, WooCommerce product CSV export, **Etsy listings CSV export**, or any of these saved as `.xlsx`. The format is detected from the column headers; an unknown format gets a clear error naming the supported ones. Limits: 5 MB per file, 1,000 products per file.
+- **Flow:** (1) **Upload** the file, with on-page instructions for exporting from each platform. (2) **Review** — the detected source, file-level warnings, and a list of the products found, each with a thumbnail, name, variant count, price and any per-product issues (such as "No price found" or "No images"); the seller ticks the products to import and chooses one level-3 category for the batch. Per-product **MOQ** and **seller price (₹)** can be edited inline on the review screen. When two or more products are selected a **bulk edit bar** appears at the bottom of the list: enter an MOQ, price, or category once and apply it to all selected products in one step. (3) **Result** — created products with links, and any failures with reasons.
 - **Mapping (general):** name, description (HTML stripped to plain text), images (downloaded and re-hosted in the platform's image storage), price, variants and options, SKUs, and a materials value where the file has one. Rows sharing a Shopify handle (or a WooCommerce parent) become one product with variants.
 - **WooCommerce mapping.** The WooCommerce reader follows the official *Product CSV Import Schema* (the documented column set, including the numbered `Attribute N …` groups and unit-suffixed headers such as `Weight (kg)` and `Length (cm)`):
 
@@ -2154,9 +2155,24 @@ Sellers can bring an existing catalogue in by uploading a store export instead o
 
   Real Shopify files are often messy, so the reader also ignores a stray note line that has only a handle (with a file warning) and collapses exact duplicate variant rows (same options and SKU) with a note on the product.
 - **Templates:** the import page offers a downloadable template for each platform with the official column headings and example rows.
-- **Created as drafts** with MOQ 0 and declared stock 0, so the seller completes MOQ, stock and tiers before submitting (curated) or publishing (brand). Imported prices are the seller's own store prices and become the seller price on the draft (curated) or the starting buyer price (brand). The admin price is never set by an import.
+- **Created as drafts** with the MOQ the user set on the review screen (default 0 if skipped) and declared stock from the file. Imported prices are the seller's own store prices (or the override set in the review step) and become the seller price on the draft. The admin price is never set by an import.
+- **Etsy mapping.** The Etsy reader processes the "Download your listing data" CSV from Etsy Seller Dashboard:
+
+  | Etsy column | Imported as |
+  |---|---|
+  | `TITLE` | Product name (max 60 chars) |
+  | `DESCRIPTION` | Description (plain text, max 1,000 chars) |
+  | `PRICE` | Seller price (in the listing currency — seller sets INR price on review screen) |
+  | `QUANTITY` | Declared stock |
+  | `TAGS` | Tags (comma-separated; underscores converted to spaces) |
+  | `MATERIALS` | Materials |
+  | `IMAGE1`–`IMAGE10` | Images (CDN URLs hotlinked at import time, then re-hosted) |
+  | `VARIATION N NAME` + `VARIATION N VALUES` | Variant dimensions; all combinations generated as variants |
+  | `SKU` | SKU (suffixed per variant when multiple exist) |
+  | `CURRENCY_CODE` | Used only for format detection, not stored |
+
 - **Safety and quality rules:** products whose SKU already exists are rejected (so importing the same file twice does not create duplicates); a failed image is skipped and the rest of the product still imports; one failing product never stops the others; field lengths follow the product form (name 60, description 1,000, materials 500) with a note when something is shortened; image links are fetched only from public web addresses, with limits on size, redirects and time.
-- **Not imported from Shopify files:** stock quantities, weights and dimensions (WooCommerce files carry them — see above).
+- **Not imported from Shopify files:** stock quantities, weights and dimensions (WooCommerce files carry them — see above). Etsy files carry stock (QUANTITY) but not weight or dimensions.
 - **Publish-readiness hints:** the review step flags products that still lack what publishing needs, for example "No weight" or fewer than two images. A draft can be saved without them; publishing needs a description, materials, a weight above zero, a MOQ of at least 1, declared stock, a price and between 2 and 10 images.
 - **Known limits:** a CSV that was opened and re-saved in Excel may already have damaged long SKUs or fractions; only the first sheet of an `.xlsx` is read; WooCommerce headings are matched in English only. A spreadsheet in any other layout (for example a custom catalogue sheet) is rejected with a message naming the supported formats.
 - **Status:** merged and live (v3.9).

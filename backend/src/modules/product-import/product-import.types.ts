@@ -1,6 +1,6 @@
 import type { SpreadsheetKind } from '../../middleware/upload';
 
-export type ProductImportSource = 'shopify' | 'woocommerce';
+export type ProductImportSource = 'shopify' | 'woocommerce' | 'etsy';
 
 export interface ImportCandidateVariant {
   name: string;
@@ -62,6 +62,8 @@ export interface ImportCandidate {
   suggestedCategory?: SuggestedCategory | null;
   /** Client-chosen level-3 category for this product (validated on import). */
   categoryId?: string | null;
+  /** MOQ set by the user in the review screen; 0 if not provided. */
+  moq?: number;
 }
 
 export interface ProductImportPreview {

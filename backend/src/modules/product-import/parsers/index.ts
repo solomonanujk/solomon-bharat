@@ -4,15 +4,18 @@ import { IMPORT_LIMITS } from './shared';
 import { readSpreadsheet } from './spreadsheet';
 import { isShopifyHeaderSet, parseShopifyRows } from './shopify';
 import { isWooCommerceHeaderSet, parseWooCommerceRows } from './woocommerce';
+import { isEtsyHeaderSet, parseEtsyRows } from './etsy';
 
 export const UNKNOWN_FORMAT_MESSAGE =
   "We couldn't recognise this file. Upload a Shopify product CSV export (columns like Handle, Title, " +
-  'Variant Price) or a WooCommerce product CSV export (columns like ID, Type, SKU, Name, Regular price) — ' +
+  'Variant Price), a WooCommerce product CSV export (columns like ID, Type, SKU, Name, Regular price), or ' +
+  'an Etsy product CSV export (columns like TITLE, PRICE, CURRENCY_CODE) — ' +
   'as .csv, or the same export saved as .xlsx in Excel.';
 
 export function detectSource(headers: string[]): ProductImportSource | null {
   if (isShopifyHeaderSet(headers)) return 'shopify';
   if (isWooCommerceHeaderSet(headers)) return 'woocommerce';
+  if (isEtsyHeaderSet(headers)) return 'etsy';
   return null;
 }
 
@@ -23,7 +26,11 @@ export async function parseProductSpreadsheet(buffer: Buffer, kind: SpreadsheetK
   if (!source) throw AppError.unprocessable(UNKNOWN_FORMAT_MESSAGE);
 
   const parsed =
-    source === 'shopify' ? parseShopifyRows(sheet.rows, sheet.headers) : parseWooCommerceRows(sheet.rows, sheet.headers);
+    source === 'shopify'
+      ? parseShopifyRows(sheet.rows, sheet.headers)
+      : source === 'woocommerce'
+        ? parseWooCommerceRows(sheet.rows, sheet.headers)
+        : parseEtsyRows(sheet.rows);
 
   if (parsed.products.length === 0) {
     throw AppError.unprocessable('The file contains no products');
@@ -39,5 +46,6 @@ export async function parseProductSpreadsheet(buffer: Buffer, kind: SpreadsheetK
 
 export { parseShopifyRows } from './shopify';
 export { parseWooCommerceRows } from './woocommerce';
+export { parseEtsyRows } from './etsy';
 export { readCsv, readXlsx, readSpreadsheet } from './spreadsheet';
 export { IMPORT_LIMITS, parsePrice, stripHtml, isHttpUrl } from './shared';
