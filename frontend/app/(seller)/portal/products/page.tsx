@@ -77,21 +77,27 @@ export default function ProductsPage() {
   const total = data?.total ?? 0
   const totalPages = pageSize === 0 ? 1 : Math.max(1, Math.ceil(total / pageSize))
 
-  // Duplicate detection — products with the same lowercased name
+  // Fetch ALL products (no status filter, high limit) only when duplicate mode is on
+  const { data: allProductsData } = useMyProducts(
+    showDuplicates ? { limit: 10_000, page: 1 } : undefined,
+  )
+  const allProducts = allProductsData?.items ?? []
+
+  // Duplicate detection across ALL products (not just current page)
   const duplicateNames = useMemo(() => {
-    if (!showDuplicates) return new Set<string>()
+    if (!showDuplicates || !allProducts.length) return new Set<string>()
     const counts: Record<string, number> = {}
-    for (const p of products) {
+    for (const p of allProducts) {
       const key = p.name.toLowerCase().trim()
       counts[key] = (counts[key] ?? 0) + 1
     }
     return new Set(Object.entries(counts).filter(([, c]) => c > 1).map(([k]) => k))
-  }, [products, showDuplicates])
+  }, [allProducts, showDuplicates])
 
   const isDuplicate = (name: string) => duplicateNames.has(name.toLowerCase().trim())
   const duplicateCount = useMemo(
-    () => products.filter((p) => isDuplicate(p.name)).length,
-    [products, duplicateNames],
+    () => allProducts.filter((p) => isDuplicate(p.name)).length,
+    [allProducts, duplicateNames],
   )
 
   const pageIds = useMemo(() => products.map((p) => p.id), [products])
@@ -190,7 +196,8 @@ export default function ProductsPage() {
   }
 
   async function handleDeleteDuplicates() {
-    const dupes = products.filter((p) => isDuplicate(p.name))
+    // Use full catalogue for deletion, not just current page
+    const dupes = allProducts.filter((p) => isDuplicate(p.name))
     // Keep the first occurrence of each name, delete the rest
     const seen = new Set<string>()
     const toDelete = dupes.filter((p) => {
