@@ -17,6 +17,7 @@ const ROTATING_WORDS = [
   'reselling business',
   'dropshipping store',
   'ecom brand',
+  'D2C brand',
 ]
 
 // ─── Media ────────────────────────────────────────────────────────────────────
