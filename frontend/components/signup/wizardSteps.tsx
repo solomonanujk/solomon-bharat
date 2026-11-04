@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 // which live on the full page (app/signup/page.tsx). All share the types, form
 // styles and step components here.
 //
-// Only email/password/name/country map to core account fields — everything
+// Only email/password/name/mobile/country map to core account fields — everything
 // from "business type" onward (businessType, businessOpenedYear, website,
 // hearAboutUs, preferredLanguage, marketingOptOut) is optional BuyerProfile
 // data (see backend auth.validation.ts signupBuyerSchema). "I'm just shopping
@@ -55,6 +55,8 @@ export interface WizardState {
   password: string
   firstName: string
   lastName: string
+  /** Mobile number (required) — free-form, country code encouraged. */
+  phone: string
   country: string
   language: string
   marketingOptOut: boolean
@@ -67,7 +69,7 @@ export interface WizardState {
 
 export function initialWizardState(email = ''): WizardState {
   return {
-    email, signupToken: '', password: '', firstName: '', lastName: '', country: '', language: 'English (US)',
+    email, signupToken: '', password: '', firstName: '', lastName: '', phone: '', country: '', language: 'English (US)',
     marketingOptOut: false, businessType: '', businessOpenedYear: '', businessName: '', website: '',
     hearAboutUs: [],
   }
@@ -315,13 +317,24 @@ const LINK_BTN_CLS =
 
 // ─── Step 2 — name, password, country, language ────────────────────────────────
 
-export type Step2Field = 'firstName' | 'lastName' | 'password' | 'country'
+export type Step2Field = 'firstName' | 'lastName' | 'phone' | 'password' | 'country'
 export type Step2Errors = Partial<Record<Step2Field, string>>
+
+/** Mirrors the backend rule: digits with optional leading +, spaces, dashes,
+ *  dots or brackets; 7–15 digits in total. */
+export function isValidMobile(value: string): boolean {
+  const v = value.trim()
+  if (!/^\+?[\d\s\-().]+$/.test(v)) return false
+  const digits = v.replace(/\D/g, '').length
+  return digits >= 7 && digits <= 15
+}
 
 export function validateStep2(data: WizardState): Step2Errors {
   const errors: Step2Errors = {}
   if (!data.firstName.trim()) errors.firstName = 'Enter your first name.'
   if (!data.lastName.trim()) errors.lastName = 'Enter your last name.'
+  if (!data.phone.trim()) errors.phone = 'Enter your mobile number.'
+  else if (!isValidMobile(data.phone)) errors.phone = 'Enter a valid mobile number, like +44 7700 900123.'
   if (data.password.length < 8) errors.password = 'Password must be at least 8 characters.'
   if (!data.country) errors.country = 'Select your country or region.'
   return errors
@@ -360,6 +373,25 @@ export function Step2Welcome({ data, patch, onNext, errors }: {
               onChange={(e) => patch({ lastName: e.target.value })} className={INPUT_CLS} />
             <FieldError id="wizard-lastName-error" message={errors.lastName} />
           </div>
+        </div>
+
+        <div>
+          <label htmlFor="wizard-phone" className={LABEL_CLS}>Mobile number</label>
+          <input
+            id="wizard-phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="+44 7700 900123"
+            value={data.phone}
+            aria-required="true"
+            aria-invalid={!!errors.phone || undefined}
+            aria-describedby={errors.phone ? 'wizard-phone-error wizard-phone-help' : 'wizard-phone-help'}
+            onChange={(e) => patch({ phone: e.target.value })}
+            className={INPUT_CLS}
+          />
+          <p id="wizard-phone-help" className={HELP_CLS}>Include your country code</p>
+          <FieldError id="wizard-phone-error" message={errors.phone} />
         </div>
 
         <div>

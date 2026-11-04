@@ -65,7 +65,8 @@ export interface SignupInput {
   contactName: string
   country: string
   companyName?: string
-  phone?: string
+  /** Mobile number — required at signup. */
+  phone: string
   businessType?: string
   businessOpenedYear?: string
   website?: string
