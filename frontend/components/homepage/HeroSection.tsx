@@ -110,26 +110,24 @@ export function HeroSection() {
       />
 
       <div className="relative z-10 w-full sb-container py-12 lg:py-[72px]">
-        <h1 id="home-hero-heading" className="type-hero text-white max-w-[720px]">
-          Discover &amp; Source Handmade Products from India
+        <h1 id="home-hero-heading" className="type-hero text-white max-w-[700px]">
+          Discover and source Indian products for{' '}
+          <span className="text-brass inline-flex items-baseline gap-0 overflow-hidden">
+            your{' '}
+            <span
+              style={{
+                display: 'inline-block',
+                transition: 'opacity 0.35s ease, transform 0.35s ease',
+                opacity: animating ? 0 : 1,
+                transform: animating ? 'translateY(12px)' : 'translateY(0)',
+              }}
+            >
+              {ROTATING_WORDS[wordIndex]}
+            </span>
+          </span>
         </h1>
 
-        {/* Animated audience word — "for your" is static, only the term rotates */}
-        <p className="type-hero text-brass mt-2 max-w-[720px] leading-tight min-h-[1.3em]">
-          for your{' '}
-          <span
-            style={{
-              display: 'inline-block',
-              transition: 'opacity 0.35s ease, transform 0.35s ease',
-              opacity: animating ? 0 : 1,
-              transform: animating ? 'translateY(10px)' : 'translateY(0)',
-            }}
-          >
-            {ROTATING_WORDS[wordIndex]}
-          </span>
-        </p>
-
-        <p className="type-hero-body text-light-text mt-5 max-w-[560px] font-semibold tracking-wide">
+        <p className="type-hero-body text-light-text mt-6 max-w-[560px]">
           No MOQ. No Middlemen. No Hidden Costs.
         </p>
 
