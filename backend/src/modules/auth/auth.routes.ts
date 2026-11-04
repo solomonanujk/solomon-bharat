@@ -6,8 +6,10 @@ import {
   forgotPasswordSchema,
   loginSchema,
   resetPasswordSchema,
+  sendSignupCodeSchema,
   signupBuyerSchema,
   verifyEmailQuerySchema,
+  verifySignupCodeSchema,
 } from './auth.validation';
 import { validate } from '../../middleware/validate';
 import { requireAuth } from '../../middleware/auth';
@@ -40,9 +42,47 @@ authRouter.get(
 
 /**
  * @openapi
+ * /auth/signup/send-code:
+ *   post:
+ *     summary: Email a 6-digit verification code to a prospective buyer (signup step 1b). 409 if the email is registered, 429 if requested again within a minute.
+ *     tags: [Auth]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: Code sent
+ */
+authRouter.post(
+  '/signup/send-code',
+  authRateLimiter,
+  validate(sendSignupCodeSchema),
+  asyncHandler(authController.sendSignupCode),
+);
+
+/**
+ * @openapi
+ * /auth/signup/verify-code:
+ *   post:
+ *     summary: Check the signup code; returns { signupToken } required by POST /auth/signup. Max 5 wrong attempts per code; codes expire after 10 minutes.
+ *     tags: [Auth]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: "{ signupToken: string }"
+ *       400:
+ *         description: Incorrect, expired or exhausted code
+ */
+authRouter.post(
+  '/signup/verify-code',
+  authRateLimiter,
+  validate(verifySignupCodeSchema),
+  asyncHandler(authController.verifySignupCode),
+);
+
+/**
+ * @openapi
  * /auth/signup:
  *   post:
- *     summary: Buyer self-service signup
+ *     summary: Buyer self-service signup — requires `signupToken` from /auth/signup/verify-code; the account is created with a verified email
  *     tags: [Auth]
  *     security: []
  *     requestBody:

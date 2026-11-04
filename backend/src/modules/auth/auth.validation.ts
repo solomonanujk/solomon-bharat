@@ -1,7 +1,20 @@
 import { z } from 'zod';
 
+export const sendSignupCodeSchema = z.object({
+  email: z.string().email(),
+});
+export type SendSignupCodeDto = z.infer<typeof sendSignupCodeSchema>;
+
+export const verifySignupCodeSchema = z.object({
+  email: z.string().email(),
+  code: z.string().regex(/^\d{6}$/, 'Enter the 6-digit code'),
+});
+export type VerifySignupCodeDto = z.infer<typeof verifySignupCodeSchema>;
+
 export const signupBuyerSchema = z.object({
   email: z.string().email(),
+  /** Ticket from POST /auth/signup/verify-code — proves the buyer owns `email`. */
+  signupToken: z.string().min(1),
   password: z.string().min(8).max(128),
   contactName: z.string().min(1).max(200),
   country: z.string().min(1).max(100),

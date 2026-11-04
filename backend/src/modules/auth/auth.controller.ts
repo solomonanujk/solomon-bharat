@@ -9,7 +9,9 @@ import {
   LoginDto,
   ResetPasswordDto,
   ChangePasswordDto,
+  SendSignupCodeDto,
   SignupBuyerDto,
+  VerifySignupCodeDto,
   VerifyEmailQueryDto,
 } from './auth.validation';
 
@@ -20,18 +22,26 @@ export const authController = {
     sendSuccess(res, { exists });
   },
 
+  async sendSignupCode(req: Request, res: Response): Promise<void> {
+    const { email } = req.body as SendSignupCodeDto;
+    await authService.sendSignupCode(email);
+    sendSuccess(res, null, 'Verification code sent');
+  },
+
+  async verifySignupCode(req: Request, res: Response): Promise<void> {
+    const { email, code } = req.body as VerifySignupCodeDto;
+    const result = await authService.verifySignupCode(email, code);
+    sendSuccess(res, result, 'Email verified');
+  },
+
   async signup(req: Request, res: Response): Promise<void> {
     const dto = req.body as SignupBuyerDto;
     await authService.signupBuyer(dto);
-    // Sign the new buyer in straight away (login does not require a verified email), so the
-    // frontend gets a real session and the buyer sees wholesale prices immediately.
+    // Sign the new buyer in straight away, so the frontend gets a real session and the
+    // buyer sees wholesale prices immediately. The email is already verified by this point.
     const { user, tokens } = await authService.login({ email: dto.email, password: dto.password });
     setAuthCookies(res, tokens.refreshToken, tokens.csrfToken);
-    sendCreated(
-      res,
-      { user, accessToken: tokens.accessToken, csrfToken: tokens.csrfToken },
-      'Account created. Please check your email to verify your address.',
-    );
+    sendCreated(res, { user, accessToken: tokens.accessToken, csrfToken: tokens.csrfToken }, 'Account created');
   },
 
   async login(req: Request, res: Response): Promise<void> {

@@ -23,8 +23,9 @@ function createRedisLimiter(options: { windowMs: number; limit: number; prefix: 
   });
 }
 
-// Login and password-reset only, per visitor IP, to slow password guessing. Public forms
-// (sign-up, seller/agent applications) and the rest of the API are not rate limited.
+// Login, password-reset and signup email codes (send/verify), per visitor IP, to slow
+// password and code guessing. Other public forms (the final sign-up submit, seller/agent
+// applications) and the rest of the API are not rate limited.
 export const authRateLimiter = createRedisLimiter({
   windowMs: 15 * 60 * 1000,
   limit: 20,

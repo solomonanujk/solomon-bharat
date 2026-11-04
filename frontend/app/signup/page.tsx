@@ -13,7 +13,7 @@ import { Footer } from '@/components/shared/Footer'
 import { SignupEmailGate } from '@/components/shared/SignupEmailGate'
 import {
   type WizardState, type Step2Errors, initialWizardState, validateStep2, TOTAL_PAGE_STEPS,
-  Step2Welcome, Step3BusinessType, Step4OpenedYear, Step5BusinessName, Step6Website, Step7HearAboutUs,
+  StepVerifyEmail, Step2Welcome, Step3BusinessType, Step4OpenedYear, Step5BusinessName, Step6Website, Step7HearAboutUs,
 } from '@/components/signup/wizardSteps'
 
 // ─── Buyer signup page ─────────────────────────────────────────────────────────
@@ -23,7 +23,10 @@ import {
 // the URL (?email=) and the wizard starts at step 2.
 // `?next=` (validated to a same-origin relative path) is where the buyer
 // returns after creating an account or signing in.
+// After the email, the buyer must enter a 6-digit code sent to it ('verify'
+// step) before steps 2–7; from the AuthModal shortcut the page opens there.
 
+type Step = number | 'verify'
 
 function SignupPageInner() {
   const router = useRouter()
@@ -34,10 +37,14 @@ function SignupPageInner() {
   const next = safeNextPath(params.get('next')) ?? '/'
   const hasValidEmail = emailParam.includes('@')
 
-  const [step, setStep] = useState(hasValidEmail ? 2 : 1)
+  // 'verify' sits between step 1 (email) and step 2: the buyer must enter the
+  // 6-digit code emailed to them before the rest of the wizard opens.
+  const [step, setStep] = useState<Step>(hasValidEmail ? 'verify' : 1)
   const [data, setData] = useState<WizardState>(() => initialWizardState(hasValidEmail ? emailParam : ''))
   const [step2Errors, setStep2Errors] = useState<Step2Errors>({})
   const [error, setError] = useState<string | null>(null)
+  // If the signup ticket expires mid-wizard, the buyer re-verifies and comes back here.
+  const [resumeStep, setResumeStep] = useState<number | null>(null)
   const signup = useSignup()
 
   // Already signed in (e.g. switched to "Sign in" from this page and logged in
@@ -51,15 +58,23 @@ function SignupPageInner() {
     setData((d) => ({ ...d, ...fields }))
   }
 
-  function goTo(n: number) {
+  function goTo(n: Step) {
     setError(null)
     setStep(n)
     if (typeof window !== 'undefined') window.scrollTo({ top: 0 })
   }
 
+  /** Back to the email screen — a new email needs verifying again. */
+  function changeEmail() {
+    patch({ signupToken: '' })
+    setResumeStep(null)
+    goTo(1)
+  }
+
   function goBack() {
+    if (step === 'verify' || step === 2) return changeEmail()
     if (step === 7 && data.businessType === 'individual') return goTo(3)
-    goTo(step - 1)
+    if (typeof step === 'number') goTo(step - 1)
   }
 
   function submit(finalHearAboutUs: string[]) {
@@ -67,6 +82,7 @@ function SignupPageInner() {
     signup.mutate(
       {
         email: data.email.trim(),
+        signupToken: data.signupToken,
         password: data.password,
         contactName: `${data.firstName.trim()} ${data.lastName.trim()}`.trim(),
         country: data.country,
@@ -78,14 +94,25 @@ function SignupPageInner() {
         marketingOptOut: data.marketingOptOut,
         preferredLanguage: data.language || undefined,
       },
-      { onSuccess: () => router.push(next) }
+      {
+        onSuccess: () => router.push(next),
+        onError: (err) => {
+          // 400 here means the 2h signup ticket expired — re-verify, then resume.
+          const status = (err as { response?: { status?: number } }).response?.status
+          if (status === 400) {
+            patch({ signupToken: '' })
+            setResumeStep(7)
+            goTo('verify')
+          }
+        },
+      }
     )
   }
 
   const apiError = signup.error ? getApiError(signup.error) : null
-  // Step 1 isn't part of the counted page steps; steps 2–7 map to 1–6.
-  const progressStep = Math.max(0, step - 1)
-  const canGoBack = step > 2 || (step === 2 && !hasValidEmail)
+  // Step 1 and email verification aren't part of the counted page steps; steps 2–7 map to 1–6.
+  const progressStep = typeof step === 'number' ? Math.max(0, step - 1) : 0
+  const canGoBack = step !== 1
 
   return (
     <div className="min-h-screen bg-ivory flex flex-col">
@@ -100,11 +127,9 @@ function SignupPageInner() {
 
           <div className="w-full max-w-[440px] mx-auto lg:mx-0">
             <h1 className="type-h1 text-ink">Create your buyer account</h1>
-            {/* Never promise instant approval — the account is created now; the
-                email address still needs verifying. */}
             <p className="type-body text-muted mt-4">
               Sign up to view wholesale prices and order from Solomon Bharat&apos;s catalogue. We&apos;ll email you a
-              link to verify your address.
+              code to verify your address first.
             </p>
 
             {/* Progress */}
@@ -120,7 +145,7 @@ function SignupPageInner() {
                 </button>
               ) : <span />}
               <span className="type-caption text-muted" aria-live="polite">
-                {step === 1 ? 'Get started' : `Step ${progressStep} of ${TOTAL_PAGE_STEPS}`}
+                {step === 1 ? 'Get started' : step === 'verify' ? 'Verify your email' : `Step ${progressStep} of ${TOTAL_PAGE_STEPS}`}
               </span>
             </div>
             <div
@@ -141,7 +166,22 @@ function SignupPageInner() {
               {step === 1 && (
                 <SignupEmailGate
                   heading="Start with your email"
-                  onContinue={(email) => { patch({ email }); goTo(2) }}
+                  onContinue={(email) => { patch({ email, signupToken: '' }); goTo('verify') }}
+                  onSwitchToLogin={() => openAuthModal('login')}
+                />
+              )}
+
+              {step === 'verify' && (
+                <StepVerifyEmail
+                  key={data.email}
+                  email={data.email}
+                  onVerified={(signupToken) => {
+                    patch({ signupToken })
+                    const target = resumeStep ?? 2
+                    setResumeStep(null)
+                    goTo(target)
+                  }}
+                  onChangeEmail={changeEmail}
                   onSwitchToLogin={() => openAuthModal('login')}
                 />
               )}
