@@ -16,7 +16,7 @@ export interface SignupBuyerInput {
   contactName: string;
   country: string;
   companyName?: string;
-  phone?: string;
+  phone: string;
   businessType?: string;
   businessOpenedYear?: string;
   website?: string;

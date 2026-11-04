@@ -58,6 +58,7 @@ describe('auth controller', () => {
         password: 'password123',
         contactName: 'Ada Lovelace',
         country: 'US',
+        phone: '+1 (555) 010-2030',
       });
 
       expect(res.status).toBe(201);
@@ -87,6 +88,26 @@ describe('auth controller', () => {
         password: 'password123',
         contactName: 'Ada',
         country: 'US',
+        phone: '+1 555 010 2030',
+      });
+
+      expect(res.status).toBe(422);
+      expect(authService.signupBuyer).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['missing', undefined],
+      ['letters', '555-CALL-NOW'],
+      ['too short', '12345'],
+      ['too long', '+1234567890123456'],
+    ])('rejects a %s mobile number with 422', async (_label, phone) => {
+      const res = await request(app).post('/api/v1/auth/signup').send({
+        email: 'a@b.com',
+        signupToken: 'ticket',
+        password: 'password123',
+        contactName: 'Ada',
+        country: 'US',
+        phone,
       });
 
       expect(res.status).toBe(422);

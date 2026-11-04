@@ -134,7 +134,7 @@ describe('AuthService', () => {
   });
 
   describe('signupBuyer', () => {
-    const base = { password: 'password123', contactName: 'Jane Buyer', country: 'UK' };
+    const base = { password: 'password123', contactName: 'Jane Buyer', country: 'UK', phone: '+44 7700 900123' };
 
     it('rejects without a valid signup ticket', async () => {
       await expect(

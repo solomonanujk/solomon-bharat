@@ -86,6 +86,7 @@ function SignupPageInner() {
         password: data.password,
         contactName: `${data.firstName.trim()} ${data.lastName.trim()}`.trim(),
         country: data.country,
+        phone: data.phone.trim(),
         companyName: data.businessName.trim() || undefined,
         website: data.website.trim() || undefined,
         businessType: data.businessType || undefined,

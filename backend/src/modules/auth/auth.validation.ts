@@ -19,7 +19,17 @@ export const signupBuyerSchema = z.object({
   contactName: z.string().min(1).max(200),
   country: z.string().min(1).max(100),
   companyName: z.string().max(200).optional(),
-  phone: z.string().max(30).optional(),
+  /** Mobile number, required at signup. Digits with optional leading +, spaces, dashes,
+   *  dots or brackets; 7–15 digits in total (E.164 allows at most 15). */
+  phone: z
+    .string()
+    .trim()
+    .max(30)
+    .regex(/^\+?[\d\s\-().]+$/, 'Enter a valid mobile number')
+    .refine((v) => {
+      const digits = v.replace(/\D/g, '').length;
+      return digits >= 7 && digits <= 15;
+    }, 'Enter a valid mobile number'),
   // Faire-style onboarding wizard fields — all optional, collected progressively.
   businessType: z.string().max(50).optional(),
   businessOpenedYear: z.string().max(20).optional(),
