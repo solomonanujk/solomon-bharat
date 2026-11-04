@@ -4,19 +4,29 @@ import { AppError } from '../../utils/errors';
 import { comparePassword, compareToken, hashPassword, hashToken } from '../../utils/bcrypt';
 import {
   generateCsrfToken,
+  generateNumericCode,
   generateOpaqueToken,
   signAccessToken,
   signRefreshToken,
+  signSignupTicket,
   verifyRefreshToken,
+  verifySignupTicket,
 } from '../../utils/jwt';
 import { SafeUser, toSafeUser } from '../../utils/safeUser';
 import { mailProvider } from '../../providers/mail';
 import { AuthRepository, authRepository } from './auth.repository';
 import { AuthResult, LoginInput, SessionUser, SignupBuyerInput, TokenPair } from './auth.types';
 
-const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1h
 export const PASSWORD_SETUP_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (welcome emails)
+export const SIGNUP_CODE_TTL_MS = 10 * 60 * 1000; // 10 min
+export const SIGNUP_CODE_RESEND_COOLDOWN_MS = 60 * 1000; // 1 min between sends per email
+export const SIGNUP_CODE_MAX_ATTEMPTS = 5;
+
+/** Signup codes and tickets are keyed case-insensitively. */
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
 
 export class AuthService {
   constructor(private readonly repo: AuthRepository = authRepository) {}
@@ -49,27 +59,68 @@ export class AuthService {
     return !!existing;
   }
 
+  /**
+   * Signup step 1b: email a 6-digit code to a prospective buyer. Any earlier
+   * unused code for the email is invalidated. Throttled per email.
+   */
+  async sendSignupCode(rawEmail: string): Promise<void> {
+    const email = normalizeEmail(rawEmail);
+    const existing = await this.repo.findUserByEmail(rawEmail.trim());
+    if (existing) {
+      throw AppError.conflict('An account with this email already exists');
+    }
+
+    const latest = await this.repo.findLatestSignupCode(email);
+    if (latest && Date.now() - latest.createdAt.getTime() < SIGNUP_CODE_RESEND_COOLDOWN_MS) {
+      throw new AppError(429, 'Please wait a minute before requesting another code');
+    }
+
+    const code = generateNumericCode();
+    const codeHash = await hashToken(code);
+    await this.repo.replaceSignupCode(email, codeHash, new Date(Date.now() + SIGNUP_CODE_TTL_MS));
+
+    await mailProvider.sendMail({
+      to: rawEmail.trim(),
+      subject: `${code} is your Solomon Bharat verification code`,
+      html: `<p>Your Solomon Bharat verification code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p><p>It expires in ${SIGNUP_CODE_TTL_MS / 60000} minutes. If you didn't try to sign up, you can ignore this email.</p>`,
+    });
+  }
+
+  /** Signup step 1c: check the code; on success return a signup ticket for POST /auth/signup. */
+  async verifySignupCode(rawEmail: string, code: string): Promise<{ signupToken: string }> {
+    const email = normalizeEmail(rawEmail);
+    const record = await this.repo.findLatestSignupCode(email);
+    if (!record || record.usedAt || record.expiresAt < new Date()) {
+      throw AppError.badRequest('This code has expired. Request a new one.');
+    }
+    if (record.attempts >= SIGNUP_CODE_MAX_ATTEMPTS) {
+      throw AppError.badRequest('Too many incorrect attempts. Request a new code.');
+    }
+
+    const matches = await compareToken(code, record.codeHash);
+    if (!matches) {
+      await this.repo.incrementSignupCodeAttempts(record.id);
+      throw AppError.badRequest('That code is incorrect. Check your email and try again.');
+    }
+
+    await this.repo.markSignupCodeUsed(record.id);
+    return { signupToken: signSignupTicket(email) };
+  }
+
   async signupBuyer(input: SignupBuyerInput): Promise<SafeUser> {
+    const ticketEmail = verifySignupTicket(input.signupToken);
+    if (!ticketEmail || ticketEmail !== normalizeEmail(input.email)) {
+      throw AppError.badRequest('Your email verification has expired. Please verify your email again.');
+    }
+
     const existing = await this.repo.findUserByEmail(input.email);
     if (existing) {
       throw AppError.conflict('An account with this email already exists');
     }
 
     const passwordHash = await hashPassword(input.password);
+    // createBuyerUser stamps emailVerifiedAt — ownership was proven by the code.
     const user = await this.repo.createBuyerUser(input, passwordHash);
-
-    const rawToken = generateOpaqueToken();
-    const tokenHash = await hashToken(rawToken);
-    const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS);
-    const record = await this.repo.createEmailVerificationToken(user.id, tokenHash, expiresAt);
-
-    const verifyUrl = `${env.APP_URL}/verify-email?id=${record.id}&token=${rawToken}`;
-    await mailProvider.sendMail({
-      to: user.email,
-      subject: 'Verify your Solomon Bharat account',
-      html: `<p>Welcome to Solomon Bharat. Please verify your email by clicking the link below:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
-    });
-
     return toSafeUser(user);
   }
 

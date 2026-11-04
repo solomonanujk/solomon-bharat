@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Role, UserStatus, User } from '@prisma/client';
-import { hashPassword, hashToken } from '../../utils/bcrypt';
-import { signRefreshToken } from '../../utils/jwt';
+import { Role, UserStatus, User, SignupEmailCode } from '@prisma/client';
+import { compareToken, hashPassword, hashToken } from '../../utils/bcrypt';
+import { signRefreshToken, signSignupTicket, verifySignupTicket } from '../../utils/jwt';
+import { mailProvider } from '../../providers/mail';
 import { AuthRepository } from './auth.repository';
 import { AuthService } from './auth.service';
 
@@ -41,7 +42,24 @@ function buildMockRepo(): AuthRepository {
     createPasswordResetToken: vi.fn(),
     findPasswordResetTokenById: vi.fn(),
     markPasswordResetTokenUsed: vi.fn(),
+    findLatestSignupCode: vi.fn(),
+    replaceSignupCode: vi.fn(),
+    incrementSignupCodeAttempts: vi.fn(),
+    markSignupCodeUsed: vi.fn(),
   } as unknown as AuthRepository;
+}
+
+function buildCode(overrides: Partial<SignupEmailCode> = {}): SignupEmailCode {
+  return {
+    id: 'code-1',
+    email: 'buyer@example.com',
+    codeHash: 'hash',
+    attempts: 0,
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    usedAt: null,
+    createdAt: new Date(Date.now() - 5 * 60 * 1000),
+    ...overrides,
+  };
 }
 
 describe('AuthService', () => {
@@ -49,48 +67,110 @@ describe('AuthService', () => {
   let service: AuthService;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     repo = buildMockRepo();
     service = new AuthService(repo);
   });
 
-  describe('signupBuyer', () => {
-    it('rejects when the email is already registered', async () => {
+  describe('sendSignupCode', () => {
+    it('rejects an already-registered email', async () => {
       vi.mocked(repo.findUserByEmail).mockResolvedValue(buildUser());
+      await expect(service.sendSignupCode('buyer@example.com')).rejects.toMatchObject({ statusCode: 409 });
+      expect(repo.replaceSignupCode).not.toHaveBeenCalled();
+    });
 
+    it('throttles a resend within the cooldown', async () => {
+      vi.mocked(repo.findUserByEmail).mockResolvedValue(null);
+      vi.mocked(repo.findLatestSignupCode).mockResolvedValue(buildCode({ createdAt: new Date() }));
+      await expect(service.sendSignupCode('buyer@example.com')).rejects.toMatchObject({ statusCode: 429 });
+      expect(mailProvider.sendMail).not.toHaveBeenCalled();
+    });
+
+    it('stores a hashed 6-digit code and emails it', async () => {
+      vi.mocked(repo.findUserByEmail).mockResolvedValue(null);
+      vi.mocked(repo.findLatestSignupCode).mockResolvedValue(null);
+      vi.mocked(repo.replaceSignupCode).mockResolvedValue(buildCode());
+
+      await service.sendSignupCode('Buyer@Example.com');
+
+      expect(repo.replaceSignupCode).toHaveBeenCalledWith('buyer@example.com', expect.any(String), expect.any(Date));
+      const mail = vi.mocked(mailProvider.sendMail).mock.calls[0][0];
+      const code = mail.subject.match(/^(\d{6}) /)?.[1];
+      expect(code).toBeDefined();
+      const storedHash = vi.mocked(repo.replaceSignupCode).mock.calls[0][1];
+      expect(storedHash).not.toBe(code);
+      expect(await compareToken(code!, storedHash)).toBe(true);
+    });
+  });
+
+  describe('verifySignupCode', () => {
+    it('rejects an expired code', async () => {
+      vi.mocked(repo.findLatestSignupCode).mockResolvedValue(
+        buildCode({ codeHash: await hashToken('123456'), expiresAt: new Date(Date.now() - 1000) }),
+      );
+      await expect(service.verifySignupCode('buyer@example.com', '123456')).rejects.toMatchObject({ statusCode: 400 });
+    });
+
+    it('rejects after too many attempts even with the right code', async () => {
+      vi.mocked(repo.findLatestSignupCode).mockResolvedValue(
+        buildCode({ codeHash: await hashToken('123456'), attempts: 5 }),
+      );
+      await expect(service.verifySignupCode('buyer@example.com', '123456')).rejects.toMatchObject({ statusCode: 400 });
+      expect(repo.markSignupCodeUsed).not.toHaveBeenCalled();
+    });
+
+    it('counts a wrong attempt', async () => {
+      vi.mocked(repo.findLatestSignupCode).mockResolvedValue(buildCode({ codeHash: await hashToken('123456') }));
+      await expect(service.verifySignupCode('buyer@example.com', '000000')).rejects.toMatchObject({ statusCode: 400 });
+      expect(repo.incrementSignupCodeAttempts).toHaveBeenCalledWith('code-1');
+    });
+
+    it('marks the code used and returns a ticket bound to the email', async () => {
+      vi.mocked(repo.findLatestSignupCode).mockResolvedValue(buildCode({ codeHash: await hashToken('123456') }));
+      const { signupToken } = await service.verifySignupCode('buyer@example.com', '123456');
+      expect(repo.markSignupCodeUsed).toHaveBeenCalledWith('code-1');
+      expect(verifySignupTicket(signupToken)).toBe('buyer@example.com');
+    });
+  });
+
+  describe('signupBuyer', () => {
+    const base = { password: 'password123', contactName: 'Jane Buyer', country: 'UK' };
+
+    it('rejects without a valid signup ticket', async () => {
       await expect(
-        service.signupBuyer({
-          email: 'buyer@example.com',
-          password: 'password123',
-          contactName: 'Jane Buyer',
-          country: 'UK',
-        }),
-      ).rejects.toMatchObject({ statusCode: 409 });
-
+        service.signupBuyer({ ...base, email: 'buyer@example.com', signupToken: 'garbage' }),
+      ).rejects.toMatchObject({ statusCode: 400 });
       expect(repo.createBuyerUser).not.toHaveBeenCalled();
     });
 
-    it('creates a BUYER account and issues an email verification token', async () => {
+    it('rejects a ticket issued for a different email', async () => {
+      await expect(
+        service.signupBuyer({ ...base, email: 'buyer@example.com', signupToken: signSignupTicket('other@example.com') }),
+      ).rejects.toMatchObject({ statusCode: 400 });
+      expect(repo.createBuyerUser).not.toHaveBeenCalled();
+    });
+
+    it('rejects when the email is already registered', async () => {
+      vi.mocked(repo.findUserByEmail).mockResolvedValue(buildUser());
+      await expect(
+        service.signupBuyer({ ...base, email: 'buyer@example.com', signupToken: signSignupTicket('buyer@example.com') }),
+      ).rejects.toMatchObject({ statusCode: 409 });
+      expect(repo.createBuyerUser).not.toHaveBeenCalled();
+    });
+
+    it('creates a BUYER account with a valid ticket (email case-insensitive)', async () => {
       vi.mocked(repo.findUserByEmail).mockResolvedValue(null);
-      vi.mocked(repo.createBuyerUser).mockResolvedValue(buildUser());
-      vi.mocked(repo.createEmailVerificationToken).mockResolvedValue({
-        id: 'evt-1',
-        userId: 'user-1',
-        tokenHash: 'x',
-        expiresAt: new Date(),
-        usedAt: null,
-        createdAt: new Date(),
-      });
+      vi.mocked(repo.createBuyerUser).mockResolvedValue(buildUser({ emailVerifiedAt: new Date() }));
 
       const result = await service.signupBuyer({
-        email: 'buyer@example.com',
-        password: 'password123',
-        contactName: 'Jane Buyer',
-        country: 'UK',
+        ...base,
+        email: 'Buyer@Example.com',
+        signupToken: signSignupTicket('buyer@example.com'),
       });
 
-      expect(result.email).toBe('buyer@example.com');
       expect(result.role).toBe(Role.BUYER);
-      expect(repo.createEmailVerificationToken).toHaveBeenCalledTimes(1);
+      expect(result.emailVerifiedAt).not.toBeNull();
+      expect(repo.createEmailVerificationToken).not.toHaveBeenCalled();
     });
   });
 

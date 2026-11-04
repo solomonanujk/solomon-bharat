@@ -19,6 +19,8 @@ vi.mock('../../config/redis', () => ({
 vi.mock('./auth.service', () => ({
   authService: {
     signupBuyer: vi.fn(),
+    sendSignupCode: vi.fn(),
+    verifySignupCode: vi.fn(),
     login: vi.fn(),
     refresh: vi.fn(),
     logout: vi.fn(),
@@ -52,6 +54,7 @@ describe('auth controller', () => {
 
       const res = await request(app).post('/api/v1/auth/signup').send({
         email: 'a@b.com',
+        signupToken: 'ticket',
         password: 'password123',
         contactName: 'Ada Lovelace',
         country: 'US',
@@ -76,6 +79,46 @@ describe('auth controller', () => {
 
       expect(res.status).toBe(422);
       expect(authService.signupBuyer).not.toHaveBeenCalled();
+    });
+
+    it('rejects a signup without a signupToken with 422', async () => {
+      const res = await request(app).post('/api/v1/auth/signup').send({
+        email: 'a@b.com',
+        password: 'password123',
+        contactName: 'Ada',
+        country: 'US',
+      });
+
+      expect(res.status).toBe(422);
+      expect(authService.signupBuyer).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /api/v1/auth/signup/send-code', () => {
+    it('sends a code', async () => {
+      vi.mocked(authService.sendSignupCode).mockResolvedValue(undefined);
+      const res = await request(app).post('/api/v1/auth/signup/send-code').send({ email: 'a@b.com' });
+      expect(res.status).toBe(200);
+      expect(authService.sendSignupCode).toHaveBeenCalledWith('a@b.com');
+    });
+  });
+
+  describe('POST /api/v1/auth/signup/verify-code', () => {
+    it('returns the signup ticket', async () => {
+      vi.mocked(authService.verifySignupCode).mockResolvedValue({ signupToken: 'ticket' });
+      const res = await request(app)
+        .post('/api/v1/auth/signup/verify-code')
+        .send({ email: 'a@b.com', code: '123456' });
+      expect(res.status).toBe(200);
+      expect(res.body.data.signupToken).toBe('ticket');
+    });
+
+    it('rejects a non 6-digit code with 422', async () => {
+      const res = await request(app)
+        .post('/api/v1/auth/signup/verify-code')
+        .send({ email: 'a@b.com', code: '12ab' });
+      expect(res.status).toBe(422);
+      expect(authService.verifySignupCode).not.toHaveBeenCalled();
     });
   });
 

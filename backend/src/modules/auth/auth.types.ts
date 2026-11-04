@@ -10,6 +10,8 @@ export interface TokenPair {
 
 export interface SignupBuyerInput {
   email: string;
+  /** Ticket from verifySignupCode proving ownership of `email`. */
+  signupToken: string;
   password: string;
   contactName: string;
   country: string;

@@ -440,8 +440,7 @@ Guests can browse all categories, collections, and product detail pages freely. 
 
 →  Protected Action (Add to Cart / Wishlist)
 →  Authentication Modal (background stays visible)
-→  Login or Sign Up
-→  Email Verification
+→  Login or Sign Up (sign up: email → 6-digit email code → rest of the wizard)
 →  Resume Intended Action
 
 ## 6.8 Footer
@@ -1662,7 +1661,7 @@ Everything above this section describes the intended product. This section is th
 
 14 modules under `backend/src/modules/`, each `routes → controller → service → repository`, mounted under `/api/v1` in `backend/src/routes/index.ts`. Route guards in parentheses use the names defined in §13.6 (`requireAuth`, `requireAdmin`, `requireSeller`, `requireBuyer`, `requireAgent`, `requireBuyerOrAgent`); "public" means no auth required, "optional auth" means the route behaves differently if a token is present but doesn't require one.
 
-**auth** — `/api/v1/auth` (9 routes): `POST /signup` (public, buyer self-signup) · `POST /login` · `POST /refresh` · `POST /logout` · `GET /verify-email` · `POST /forgot-password` · `POST /reset-password` · `GET /me` (auth) · `GET /session` (public, cookie-only read used by frontend middleware, no token rotation).
+**auth** — `/api/v1/auth` (11 routes): `POST /signup/send-code` (public, emails a 6-digit code) · `POST /signup/verify-code` (public, returns a signup ticket) · `POST /signup` (public, buyer self-signup, requires the ticket) · `POST /login` · `POST /refresh` · `POST /logout` · `GET /verify-email` · `POST /forgot-password` · `POST /reset-password` · `GET /me` (auth) · `GET /session` (public, cookie-only read used by frontend middleware, no token rotation).
 
 **categories** — `/api/v1/categories` (8): `GET /` (public tree + published product counts) · `GET /admin/tree` (admin, incl. archived) · `GET /:slug` (optional auth) · `POST /` (admin, image upload) · `PATCH /reorder` (admin) · `PATCH /:id` (admin, image upload) · `POST /:id/archive` (admin, blocked if active products assigned) · `POST /:id/restore` (admin).
 
@@ -1715,7 +1714,7 @@ Test coverage per module: `admin`, `auth`, `buyers`, `categories`, `collections`
 
 | Domain | Models |
 | --- | --- |
-| Auth | User, RefreshToken, EmailVerificationToken, PasswordResetToken |
+| Auth | User, RefreshToken, EmailVerificationToken, SignupEmailCode, PasswordResetToken |
 | Sellers | SellerApplication, SellerProfile |
 | Agents | AgentApplication, AgentProfile |
 | Buyers | BuyerProfile, Address, WishlistItem, Message |
@@ -2329,6 +2328,7 @@ New order fields: `paidAt`, `dispatchPhotos`, `brandOwnBuyer`, `refundedAt`, `re
 
 ### 18.9 Buyers and agents
 - Prices are visible after sign-up. **Sign-up signs the buyer in immediately** (the API returns a session), so a new buyer sees admin-set prices straight away (v3.10 fix: new buyers previously saw ₹0). An expired or invalid login token on a public page now returns 401 so the site refreshes the session instead of quietly showing the guest (price-less) view; if the session cannot be refreshed the page reloads as a guest. Cached pages are refetched whenever the signed-in user changes.
+- **Email is verified before the account exists.** After entering their email (sign-up step 1), the buyer gets a 6-digit code by email and must type it on a "Check your email" screen before the rest of the wizard opens. Code valid 10 minutes, 5 wrong attempts per code, resend after 60 seconds (a new code cancels the old one); only a hash of the code is stored. A correct code gives a 2-hour signup ticket that the final sign-up submit requires; if it has expired by then, the buyer re-enters a new code and returns to the last step with their answers kept. Accounts are created with `emailVerifiedAt` set. The old verification-link email is no longer sent at sign-up (`/verify-email` still works for older links).
 - The sign-up page shows a designed panel (faded block-print pattern, map grid and trade routes from Jaipur to London, New York, Dubai, Singapore, Tokyo and Sydney) instead of a photo.
 - Business verification is deferred.
 - Team accounts and multiple addresses are allowed; no VIP or custom price lists.
@@ -2397,6 +2397,7 @@ A public AI business guide for people abroad (often NRIs and first-time importer
 
 | Date | Change |
 |---|---|
+| 4 Nov 2026 | **Buyer sign-up verifies the email with a 6-digit code first.** After the email step a new "Check your email" screen asks for the code sent to that address; the wizard only continues once it is correct (resend after 60 s, change email, existing accounts sent to sign in). New public endpoints `POST /auth/signup/send-code` (409 if registered, 429 within 60 s) and `POST /auth/signup/verify-code` (10-minute code, 5 attempts, bcrypt-hashed; returns a 2-hour signup ticket JWT), both on the auth rate limiter. `POST /auth/signup` now requires `signupToken` matching the email (case-insensitive) and creates the user with `emailVerifiedAt` set; the verification-link email is no longer sent at sign-up. New table `signup_email_codes` (migration `20261104090000_signup_email_codes`). |
 | 25 Oct 2026 | **Bulk Messages: Sync from Meta.** New button on the Templates tab and `POST /admin/bulk-messages/templates/sync`: lists the templates on the WhatsApp Business Account (all pages) and imports the ones the sender can fill in (text header without variables, body with numbered variables, footer, quick-reply/link/call buttons, Marketing or Utility) as read-only "From Meta" templates, refreshes the status of ones already known, and reports what it left out and why. Lets Meta's approved samples such as `hello_world` and templates made in WhatsApp Manager be used in campaigns. Removing a synced template only removes it from our list. New column `bulk_templates.syncedFromMeta` (migration `20261025120000_bulk_template_synced`). |
 | 25 Oct 2026 | **Admin Bulk Messages.** New admin tab (Operations, Bulk Messages, `/admin/bulk-messages`) with Campaigns, Templates and Replies. Template wizard (basics, message, examples, review) with Meta's text rules checked live, submitted to Meta through the WhatsApp Business Account template API (`META_WABA_ID`); status by webhook and a Refresh button; only Approved templates can be sent. Campaign wizard (template, audience, variables, test send, review with confirm) freezes the audience of registered sellers with a verified number (all, filters, picked, or CSV matching sellers by number or email; never any other number) and sends through a throttled sender inside the API (`BULK_SEND_PER_SECOND`, Redis lock, resumes after a restart, backs off on rate limits, never falls back to plain text). Delivery receipts update each seller (sent, delivered, read, failed with Meta's code); campaign page has progress, filters, pause/resume/cancel and a CSV report. Sellers' replies within 24 h are saved for admin (90 days) instead of reaching the listing bot, with one acknowledgement; an open listing, photos and real commands still win. Sellers can reply `unsubscribe` / `subscribe`. WhatsApp provider: `sendTemplate` returns the message id, send errors are typed (`WhatsAppSendError` with Meta code and transient flag), delivery receipts and template verdicts are parsed from the Meta webhook. New tables `bulk_templates`, `bulk_campaigns`, `bulk_recipients`, `bulk_replies`; `seller_profiles.whatsappOptedOutAt`; migration `20261025100000_bulk_messages`; new settings `META_WABA_ID`, `BULK_SEND_PER_SECOND`, `BULK_MAX_RECIPIENTS`. Version 4.1. |
 | 25 Oct 2026 | **Admin WhatsApp tab.** New sidebar item Catalogue, WhatsApp (`/admin/whatsapp`, SUPER_ADMIN) with three views: products sellers created by chat (status tabs, opens the normal product page; sidebar badge = pending ones), listings in progress right now (product so far, seller, stage, missing fields, media, last message; auto-refresh 30 s; raw seller messages never returned) and linked sellers (number, date linked, products by chat, AI calls today, search). New admin-only endpoints `GET /api/v1/whatsapp/admin/{summary,products,sessions,sellers}`; `GET /products/admin` gains an optional `source` filter; the admin products list shows a "via WhatsApp" tag. No migration. Cancelled and abandoned attempts are not tracked (sessions are deleted), see `docs/WHATSAPP_LISTING.md` §10. |

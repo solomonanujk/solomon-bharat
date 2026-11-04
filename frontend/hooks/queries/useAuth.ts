@@ -43,8 +43,24 @@ export function useCheckEmail() {
   })
 }
 
+/** Emails a 6-digit signup verification code. Errors are shown inline by the caller. */
+export function useSendSignupCode() {
+  return useMutation<unknown, Error, string>({
+    mutationFn: (email) => api.post('/auth/signup/send-code', { email }),
+  })
+}
+
+/** Checks the signup code; resolves with the ticket POST /auth/signup requires. */
+export function useVerifySignupCode() {
+  return useMutation<{ signupToken: string }, Error, { email: string; code: string }>({
+    mutationFn: async (body) => (await api.post('/auth/signup/verify-code', body)).data.data,
+  })
+}
+
 export interface SignupInput {
   email: string
+  /** Ticket from useVerifySignupCode — proves the buyer owns `email`. */
+  signupToken: string
   password: string
   contactName: string
   country: string
@@ -70,7 +86,7 @@ export function useSignup() {
       localStorage.setItem(TOKEN_KEY, data.accessToken)
       localStorage.setItem(CSRF_TOKEN_KEY, data.csrfToken)
       setUser(data.user)
-      toast.success('Account created — check your email to verify your address.')
+      toast.success('Account created — welcome to Solomon Bharat.')
     },
     onError: (err) => toast.error(getApiError(err)),
   })

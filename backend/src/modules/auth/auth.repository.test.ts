@@ -32,7 +32,7 @@ describe('AuthRepository', () => {
   it('createBuyerUser creates a BUYER user with a nested buyerProfile', async () => {
     db.user.create.mockResolvedValue({ id: 'u1' });
     await repo.createBuyerUser(
-      { email: 'a@b.com', password: 'irrelevant-here', contactName: 'Ada', country: 'US', companyName: 'Acme', phone: '123' },
+      { email: 'a@b.com', signupToken: 't', password: 'irrelevant-here', contactName: 'Ada', country: 'US', companyName: 'Acme', phone: '123' },
       'hashed',
     );
     expect(db.user.create).toHaveBeenCalledWith({
@@ -41,6 +41,7 @@ describe('AuthRepository', () => {
         email: 'a@b.com',
         passwordHash: 'hashed',
         role: 'BUYER',
+        emailVerifiedAt: expect.any(Date),
         buyerProfile: {
           create: {
             contactName: 'Ada',

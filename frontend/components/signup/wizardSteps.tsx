@@ -1,16 +1,19 @@
 'use client'
 
-import { useState, type InputHTMLAttributes } from 'react'
+import { useEffect, useRef, useState, type InputHTMLAttributes } from 'react'
 import { AlertCircle, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { getApiError } from '@/lib/getApiError'
+import { useSendSignupCode, useVerifySignupCode } from '@/hooks/queries/useAuth'
 import { COUNTRIES } from '@/lib/countries'
 import { LANGUAGES } from '@/lib/languages'
 import { Button } from '@/components/ui/button'
 
 // ─── Buyer onboarding wizard — shared steps ────────────────────────────────────
 // Step 1 (email capture) is SignupEmailGate — shown in the auth modal as a
-// shortcut, or inline on /signup when the page is visited directly. Steps 2–7
-// live on the full page (app/signup/page.tsx). Both share the types, form
+// shortcut, or inline on /signup when the page is visited directly. The email
+// is then verified with a 6-digit code (StepVerifyEmail) before steps 2–7,
+// which live on the full page (app/signup/page.tsx). All share the types, form
 // styles and step components here.
 //
 // Only email/password/name/country map to core account fields — everything
@@ -47,6 +50,8 @@ export const TOTAL_PAGE_STEPS = 6
 
 export interface WizardState {
   email: string
+  /** Set once the email code is verified; required to submit the signup. */
+  signupToken: string
   password: string
   firstName: string
   lastName: string
@@ -62,7 +67,7 @@ export interface WizardState {
 
 export function initialWizardState(email = ''): WizardState {
   return {
-    email, password: '', firstName: '', lastName: '', country: '', language: 'English (US)',
+    email, signupToken: '', password: '', firstName: '', lastName: '', country: '', language: 'English (US)',
     marketingOptOut: false, businessType: '', businessOpenedYear: '', businessName: '', website: '',
     hearAboutUs: [],
   }
@@ -171,6 +176,142 @@ function OptionRow({ selected, label, hint, onClick, role }: {
     </button>
   )
 }
+
+// ─── Step 1b — verify the email with a 6-digit code ────────────────────────────
+// A code is sent on mount; the wizard only continues once the backend accepts it
+// and returns a signup ticket (required by POST /auth/signup).
+
+const RESEND_COOLDOWN_S = 60
+
+function apiStatus(err: unknown): number | undefined {
+  return (err as { response?: { status?: number } } | null)?.response?.status
+}
+
+export function StepVerifyEmail({ email, onVerified, onChangeEmail, onSwitchToLogin }: {
+  email: string
+  onVerified: (signupToken: string) => void
+  onChangeEmail: () => void
+  onSwitchToLogin: (email: string) => void
+}) {
+  const sendCode = useSendSignupCode()
+  const verifyCode = useVerifySignupCode()
+  const [code, setCode] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [cooldown, setCooldown] = useState(0)
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false)
+  const sentOnce = useRef(false)
+
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [cooldown])
+
+  function send(isResend: boolean) {
+    setError(null)
+    setNotice(null)
+    sendCode.mutate(email, {
+      onSuccess: () => {
+        setCooldown(RESEND_COOLDOWN_S)
+        if (isResend) { setCode(''); setNotice('We sent you a new code.') }
+      },
+      onError: (err) => {
+        const status = apiStatus(err)
+        if (status === 409) return setAlreadyRegistered(true)
+        // A code was sent moments ago (e.g. came back to this screen) — it's still valid.
+        if (status === 429 && !isResend) return setCooldown(RESEND_COOLDOWN_S)
+        setError(getApiError(err))
+      },
+    })
+  }
+
+  useEffect(() => {
+    // Guard against React StrictMode double-invoking effects in dev.
+    if (sentOnce.current) return
+    sentOnce.current = true
+    send(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!/^\d{6}$/.test(code)) return setError('Enter the 6-digit code from your email.')
+    setError(null)
+    setNotice(null)
+    verifyCode.mutate(
+      { email, code },
+      {
+        onSuccess: ({ signupToken }) => onVerified(signupToken),
+        onError: (err) => setError(getApiError(err)),
+      }
+    )
+  }
+
+  if (alreadyRegistered) {
+    return (
+      <div className="flex flex-col">
+        <h2 className={STEP_HEADING_CLS}>You already have an account</h2>
+        <p className="type-body text-muted mt-2">An account already exists for {email}.</p>
+        <Button type="button" variant="primary" size="lg" className="w-full mt-6" onClick={() => onSwitchToLogin(email)}>
+          Sign in
+        </Button>
+        <button type="button" onClick={onChangeEmail} className={LINK_BTN_CLS}>Use a different email</button>
+      </div>
+    )
+  }
+
+  return (
+    <form noValidate onSubmit={handleSubmit} className="flex flex-col">
+      <h2 className={STEP_HEADING_CLS}>Check your email</h2>
+      <p className="type-body text-muted mt-2">
+        {sendCode.isPending && !sendCode.isSuccess
+          ? `Sending a 6-digit code to ${email}…`
+          : <>We sent a 6-digit code to <span className="font-[600] text-ink">{email}</span>. It expires in 10 minutes.</>}
+      </p>
+
+      <div className="mt-6">
+        <label htmlFor="wizard-code" className={LABEL_CLS}>Verification code</label>
+        <input
+          id="wizard-code"
+          type="text"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={6}
+          placeholder="123456"
+          value={code}
+          aria-invalid={!!error || undefined}
+          aria-describedby={error ? 'wizard-code-error' : undefined}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          className={cn(INPUT_CLS, 'tracking-[0.4em] font-[600]')}
+        />
+        <FieldError id="wizard-code-error" message={error} />
+        {notice && <p role="status" className={HELP_CLS}>{notice}</p>}
+      </div>
+
+      <Button type="submit" variant="primary" size="lg" className="w-full mt-6" loading={verifyCode.isPending}>
+        Verify and continue
+      </Button>
+
+      <div className="mt-3 flex flex-col items-center">
+        <button
+          type="button"
+          onClick={() => send(true)}
+          disabled={cooldown > 0 || sendCode.isPending}
+          className={cn(LINK_BTN_CLS, 'mt-0 disabled:text-muted disabled:no-underline disabled:cursor-not-allowed')}
+        >
+          {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
+        </button>
+        <button type="button" onClick={onChangeEmail} className={cn(LINK_BTN_CLS, 'mt-0')}>
+          Change email
+        </button>
+      </div>
+    </form>
+  )
+}
+
+const LINK_BTN_CLS =
+  'mt-3 min-h-11 self-center font-sans text-[14px] leading-[20px] text-forest underline underline-offset-4 hover:text-forest-hover transition-colors'
 
 // ─── Step 2 — name, password, country, language ────────────────────────────────
 

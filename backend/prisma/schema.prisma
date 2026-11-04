@@ -201,6 +201,22 @@ model EmailVerificationToken {
   @@map("email_verification_tokens")
 }
 
+/// One-time 6-digit code emailed to a prospective buyer during signup, before any
+/// account exists. Keyed by email (not user). Verifying it yields a short-lived
+/// signup ticket that POST /auth/signup requires.
+model SignupEmailCode {
+  id        String    @id @default(uuid())
+  email     String
+  codeHash  String
+  attempts  Int       @default(0)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email, createdAt])
+  @@map("signup_email_codes")
+}
+
 model PasswordResetToken {
   id        String    @id @default(uuid())
   userId    String

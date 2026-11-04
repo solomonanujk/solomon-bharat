@@ -23,6 +23,8 @@ export class AuthRepository {
         email: input.email,
         passwordHash,
         role: Role.BUYER,
+        // Signup is only possible after the 6-digit email code was verified.
+        emailVerifiedAt: new Date(),
         buyerProfile: {
           create: {
             contactName: input.contactName,
@@ -78,6 +80,27 @@ export class AuthRepository {
 
   markEmailVerificationTokenUsed(id: string) {
     return this.db.emailVerificationToken.update({ where: { id }, data: { usedAt: new Date() } });
+  }
+
+  findLatestSignupCode(email: string) {
+    return this.db.signupEmailCode.findFirst({ where: { email }, orderBy: { createdAt: 'desc' } });
+  }
+
+  /** Invalidates any outstanding codes for the email, then stores the new one. */
+  async replaceSignupCode(email: string, codeHash: string, expiresAt: Date) {
+    const [, record] = await this.db.$transaction([
+      this.db.signupEmailCode.updateMany({ where: { email, usedAt: null }, data: { usedAt: new Date() } }),
+      this.db.signupEmailCode.create({ data: { email, codeHash, expiresAt } }),
+    ]);
+    return record;
+  }
+
+  incrementSignupCodeAttempts(id: string) {
+    return this.db.signupEmailCode.update({ where: { id }, data: { attempts: { increment: 1 } } });
+  }
+
+  markSignupCodeUsed(id: string) {
+    return this.db.signupEmailCode.update({ where: { id }, data: { usedAt: new Date() } });
   }
 
   createPasswordResetToken(userId: string, tokenHash: string, expiresAt: Date) {
