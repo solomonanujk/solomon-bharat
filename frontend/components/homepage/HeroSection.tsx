@@ -114,8 +114,9 @@ export function HeroSection() {
           Discover &amp; Source Handmade Products from India
         </h1>
 
-        {/* Animated audience word */}
+        {/* Animated audience word — "for your" is static, only the term rotates */}
         <p className="type-hero text-brass mt-2 max-w-[720px] leading-tight min-h-[1.3em]">
+          for your{' '}
           <span
             style={{
               display: 'inline-block',
@@ -124,7 +125,7 @@ export function HeroSection() {
               transform: animating ? 'translateY(10px)' : 'translateY(0)',
             }}
           >
-            for your {ROTATING_WORDS[wordIndex]}
+            {ROTATING_WORDS[wordIndex]}
           </span>
         </p>
 
