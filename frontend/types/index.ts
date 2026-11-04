@@ -475,6 +475,15 @@ export interface BuyerProfile {
   country: string | null
 }
 
+/** BuyerProfile as returned by the admin endpoints (/buyers/admin*), which
+ *  also carry the buyer's login account. */
+export interface AdminBuyer extends BuyerProfile {
+  user?: {
+    email: string
+    emailVerifiedAt: string | null
+  } | null
+}
+
 export interface Address {
   id: string
   label: string | null
