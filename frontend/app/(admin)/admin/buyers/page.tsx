@@ -1,10 +1,10 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Building2, ExternalLink, Phone, Search, UserCheck, UserX, Users, X } from 'lucide-react'
+import { Building2, ExternalLink, Mail, Phone, Search, UserCheck, UserX, Users, X } from 'lucide-react'
 import { useAdminBuyer, useAdminBuyers } from '@/hooks/queries/useBuyerProfile'
 import { useReactivateUser, useSuspendUser } from '@/hooks/queries/useAdmin'
-import type { BuyerProfile } from '@/types'
+import type { AdminBuyer } from '@/types'
 import { cn } from '@/lib/utils'
 
 const LIMIT = 20
@@ -107,12 +107,24 @@ function BuyerDrawer({ buyerId, onClose }: { buyerId: string; onClose: () => voi
                 )}
               </div>
 
-              {/* Profile fields — only what BuyerProfile actually exposes */}
+              {/* Profile fields, plus the login email from the buyer's user account */}
               <div className="border border-[#D9E2DA] rounded bg-white px-4">
                 <DetailRow label="Company name" value={buyer.companyName} />
                 <DetailRow label="Contact name" value={buyer.contactName} />
                 <DetailRow
-                  label="Phone"
+                  label="Email"
+                  value={buyer.user?.email ? (
+                    <span className="inline-flex items-center gap-1.5 break-all">
+                      <Mail size={12} className="text-[#183D33B3] shrink-0" aria-hidden="true" />
+                      <a href={`mailto:${buyer.user.email}`} className="hover:underline underline-offset-2">{buyer.user.email}</a>
+                      {buyer.user.emailVerifiedAt && (
+                        <span className="ml-1 text-[11px] font-[600] text-[#183D33]">Verified</span>
+                      )}
+                    </span>
+                  ) : null}
+                />
+                <DetailRow
+                  label="Mobile"
                   value={buyer.phone ? (
                     <span className="inline-flex items-center gap-1.5">
                       <Phone size={12} className="text-[#183D33B3]" aria-hidden="true" />
@@ -142,7 +154,8 @@ function BuyerDrawer({ buyerId, onClose }: { buyerId: string; onClose: () => voi
 
 // ─── Table row ──────────────────────────────────────────────────────────────────
 
-function BuyerRow({ buyer, onView }: { buyer: BuyerProfile; onView: (b: BuyerProfile) => void }) {
+function BuyerRow({ buyer, onView }: { buyer: AdminBuyer; onView: (b: AdminBuyer) => void }) {
+  const email = buyer.user?.email
   return (
     <tr className="border-b border-[#D9E2DA] last:border-0 hover:bg-[#E7EDE7]/30 transition-colors">
       <td className="py-3.5 px-4">
@@ -154,7 +167,18 @@ function BuyerRow({ buyer, onView }: { buyer: BuyerProfile; onView: (b: BuyerPro
         {buyer.contactName ?? '—'}
       </td>
       <td className="py-3.5 px-4 text-[13px] font-sans text-[#183D33B3]">
-        {buyer.phone ?? '—'}
+        {email ? (
+          <a href={`mailto:${email}`} className="hover:text-[#0F241D] hover:underline underline-offset-2 break-all">
+            {email}
+          </a>
+        ) : '—'}
+      </td>
+      <td className="py-3.5 px-4 text-[13px] font-sans text-[#183D33B3] whitespace-nowrap">
+        {buyer.phone ? (
+          <a href={`tel:${buyer.phone.replace(/[^\d+]/g, '')}`} className="hover:text-[#0F241D] hover:underline underline-offset-2">
+            {buyer.phone}
+          </a>
+        ) : '—'}
       </td>
       <td className="py-3.5 px-4 text-[13px] font-sans text-[#183D33B3]">
         {buyer.country ?? '—'}
@@ -196,7 +220,9 @@ export default function AdminBuyersPage() {
     if (!q) return buyers
     return buyers.filter((b) =>
       (b.companyName ?? '').toLowerCase().includes(q) ||
-      (b.contactName ?? '').toLowerCase().includes(q)
+      (b.contactName ?? '').toLowerCase().includes(q) ||
+      (b.user?.email ?? '').toLowerCase().includes(q) ||
+      (b.phone ?? '').toLowerCase().includes(q)
     )
   }, [buyers, search])
 
@@ -217,7 +243,7 @@ export default function AdminBuyersPage() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search this page by company or contact name…"
+            placeholder="Search this page by company, contact, email or mobile…"
             className="w-full h-9 pl-9 pr-3 rounded-lg border border-[#D9E2DA] bg-white text-[14px] font-sans text-[#0F241D] placeholder:text-[#183D33B3] focus:outline-none focus:border-[#183D33] transition-colors"
           />
         </div>
@@ -264,7 +290,7 @@ export default function AdminBuyersPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-[#D9E2DA] bg-[#E7EDE7]/40">
-                    {['Company', 'Contact', 'Phone', 'Country', ''].map((h) => (
+                    {['Company', 'Contact', 'Email', 'Mobile', 'Country', ''].map((h) => (
                       <th
                         key={h}
                         className="py-3 px-4 text-left text-[12px] font-[600] font-sans text-[#183D33B3] uppercase tracking-[0.06em]"
