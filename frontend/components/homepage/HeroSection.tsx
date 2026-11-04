@@ -112,9 +112,10 @@ export function HeroSection() {
 
       <div className="relative z-10 w-full sb-container py-12 lg:py-[72px]">
         <h1 id="home-hero-heading" className="type-hero text-white max-w-[700px]">
-          Discover and source Indian products for{' '}
-          <span className="text-brass inline-flex items-baseline gap-0 overflow-hidden">
-            your{' '}
+          Discover and Source<br />
+          Unique Indian Products<br />
+          <span className="text-brass">
+            {'for your '}
             <span
               style={{
                 display: 'inline-block',
