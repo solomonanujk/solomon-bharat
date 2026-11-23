@@ -63,7 +63,16 @@ describe('BulkRunner.tick', () => {
   it('does nothing when another instance holds the lock', async () => {
     t = build({ lock: false });
     await t.runner.tick();
-    expect(t.repo.findRunningCampaigns).not.toHaveBeenCalled();
+    expect(t.repo.claimBatch).not.toHaveBeenCalled();
+    expect(t.repo.deleteRepliesOlderThan).not.toHaveBeenCalled();
+  });
+
+  it('does not touch the Redis lock when no campaign is running and housekeeping is not due', async () => {
+    await t.runner.tick(); // first round runs housekeeping
+    t.lock.acquire.mockClear();
+    t.repo.findRunningCampaigns.mockResolvedValue([]);
+    await t.runner.tick();
+    expect(t.lock.acquire).not.toHaveBeenCalled();
   });
 
   it('marks the campaign completed when nothing is left to send', async () => {

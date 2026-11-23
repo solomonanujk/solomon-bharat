@@ -39,5 +39,11 @@ async function shutdown(signal: string): Promise<void> {
   });
 }
 
+// A stray rejected promise (e.g. a third-party library talking to Redis in the background)
+// should be logged, not take the whole API down.
+process.on('unhandledRejection', (reason) => {
+  logger.error({ err: reason }, 'Unhandled promise rejection');
+});
+
 process.on('SIGTERM', () => void shutdown('SIGTERM'));
 process.on('SIGINT', () => void shutdown('SIGINT'));
