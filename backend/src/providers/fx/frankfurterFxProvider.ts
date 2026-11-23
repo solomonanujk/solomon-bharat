@@ -12,9 +12,28 @@ const CACHE_TTL_SECONDS = 60 * 60; // 1h — matches the frontend's own display-
  * the same rate within the same cache window. INR is this platform's single
  * source-of-truth currency — every seller/admin price is entered in INR.
  */
+/** Redis read/write that never throws: a Redis outage only costs us the cache, not FX rates. */
+async function safeGet(key: string): Promise<string | null> {
+  try {
+    return await redis.get(key);
+  } catch (err) {
+    logger.error({ err, key }, 'FX cache read failed');
+    return null;
+  }
+}
+
+async function safeSet(key: string, value: string, ttlSeconds?: number): Promise<void> {
+  try {
+    if (ttlSeconds) await redis.set(key, value, 'EX', ttlSeconds);
+    else await redis.set(key, value);
+  } catch (err) {
+    logger.error({ err, key }, 'FX cache write failed');
+  }
+}
+
 export class FrankfurterFxProvider implements FxProvider {
   async getRatesFromInr(): Promise<FxRates> {
-    const cached = await redis.get(CACHE_KEY);
+    const cached = await safeGet(CACHE_KEY);
     if (cached) {
       return JSON.parse(cached) as FxRates;
     }
@@ -26,15 +45,15 @@ export class FrankfurterFxProvider implements FxProvider {
       }
       const data = (await res.json()) as FxRates;
 
-      await redis.set(CACHE_KEY, JSON.stringify(data), 'EX', CACHE_TTL_SECONDS);
+      await safeSet(CACHE_KEY, JSON.stringify(data), CACHE_TTL_SECONDS);
       // No expiry — only overwritten on the next successful fetch, used as a
       // last-resort fallback if Frankfurter is briefly unreachable.
-      await redis.set(STALE_FALLBACK_KEY, JSON.stringify(data));
+      await safeSet(STALE_FALLBACK_KEY, JSON.stringify(data));
 
       return data;
     } catch (err) {
       logger.error({ err }, 'FX rate fetch failed, attempting stale fallback');
-      const stale = await redis.get(STALE_FALLBACK_KEY);
+      const stale = await safeGet(STALE_FALLBACK_KEY);
       if (stale) {
         return JSON.parse(stale) as FxRates;
       }

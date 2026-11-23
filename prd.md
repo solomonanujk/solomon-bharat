@@ -1388,7 +1388,7 @@ modules/<name>/
 | @google/generative-ai (Gemini) | AI content polish for seller product submissions (`gemini-2.5-flash-lite`) — as built; not in the original plan. See §8.5a. |
 | pdfkit | Server-side PDF generation for agent catalogues — as built. See §9.6. |
 | Frankfurter API (via a thin provider) | INR→buyer-currency FX rates for price display — as built; not in the original plan. See §6.11. |
-| ioredis + rate-limit-redis | Redis-backed rate limiting (public + auth-specific limiters) — as built |
+| ioredis | Redis-backed auth rate limiting (own store in `middleware/rateLimiter.ts`, in-memory fallback when Redis is unavailable) — as built |
 | pino / pino-http | Structured request/app logging — as built |
 | helmet | HTTP security headers — as built |
 
@@ -2398,6 +2398,7 @@ A public AI business guide for people abroad (often NRIs and first-time importer
 
 | Date | Change |
 |---|---|
+| 23 Nov 2026 | **Fix: backend crash-looped when Redis (Upstash) hit its request quota.** The rate-limit-redis store loaded its Lua script at startup and the rejected promise was unhandled, killing the process. Auth rate limiting now uses an in-house store (one `EVAL` per request) that falls back to in-memory limits for 60 s on any Redis error and lets requests through on store errors. The bulk-message sender no longer takes its Redis lock every second when no campaign is running (it checks the database first; the lock itself is now one command instead of up to three), which was the main drain on the Redis quota. FX rate caching survives Redis errors. Unhandled promise rejections are logged instead of crashing the API. No migration, no API change. |
 | 5 Nov 2026 | **Admin → Buyers shows email and mobile.** The buyer list table now has **Email** (the buyer's login email, click to email) and **Mobile** (renamed from Phone, click to call) columns; the buyer detail panel shows the email with a "Verified" tag when the address is verified. The page search also matches email and mobile. Frontend only: the admin buyer endpoints already returned the account email. |
 | 5 Nov 2026 | **Mobile number required at buyer sign-up.** The "Tell us about yourself" step now has a required **Mobile number** field (below first/last name; country code encouraged). Accepted: digits with an optional leading `+`, spaces, dashes, dots or brackets, 7–15 digits in total; checked in the form and by `POST /auth/signup` (422 if missing or invalid). Stored in the existing `buyer_profiles.phone` column; no migration. Editing the profile later still allows it to be cleared. |
 | 4 Nov 2026 | **Buyer sign-up verifies the email with a 6-digit code first.** After the email step a new "Check your email" screen asks for the code sent to that address; the wizard only continues once it is correct (resend after 60 s, change email, existing accounts sent to sign in). New public endpoints `POST /auth/signup/send-code` (409 if registered, 429 within 60 s) and `POST /auth/signup/verify-code` (10-minute code, 5 attempts, bcrypt-hashed; returns a 2-hour signup ticket JWT), both on the auth rate limiter. `POST /auth/signup` now requires `signupToken` matching the email (case-insensitive) and creates the user with `emailVerifiedAt` set; the verification-link email is no longer sent at sign-up. New table `signup_email_codes` (migration `20261104090000_signup_email_codes`). |

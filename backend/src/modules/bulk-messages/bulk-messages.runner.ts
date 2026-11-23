@@ -28,17 +28,24 @@ export interface RunnerLock {
   acquire(): Promise<boolean>;
 }
 
+// Take the lock if free, or extend it if it's already ours, in one Redis command
+// (the hosted Redis plan bills per command).
+const ACQUIRE_SCRIPT = `
+if redis.call("GET", KEYS[1]) == ARGV[1] then
+  redis.call("PEXPIRE", KEYS[1], ARGV[2])
+  return 1
+end
+if redis.call("SET", KEYS[1], ARGV[1], "PX", ARGV[2], "NX") then
+  return 1
+end
+return 0
+`;
+
 export const redisLock = (token: string): RunnerLock => ({
   async acquire() {
     try {
-      const mine = await redis.set(LOCK_KEY, token, 'PX', LOCK_TTL_MS, 'NX');
-      if (mine === 'OK') return true;
-      // Already ours from the previous tick: extend it.
-      if ((await redis.get(LOCK_KEY)) === token) {
-        await redis.pexpire(LOCK_KEY, LOCK_TTL_MS);
-        return true;
-      }
-      return false;
+      const got = await redis.eval(ACQUIRE_SCRIPT, 1, LOCK_KEY, token, String(LOCK_TTL_MS));
+      return Number(got) === 1;
     } catch (err) {
       logger.warn({ err }, '[bulk] could not reach Redis for the sender lock, skipping this round');
       return false;
@@ -89,12 +96,16 @@ export class BulkRunner {
     if (this.busy) return;
     this.busy = true;
     try {
+      // Ask the database first: when nothing is running (almost always) and housekeeping
+      // isn't due, skip Redis entirely instead of taking the lock every second.
+      const campaigns = await this.repo.findRunningCampaigns();
+      if (campaigns.length === 0 && !this.maintenanceDue()) return;
       if (!(await this.lock.acquire())) return;
       await this.maintenance();
       if (this.now() < this.pausedUntil) return;
 
       let budget = this.config.perSecond;
-      for (const campaign of await this.repo.findRunningCampaigns()) {
+      for (const campaign of campaigns) {
         if (budget <= 0) break;
         const batch = await this.repo.claimBatch(campaign.id, budget);
         budget -= batch.length;
@@ -160,8 +171,12 @@ export class BulkRunner {
   }
 
   /** Hourly housekeeping: old replies are deleted. */
+  private maintenanceDue(): boolean {
+    return this.now() - this.lastMaintenance >= MAINTENANCE_EVERY_MS;
+  }
+
   private async maintenance(): Promise<void> {
-    if (this.now() - this.lastMaintenance < MAINTENANCE_EVERY_MS) return;
+    if (!this.maintenanceDue()) return;
     this.lastMaintenance = this.now();
     try {
       const cutoff = new Date(this.now() - REPLY_RETENTION_DAYS * 24 * 60 * 60 * 1000);
