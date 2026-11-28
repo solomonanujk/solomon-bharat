@@ -49,45 +49,72 @@ export default function HomePage() {
         a wholesale marketplace built for global retailers. Stay tuned.
       </p>
 
-      {/* Instagram CTA */}
-      <a
-        href="https://www.instagram.com/pranjalsagrawal"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-3 rounded-full px-8 py-4 font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
-        style={{
-          fontFamily: 'var(--font-public-sans), Arial, sans-serif',
-          fontSize: '1rem',
-          background: '#FFFFFF',
-          color: '#183D33',
-          boxShadow: '0 4px 24px rgba(0,0,0,0.25)',
-        }}
-        onMouseEnter={(e) => {
-          ;(e.currentTarget as HTMLAnchorElement).style.background = '#D9E2DA'
-        }}
-        onMouseLeave={(e) => {
-          ;(e.currentTarget as HTMLAnchorElement).style.background = '#FFFFFF'
-        }}
+      {/* CTAs */}
+      <div
+        className="flex flex-wrap items-center justify-center gap-4"
+        style={{ marginBottom: 0 }}
       >
-        {/* Instagram icon */}
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
+        {/* Instagram */}
+        <a
+          href="https://www.instagram.com/pranjalsagrawal"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-3 rounded-full px-7 py-4 font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
+          style={{
+            fontFamily: 'var(--font-public-sans), Arial, sans-serif',
+            fontSize: '1rem',
+            background: '#FFFFFF',
+            color: '#183D33',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.25)',
+          }}
+          onMouseEnter={(e) => {
+            ;(e.currentTarget as HTMLAnchorElement).style.background = '#D9E2DA'
+          }}
+          onMouseLeave={(e) => {
+            ;(e.currentTarget as HTMLAnchorElement).style.background = '#FFFFFF'
+          }}
         >
-          <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
-          <circle cx="12" cy="12" r="4.5" />
-          <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
-        </svg>
-        Follow us on Instagram
-      </a>
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+            <circle cx="12" cy="12" r="4.5" />
+            <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+          </svg>
+          Follow on Instagram
+        </a>
+
+        {/* Catalog */}
+        <a
+          href="https://drive.google.com/drive/folders/1mVPMmwTwjyDEn8FKW6E4SJQ6OqOosXqa?usp=sharing"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-3 rounded-full px-7 py-4 font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
+          style={{
+            fontFamily: 'var(--font-public-sans), Arial, sans-serif',
+            fontSize: '1rem',
+            background: 'transparent',
+            color: '#FFFFFF',
+            border: '1.5px solid rgba(217,226,218,0.45)',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+          }}
+          onMouseEnter={(e) => {
+            ;(e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(217,226,218,0.85)'
+            ;(e.currentTarget as HTMLAnchorElement).style.background = 'rgba(217,226,218,0.08)'
+          }}
+          onMouseLeave={(e) => {
+            ;(e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(217,226,218,0.45)'
+            ;(e.currentTarget as HTMLAnchorElement).style.background = 'transparent'
+          }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+            <polyline points="10 9 9 9 8 9" />
+          </svg>
+          See our Catalog
+        </a>
+      </div>
 
       {/* Procurement note */}
       <p
@@ -96,10 +123,10 @@ export default function HomePage() {
           fontFamily: 'var(--font-public-sans), Arial, sans-serif',
           fontSize: '0.88rem',
           color: 'rgba(217,226,218,0.60)',
-          lineHeight: 1.6,
+          lineHeight: 1.7,
         }}
       >
-        Looking to procure products from India?{' '}
+        Looking to source from India?{' '}
         <a
           href="https://www.instagram.com/pranjalsagrawal"
           target="_blank"
@@ -108,7 +135,14 @@ export default function HomePage() {
         >
           DM Pranjal S. Agrawal
         </a>{' '}
-        on Instagram.
+        on Instagram or call{' '}
+        <a
+          href="tel:+919588007925"
+          style={{ color: '#D9E2DA', textDecoration: 'underline', textUnderlineOffset: '3px' }}
+        >
+          +91 95880 07925
+        </a>
+        .
       </p>
 
       {/* Fine print */}
