@@ -1,5 +1,12 @@
 import Image from 'next/image'
 
+const styles = `
+  .sb-cta:hover { background: #D9E2DA !important; }
+  .sb-cta-outline:hover { border-color: rgba(217,226,218,0.85) !important; background: rgba(217,226,218,0.08) !important; }
+  .sb-cta, .sb-cta-outline { transition: background 0.18s, border-color 0.18s, transform 0.14s; }
+  .sb-cta:hover, .sb-cta-outline:hover { transform: translateY(-1px); }
+`
+
 // ─── Launching Soon ───────────────────────────────────────────────────────────
 // The full marketplace is not yet open. This page is the only public surface:
 // it shows the brand, teases the launch, and directs visitors to Instagram.
@@ -10,6 +17,7 @@ export default function HomePage() {
       className="min-h-screen flex flex-col items-center justify-center px-6 py-16"
       style={{ background: 'linear-gradient(160deg, #0F241D 0%, #183D33 55%, #2a4f3f 100%)' }}
     >
+      <style dangerouslySetInnerHTML={{ __html: styles }} />
       {/* Logo */}
       <div className="mb-10 flex items-center justify-center">
         <Image
@@ -59,19 +67,13 @@ export default function HomePage() {
           href="https://www.instagram.com/pranjalsagrawal"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-3 rounded-full px-7 py-4 font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
+          className="sb-cta inline-flex items-center gap-3 rounded-full px-7 py-4 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
           style={{
             fontFamily: 'var(--font-public-sans), Arial, sans-serif',
             fontSize: '1rem',
             background: '#FFFFFF',
             color: '#183D33',
             boxShadow: '0 4px 24px rgba(0,0,0,0.25)',
-          }}
-          onMouseEnter={(e) => {
-            ;(e.currentTarget as HTMLAnchorElement).style.background = '#D9E2DA'
-          }}
-          onMouseLeave={(e) => {
-            ;(e.currentTarget as HTMLAnchorElement).style.background = '#FFFFFF'
           }}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -87,7 +89,7 @@ export default function HomePage() {
           href="https://drive.google.com/drive/folders/1mVPMmwTwjyDEn8FKW6E4SJQ6OqOosXqa?usp=sharing"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-3 rounded-full px-7 py-4 font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
+          className="sb-cta-outline inline-flex items-center gap-3 rounded-full px-7 py-4 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
           style={{
             fontFamily: 'var(--font-public-sans), Arial, sans-serif',
             fontSize: '1rem',
@@ -95,14 +97,6 @@ export default function HomePage() {
             color: '#FFFFFF',
             border: '1.5px solid rgba(217,226,218,0.45)',
             boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
-          }}
-          onMouseEnter={(e) => {
-            ;(e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(217,226,218,0.85)'
-            ;(e.currentTarget as HTMLAnchorElement).style.background = 'rgba(217,226,218,0.08)'
-          }}
-          onMouseLeave={(e) => {
-            ;(e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(217,226,218,0.45)'
-            ;(e.currentTarget as HTMLAnchorElement).style.background = 'transparent'
           }}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
