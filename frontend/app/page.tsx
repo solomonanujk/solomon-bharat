@@ -1,78 +1,105 @@
-'use client'
+import Image from 'next/image'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { useAuthStore } from '@/lib/store/useAuthStore'
-import { NavBar } from '@/components/shared/NavBar'
-import { Footer } from '@/components/shared/Footer'
-import { HeroSection } from '@/components/homepage/HeroSection'
-import { SolomonAiSection } from '@/components/homepage/SolomonAiSection'
-import { CategorySection } from '@/components/homepage/CategorySection'
-import { RetailerHighlightSection } from '@/components/homepage/RetailerHighlightSection'
-import { HowItWorksSection } from '@/components/homepage/HowItWorksSection'
-import { TrustBar } from '@/components/homepage/TrustBar'
-import { BestsellersSection } from '@/components/homepage/BestsellersSection'
-import { BenefitsSection } from '@/components/homepage/BenefitsSection'
-import { SellerAndFinalCtaSection } from '@/components/homepage/SellerAndFinalCtaSection'
-import { BuyerHomeFeed } from '@/components/homepage/BuyerHomeFeed'
-
-// ─── Homepage ─────────────────────────────────────────────────────────────────
-// Guest (or not-yet-hydrated): the marketing homepage per prd.md §6.2.
-// Signed-in BUYER or AGENT: a personalized feed (BuyerHomeFeed) replaces it
-// entirely — an agent is just a buyer with the extra ability to build a
-// catalogue, so they get the exact same homepage/marketplace.
-// Signed-in SELLER/SUPER_ADMIN: redirected straight to their own dashboard —
-// "/" is never a real landing page for them.
-
-function dashboardPathForRole(role: string): string | null {
-  if (role === 'SUPER_ADMIN') return '/admin'
-  if (role === 'SELLER') return '/portal'
-  return null
-}
+// ─── Launching Soon ───────────────────────────────────────────────────────────
+// The full marketplace is not yet open. This page is the only public surface:
+// it shows the brand, teases the launch, and directs visitors to Instagram.
 
 export default function HomePage() {
-  const router = useRouter()
-  const hasHydrated = useAuthStore((s) => s._hasHydrated)
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
-  const user = useAuthStore((s) => s.user)
-
-  const dashboardPath = user ? dashboardPathForRole(user.role) : null
-
-  useEffect(() => {
-    if (!hasHydrated || !isAuthenticated || !dashboardPath) return
-    router.replace(dashboardPath)
-  }, [hasHydrated, isAuthenticated, dashboardPath, router])
-
-  // Avoid flashing the marketing homepage right before redirecting a seller/admin
-  if (hasHydrated && isAuthenticated && dashboardPath) return null
-
-  const isBuyer = hasHydrated && isAuthenticated && (user?.role === 'BUYER' || user?.role === 'AGENT')
-
   return (
-    <div className="min-h-screen bg-ivory flex flex-col">
-      <NavBar />
+    <div
+      className="min-h-screen flex flex-col items-center justify-center px-6 py-16"
+      style={{ background: 'linear-gradient(160deg, #0F241D 0%, #183D33 55%, #2a4f3f 100%)' }}
+    >
+      {/* Logo */}
+      <div className="mb-10 flex items-center justify-center">
+        <Image
+          src="/branding/solomon-bharat-logo.png"
+          alt="Solomon Bharat"
+          width={180}
+          height={60}
+          className="object-contain brightness-0 invert"
+          priority
+        />
+      </div>
 
-      <main className="flex-1">
-        {isBuyer ? (
-          <BuyerHomeFeed />
-        ) : (
-          // Order per redesign spec §5.2. The reviews band is deliberately omitted
-          // until there are real, permissioned buyer quotes.
-          <>
-            <HeroSection />
-            <SolomonAiSection />
-            <TrustBar />
-            <CategorySection />
-            <BestsellersSection />
-            <RetailerHighlightSection />
-            <HowItWorksSection />
-            <BenefitsSection />
-            <SellerAndFinalCtaSection />
-          </>
-        )}
-      </main>
+      {/* Headline */}
+      <h1
+        className="text-center text-white mb-4 leading-tight"
+        style={{
+          fontFamily: 'var(--font-playfair), Georgia, serif',
+          fontSize: 'clamp(2.2rem, 6vw, 4rem)',
+          fontWeight: 500,
+          letterSpacing: '-0.02em',
+        }}
+      >
+        Something beautiful<br />is coming.
+      </h1>
 
-      <Footer />
+      {/* Sub-copy */}
+      <p
+        className="text-center mb-12 max-w-md"
+        style={{
+          fontFamily: 'var(--font-public-sans), Arial, sans-serif',
+          fontSize: 'clamp(0.95rem, 2vw, 1.1rem)',
+          color: 'rgba(217,226,218,0.80)',
+          lineHeight: 1.65,
+        }}
+      >
+        We&apos;re curating the finest handmade &amp; artisan products from across India —
+        a wholesale marketplace built for global retailers. Stay tuned.
+      </p>
+
+      {/* Instagram CTA */}
+      <a
+        href="https://www.instagram.com/pranjalsagrawl"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-3 rounded-full px-8 py-4 font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
+        style={{
+          fontFamily: 'var(--font-public-sans), Arial, sans-serif',
+          fontSize: '1rem',
+          background: '#FFFFFF',
+          color: '#183D33',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.25)',
+        }}
+        onMouseEnter={(e) => {
+          ;(e.currentTarget as HTMLAnchorElement).style.background = '#D9E2DA'
+        }}
+        onMouseLeave={(e) => {
+          ;(e.currentTarget as HTMLAnchorElement).style.background = '#FFFFFF'
+        }}
+      >
+        {/* Instagram icon */}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+          <circle cx="12" cy="12" r="4.5" />
+          <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+        </svg>
+        Follow us on Instagram
+      </a>
+
+      {/* Fine print */}
+      <p
+        className="mt-16 text-center"
+        style={{
+          fontFamily: 'var(--font-public-sans), Arial, sans-serif',
+          fontSize: '0.78rem',
+          color: 'rgba(217,226,218,0.45)',
+        }}
+      >
+        © {new Date().getFullYear()} Solomon Bharat. All rights reserved.
+      </p>
     </div>
   )
 }
