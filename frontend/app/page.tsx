@@ -51,7 +51,7 @@ export default function HomePage() {
 
       {/* Instagram CTA */}
       <a
-        href="https://www.instagram.com/pranjalsagrawl"
+        href="https://www.instagram.com/pranjalsagrawal"
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-3 rounded-full px-8 py-4 font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-white"
@@ -101,7 +101,7 @@ export default function HomePage() {
       >
         Looking to procure products from India?{' '}
         <a
-          href="https://www.instagram.com/pranjalsagrawl"
+          href="https://www.instagram.com/pranjalsagrawal"
           target="_blank"
           rel="noopener noreferrer"
           style={{ color: '#D9E2DA', textDecoration: 'underline', textUnderlineOffset: '3px' }}
