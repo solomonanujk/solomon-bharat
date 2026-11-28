@@ -89,9 +89,31 @@ export default function HomePage() {
         Follow us on Instagram
       </a>
 
+      {/* Procurement note */}
+      <p
+        className="mt-10 text-center max-w-sm"
+        style={{
+          fontFamily: 'var(--font-public-sans), Arial, sans-serif',
+          fontSize: '0.88rem',
+          color: 'rgba(217,226,218,0.60)',
+          lineHeight: 1.6,
+        }}
+      >
+        Looking to procure products from India?{' '}
+        <a
+          href="https://www.instagram.com/pranjalsagrawl"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: '#D9E2DA', textDecoration: 'underline', textUnderlineOffset: '3px' }}
+        >
+          DM Pranjal S. Agrawal
+        </a>{' '}
+        on Instagram.
+      </p>
+
       {/* Fine print */}
       <p
-        className="mt-16 text-center"
+        className="mt-8 text-center"
         style={{
           fontFamily: 'var(--font-public-sans), Arial, sans-serif',
           fontSize: '0.78rem',
